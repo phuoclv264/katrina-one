@@ -18,10 +18,9 @@ import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/use-auth';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
-import { useRouter } from 'next/navigation';
-import { dataStore } from '@/lib/data-store';
+import { useAppRouter } from '@/hooks/use-app-router';import { dataStore } from '@/lib/data-store';
 import type { RevenueStats, ExpenseSlip, ExpenseItem } from '@/lib/types';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -99,7 +98,7 @@ const getSlipContentName = (item: ExpenseItem): string => {
 
 export default function FinancialReportPage() {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const router = useAppRouter();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -363,12 +362,7 @@ export default function FinancialReportPage() {
   }
   
   if (isLoading || authLoading) {
-    return (
-        <div className="flex min-h-screen w-full flex-col items-center justify-center bg-background p-4">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-muted-foreground mt-4">Đang tải dữ liệu tài chính...</p>
-        </div>
-    )
+    return <LoadingPage />;
   }
 
   return (

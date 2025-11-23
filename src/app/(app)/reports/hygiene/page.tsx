@@ -10,7 +10,7 @@ import { ArrowLeft, Check, Camera, MessageSquareWarning, Clock, X, Droplets, Ute
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import type { ShiftReport, CompletionRecord, TaskSection } from '@/lib/types';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
@@ -20,10 +20,11 @@ import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firest
 import { db } from '@/lib/firebase';
 import { Badge } from '@/components/ui/badge';
 import { useLightbox } from '@/contexts/lightbox-context';
+import { useAppRouter } from '@/hooks/use-app-router';
 
 function HygieneReportView() {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const router = useAppRouter();
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const date = searchParams.get('date');
@@ -209,20 +210,7 @@ function HygieneReportView() {
   }
 
   if (isLoading || authLoading) {
-    return (
-        <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
-            <header className="mb-8">
-                <Skeleton className="h-8 w-48 mb-4" />
-                <Skeleton className="h-10 w-3/4" />
-                <Skeleton className="h-5 w-1/2 mt-2" />
-            </header>
-            <div className="space-y-8">
-                <Skeleton className="h-96 w-full" />
-                <Skeleton className="h-48 w-full" />
-                <Skeleton className="h-32 w-full" />
-            </div>
-        </div>
-    )
+    return <LoadingPage />;
   }
 
   if (!date || reports.length === 0) {
@@ -420,7 +408,7 @@ function HygieneReportView() {
 
 export default function HygieneReportPage() {
     return (
-        <Suspense fallback={<div>Đang tải...</div>}>
+        <Suspense fallback={<LoadingPage/>}>
             <HygieneReportView />
         </Suspense>
     )

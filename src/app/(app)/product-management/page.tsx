@@ -7,10 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Trash2, Plus, Edit, Check, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Download, AlertTriangle, Box, Beaker, Search, Filter } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'next/navigation';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { useAppRouter } from '@/hooks/use-app-router';import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import ProductEditDialog from './_components/product-edit-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import ProductTools from './_components/product-tools';
@@ -30,7 +29,7 @@ type CategorizedProducts = {
 
 export default function ProductManagementPage() {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const router = useAppRouter();
   const [products, setProducts] = useState<Product[] | null>(null);
   const [inventoryList, setInventoryList] = useState<InventoryItem[] | null>(null);
   const [globalUnits, setGlobalUnits] = useState<GlobalUnit[] | null>(null);
@@ -336,12 +335,7 @@ export default function ProductManagementPage() {
 
 
   if (isLoading || authLoading || !products || !inventoryList || !globalUnits) {
-    return (
-      <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
-        <header className="mb-8"><Skeleton className="h-10 w-3/4" /></header>
-        <Card><CardContent className="p-6"><Skeleton className="h-96 w-full" /></CardContent></Card>
-      </div>
-    );
+    return <LoadingPage />;
   }
   
   const areAllCategoriesOpen = categorizedProducts.length > 0 && openCategories.length === categorizedProducts.length;

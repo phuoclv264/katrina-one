@@ -2,14 +2,12 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { useDataRefresher } from '@/hooks/useDataRefresher';
+import { useAppRouter } from '@/hooks/use-app-router';import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useAuth, type AuthUser } from '@/hooks/use-auth';
 import { dataStore } from '@/lib/data-store';
 import type { ExpenseSlip, IncidentReport, RevenueStats, InventoryItem, OtherCostCategory, ExpenseItem, IncidentCategory, ManagedUser, CashHandoverReport } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Accordion } from '@/components/ui/accordion';
 import { ArrowLeft, Banknote, Settings, ChevronLeft, ChevronRight, PlusCircle, Calendar as CalendarIcon, FilePlus, ChevronsUpDown } from 'lucide-react';
 import { format, isSameMonth, parseISO, addMonths, subMonths, eachDayOfInterval, startOfMonth, endOfMonth, isBefore } from 'date-fns';
@@ -30,6 +28,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { useLightbox } from '@/contexts/lightbox-context';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 
 
 function AddDocumentDialog({
@@ -121,7 +120,7 @@ function AddDocumentDialog({
 export default function CashierReportsPage() {
   const { openLightbox } = useLightbox();
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const router = useAppRouter();
   const initialMonthSet = useRef(false);
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -527,12 +526,7 @@ export default function CashierReportsPage() {
   }, []);
 
   if (isLoading || authLoading || !user) {
-    return (
-      <div className="container mx-auto p-4 sm:p-6 md:p-8">
-        <header className="mb-8"><Skeleton className="h-10 w-1/2" /></header>
-        <Card><CardContent className="p-6"><Skeleton className="h-96 w-full" /></CardContent></Card>
-      </div>
-    );
+    return <LoadingPage />;
   }
 
   return (

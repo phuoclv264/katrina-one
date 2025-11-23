@@ -56,7 +56,6 @@ export function useBackButton(
   useEffect(() => {
     // --- OPEN LIGHTBOX ---
     if (lightbox?.isLightboxOpen && !history.state?.lightbox) {
-      console.log("push state lightbox");
       window.history.pushState({ lightbox: true }, "", window.location.href);
     }
   }, [lightbox?.isLightboxOpen]);
@@ -64,7 +63,6 @@ export function useBackButton(
   useEffect(() => {
     // --- OPEN DIALOG ---
     if (dialog?.isAnyDialogOpen && !history.state?.dialog) {
-      console.log("push state dialog");
       window.history.pushState({ dialog: true }, "", window.location.href);
     }
 

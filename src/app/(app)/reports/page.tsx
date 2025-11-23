@@ -2,8 +2,7 @@
 'use client';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/use-auth';
+import { useAppRouter } from '@/hooks/use-app-router';import { useAuth } from '@/hooks/use-auth';
 import { dataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'; // This is a duplicate import, but let's keep it for safety.
@@ -11,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Loader2, Trash2, ShieldAlert, FileSignature, Settings, BarChartHorizontalBig } from 'lucide-react';
 import type { ShiftReport, TasksByShift, InventoryReport, TaskSection, ComprehensiveTaskSection, InventoryItem, DailySummary } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogTrigger } from '@/components/ui/dialog'; // This is a duplicate import, but let's keep it for safety.
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
@@ -171,7 +170,7 @@ function AdminTools() {
 
 export default function ReportsPage() {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const router = useAppRouter();
   
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const handleDataRefresh = useCallback(() => {
@@ -315,24 +314,7 @@ export default function ReportsPage() {
   const sortedDates = useMemo(() => Object.keys(groupedReports).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()), [groupedReports]);
 
   if(isLoading || authLoading || !user) {
-      return (
-        <div className="container mx-auto p-4 sm:p-6 md:p-8">
-             <header className="mb-8">
-                <Skeleton className="h-10 w-1/2" />
-                <Skeleton className="h-4 w-1/3 mt-2" />
-            </header>
-             <Card>
-                <CardHeader>
-                    <Skeleton className="h-8 w-1/3" />
-                    <Skeleton className="h-4 w-1/4 mt-2" />
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <Skeleton className="h-12 w-full" />
-                    <Skeleton className="h-24 w-full" />
-                </CardContent>
-            </Card>
-        </div>
-      )
+      return <LoadingPage />;
   }
 
   return (

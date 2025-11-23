@@ -1,10 +1,8 @@
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
+import { useAppRouter } from '@/hooks/use-app-router';import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton'; 
 import { ArrowLeft, UserCheck, RefreshCw, Loader2, DollarSign, LayoutGrid, GanttChartSquare, X, Calendar as CalendarIcon, Calculator } from 'lucide-react';
 import { dataStore } from '@/lib/data-store';
 import type { AttendanceRecord, ManagedUser, Schedule, ShiftTemplate, UserRole } from '@/lib/types';
@@ -29,10 +27,11 @@ import { Timestamp } from 'firebase/firestore';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useLightbox } from '@/contexts/lightbox-context';
 import { AlertDialog } from '@/components/ui/alert-dialog';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 
 export default function AttendancePageComponent() {
     const { user, loading: authLoading } = useAuth();
-    const router = useRouter();
+    const router = useAppRouter();
     const isMobile = useIsMobile();
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -229,9 +228,6 @@ export default function AttendancePageComponent() {
 
     const handleUserSelectionChange = (users: ManagedUser[]) => {
         setSelectedUsers(users);
-        if (users.length > 0 || (dateRange && !isSameMonth(dateRange.from!, dateRange.to!))) {
-            setViewMode('timeline');
-        }
     };
 
     const handleEditRecord = (record: AttendanceRecord) => {
@@ -295,12 +291,7 @@ export default function AttendancePageComponent() {
     };
 
     if (isLoading || authLoading) {
-        return (
-            <div className="container mx-auto p-4 sm:p-6 md:p-8">
-                <header className="mb-8"><Skeleton className="h-10 w-1/2" /></header>
-                <Card><CardContent><Skeleton className="h-96 w-full" /></CardContent></Card>
-            </div>
-        );
+        return <LoadingPage />;
     }
     
     return (
@@ -408,15 +399,16 @@ export default function AttendancePageComponent() {
                                             <p className="text-sm text-muted-foreground">Tổng lương hôm nay</p>
                                             <p className="text-2xl font-bold text-primary">{todaysSummary.totalSalaryToday.toLocaleString('vi-VN')}đ</p>
                                         </div>
-                                        <div className="flex items-center gap-2">
+                                        {!isMobile &&
+                                        (<div className="flex items-center gap-2">
                                             <Button variant="outline" onClick={() => setViewMode(prev => prev === 'table' ? 'timeline' : 'table')}>
                                                 {viewMode === 'table' ? (
-                                                    <><GanttChartSquare className="mr-2 h-4 w-4" /> Xem Dòng thời gian</>
+                                                    <><GanttChartSquare className="mr-2 h-4 w-4" /> Timeline View</>
                                                 ) : (
                                                     <><LayoutGrid className="mr-2 h-4 w-4" /> Xem Bảng</>
                                                 )}
                                             </Button>
-                                        </div>
+                                        </div>)}
                                     </div>
                                     <div className="mt-4 space-y-2">
                                         {todaysSummary.staffByShift.sort((a,b) => a.timeSlot.localeCompare(b.timeSlot)).map(({ shiftLabel, timeSlot, staff }) => (

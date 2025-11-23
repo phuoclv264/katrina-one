@@ -2,8 +2,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
-import { dataStore } from '@/lib/data-store';
+import { useAppRouter } from '@/hooks/use-app-router';import { dataStore } from '@/lib/data-store';
 import type { ShiftReport, CompletionRecord, ComprehensiveTaskSection, ComprehensiveTask, Task } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,7 +13,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import CameraDialog from '@/components/camera-dialog';
 import OpinionDialog from '@/components/opinion-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 import { Badge } from '@/components/ui/badge';
 import { photoStore } from '@/lib/photo-store';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -28,7 +27,7 @@ type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'erro
 
 function ComprehensiveReportPageComponent() {
   const { user, loading: isAuthLoading } = useAuth();
-  const router = useRouter();
+  const router = useAppRouter();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const shiftKey = 'manager_comprehensive';
   
@@ -390,20 +389,7 @@ function ComprehensiveReportPageComponent() {
   const isReadonly = isSubmitting;
   
   if (isAuthLoading || isLoading || !report || !tasks) {
-      return (
-        <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
-            <header className="mb-8">
-                <Skeleton className="h-8 w-48 mb-4" />
-                <Skeleton className="h-10 w-3/4" />
-                <Skeleton className="h-5 w-1/2 mt-2" />
-            </header>
-            <div className="space-y-8">
-                <Skeleton className="h-96 w-full" />
-                <Skeleton className="h-32 w-full" />
-                <Skeleton className="h-12 w-full" />
-            </div>
-        </div>
-    )
+      return <LoadingPage />;
   }
   
   const getSyncBadge = () => {

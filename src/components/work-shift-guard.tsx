@@ -4,8 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Loader2 } from 'lucide-react';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction } from '@/components/ui/alert-dialog';
-import { useRouter } from 'next/navigation';
-import { getHomePathForRole } from '@/lib/navigation';
+import { useAppRouter } from '@/hooks/use-app-router';import { getHomePathForRole } from '@/lib/navigation';
 import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
 
 type WorkShiftGuardProps = {
@@ -15,7 +14,7 @@ type WorkShiftGuardProps = {
 
 export default function WorkShiftGuard({ children, redirectPath }: WorkShiftGuardProps) {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const router = useAppRouter();
   const { isCheckedIn } = useCheckInCardPlacement();
   const [isReady, setIsReady] = useState(false);
 

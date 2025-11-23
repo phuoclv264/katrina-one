@@ -10,7 +10,7 @@ import { ArrowLeft, Check, Camera, MessageSquareWarning, Clock, X, Building, Thu
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import type { ShiftReport, CompletionRecord, ComprehensiveTaskSection } from '@/lib/types';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
@@ -20,11 +20,12 @@ import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Timestamp } from 'firebase/firestore';
 import { useLightbox } from '@/contexts/lightbox-context';
+import { useAppRouter } from '@/hooks/use-app-router';
 
 
 function ComprehensiveReportView() {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const router = useAppRouter();
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const date = searchParams.get('date');
@@ -154,20 +155,7 @@ function ComprehensiveReportView() {
 
 
   if (isLoading || authLoading) {
-    return (
-        <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
-            <header className="mb-8">
-                <Skeleton className="h-8 w-48 mb-4" />
-                <Skeleton className="h-10 w-3/4" />
-                <Skeleton className="h-5 w-1/2 mt-2" />
-            </header>
-            <div className="space-y-8">
-                <Skeleton className="h-96 w-full" />
-                <Skeleton className="h-48 w-full" />
-                <Skeleton className="h-32 w-full" />
-            </div>
-        </div>
-    )
+    return <LoadingPage />;
   }
 
   if (!date || reports.length === 0) {
@@ -365,7 +353,7 @@ function ComprehensiveReportView() {
 
 export default function ComprehensiveReportPage() {
     return (
-        <Suspense fallback={<div>Đang tải...</div>}>
+        <Suspense fallback={<LoadingPage />}>
             <ComprehensiveReportView />
         </Suspense>
     )

@@ -3,10 +3,9 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
+import { useAppRouter } from '@/hooks/use-app-router';import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton'; 
+import { LoadingPage } from '@/components/loading/LoadingPage'; 
 import { PlusCircle, ArrowRight, Receipt, AlertTriangle, Banknote, Edit, Trash2, Loader2, ArrowUpCircle, ArrowDownCircle, Wallet, Lock, Edit2, LandPlot, Settings, Eye, FileWarning, ClipboardCheck, ClipboardX, TrendingUp, TrendingDown, Wand2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -130,7 +129,7 @@ const ChangeIndicator = ({ value }: { value: number }) => {
 function CashierDashboardPageComponent() {
   const { openLightbox } = useLightbox();
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const router = useAppRouter();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   
   const expenseSlipsRef = useRef<HTMLDivElement>(null);
@@ -583,21 +582,7 @@ function CashierDashboardPageComponent() {
   }, [cashHandoverReports]);
 
   if (authLoading || isLoading || !user) {
-    return (
-      <div className="container mx-auto p-4 sm:p-6 md:p-8">
-        <header className="mb-8">
-            <Skeleton className="h-10 w-3/4 mb-2" />
-            <Skeleton className="h-4 w-1/2" />
-        </header>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            <Skeleton className="h-48" />
-            <Skeleton className="h-48" />
-        </div>
-        <div className="mt-6">
-            <Skeleton className="h-64" />
-        </div>
-      </div>
-    )
+    return <LoadingPage />;
   }
 
   return (

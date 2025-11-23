@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import { CalendarCheck, ArrowRight, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,13 +10,14 @@ import { format, addDays } from 'date-fns';
 import { generateShortName } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { useAppRouter } from '@/hooks/use-app-router';
 
 type SchedulingOverviewCardProps = {
   upcomingShifts: AssignedShift[];
 };
 
 export function SchedulingOverviewCard({ upcomingShifts }: SchedulingOverviewCardProps) {
-  const router = useRouter();
+  const router = useAppRouter();
   const now = new Date();
   const todayStr = format(now, 'yyyy-MM-dd');
   const tomorrowStr = format(addDays(now, 1), 'yyyy-MM-dd');

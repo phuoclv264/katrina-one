@@ -8,7 +8,7 @@ import { dataStore } from '@/lib/data-store';
 import { toast } from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShieldX, Plus, FilterX, BadgeInfo, Settings } from 'lucide-react';
 import type { ManagedUser, Violation, ViolationCategory, ViolationUser, ViolationCategoryData, MediaAttachment } from '@/lib/types';
@@ -22,6 +22,7 @@ import ViolationInfoDialog from './_components/violation-info-dialog';
 import { ViolationDialog } from './_components/violation-dialog';
 import { ViolationCard } from './_components/violation-card';
 import { generateSmartAbbreviations } from '@/lib/violations-utils';
+import { useAppRouter } from '@/hooks/use-app-router';
 
 /**
  * Type guard to check if an item is a MediaAttachment.
@@ -34,7 +35,7 @@ function isMediaAttachment(item: any): item is MediaAttachment {
 
 export default function ViolationsPage() {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const router = useAppRouter();
   const searchParams = useSearchParams();
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -300,13 +301,7 @@ export default function ViolationsPage() {
   };
 
   if (isLoading || authLoading || !user) {
-    return (
-      <div className="container mx-auto p-4 sm:p-6 md:p-8">
-        <Skeleton className="h-10 w-1/2 mb-2" />
-        <Skeleton className="h-4 w-1/3 mb-8" />
-        <Card><CardContent className="p-6"><Skeleton className="h-64 w-full" /></CardContent></Card>
-      </div>
-    );
+    return <LoadingPage />;
   }
 
   return (

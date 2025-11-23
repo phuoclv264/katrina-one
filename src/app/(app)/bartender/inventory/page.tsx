@@ -4,13 +4,12 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'next/navigation';
-import { dataStore } from '@/lib/data-store';
+import { useAppRouter } from '@/hooks/use-app-router';import { dataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import type { InventoryItem, InventoryReport, InventoryOrderSuggestion, InventoryStockRecord, OrderBySupplier, OrderItem } from '@/lib/types';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 import { toast } from 'react-hot-toast';
 import { ArrowLeft, Loader2, Send, ShoppingCart, ChevronsDownUp, Copy } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -32,7 +31,7 @@ type CategorizedList = {
 
 function InventoryPageComponent() {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const router = useAppRouter();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const suggestionsCardRef = useRef<HTMLDivElement>(null);
   const itemRowRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
@@ -453,19 +452,7 @@ function InventoryPageComponent() {
 
 
   if (isLoading || authLoading || !report) {
-    return (
-      <div className="container mx-auto p-4 sm:p-6 md:p-8">
-        <header className="mb-8">
-            <Skeleton className="h-8 w-48 mb-4" />
-            <Skeleton className="h-10 w-3/4" />
-            <Skeleton className="h-5 w-1/2 mt-2" />
-        </header>
-        <div className="space-y-4">
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-64 w-full" />
-        </div>
-      </div>
-    );
+    return <LoadingPage />;
   }
 
   const isSubmitted = report.status === 'submitted';

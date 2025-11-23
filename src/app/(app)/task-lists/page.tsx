@@ -13,10 +13,9 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sun, Moon, Sunset } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'next/navigation';
-import { Textarea } from '@/components/ui/textarea';
+import { useAppRouter } from '@/hooks/use-app-router';import { Textarea } from '@/components/ui/textarea';
 import { callGenerateServerTasks, callSortTasks } from '@/lib/ai-service';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -329,7 +328,7 @@ function AiAssistant({
 
 export default function TaskListsPage() {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const router = useAppRouter();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -563,18 +562,7 @@ export default function TaskListsPage() {
     };
 
   if(isLoading || authLoading) {
-    return (
-        <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
-             <header className="mb-8">
-                <Skeleton className="h-10 w-3/4" />
-                <Skeleton className="h-4 w-1/2 mt-2" />
-            </header>
-            <div className="space-y-4">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-48 w-full" />
-            </div>
-        </div>
-    )
+    return <LoadingPage />;
   }
 
   if(!tasksByShift){
