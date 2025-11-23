@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter, useSearchParams } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import { toast } from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
@@ -36,7 +35,6 @@ function isMediaAttachment(item: any): item is MediaAttachment {
 export default function ViolationsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useAppRouter();
-  const searchParams = useSearchParams();
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const handleDataRefresh = useCallback(() => {
