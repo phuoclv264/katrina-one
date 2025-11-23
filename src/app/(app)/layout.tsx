@@ -35,7 +35,7 @@ export default function AppLayout({
         </PageTransitionProvider>
         <BackButtonHandler />
         <SidebarInset>
-          <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:px-6">
+          <header className="safe-top sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:px-6">
             <div>
               <SidebarTrigger>
                 <Button variant="outline" size="icon" className="shrink-0 md:hidden">
