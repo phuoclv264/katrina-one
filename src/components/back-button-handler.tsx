@@ -6,13 +6,17 @@ import { useDialogContext } from '@/contexts/dialog-context';
 
 export function BackButtonHandler() {
   const { isLightboxOpen, closeLightbox } = useLightbox();
-  // Get the new closeAllDialogs function from the context
-  const { isAnyDialogOpen, closeAllDialogs } = useDialogContext();
+  const { isAnyDialogOpen, closeDialog } = useDialogContext();
 
-  useBackButton({
-    isAnyDialogOpen,
-    // Pass the direct closeAllDialogs function to the useBackButton hook
-    closeDialog: closeAllDialogs,
-  }, { isLightboxOpen, closeLightbox });
+  useBackButton(
+    {
+      isAnyDialogOpen,
+      closeDialog,
+    },
+    {
+      isLightboxOpen,
+      closeLightbox,
+    }
+  );
   return null; // This component does not render anything
 }

@@ -7,7 +7,7 @@ type DialogContextType = {
   registerDialog: () => void;
   unregisterDialog: () => void;
   subscribeToClose: (callback: () => void) => () => void;
-  closeAllDialogs: () => void; // New function to directly close all dialogs
+  closeDialog: () => void; // New function to directly close all dialogs
 };
 
 export const DialogContext = createContext<DialogContextType | undefined>(undefined);
@@ -33,29 +33,12 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   }, []);
 
-  useEffect(() => {
-    const handlePopState = (event: PopStateEvent) => {
-      if (isAnyDialogOpen) {
-        event.preventDefault();
-        closeSubscribers.current.forEach(cb => cb());
-      }
-    };
-
-    if (isAnyDialogOpen) {
-      window.history.pushState({ dialogOpen: true }, '');
-      window.addEventListener('popstate', handlePopState);
-    }
-
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
-  }, [isAnyDialogOpen]);
-
-  const closeAllDialogs = useCallback(() => {
-    closeSubscribers.current.values().next().value?.call((cb: () => any) => cb())
+  const closeDialog = useCallback(() => {
+    const closeSubscribersArray = Array.from(closeSubscribers.current);
+    closeSubscribersArray[closeSubscribersArray.length - 1].call((cb: () => any) => cb());
   }, []);
 
-  const value = { isAnyDialogOpen, registerDialog, unregisterDialog, subscribeToClose, closeAllDialogs };
+  const value = { isAnyDialogOpen, registerDialog, unregisterDialog, subscribeToClose, closeDialog };
 
   return <DialogContext.Provider value={value}>{children}</DialogContext.Provider>;
 };

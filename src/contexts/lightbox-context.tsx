@@ -47,32 +47,6 @@ export const LightboxProvider = ({ children }: { children: React.ReactNode }) =>
     setOpen(false);
   }, []);
 
-  // Handle hardware back button to close lightbox
-  // useEffect(() => {
-  //   const handleCloseEvent = () => closeLightbox();
-  //   document.addEventListener('close-lightbox', handleCloseEvent);
-  //   return () => document.removeEventListener('close-lightbox', handleCloseEvent);
-  // }, [closeLightbox]);
-
-  // Handle hardware/browser back button to close the lightbox.
-  // When the lightbox opens, we push a state to the history.
-  // When the user navigates back (via button or gesture), the `popstate` event is fired.
-  // We catch this event and close the lightbox instead of allowing the page to navigate back.
-  useEffect(() => {
-    if (open) {
-      window.history.pushState({ lightbox: 'open' }, '');
-    }
-
-    const handlePopState = (event: PopStateEvent) => {
-      if (open) {
-        closeLightbox();
-      }
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [open, closeLightbox]);
-
   return (
     <LightboxContext.Provider value={{ openLightbox, closeLightbox, isLightboxOpen: open }}>
       {isMounted && (

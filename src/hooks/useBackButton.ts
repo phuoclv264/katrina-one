@@ -31,25 +31,13 @@ export function useBackButton(
       handler.current = await App.addListener("backButton", ({ canGoBack }) => {
         if (lightbox?.isLightboxOpen) {
           lightbox.closeLightbox();
-          return;
-        }
-
-        // CLOSE MODALS/DIALOGS/POPOVERS
-        if (dialog?.isAnyDialogOpen) {
+        } else if (dialog?.isAnyDialogOpen) {
           dialog.closeDialog();
-          return;
-        }
-
-        // 2. IF CAPACITOR'S WEBVIEW CAN GO BACK, LET NEXT.JS ROUTER HANDLE IT
-        // The `canGoBack` property from the event correctly reflects the browser's history stack.
-        if (canGoBack) {
+        } else if (canGoBack) {
           router.back();
-          return;
-        }
-
-        // 3. IF AT THE ROOT OF THE APP, MINIMIZE IT
-        // This prevents the app from closing when the user is on the main screen.
-        if (pathname === "/shifts" || pathname === "/bartender" || pathname === "/manager" || pathname === "/admin") {
+          // } else if (pathname === "/shifts" || pathname === "/bartender" || pathname === "/manager" || pathname === "/admin" || pathname === "/cashier") {
+          //   App.minimizeApp(); // This minimizes the app, it does not exit it.
+        } else {
           App.minimizeApp(); // This minimizes the app, it does not exit it.
         }
       });
@@ -64,4 +52,38 @@ export function useBackButton(
       }
     };
   }, [router, pathname, lightbox, dialog]);
+
+  useEffect(() => {
+    // --- OPEN LIGHTBOX ---
+    if (lightbox?.isLightboxOpen && !history.state?.lightbox) {
+      console.log("push state lightbox");
+      window.history.pushState({ lightbox: true }, "", window.location.href);
+    }
+  }, [lightbox?.isLightboxOpen]);
+
+  useEffect(() => {
+    // --- OPEN DIALOG ---
+    if (dialog?.isAnyDialogOpen && !history.state?.dialog) {
+      console.log("push state dialog");
+      window.history.pushState({ dialog: true }, "", window.location.href);
+    }
+
+    // --- BACK BUTTON HANDLER ---
+    const handlePopState = () => {
+      // CLOSE LIGHTBOX FIRST
+      if (lightbox?.isLightboxOpen) {
+        lightbox.closeLightbox();
+        return; // prevent navigation
+      }
+
+      // CLOSE DIALOG
+      if (dialog?.isAnyDialogOpen) {
+        dialog.closeDialog();
+        return; // prevent navigation
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [dialog?.isAnyDialogOpen]);
 }
