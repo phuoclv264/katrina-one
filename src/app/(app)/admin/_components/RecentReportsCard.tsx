@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { format } from 'date-fns';
+import { useAppRouter } from '@/hooks/use-app-router';import { format } from 'date-fns';
 import { FileText, ArrowRight } from 'lucide-react';
 import type { ShiftReport } from '@/lib/types';
 import { ListCard } from './ListCard';
@@ -16,7 +15,7 @@ type RecentReportsCardProps = {
 };
 
 export function RecentReportsCard({ shiftReports }: RecentReportsCardProps) {
-  const router = useRouter();
+  const router = useAppRouter();
 
   return (
     <ListCard

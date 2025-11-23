@@ -2,12 +2,11 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'next/navigation';
-import { reportsStore } from '@/lib/reports-store';
+import { useAppRouter } from '@/hooks/use-app-router';import { reportsStore } from '@/lib/reports-store';
 import { dataStore } from '@/lib/data-store';
 import type { WhistleblowingReport, ManagedUser, AssignedUser, CommentMedia } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 import { Plus, FileSignature, FileWarning } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -17,7 +16,7 @@ import MySentReportsDialog from './_components/my-sent-reports-dialog';
 
 export default function ReportsFeedPage() {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const router = useAppRouter();
   const reportRefs = useRef(new Map<string, HTMLDivElement | null>());
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -189,18 +188,7 @@ export default function ReportsFeedPage() {
 
 
   if (isLoading || authLoading || !user) {
-    return (
-      <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
-        <header className="mb-8">
-            <Skeleton className="h-10 w-1/2 mb-2" />
-            <Skeleton className="h-4 w-1/3" />
-        </header>
-        <div className="space-y-4">
-            <Skeleton className="h-48 w-full" />
-            <Skeleton className="h-48 w-full" />
-        </div>
-      </div>
-    );
+    return <LoadingPage />;
   }
 
   return (

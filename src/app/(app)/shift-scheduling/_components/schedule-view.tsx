@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 import {
     Card,
     CardContent,
@@ -645,12 +645,7 @@ export default function ScheduleView() {
     const userAbbreviations = useMemo(() => generateSmartAbbreviations(allUsers), [allUsers]);
 
     if (isLoading) {
-        return (
-            <div className="container mx-auto max-w-7xl p-4 sm:p-6 md:p-8">
-                <Skeleton className="h-12 w-1/2 mb-4" />
-                <Skeleton className="h-[60vh] w-full" />
-            </div>
-        )
+        return <LoadingPage />;
     }
     
     const canEditSchedule = localSchedule?.status === 'draft' || user?.role === 'Chủ nhà hàng';

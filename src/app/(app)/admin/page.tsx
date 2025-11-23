@@ -3,8 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
-import { useRouter } from 'next/navigation';
-import { Banknote, CalendarCheck, Loader2 } from 'lucide-react';
+import { useAppRouter } from '@/hooks/use-app-router';import { Banknote, CalendarCheck, Loader2 } from 'lucide-react';
 import { dataStore } from '@/lib/data-store';
 import type { RevenueStats, AttendanceRecord, Schedule, ShiftReport, WhistleblowingReport, ManagedUser, ExpenseSlip } from '@/lib/types';
 import { format, startOfToday, endOfToday, getISOWeek, getYear, isAfter, startOfDay, parse, differenceInMinutes, isWithinInterval, addDays } from 'date-fns';
@@ -14,10 +13,11 @@ import { RecentComplaintsCard } from './_components/RecentComplaintsCard';
 import { CashierOverviewCard, CashierOverviewCardProps } from './_components/CashierOverviewCard';
 import { ManagementLinksCard } from './_components/ManagementLinksCard';
 import { SchedulingOverviewCard } from './_components/SchedulingOverviewCard';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 
 export default function AdminDashboardPage() {
     const { user, loading: authLoading } = useAuth();
-    const router = useRouter();
+    const router = useAppRouter();
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     const [revenueStats, setRevenueStats] = useState<RevenueStats[]>([]);
@@ -174,14 +174,7 @@ export default function AdminDashboardPage() {
     }, [todaysSchedule]);
 
     if (authLoading || isLoading) {
-        return (
-            <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
-                <div className="flex flex-col items-center gap-2">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    <p className="text-muted-foreground">Đang tải dữ liệu...</p>
-                </div>
-            </div>
-        );
+        return <LoadingPage />;
     }
 
     return (

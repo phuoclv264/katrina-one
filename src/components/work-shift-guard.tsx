@@ -1,11 +1,10 @@
 
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Loader2 } from 'lucide-react';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction } from '@/components/ui/alert-dialog';
-import { useRouter } from 'next/navigation';
-import { getHomePathForRole } from '@/lib/navigation';
+import { useAppRouter } from '@/hooks/use-app-router';import { getHomePathForRole } from '@/lib/navigation';
 import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
 
 type WorkShiftGuardProps = {
@@ -15,16 +14,31 @@ type WorkShiftGuardProps = {
 
 export default function WorkShiftGuard({ children, redirectPath }: WorkShiftGuardProps) {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const router = useAppRouter();
   const { isCheckedIn } = useCheckInCardPlacement();
   const [isReady, setIsReady] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // We need to wait for both auth state and check-in status to be resolved.
   useEffect(() => {
+    // Set a timeout to redirect if auth or check-in status is not resolved in 10 seconds.
+    timeoutRef.current = setTimeout(() => {
+      if (!isReady) {
+        console.warn('WorkShiftGuard: Timed out waiting for auth/check-in status. Redirecting.');
+        router.replace(getHomePathForRole(user?.role));
+      }
+    }, 10000);
+
     if (!authLoading) {
-      setIsReady(true);
+      // Once isCheckedIn is determined (either true or false), we are ready.
+      if (isCheckedIn !== undefined) {
+        setIsReady(true);
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      }
     }
-  }, [authLoading]);
+
+    return () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); };
+  }, [authLoading, isCheckedIn, router, user?.role]);
 
   if (!isReady) {
     return (

@@ -4,14 +4,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
-import { useRouter } from 'next/navigation';
-import { dataStore } from '@/lib/data-store';
+import { useAppRouter } from '@/hooks/use-app-router';import { dataStore } from '@/lib/data-store';
 import { toast } from 'react-hot-toast';
 import type { ManagedUser, UserRole, AppSettings } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -114,7 +113,7 @@ function EditUserDialog({ user, onSave, onOpenChange, open }: { user: ManagedUse
 
 export default function UsersPage() {
     const { user, loading: authLoading } = useAuth();
-    const router = useRouter();
+    const router = useAppRouter();
     const [users, setUsers] = useState<ManagedUser[]>([]);
     const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -207,24 +206,7 @@ export default function UsersPage() {
     }
     
     if(isLoading || authLoading) {
-        return (
-            <div className="container mx-auto p-4 sm:p-6 md:p-8">
-                <header className="mb-8">
-                    <Skeleton className="h-10 w-1/2" />
-                    <Skeleton className="h-4 w-1/3 mt-2" />
-                </header>
-                 <Card>
-                    <CardHeader>
-                        <Skeleton className="h-8 w-1/3" />
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <Skeleton className="h-12 w-full" />
-                        <Skeleton className="h-12 w-full" />
-                        <Skeleton className="h-12 w-full" />
-                    </CardContent>
-                </Card>
-            </div>
-          )
+        return <LoadingPage />;
     }
 
     return (

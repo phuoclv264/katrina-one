@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 import { dataStore } from '@/lib/data-store';
 import type { AppSettings } from '@/lib/types';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 
 
 export default function AuthPage() {
@@ -78,12 +79,7 @@ export default function AuthPage() {
   };
   
   if (loading && !user) {
-    return (
-       <div className="flex min-h-screen w-full flex-col items-center justify-center bg-background p-4">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-muted-foreground mt-4">Đang tải...</p>
-      </div>
-    )
+    return <LoadingPage />;
   }
 
   const isProcessing = loading || isProcessingAuth;

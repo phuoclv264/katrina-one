@@ -7,8 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Sun, Moon, Sunset, ShieldX, CalendarDays, Loader2, Info, CheckSquare, ClipboardList, Archive, FileSearch, Banknote, Coffee, UserCog, ClockIcon, MessageSquare } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useCallback } from 'react';
+import { useAppRouter } from '@/hooks/use-app-router';import { useEffect, useMemo, useCallback } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import CheckInCard from '../_components/check-in-card';
@@ -18,6 +17,7 @@ import type { MonthlyTaskAssignment, ShiftTemplate } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { useState } from 'react';
 import { format } from 'date-fns';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 
 const mainShiftInfo: { [key: string]: { name: string, icon: React.ElementType, href: string } } = {
     sang: { name: "Ca Sáng", icon: Sun, href: "/checklist/sang" },
@@ -33,7 +33,7 @@ const mainShiftTimeFrames: { [key in "sang" | "trua" | "toi"]: { start: number; 
 
 export default function ShiftsPage() {
   const { user, loading: authLoading, activeShifts, todaysShifts } = useAuth();
-  const router = useRouter();
+  const router = useAppRouter();
   const { showCheckInCardOnTop, isCheckedIn } = useCheckInCardPlacement();
   const [todaysMonthlyAssignments, setTodaysMonthlyAssignments] = useState<MonthlyTaskAssignment[]>([]);
   const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
@@ -90,14 +90,7 @@ export default function ShiftsPage() {
   }, []);
 
   if (authLoading) {
-    return (
-       <div className="flex min-h-full items-center justify-center p-4">
-         <div className="flex flex-col items-center gap-2">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-muted-foreground">Đang tải...</p>
-         </div>
-      </div>
-    )
+    return <LoadingPage />;
   }
 
   if (!user) {

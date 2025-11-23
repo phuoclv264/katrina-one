@@ -9,10 +9,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Trash2, Plus, Pencil, Droplets, UtensilsCrossed, Wind, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon, Check, Shuffle, Sparkles, AlertCircle, CheckSquare, MessageSquare, Download, Badge } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'next/navigation';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { useAppRouter } from '@/hooks/use-app-router';import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
@@ -322,7 +321,7 @@ function AiAssistant({
 
 export default function BartenderTasksPage() {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const router = useAppRouter();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [sections, setSections] = useState<TaskSection[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -534,17 +533,7 @@ export default function BartenderTasksPage() {
     };
 
   if (isLoading || authLoading) {
-    return (
-      <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
-        <header className="mb-8">
-          <Skeleton className="h-10 w-3/4" />
-          <Skeleton className="h-4 w-1/2 mt-2" />
-        </header>
-        <div className="space-y-4">
-          <Skeleton className="h-48 w-full" />
-        </div>
-      </div>
-    )
+    return <LoadingPage />;
   }
 
   if (!sections) {

@@ -14,18 +14,19 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import { useSidebar } from '@/components/ui/sidebar';
 import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2, UserCog, Coffee, Archive, ShieldAlert, FileSearch, Settings, Package, ListChecks, UtensilsCrossed, Users2, ShieldX, CalendarDays, Bell, Banknote, History, DollarSign, FileSignature, MessageSquare, Edit2, RotateCw, UserCheck, BarChart3, CalendarClock } from 'lucide-react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogTrigger } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { toast } from "react-hot-toast";
+import { useAppRouter } from '@/hooks/use-app-router';
 
 export function AppSidebar() {
   const { user, logout, loading, isOnActiveShift } = useAuth();
   const { setOpenMobile, state: sidebarState } = useSidebar();
   const pathname = usePathname();
-  const router = useRouter();
+  const router = useAppRouter();
   
   const handleLinkClick = () => {
     setOpenMobile(false);

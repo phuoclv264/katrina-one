@@ -1,10 +1,9 @@
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'next/navigation';
-import { dataStore } from '@/lib/data-store';
+import { useAppRouter } from '@/hooks/use-app-router';import { dataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 import { toast } from 'react-hot-toast';
 import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, isBefore, isSameWeek, getDay, startOfToday, parseISO, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -43,7 +42,7 @@ import ShiftInfoDialog from './shift-info-dialog';
 
 export default function ScheduleView() {
     const { user, loading: authLoading } = useAuth();
-    const router = useRouter();
+    const router = useAppRouter();
 
     const [currentDate, setCurrentDate] = useState(new Date());
     const [schedule, setSchedule] = useState<Schedule | null>(null);
@@ -391,14 +390,7 @@ export default function ScheduleView() {
     }
 
     if (authLoading || isLoading || !user) {
-        return (
-            <div>
-                <Skeleton className="h-12 w-full sm:w-1/2 mb-4" />
-                <div className="border rounded-lg">
-                    <Skeleton className="h-[60vh] w-full" />
-                </div>
-            </div>
-        )
+        return <LoadingPage />;
     }
     
     const today = startOfToday();

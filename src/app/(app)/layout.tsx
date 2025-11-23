@@ -7,10 +7,16 @@ import { AppSidebar } from '@/components/sidebar';
 import { MobileHeader } from '@/components/mobile-header';
 import { Button } from '@/components/ui/button';
 import { PanelLeft } from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
 import PageTransitionIndicator from '@/components/page-transition-indicator';
 import { LightboxProvider } from '@/contexts/lightbox-context';
 import { BackButtonHandler } from '@/components/back-button-handler';
+import { PageTransitionProvider, usePageTransitionController } from '@/components/page-transition-provider';
+import { Skeleton } from '@/components/ui/skeleton';
+
+function PageTransitionIndicatorWrapper() {
+  const { isTransitioning } = usePageTransitionController();
+  return isTransitioning ? <PageTransitionIndicator /> : null;
+}
 
 export default function AppLayout({
   children,
@@ -21,29 +27,31 @@ export default function AppLayout({
   return (
     <LightboxProvider>
       <SidebarProvider>
-        <Sidebar collapsible="icon">
-          <AppSidebar />
-        </Sidebar>
+        <PageTransitionProvider>
+          <PageTransitionIndicatorWrapper />
+          <Sidebar collapsible="icon">
+            <AppSidebar />
+          </Sidebar>
+        </PageTransitionProvider>
         <BackButtonHandler />
         <SidebarInset>
-          <div className="safe-top top-0 z-40 sticky bg-black">
-            <header className="top-0 sticky z-40 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:px-6">
-              <div>
-                <SidebarTrigger>
-                  <Button variant="outline" size="icon" className="shrink-0 md:hidden">
-                    <PanelLeft />
-                    <span className="sr-only">Toggle navigation menu</span>
-                  </Button>
-                </SidebarTrigger>
-              </div>
-              <Suspense fallback={<Skeleton className="h-6 w-32" />}>
-                <MobileHeader />
-              </Suspense>
-            </header>
-          </div>
-          <Suspense fallback={<PageTransitionIndicator />}>
+          <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:px-6">
+            <div>
+              <SidebarTrigger>
+                <Button variant="outline" size="icon" className="shrink-0 md:hidden">
+                  <PanelLeft />
+                  <span className="sr-only">Toggle navigation menu</span>
+                </Button>
+              </SidebarTrigger>
+            </div>
+            <Suspense fallback={<Skeleton className="h-6 w-32" />}>
+              <MobileHeader />
+            </Suspense>
+          </header>
+          <PageTransitionProvider>
+            <PageTransitionIndicatorWrapper />
             {children}
-          </Suspense>
+          </PageTransitionProvider>
         </SidebarInset>
       </SidebarProvider>
     </LightboxProvider>

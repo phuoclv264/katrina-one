@@ -10,7 +10,6 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { ManagedUser, Schedule, Availability } from '@/lib/types';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
@@ -26,7 +25,7 @@ function AvailabilityTab({ weekAvailability }: { weekAvailability: Availability[
     }
     
     // Sort by date
-    const sortedAvailability = weekAvailability.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const sortedAvailability = weekAvailability.sort((a, b) => new Date(a.date as string).getTime() - new Date(b.date as string).getTime());
 
     return (
         <div className="border rounded-md bg-white dark:bg-card">
@@ -41,9 +40,9 @@ function AvailabilityTab({ weekAvailability }: { weekAvailability: Availability[
                     {sortedAvailability.map(avail => {
                         if (avail.availableSlots.length === 0) return null;
                         return (
-                            <TableRow key={avail.date}>
+                            <TableRow key={avail.date as string}>
                                 <TableCell className="font-semibold text-base align-middle text-center">
-                                    {format(new Date(avail.date), 'eeee, dd/MM', { locale: vi })}
+                                    {format(new Date(avail.date as string), 'eeee, dd/MM', { locale: vi })}
                                 </TableCell>
                                 <TableCell className="align-middle text-center p-2">
                                      <div className="space-y-2 max-w-sm mx-auto">

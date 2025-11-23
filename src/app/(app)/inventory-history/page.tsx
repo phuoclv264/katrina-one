@@ -4,13 +4,12 @@
 import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
-import { useRouter } from 'next/navigation';
-import { dataStore } from '@/lib/data-store';
+import { useAppRouter } from '@/hooks/use-app-router';import { dataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { InventoryItem, ExpenseSlip, InventoryReport } from '@/lib/types';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 import { ArrowLeft, Filter, History, ShoppingCart, TestTube2, ArrowUp, ArrowDown } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -21,6 +20,7 @@ import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type CombinedHistoryEntry = {
     date: string | Date;
@@ -46,7 +46,7 @@ const STOCK_LIST_NUMERIC_VALUE: { [key: string]: number } = {
 
 function InventoryHistoryView() {
     const { user, loading: authLoading } = useAuth();
-    const router = useRouter();
+    const router = useAppRouter();
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
@@ -271,12 +271,7 @@ function InventoryHistoryView() {
 
 
     if (isLoading || authLoading) {
-        return (
-            <div className="container mx-auto p-4 sm:p-6 md:p-8">
-                <header className="mb-8"><Skeleton className="h-10 w-1/2" /></header>
-                <Card><CardContent><Skeleton className="h-96 w-full" /></CardContent></Card>
-            </div>
-        );
+        return <LoadingPage />;
     }
     
     const getChangeColorClass = (changeType: CombinedHistoryEntry['changeType']): string => {

@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { InventoryItem, InventoryReport, InventoryStockRecord, OrderBySupplier, OrderItem } from '@/lib/types';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 import { ArrowLeft, ShoppingCart, CheckCircle, AlertCircle, Star, Clock, User, History, ChevronsDownUp, Copy, Trash2, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -18,6 +18,7 @@ import { format } from "date-fns";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, } from "@/components/ui/dialog"
 import { useLightbox } from '@/contexts/lightbox-context';
+import { useAppRouter } from '@/hooks/use-app-router';
 
 
 type ItemStatus = 'ok' | 'low' | 'out';
@@ -29,7 +30,7 @@ type CategorizedList = {
 
 function InventoryReportView() {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const router = useAppRouter();
   const suggestionsCardRef = useRef<HTMLDivElement>(null);
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -288,22 +289,7 @@ function InventoryReportView() {
     };
 
   if (isLoading || authLoading) {
-    return (
-      <div className="container mx-auto p-4 sm:p-6 md:p-8">
-        <header className="mb-8">
-            <Skeleton className="h-8 w-48 mb-4" />
-            <Skeleton className="h-10 w-3/4" />
-        </header>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-            <div className="lg:col-span-2 space-y-4">
-                <Skeleton className="h-96 w-full" />
-            </div>
-            <div className="lg:col-span-1 space-y-4">
-                 <Skeleton className="h-64 w-full" />
-            </div>
-        </div>
-      </div>
-    );
+    return <LoadingPage />;
   }
 
   const areAllCategoriesOpen = categorizedCheckedList.length > 0 && openCategories.length === categorizedCheckedList.length;
@@ -626,7 +612,7 @@ function InventoryReportView() {
 
 export default function InventoryReportPage() {
     return (
-        <Suspense fallback={<Skeleton className="w-full h-screen" />}>
+        <Suspense fallback={<LoadingPage />}>
             <InventoryReportView />
         </Suspense>
     )

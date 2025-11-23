@@ -4,10 +4,9 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { getDay } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
+import { useAppRouter } from '@/hooks/use-app-router';import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 import { CalendarClock, Plus, Edit, Trash2, Loader2 } from 'lucide-react';
 import { dataStore } from '@/lib/data-store';
 import type { MonthlyTask, UserRole, ManagedUser } from '@/lib/types';
@@ -291,7 +290,7 @@ function EditTaskForm({
 
 export default function MonthlyTasksPage() {
     const { user, loading: authLoading } = useAuth();
-    const router = useRouter();
+    const router = useAppRouter();
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     const [tasks, setTasks] = useState<MonthlyTask[]>([]);
@@ -445,12 +444,7 @@ export default function MonthlyTasksPage() {
     };
 
     if (isLoading || authLoading) {
-        return (
-            <div className="container mx-auto p-4 sm:p-6 md:p-8">
-                <header className="mb-8"><Skeleton className="h-10 w-1/2" /><Skeleton className="h-4 w-1/3 mt-2" /></header>
-                <Card><CardHeader><Skeleton className="h-8 w-1/3" /></CardHeader><CardContent className="space-y-4"><Skeleton className="h-24 w-full" /></CardContent></Card>
-            </div>
-        );
+        return <LoadingPage />;
     }
 
     return (

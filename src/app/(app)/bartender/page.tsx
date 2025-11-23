@@ -5,8 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { ClipboardList, Archive, ShieldX, CalendarDays, CheckSquare, FileSearch, Banknote, Loader2, Info, ClockIcon, MessageSquare } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useAppRouter } from '@/hooks/use-app-router';import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -16,10 +15,11 @@ import TaskReportingCard from '../monthly-tasks/_components/task-reporting-card'
 import type { MonthlyTaskAssignment, ShiftTemplate } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { format } from 'date-fns';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 
 export default function BartenderDashboardPage() {
   const { user, loading, todaysShifts } = useAuth();
-  const router = useRouter();
+  const router = useAppRouter();
   const { showCheckInCardOnTop, isCheckedIn } = useCheckInCardPlacement();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [todaysMonthlyAssignments, setTodaysMonthlyAssignments] = useState<MonthlyTaskAssignment[]>([]);
@@ -49,14 +49,7 @@ export default function BartenderDashboardPage() {
   useDataRefresher(handleReconnect);
 
   if (loading || !user) {
-    return (
-       <div className="flex min-h-full items-center justify-center">
-         <div className="flex flex-col items-center gap-2">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-muted-foreground">Đang tải...</p>
-         </div>
-      </div>
-    )
+    return <LoadingPage />;
   }
   
   const hasServerSecondaryRole = user.secondaryRoles?.includes('Phục vụ');

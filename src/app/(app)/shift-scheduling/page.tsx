@@ -3,15 +3,15 @@
 
 import React, { useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'next/navigation';
-import { Skeleton } from '@/components/ui/skeleton';
+import { useAppRouter } from '@/hooks/use-app-router';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 import ScheduleView from './_components/schedule-view';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
 export default function ShiftSchedulingPage() {
     const { user, loading: authLoading } = useAuth();
-    const router = useRouter();
+    const router = useAppRouter();
     const canManage = user?.role === 'Quản lý' || user?.role === 'Chủ nhà hàng';
 
     useEffect(() => {
@@ -22,12 +22,7 @@ export default function ShiftSchedulingPage() {
 
 
     if (authLoading || !canManage) {
-        return (
-            <div className="container mx-auto max-w-7xl p-4 sm:p-6 md:p-8">
-                <Skeleton className="h-12 w-1/2 mb-4" />
-                <Skeleton className="h-[60vh] w-full" />
-            </div>
-        )
+        return <LoadingPage />;
     }
     
     return (

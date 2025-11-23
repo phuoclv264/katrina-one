@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import { Banknote, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { cn } from '@/lib/utils';
 import type { RevenueStats } from '@/lib/types';
+import { useAppRouter } from '@/hooks/use-app-router';
 
 const paymentMethodLabels: { [key: string]: string } = {
     cash: "Tiền mặt",
@@ -27,7 +27,7 @@ export type CashierOverviewCardProps = {
 };
 
 export function CashierOverviewCard({ profit, totalRevenue, totalExpense, revenueByMethod, expenseByMethod }: CashierOverviewCardProps) {
-  const router = useRouter();
+  const router = useAppRouter();
   const formattedProfit = `${profit.toLocaleString('vi-VN')}đ`;
   const description = `Thu ${totalRevenue.toLocaleString('vi-VN')}đ - Chi ${totalExpense.toLocaleString('vi-VN')}đ`;
 

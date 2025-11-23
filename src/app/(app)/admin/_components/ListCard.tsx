@@ -1,11 +1,11 @@
 'use client';
 
 import React from 'react';
-import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useAppRouter } from '@/hooks/use-app-router';
 
 type ListCardProps = {
   title: string;
@@ -16,7 +16,7 @@ type ListCardProps = {
 };
 
 export function ListCard({ title, icon, children, link, linkText }: ListCardProps) {
-  const router = useRouter();
+  const router = useAppRouter();
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }}>

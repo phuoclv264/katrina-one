@@ -4,7 +4,7 @@
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 import type { Schedule, ManagedUser, UserRole, Availability } from '@/lib/types';
 import { calculateTotalHours } from '@/lib/schedule-utils';
 import { Users } from 'lucide-react';
@@ -71,19 +71,7 @@ export default function TotalHoursTracker({ schedule, availability, allUsers, on
   }, [allUsers, currentUserRole]);
 
   if (!schedule) {
-      return (
-        <Card>
-            <CardHeader>
-                <Skeleton className="h-6 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
-            </CardHeader>
-            <CardContent className="space-y-4">
-                 <Skeleton className="h-8 w-full" />
-                 <Skeleton className="h-8 w-full" />
-                 <Skeleton className="h-8 w-full" />
-            </CardContent>
-        </Card>
-      )
+      return <LoadingPage />;
   }
 
   return (

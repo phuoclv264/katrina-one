@@ -2,15 +2,14 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'next/navigation';
-import { dataStore } from '@/lib/data-store';
+import { useAppRouter } from '@/hooks/use-app-router';import { dataStore } from '@/lib/data-store';
 import type { MediaAttachment, TaskCompletionRecord } from '@/lib/types';
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 import { CalendarCheck, ChevronLeft, ChevronRight, Clock, User, Image as ImageIcon, Video, Trash2, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -18,6 +17,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from 'react-hot-toast';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useLightbox } from '@/contexts/lightbox-context';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type GroupedReports = {
   [taskName: string]: {
@@ -27,7 +27,7 @@ type GroupedReports = {
 
 export default function MonthlyTaskReportsPage() {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const router = useAppRouter();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [completions, setCompletions] = useState<TaskCompletionRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -121,7 +121,7 @@ export default function MonthlyTaskReportsPage() {
 
 
   if (authLoading) {
-    return <div className="container mx-auto p-8"><Skeleton className="h-96 w-full" /></div>;
+    return <LoadingPage />;
   }
 
   return (

@@ -9,10 +9,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Input } from '@/components/ui/input';
 import { Trash2, Plus, Package, ArrowUp, ArrowDown, ChevronsDownUp, Shuffle, Check, Pencil, History, Search, Edit, Filter } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'next/navigation';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { useAppRouter } from '@/hooks/use-app-router';import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { cn } from '@/lib/utils';
 import isEqual from 'lodash.isequal';
 import InventoryTools from './_components/inventory-tools';
@@ -30,7 +29,7 @@ type CategorizedList = {
 
 export default function InventoryManagementPage() {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const router = useAppRouter();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [inventoryList, setInventoryList] = useState<InventoryItem[] | null>(null);
   const [suppliers, setSuppliers] = useState<Suppliers | null>(null);
@@ -271,18 +270,7 @@ export default function InventoryManagementPage() {
 
 
   if (isLoading || authLoading || !inventoryList || !suppliers || !globalUnits) {
-    return (
-      <div className="container mx-auto max-w-7xl p-4 sm:p-6 md:p-8">
-        <header className="mb-8">
-          <Skeleton className="h-10 w-3/4" />
-          <Skeleton className="h-5 w-1/2 mt-2" />
-        </header>
-        <div className="space-y-4">
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-64 w-full" />
-        </div>
-      </div>
-    )
+    return <LoadingPage />;
   }
    const areAllCategoriesOpen = categorizedList && categorizedList.length > 0 && openCategories.length === categorizedList.length;
    const canManageUnits = user?.role === 'Chủ nhà hàng';
