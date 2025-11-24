@@ -7,6 +7,7 @@ import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
 import { dataStore } from '@/lib/data-store';
+import { useDataRefresher } from './useDataRefresher';
 import { isUserOnActiveShift, getActiveShifts } from '@/lib/schedule-utils';
 import type { Schedule, AssignedShift } from '@/lib/types';
 import { getISOWeek, format } from 'date-fns';
@@ -29,7 +30,13 @@ export const useAuth = () => {
   const router = useRouter();
   const pathname = usePathname();
   const loadingTimer = useRef<NodeJS.Timeout | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
+  const handleDataRefresh = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
+
+  useDataRefresher(handleDataRefresh);
   const checkUserShift = useCallback((firebaseUser: AuthUser | null, schedule: Schedule | null) => {
     if (!firebaseUser || firebaseUser.role === 'Chủ nhà hàng') {
       setIsOnActiveShift(true);
@@ -118,7 +125,7 @@ export const useAuth = () => {
     return () => {
         unsubscribeSchedule();
     };
-  }, [user, checkUserShift]);
+  }, [user, checkUserShift, refreshTrigger]);
 
   useEffect(() => {
     // Clear any existing timer
