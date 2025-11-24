@@ -1,9 +1,12 @@
-import type { CapacitorConfig } from '@capacitor/cli';
+import type { CapacitorConfig, PluginsConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.katrinaone.app',
   appName: 'Katrina One',
-  webDir: 'out'
+  webDir: 'out',
+  android: {
+    adjustMarginsForEdgeToEdge: "auto",
+  }
 };
 
 export default config;

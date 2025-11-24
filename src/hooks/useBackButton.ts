@@ -37,8 +37,6 @@ export function useBackButton(
     ({ canGoBack }: { canGoBack: boolean }) => {
       const currentLightbox = lightboxRef.current;
       const currentDialog = dialogRef.current;
-      toast.success("Tap back, " + (currentLightbox?.isLightboxOpen ? "lightbox is opened, " : "") + (currentDialog?.isAnyDialogOpen ? "Dialog is opened" : ""));
-      
       if (currentLightbox?.isLightboxOpen) {
         currentLightbox.closeLightbox();
       } else if (currentDialog?.isAnyDialogOpen) {
@@ -57,7 +55,7 @@ export function useBackButton(
         App.minimizeApp();
       }
     },
-    [router, userRole]
+    [router, userRole, pathname]
   );
 
   useEffect(() => {

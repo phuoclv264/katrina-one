@@ -12,6 +12,7 @@ import { LightboxProvider } from '@/contexts/lightbox-context';
 import { BackButtonHandler } from '@/components/back-button-handler';
 import { PageTransitionProvider, usePageTransitionController } from '@/components/page-transition-provider';
 import { Skeleton } from '@/components/ui/skeleton';
+import { StatusBar, Style } from '@capacitor/status-bar';
 
 function PageTransitionIndicatorWrapper() {
   const { isTransitioning } = usePageTransitionController();
@@ -23,6 +24,17 @@ export default function AppLayout({
 }: {
   children: React.ReactNode
 }) {
+  useEffect(() => {
+    (async () => {
+      try {
+        // await StatusBar.setStyle({ style: Style.Light });
+        await StatusBar.setOverlaysWebView({ overlay: true });
+        // await StatusBar.setBackgroundColor({ color: '#00000000' }); // transparent
+      } catch (err) {
+        console.warn('StatusBar not available', err);
+      }
+    })();
+  }, []);
 
   return (
     <LightboxProvider>
