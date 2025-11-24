@@ -2,7 +2,7 @@
 
 import { usePageTransitionController } from '@/components/page-transition-provider';
 import { useRouter as useNextRouter, usePathname } from 'next/navigation';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 /**
  * A custom router hook that wraps Next.js's useRouter to automatically
@@ -28,5 +28,9 @@ export function useAppRouter() {
     router.back();
   }, [router, startTransition]);
 
-  return { ...router, push, back };
+  return useMemo(() => ({
+    ...router,
+    push,
+    back,
+  }), [router, push, back]);
 }
