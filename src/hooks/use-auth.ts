@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
@@ -28,6 +28,7 @@ export const useAuth = () => {
   const [todaysShifts, setTodaysShifts] = useState<AssignedShift[]>([]);
   const router = useRouter();
   const pathname = usePathname();
+  const loadingTimer = useRef<NodeJS.Timeout | null>(null);
 
   const checkUserShift = useCallback((firebaseUser: AuthUser | null, schedule: Schedule | null) => {
     if (!firebaseUser || firebaseUser.role === 'Chủ nhà hàng') {
@@ -119,6 +120,27 @@ export const useAuth = () => {
     };
   }, [user, checkUserShift]);
 
+  useEffect(() => {
+    // Clear any existing timer
+    if (loadingTimer.current) {
+      clearTimeout(loadingTimer.current);
+    }
+
+    if (loading) {
+      loadingTimer.current = setTimeout(() => {
+        // If still loading after 15 seconds, something is wrong.
+        // Let's show a toast and reload the page.
+        toast.error('Quá trình xác thực mất quá nhiều thời gian. Đang thử lại...');
+        router.push('/');
+      }, 15000); // 15 seconds
+    }
+    return () => {
+      if (loadingTimer.current) {
+        clearTimeout(loadingTimer.current);
+      }
+    };
+  }, [loading]);
+  
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
