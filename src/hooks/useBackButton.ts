@@ -83,5 +83,5 @@ export function useBackButton(
 
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [dialog?.isAnyDialogOpen]);
+  }, [dialog?.isAnyDialogOpen, lightbox?.isLightboxOpen]);
 }
