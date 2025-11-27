@@ -77,13 +77,7 @@ export default function ViolationsPage() {
     const unsubViolations = dataStore.subscribeToViolations(setViolations);
     const unsubUsers = dataStore.subscribeToUsers(setUsers);
     const unsubCategories = dataStore.subscribeToViolationCategories(setCategoryData);
-    
-    Promise.all([
-        getDocs(collection(db, 'violations')),
-        getDocs(collection(db, 'users')),
-        getDoc(doc(db, 'app-data', 'violationCategories')),
-    ]).then(() => setIsLoading(false));
-        
+      
     return () => {
         unsubViolations();
         unsubUsers();
@@ -91,6 +85,12 @@ export default function ViolationsPage() {
     };
   }, [user, refreshTrigger]);
 
+  useEffect(() => {
+      if (isLoading && (violations.length > 0 || users.length > 0 || categoryData.list.length > 0 || user)) {
+          setIsLoading(false);
+      }
+  }, [violations, users, categoryData, user]);
+      
   useDataRefresher(handleDataRefresh);
 
   useEffect(() => {

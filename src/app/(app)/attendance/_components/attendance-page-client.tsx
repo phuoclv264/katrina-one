@@ -84,18 +84,23 @@ export default function AttendancePageComponent() {
         
         const unsubRecords = dataStore.subscribeToAttendanceRecordsForDateRange(dateRange, setAttendanceRecords);
 
-        const timer = setTimeout(() => setIsLoading(false), 1500);
+        setIsLoading(false);
 
         return () => {
             unsubUsers();
             unsubRecords();
             unsubSchedules();
-            clearTimeout(timer);
         };
     }, [user, dateRange, refreshTrigger]);
 
     useDataRefresher(handleReconnect);
 
+    useEffect(() => {
+        if (!isLoading && (schedules || attendanceRecords.length > 0 || allUsers.length > 0)) {
+            setIsLoading(false);
+        }
+    }, [schedules, attendanceRecords, allUsers]);
+    
     useEffect(() => {
         setDateRange({ from: startOfMonth(currentMonth), to: endOfMonth(currentMonth) });
         setSelectedUsers([]); // Reset employee filter on month change

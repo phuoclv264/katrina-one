@@ -268,15 +268,19 @@ export default function CashierReportsPage() {
       dataStore.subscribeToUsers(setUsers),
       dataStore.subscribeToAllCashHandoverReports(setCashHandoverReports),
     ];
-    const timer = setTimeout(() => setIsLoading(false), 1500);
     return () => {
       subscriptions.forEach(unsub => unsub());
-      clearTimeout(timer);
     };
   }, [user, refreshTrigger]);
 
   useDataRefresher(handleDataRefresh);
 
+  useEffect(() => {
+      if (!isLoading && (revenueStats.length > 0 || expenseSlips.length > 0 || incidents.length > 0 || inventoryList.length > 0 || otherCostCategories.length > 0 || incidentCategories.length > 0 || users.length > 0 || cashHandoverReports.length > 0)) {
+          setIsLoading(false);
+      }
+  }, [revenueStats, expenseSlips, incidents, inventoryList, otherCostCategories, incidentCategories, users, cashHandoverReports]);
+    
   const allMonthsWithData = useMemo(() => {
     const monthSet = new Set<string>();
     [...revenueStats, ...expenseSlips, ...incidents, ...cashHandoverReports].forEach(item => {

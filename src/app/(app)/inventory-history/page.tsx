@@ -81,12 +81,6 @@ function InventoryHistoryView() {
         const unsubExpenses = dataStore.subscribeToAllExpenseSlips(setExpenseSlips);
         const unsubReports = dataStore.subscribeToAllInventoryReports(setInventoryReports);
 
-        Promise.all([
-            getDocs(collection(db, 'app-data')),
-            getDocs(collection(db, 'expense_slips')),
-            getDocs(collection(db, 'inventory-reports')),
-        ]).then(() => setIsLoading(false));
-
         return () => {
             unsubInventory();
             unsubSuppliers();
@@ -97,6 +91,12 @@ function InventoryHistoryView() {
 
     useDataRefresher(handleReconnect);
 
+    useEffect(() => {
+        if (isLoading && (inventoryList.length > 0 || expenseSlips.length > 0 || inventoryReports.length > 0 || suppliers.length > 0 || user)) {
+            setIsLoading(false);
+        }
+    }, [inventoryList, expenseSlips, inventoryReports, suppliers, user]);
+    
     const combinedHistory = useMemo((): CombinedHistoryEntry[] => {
         const itemMap = new Map(inventoryList.map(item => [item.id, item]));
         const allEvents: any[] = [];

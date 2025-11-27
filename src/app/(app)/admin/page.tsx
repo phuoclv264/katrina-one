@@ -54,13 +54,16 @@ export default function AdminDashboardPage() {
             dataStore.subscribeToUsers(setAllUsers),
         ];
 
-        const timer = setTimeout(() => setIsLoading(false), 1200);
-
         return () => {
             unsubs.forEach(unsub => unsub());
-            clearTimeout(timer);
         };
     }, [user, refreshTrigger]);
+
+    useEffect(() => {
+        if (isLoading && (revenueStats.length > 0 || attendanceRecords.length > 0 || todaysSchedule || shiftReports.length > 0 || complaints.length > 0 || dailySlips.length > 0 || allUsers.length > 0)) {
+            setIsLoading(false);
+        }
+    }, [revenueStats, attendanceRecords, todaysSchedule, shiftReports, complaints, dailySlips, allUsers]);
 
     useDataRefresher(handleReconnect);
 

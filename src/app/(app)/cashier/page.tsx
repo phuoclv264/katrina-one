@@ -281,20 +281,6 @@ function CashierDashboardPageComponent() {
             // The callback now consistently provides an array or null.
             setCashHandoverReports(reports as CashHandoverReport[] || []);
         });
-
-        Promise.all([
-            dataStore.getDailyExpenseSlips(date),
-            dataStore.getDailyRevenueStats(date),
-            dataStore.getInventoryList(),
-            dataStore.getOtherCostCategories(),
-            dataStore.getIncidentCategories(),
-            dataStore.getHandoverReport(date),
-        ]).catch(error => {
-            console.error("Failed to fetch cashier data:", error);
-            toast.error("Không thể tải dữ liệu.");
-        }).finally(() => {
-            setIsLoading(false);
-        });
         
         return () => {
             unsubSlips();
@@ -310,6 +296,12 @@ function CashierDashboardPageComponent() {
 
   useDataRefresher(handleReconnect);
 
+  useEffect(() => {
+    if (isLoading && (dailySlips.length > 0 || dailyIncidents.length > 0 || dailyRevenueStats.length > 0 || cashHandoverReports.length > 0 || user)) {
+      setIsLoading(false);
+    }
+  }, [dailySlips, dailyIncidents, dailyRevenueStats, cashHandoverReports, user]);
+  
   const handleSaveSlip = useCallback(async (data: any, id?: string) => {
     if (!user) return;
     setIsProcessing(true);
