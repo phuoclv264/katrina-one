@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import Image from 'next/image';
 import { useRouter } from 'nextjs-toploader/app';
@@ -29,6 +29,12 @@ type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'erro
 function ComprehensiveReportPageComponent() {
   const { user, loading: isAuthLoading } = useAuth();
   const router = useRouter();
+  // To prevent useEffect loops, we store the router in a ref.
+  // The ref object is stable across renders, and we can access the
+  // current router instance via routerRef.current inside effects
+  // without needing to add it as a dependency.
+  const routerRef = useRef(router);
+  routerRef.current = router;
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const shiftKey = 'manager_comprehensive';
   
@@ -61,9 +67,9 @@ function ComprehensiveReportPageComponent() {
 
   useEffect(() => {
     if (!isAuthLoading && user && (user.role !== 'Quản lý' && user.role !== 'Chủ nhà hàng' && !user.secondaryRoles?.includes('Quản lý'))) {
-      router.replace('/');
+      routerRef.current.replace('/');
     }
-  }, [isAuthLoading, user, router]);
+  }, [isAuthLoading, user]);
 
   useEffect(() => {
     let isMounted = true;
@@ -105,7 +111,7 @@ function ComprehensiveReportPageComponent() {
             if(isMounted) {
               setSyncStatus('error');
               toast.error("Lỗi tải dữ liệu, không thể tải báo cáo. Đang chuyển hướng bạn về trang tổng quan.");
-              router.replace('/manager');
+              routerRef.current.replace('/manager');
             }
         } finally {
             if(isMounted) setIsLoading(false);
@@ -114,7 +120,7 @@ function ComprehensiveReportPageComponent() {
 
     loadReport();
     return () => { isMounted = false; }
-  }, [isAuthLoading, user, shiftKey, router, refreshTrigger]);
+  }, [isAuthLoading, user, shiftKey, refreshTrigger]);
 
   useDataRefresher(handleReconnect);
 
