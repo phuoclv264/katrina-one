@@ -21,7 +21,7 @@ import ViolationInfoDialog from './_components/violation-info-dialog';
 import { ViolationDialog } from './_components/violation-dialog';
 import { ViolationCard } from './_components/violation-card';
 import { generateSmartAbbreviations } from '@/lib/violations-utils';
-import { useAppRouter } from '@/hooks/use-app-router';
+import { useRouter } from 'nextjs-toploader/app';
 
 /**
  * Type guard to check if an item is a MediaAttachment.
@@ -34,7 +34,7 @@ function isMediaAttachment(item: any): item is MediaAttachment {
 
 export default function ViolationsPage() {
   const { user, loading: authLoading } = useAuth();
-  const router = useAppRouter();
+  const router = useRouter();
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const handleDataRefresh = useCallback(() => {
@@ -77,13 +77,7 @@ export default function ViolationsPage() {
     const unsubViolations = dataStore.subscribeToViolations(setViolations);
     const unsubUsers = dataStore.subscribeToUsers(setUsers);
     const unsubCategories = dataStore.subscribeToViolationCategories(setCategoryData);
-    
-    Promise.all([
-        getDocs(collection(db, 'violations')),
-        getDocs(collection(db, 'users')),
-        getDoc(doc(db, 'app-data', 'violationCategories')),
-    ]).then(() => setIsLoading(false));
-        
+      
     return () => {
         unsubViolations();
         unsubUsers();
@@ -91,6 +85,18 @@ export default function ViolationsPage() {
     };
   }, [user, refreshTrigger]);
 
+  useEffect(() => {
+    if (isLoading && (violations.length > 0)) {
+        setIsLoading(false);
+    } else if (isLoading) {
+      setTimeout(() => {
+        if (isLoading) { 
+          setIsLoading(false);
+        }
+      }, 1000);
+    }
+  }, [violations, isLoading]);
+      
   useDataRefresher(handleDataRefresh);
 
   useEffect(() => {

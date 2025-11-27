@@ -5,7 +5,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useAppRouter } from '@/hooks/use-app-router';
+import { useRouter } from 'nextjs-toploader/app';
 
 type ListCardProps = {
   title: string;
@@ -16,7 +16,7 @@ type ListCardProps = {
 };
 
 export function ListCard({ title, icon, children, link, linkText }: ListCardProps) {
-  const router = useAppRouter();
+  const router = useRouter();
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }}>

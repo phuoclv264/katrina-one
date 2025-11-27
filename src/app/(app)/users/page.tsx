@@ -4,7 +4,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
-import { useAppRouter } from '@/hooks/use-app-router';import { dataStore } from '@/lib/data-store';
+import { useRouter } from 'nextjs-toploader/app';
+import { dataStore } from '@/lib/data-store';
 import { toast } from 'react-hot-toast';
 import type { ManagedUser, UserRole, AppSettings } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -113,7 +114,7 @@ function EditUserDialog({ user, onSave, onOpenChange, open }: { user: ManagedUse
 
 export default function UsersPage() {
     const { user, loading: authLoading } = useAuth();
-    const router = useAppRouter();
+    const router = useRouter();
     const [users, setUsers] = useState<ManagedUser[]>([]);
     const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -133,10 +134,9 @@ export default function UsersPage() {
                 router.replace('/');
             } else {
                 let userSubscribed = false;
-                let settingsSubscribed = false;
 
                 const checkLoadingDone = () => {
-                    if (userSubscribed && settingsSubscribed) {
+                    if (userSubscribed) {
                         setIsLoading(false);
                     }
                 }
@@ -148,8 +148,6 @@ export default function UsersPage() {
                 });
                 const unsubSettings = dataStore.subscribeToAppSettings((settings) => {
                     setAppSettings(settings);
-                    settingsSubscribed = true;
-                    checkLoadingDone();
                 });
                 return () => {
                     unsubUsers();

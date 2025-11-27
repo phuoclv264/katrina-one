@@ -3,21 +3,15 @@
 
 import { Suspense, useEffect } from 'react';
 import { SidebarProvider, Sidebar, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
+import NextTopLoader from 'nextjs-toploader';
 import { AppSidebar } from '@/components/sidebar';
 import { MobileHeader } from '@/components/mobile-header';
 import { Button } from '@/components/ui/button';
 import { PanelLeft } from 'lucide-react';
-import PageTransitionIndicator from '@/components/page-transition-indicator';
 import { LightboxProvider } from '@/contexts/lightbox-context';
 import { BackButtonHandler } from '@/components/back-button-handler';
-import { PageTransitionProvider, usePageTransitionController } from '@/components/page-transition-provider';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBar, Style } from '@capacitor/status-bar';
-
-function PageTransitionIndicatorWrapper() {
-  const { isTransitioning } = usePageTransitionController();
-  return isTransitioning ? <PageTransitionIndicator /> : null;
-}
 
 export default function AppLayout({
   children,
@@ -39,12 +33,9 @@ export default function AppLayout({
   return (
     <LightboxProvider>
       <SidebarProvider>
-        <PageTransitionProvider>
-          <PageTransitionIndicatorWrapper />
-          <Sidebar collapsible="icon">
-            <AppSidebar />
-          </Sidebar>
-        </PageTransitionProvider>
+        <Sidebar collapsible="icon">
+          <AppSidebar />
+        </Sidebar>
         <BackButtonHandler />
         <SidebarInset>
           <header className="safe-top sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:px-6">
@@ -60,10 +51,8 @@ export default function AppLayout({
               <MobileHeader />
             </Suspense>
           </header>
-          <PageTransitionProvider>
-            <PageTransitionIndicatorWrapper />
-            {children}
-          </PageTransitionProvider>
+          <NextTopLoader speed={1000} />
+          {children}
         </SidebarInset>
       </SidebarProvider>
     </LightboxProvider>

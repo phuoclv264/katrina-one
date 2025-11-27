@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { cn } from '@/lib/utils';
 import type { RevenueStats } from '@/lib/types';
-import { useAppRouter } from '@/hooks/use-app-router';
+import { useRouter } from 'nextjs-toploader/app';
 
 const paymentMethodLabels: { [key: string]: string } = {
     cash: "Tiền mặt",
@@ -27,7 +27,7 @@ export type CashierOverviewCardProps = {
 };
 
 export function CashierOverviewCard({ profit, totalRevenue, totalExpense, revenueByMethod, expenseByMethod }: CashierOverviewCardProps) {
-  const router = useAppRouter();
+  const router = useRouter();
   const formattedProfit = `${profit.toLocaleString('vi-VN')}đ`;
   const description = `Thu ${totalRevenue.toLocaleString('vi-VN')}đ - Chi ${totalExpense.toLocaleString('vi-VN')}đ`;
 

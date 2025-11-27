@@ -2,7 +2,12 @@
 // src/lib/firebase.ts
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
-import { getFirestore, type Firestore } from 'firebase/firestore';
+import {
+  initializeFirestore,
+  type Firestore,
+  persistentLocalCache,
+  CACHE_SIZE_UNLIMITED
+} from 'firebase/firestore';
 import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
 
@@ -31,9 +36,13 @@ function initializeFirebase() {
       app = getApp();
     }
     auth = getAuth(app);
-    db = getFirestore(app);
+    db = initializeFirestore(app, {
+      experimentalAutoDetectLongPolling: true,
+      localCache: persistentLocalCache({
+        cacheSizeBytes: CACHE_SIZE_UNLIMITED,
+      }),
+    });
     storage = getStorage(app);
-    
   }
 }
 

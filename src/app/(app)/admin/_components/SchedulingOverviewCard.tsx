@@ -10,14 +10,14 @@ import { format, addDays } from 'date-fns';
 import { generateShortName } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { useAppRouter } from '@/hooks/use-app-router';
+import { useRouter } from 'nextjs-toploader/app';
 
 type SchedulingOverviewCardProps = {
   upcomingShifts: AssignedShift[];
 };
 
 export function SchedulingOverviewCard({ upcomingShifts }: SchedulingOverviewCardProps) {
-  const router = useAppRouter();
+  const router = useRouter();
   const now = new Date();
   const todayStr = format(now, 'yyyy-MM-dd');
   const tomorrowStr = format(addDays(now, 1), 'yyyy-MM-dd');

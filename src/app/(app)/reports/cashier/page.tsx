@@ -2,7 +2,8 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useAppRouter } from '@/hooks/use-app-router';import { useDataRefresher } from '@/hooks/useDataRefresher';
+import { useRouter } from 'nextjs-toploader/app';
+import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useAuth, type AuthUser } from '@/hooks/use-auth';
 import { dataStore } from '@/lib/data-store';
 import type { ExpenseSlip, IncidentReport, RevenueStats, InventoryItem, OtherCostCategory, ExpenseItem, IncidentCategory, ManagedUser, CashHandoverReport } from '@/lib/types';
@@ -120,7 +121,7 @@ function AddDocumentDialog({
 export default function CashierReportsPage() {
   const { openLightbox } = useLightbox();
   const { user, loading: authLoading } = useAuth();
-  const router = useAppRouter();
+  const router = useRouter();
   const initialMonthSet = useRef(false);
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -268,15 +269,19 @@ export default function CashierReportsPage() {
       dataStore.subscribeToUsers(setUsers),
       dataStore.subscribeToAllCashHandoverReports(setCashHandoverReports),
     ];
-    const timer = setTimeout(() => setIsLoading(false), 1500);
     return () => {
       subscriptions.forEach(unsub => unsub());
-      clearTimeout(timer);
     };
   }, [user, refreshTrigger]);
 
   useDataRefresher(handleDataRefresh);
 
+  useEffect(() => {
+      if (isLoading && (revenueStats.length > 0 || expenseSlips.length > 0 || incidents.length > 0 || inventoryList.length > 0 || otherCostCategories.length > 0 || incidentCategories.length > 0 || users.length > 0 || cashHandoverReports.length > 0)) {
+          setIsLoading(false);
+      }
+  }, [revenueStats, expenseSlips, incidents, inventoryList, otherCostCategories, incidentCategories, users, cashHandoverReports]);
+    
   const allMonthsWithData = useMemo(() => {
     const monthSet = new Set<string>();
     [...revenueStats, ...expenseSlips, ...incidents, ...cashHandoverReports].forEach(item => {

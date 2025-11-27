@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { useAppRouter } from '@/hooks/use-app-router';import { dataStore } from '@/lib/data-store';
+import { useRouter } from 'nextjs-toploader/app';
+import { dataStore } from '@/lib/data-store';
 import type { MediaAttachment, TaskCompletionRecord } from '@/lib/types';
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -27,7 +28,7 @@ type GroupedReports = {
 
 export default function MonthlyTaskReportsPage() {
   const { user, loading: authLoading } = useAuth();
-  const router = useAppRouter();
+  const router = useRouter();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [completions, setCompletions] = useState<TaskCompletionRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);

@@ -1,12 +1,12 @@
 'use client';
 
 import React from 'react';
-import { useAppRouter } from '@/hooks/use-app-router';import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useRouter } from 'nextjs-toploader/app';import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Archive, ArrowRight, Banknote, CalendarCheck, History, Settings } from 'lucide-react';
 
 export function ManagementLinksCard() {
-  const router = useAppRouter();
+  const router = useRouter();
 
   return (
     <Card className="lg:col-span-2">

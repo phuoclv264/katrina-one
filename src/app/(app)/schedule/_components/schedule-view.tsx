@@ -1,7 +1,8 @@
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { useAppRouter } from '@/hooks/use-app-router';import { dataStore } from '@/lib/data-store';
+import { useRouter } from 'nextjs-toploader/app';
+import { dataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { toast } from 'react-hot-toast';
@@ -42,7 +43,7 @@ import ShiftInfoDialog from './shift-info-dialog';
 
 export default function ScheduleView() {
     const { user, loading: authLoading } = useAuth();
-    const router = useAppRouter();
+    const router = useRouter();
 
     const [currentDate, setCurrentDate] = useState(new Date());
     const [schedule, setSchedule] = useState<Schedule | null>(null);

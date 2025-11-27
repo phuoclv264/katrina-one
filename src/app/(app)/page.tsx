@@ -4,12 +4,13 @@
 
 import { useAuth } from '@/hooks/use-auth';
 import { useEffect } from 'react';
-import { useAppRouter } from '@/hooks/use-app-router';import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { useRouter } from 'nextjs-toploader/app';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AppRootPage() {
   const { user, loading } = useAuth();
-  const router = useAppRouter();
+  const router = useRouter();
 
   useEffect(() => {
     if (!loading && user) {

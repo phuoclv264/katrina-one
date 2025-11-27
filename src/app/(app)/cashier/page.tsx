@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useAuth } from '@/hooks/use-auth';
-import { useAppRouter } from '@/hooks/use-app-router';import { Button } from '@/components/ui/button';
+import { useRouter } from 'nextjs-toploader/app';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { LoadingPage } from '@/components/loading/LoadingPage'; 
 import { PlusCircle, ArrowRight, Receipt, AlertTriangle, Banknote, Edit, Trash2, Loader2, ArrowUpCircle, ArrowDownCircle, Wallet, Lock, Edit2, LandPlot, Settings, Eye, FileWarning, ClipboardCheck, ClipboardX, TrendingUp, TrendingDown, Wand2 } from 'lucide-react';
@@ -129,7 +130,7 @@ const ChangeIndicator = ({ value }: { value: number }) => {
 function CashierDashboardPageComponent() {
   const { openLightbox } = useLightbox();
   const { user, loading: authLoading } = useAuth();
-  const router = useAppRouter();
+  const router = useRouter();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   
   const expenseSlipsRef = useRef<HTMLDivElement>(null);
@@ -281,20 +282,6 @@ function CashierDashboardPageComponent() {
             // The callback now consistently provides an array or null.
             setCashHandoverReports(reports as CashHandoverReport[] || []);
         });
-
-        Promise.all([
-            dataStore.getDailyExpenseSlips(date),
-            dataStore.getDailyRevenueStats(date),
-            dataStore.getInventoryList(),
-            dataStore.getOtherCostCategories(),
-            dataStore.getIncidentCategories(),
-            dataStore.getHandoverReport(date),
-        ]).catch(error => {
-            console.error("Failed to fetch cashier data:", error);
-            toast.error("Không thể tải dữ liệu.");
-        }).finally(() => {
-            setIsLoading(false);
-        });
         
         return () => {
             unsubSlips();
@@ -310,6 +297,12 @@ function CashierDashboardPageComponent() {
 
   useDataRefresher(handleReconnect);
 
+  useEffect(() => {
+    if (isLoading && (dailySlips.length > 0 || dailyIncidents.length > 0 || dailyRevenueStats.length > 0 || cashHandoverReports.length > 0 || user)) {
+      setIsLoading(false);
+    }
+  }, [dailySlips, dailyIncidents, dailyRevenueStats, cashHandoverReports, user]);
+  
   const handleSaveSlip = useCallback(async (data: any, id?: string) => {
     if (!user) return;
     setIsProcessing(true);

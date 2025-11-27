@@ -3,7 +3,7 @@
 
 import React, { useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { useAppRouter } from '@/hooks/use-app-router';
+import { useRouter } from 'nextjs-toploader/app';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import ScheduleView from './_components/schedule-view';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import { ArrowLeft } from 'lucide-react';
 
 export default function ShiftSchedulingPage() {
     const { user, loading: authLoading } = useAuth();
-    const router = useAppRouter();
+    const router = useRouter();
     const canManage = user?.role === 'Quản lý' || user?.role === 'Chủ nhà hàng';
 
     useEffect(() => {

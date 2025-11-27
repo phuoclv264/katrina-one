@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, getDocFromCache } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
 import { dataStore } from '@/lib/data-store';
@@ -56,7 +56,7 @@ export const useAuth = () => {
     const assignedShiftsToday: AssignedShift[] = schedule.shifts
       .filter(shift => shift.date === todayKey && shift.assignedUsers.some(u => u.userId === firebaseUser.uid))
       .sort((a, b) => a.timeSlot.start.localeCompare(b.timeSlot.start));
-    
+
     setTodaysShifts(assignedShiftsToday);
     setIsOnActiveShift(isUserOnActiveShift(assignedShiftsToday));
     setActiveShifts(getActiveShifts(assignedShiftsToday));
@@ -65,8 +65,24 @@ export const useAuth = () => {
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-        if (userDoc.exists()) {
+        const userDocRef = doc(db, 'users', firebaseUser.uid);
+        
+        // First, try to get the document from the cache for a fast initial load.
+        let userDoc, isFromCache = false;
+        try {
+          userDoc = await getDocFromCache(userDocRef);
+          isFromCache = true;
+        } catch {
+          // If it's not in the cache, fetch from the server.
+          try {
+            userDoc = await getDoc(userDocRef);
+          } catch (e) {
+            console.error("Failed to fetch user document:", e);
+            userDoc = undefined; // Ensure userDoc is undefined on fetch failure
+          }
+        }
+
+        if (userDoc && userDoc.exists()) {
           const userData = userDoc.data();
           const userRole = userData.role as UserRole;
           const authUser = {
@@ -79,20 +95,43 @@ export const useAuth = () => {
           setUser(authUser);
 
           if (pathname === '/') {
-             if (userRole === 'Phục vụ') router.replace('/shifts');
-             else if (userRole === 'Pha chế') router.replace('/bartender');
-             else if (userRole === 'Quản lý') router.replace('/manager');
-             else if (userRole === 'Chủ nhà hàng') router.replace('/admin');
-             else if (userRole === 'Thu ngân') router.replace('/cashier');
+            if (userRole === 'Phục vụ') router.replace('/shifts');
+            else if (userRole === 'Pha chế') router.replace('/bartender');
+            else if (userRole === 'Quản lý') router.replace('/manager');
+            else if (userRole === 'Chủ nhà hàng') router.replace('/admin');
+            else if (userRole === 'Thu ngân') router.replace('/cashier');
+          }
+
+          // If the initial data was from the cache, silently fetch from the server
+          // in the background to ensure data is up-to-date.
+          if (isFromCache) {
+            getDoc(userDocRef).then((serverDoc) => {
+              if (serverDoc.exists()) {
+                const serverData = serverDoc.data();
+                const serverAuthUser = {
+                  ...firebaseUser,
+                  displayName: serverData.displayName,
+                  role: serverData.role as UserRole,
+                  secondaryRoles: serverData.secondaryRoles || [],
+                  anonymousName: serverData.anonymousName,
+                } as AuthUser;
+                // Update state only if there's a change to avoid unnecessary re-renders
+                setUser(currentUser => 
+                  JSON.stringify(currentUser) !== JSON.stringify(serverAuthUser) 
+                    ? serverAuthUser 
+                    : currentUser
+                );
+              }
+            }).catch(e => console.error("Background user doc refresh failed:", e));
           }
 
         } else {
-            await signOut(auth);
-            setUser(null);
-            setIsOnActiveShift(false);
-            setActiveShifts([]);
-            setTodaysShifts([]);
-            if (pathname !== '/') router.replace('/');
+          await signOut(auth);
+          setUser(null);
+          setIsOnActiveShift(false);
+          setActiveShifts([]);
+          setTodaysShifts([]);
+          if (pathname !== '/') router.replace('/');
         }
       } else {
         setUser(null);
@@ -109,21 +148,21 @@ export const useAuth = () => {
 
   useEffect(() => {
     if (!user) {
-        setIsOnActiveShift(false);
-        setActiveShifts([]);
-        setTodaysShifts([]);
-        return;
+      setIsOnActiveShift(false);
+      setActiveShifts([]);
+      setTodaysShifts([]);
+      return;
     };
 
     const today = new Date();
     const weekId = `${today.getFullYear()}-W${getISOWeek(today)}`;
 
     const unsubscribeSchedule = dataStore.subscribeToSchedule(weekId, (schedule) => {
-        checkUserShift(user, schedule);
+      checkUserShift(user, schedule);
     });
 
     return () => {
-        unsubscribeSchedule();
+      unsubscribeSchedule();
     };
   }, [user, checkUserShift, refreshTrigger]);
 
@@ -147,7 +186,7 @@ export const useAuth = () => {
       }
     };
   }, [loading]);
-  
+
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
@@ -168,7 +207,7 @@ export const useAuth = () => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
-      
+
       await setDoc(doc(db, 'users', firebaseUser.uid), {
         uid: firebaseUser.uid,
         email,
@@ -177,10 +216,10 @@ export const useAuth = () => {
         secondaryRoles: [],
       });
 
-       toast.success('Đăng ký thành công! Đang chuyển hướng bạn...');
-       return true;
+      toast.success('Đăng ký thành công! Đang chuyển hướng bạn...');
+      return true;
     } catch (error: any) {
-       console.error(error);
+      console.error(error);
       let errorMessage = 'Đã có lỗi xảy ra. Vui lòng thử lại.';
       if (error.code === 'auth/email-already-in-use') {
         errorMessage = 'Email này đã được sử dụng.';
@@ -192,23 +231,23 @@ export const useAuth = () => {
 
   const logout = useCallback(async () => {
     try {
-        await signOut(auth);
-        router.replace('/');
-        toast.success('Đã đăng xuất.');
+      await signOut(auth);
+      router.replace('/');
+      toast.success('Đã đăng xuất.');
     } catch (error: any) {
-         console.error(error);
-         toast.error('Không thể đăng xuất. Vui lòng thử lại.');
+      console.error(error);
+      toast.error('Không thể đăng xuất. Vui lòng thử lại.');
     }
   }, [router]);
-  
-  return { 
-      user, 
-      loading,
-      isOnActiveShift,
-      activeShifts,
-      todaysShifts,
-      login, 
-      register,
-      logout,
+
+  return {
+    user,
+    loading,
+    isOnActiveShift,
+    activeShifts,
+    todaysShifts,
+    login,
+    register,
+    logout,
   };
 };

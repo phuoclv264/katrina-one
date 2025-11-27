@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import Image from 'next/image';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import type { TaskCompletion, TasksByShift, CompletionRecord, ShiftReport, Task, Schedule } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 import { TaskItem } from '../../_components/task-item';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useLightbox } from '@/contexts/lightbox-context';
-import { useAppRouter } from '@/hooks/use-app-router';
+import { useRouter } from 'nextjs-toploader/app';
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
@@ -37,7 +37,7 @@ export default function ChecklistPageComponent() {
   const { openLightbox } = useLightbox();
   const { user, loading: isAuthLoading } = useAuth();
   const params = useParams();
-  const router = useAppRouter();
+  const router = useRouter();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const shiftKey = params.shift as string;
   const notesSectionRef = useRef<HTMLDivElement>(null);

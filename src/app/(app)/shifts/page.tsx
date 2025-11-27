@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Sun, Moon, Sunset, ShieldX, CalendarDays, Loader2, Info, CheckSquare, ClipboardList, Archive, FileSearch, Banknote, Coffee, UserCog, ClockIcon, MessageSquare } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/use-auth';
-import { useAppRouter } from '@/hooks/use-app-router';import { useEffect, useMemo, useCallback } from 'react';
+import { useRouter } from 'nextjs-toploader/app';
+import { useEffect, useMemo, useCallback } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import CheckInCard from '../_components/check-in-card';
@@ -33,7 +34,7 @@ const mainShiftTimeFrames: { [key in "sang" | "trua" | "toi"]: { start: number; 
 
 export default function ShiftsPage() {
   const { user, loading: authLoading, activeShifts, todaysShifts } = useAuth();
-  const router = useAppRouter();
+  const router = useRouter();
   const { showCheckInCardOnTop, isCheckedIn } = useCheckInCardPlacement();
   const [todaysMonthlyAssignments, setTodaysMonthlyAssignments] = useState<MonthlyTaskAssignment[]>([]);
   const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
