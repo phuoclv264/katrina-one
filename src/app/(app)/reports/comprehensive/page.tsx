@@ -2,7 +2,7 @@
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
 import Image from 'next/image';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,12 +20,12 @@ import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Timestamp } from 'firebase/firestore';
 import { useLightbox } from '@/contexts/lightbox-context';
-import { useAppRouter } from '@/hooks/use-app-router';
+import { useRouter } from 'nextjs-toploader/app';
 
 
 function ComprehensiveReportView() {
   const { user, loading: authLoading } = useAuth();
-  const router = useAppRouter();
+  const router = useRouter();
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const date = searchParams.get('date');

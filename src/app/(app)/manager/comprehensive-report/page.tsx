@@ -2,7 +2,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import Image from 'next/image';
-import { useAppRouter } from '@/hooks/use-app-router';import { dataStore } from '@/lib/data-store';
+import { useRouter } from 'nextjs-toploader/app';
+import { dataStore } from '@/lib/data-store';
 import type { ShiftReport, CompletionRecord, ComprehensiveTaskSection, ComprehensiveTask, Task } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,7 +28,7 @@ type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'erro
 
 function ComprehensiveReportPageComponent() {
   const { user, loading: isAuthLoading } = useAuth();
-  const router = useAppRouter();
+  const router = useRouter();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const shiftKey = 'manager_comprehensive';
   

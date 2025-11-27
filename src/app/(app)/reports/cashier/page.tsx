@@ -2,7 +2,8 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useAppRouter } from '@/hooks/use-app-router';import { useDataRefresher } from '@/hooks/useDataRefresher';
+import { useRouter } from 'nextjs-toploader/app';
+import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useAuth, type AuthUser } from '@/hooks/use-auth';
 import { dataStore } from '@/lib/data-store';
 import type { ExpenseSlip, IncidentReport, RevenueStats, InventoryItem, OtherCostCategory, ExpenseItem, IncidentCategory, ManagedUser, CashHandoverReport } from '@/lib/types';
@@ -120,7 +121,7 @@ function AddDocumentDialog({
 export default function CashierReportsPage() {
   const { openLightbox } = useLightbox();
   const { user, loading: authLoading } = useAuth();
-  const router = useAppRouter();
+  const router = useRouter();
   const initialMonthSet = useRef(false);
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);

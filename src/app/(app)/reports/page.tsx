@@ -2,7 +2,8 @@
 'use client';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { useAppRouter } from '@/hooks/use-app-router';import { useAuth } from '@/hooks/use-auth';
+import { useRouter } from 'nextjs-toploader/app';
+import { useAuth } from '@/hooks/use-auth';
 import { dataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'; // This is a duplicate import, but let's keep it for safety.
@@ -170,7 +171,7 @@ function AdminTools() {
 
 export default function ReportsPage() {
   const { user, loading: authLoading } = useAuth();
-  const router = useAppRouter();
+  const router = useRouter();
   
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const handleDataRefresh = useCallback(() => {

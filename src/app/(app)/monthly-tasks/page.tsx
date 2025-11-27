@@ -4,7 +4,8 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { getDay } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
-import { useAppRouter } from '@/hooks/use-app-router';import { Button } from '@/components/ui/button';
+import { useRouter } from 'nextjs-toploader/app';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { CalendarClock, Plus, Edit, Trash2, Loader2 } from 'lucide-react';
@@ -290,7 +291,7 @@ function EditTaskForm({
 
 export default function MonthlyTasksPage() {
     const { user, loading: authLoading } = useAuth();
-    const router = useAppRouter();
+    const router = useRouter();
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     const [tasks, setTasks] = useState<MonthlyTask[]>([]);

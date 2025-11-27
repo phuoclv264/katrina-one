@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useMemo, Suspense, useRef, useCallback } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import Image from 'next/image';
-import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { dataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
@@ -18,7 +17,7 @@ import { format } from "date-fns";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, } from "@/components/ui/dialog"
 import { useLightbox } from '@/contexts/lightbox-context';
-import { useAppRouter } from '@/hooks/use-app-router';
+import { useRouter } from 'nextjs-toploader/app';
 
 
 type ItemStatus = 'ok' | 'low' | 'out';
@@ -30,7 +29,7 @@ type CategorizedList = {
 
 function InventoryReportView() {
   const { user, loading: authLoading } = useAuth();
-  const router = useAppRouter();
+  const router = useRouter();
   const suggestionsCardRef = useRef<HTMLDivElement>(null);
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);

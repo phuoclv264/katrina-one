@@ -15,7 +15,8 @@ import { Sun, Moon, Sunset } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { useAuth } from '@/hooks/use-auth';
-import { useAppRouter } from '@/hooks/use-app-router';import { Textarea } from '@/components/ui/textarea';
+import { useRouter } from 'nextjs-toploader/app';
+import { Textarea } from '@/components/ui/textarea';
 import { callGenerateServerTasks, callSortTasks } from '@/lib/ai-service';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -328,7 +329,7 @@ function AiAssistant({
 
 export default function TaskListsPage() {
   const { user, loading: authLoading } = useAuth();
-  const router = useAppRouter();
+  const router = useRouter();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
   const [isLoading, setIsLoading] = useState(true);

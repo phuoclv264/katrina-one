@@ -10,7 +10,8 @@ import { Trash2, Plus, Building, ListChecks, MessageSquare, Image as ImageIcon, 
 import { useToast } from '@/components/ui/use-toast';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { useAuth } from '@/hooks/use-auth';
-import { useAppRouter } from '@/hooks/use-app-router';import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { useRouter } from 'nextjs-toploader/app';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import {
   Select,
   SelectContent,
@@ -180,7 +181,7 @@ function AiAssistant({
 
 export default function ComprehensiveChecklistPage() {
   const { user, loading: authLoading } = useAuth();
-  const router = useAppRouter();
+  const router = useRouter();
   const { toast } = useToast();
   const [sections, setSections] = useState<ComprehensiveTaskSection[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);

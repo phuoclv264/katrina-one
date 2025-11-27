@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
-import { useAppRouter } from '@/hooks/use-app-router';import { Banknote, CalendarCheck, Loader2 } from 'lucide-react';
+import { useRouter } from 'nextjs-toploader/app';
 import { dataStore } from '@/lib/data-store';
 import type { RevenueStats, AttendanceRecord, Schedule, ShiftReport, WhistleblowingReport, ManagedUser, ExpenseSlip } from '@/lib/types';
 import { format, startOfToday, endOfToday, getISOWeek, getYear, isAfter, startOfDay, parse, differenceInMinutes, isWithinInterval, addDays } from 'date-fns';
@@ -17,7 +17,7 @@ import { LoadingPage } from '@/components/loading/LoadingPage';
 
 export default function AdminDashboardPage() {
     const { user, loading: authLoading } = useAuth();
-    const router = useAppRouter();
+    const router = useRouter();
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     const [revenueStats, setRevenueStats] = useState<RevenueStats[]>([]);

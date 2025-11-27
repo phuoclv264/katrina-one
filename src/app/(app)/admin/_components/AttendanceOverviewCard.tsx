@@ -9,7 +9,7 @@ import { cn, generateShortName } from '@/lib/utils';
 import type { AssignedShift, AttendanceRecord } from '@/lib/types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format } from 'date-fns';
-import { useAppRouter } from '@/hooks/use-app-router';
+import { useRouter } from 'nextjs-toploader/app';
 
 type EmployeeStatus = 'present' | 'late' | 'absent' | 'pending_late';
 
@@ -45,7 +45,7 @@ const statusBadgeClass: Record<EmployeeStatus, string> = {
 };
 
 export function AttendanceOverviewCard({ activeShifts }: AttendanceOverviewCardProps) {
-  const router = useAppRouter();
+  const router = useRouter();
 
   return (
     <Card className="md:col-span-2 lg:col-span-1 flex flex-col">

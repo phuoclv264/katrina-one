@@ -11,7 +11,8 @@ import { Trash2, Plus, Package, ArrowUp, ArrowDown, ChevronsDownUp, Shuffle, Che
 import { toast } from 'react-hot-toast';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { useAuth } from '@/hooks/use-auth';
-import { useAppRouter } from '@/hooks/use-app-router';import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { useRouter } from 'nextjs-toploader/app';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { cn } from '@/lib/utils';
 import isEqual from 'lodash.isequal';
 import InventoryTools from './_components/inventory-tools';
@@ -29,7 +30,7 @@ type CategorizedList = {
 
 export default function InventoryManagementPage() {
   const { user, loading: authLoading } = useAuth();
-  const router = useAppRouter();
+  const router = useRouter();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [inventoryList, setInventoryList] = useState<InventoryItem[] | null>(null);
   const [suppliers, setSuppliers] = useState<Suppliers | null>(null);

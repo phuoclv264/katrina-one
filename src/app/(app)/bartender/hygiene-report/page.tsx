@@ -2,7 +2,6 @@
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
-import { useParams, useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import type { TaskCompletion, TasksByShift, CompletionRecord, ShiftReport, TaskSection, Task } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -23,13 +22,13 @@ import SubmissionNotesSection from '../../checklist/_components/submission-notes
 import { format, getISOWeek } from 'date-fns';
 import WorkShiftGuard from '@/components/work-shift-guard';
 import { useLightbox } from '@/contexts/lightbox-context';
-import { useAppRouter } from '@/hooks/use-app-router';
+import { useRouter } from 'nextjs-toploader/app';
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
 function HygieneReportPageComponent() {
   const { user, loading: isAuthLoading } = useAuth();
-  const router = useAppRouter();
+  const router = useRouter();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const shiftKey = 'bartender_hygiene';
   const notesSectionRef = useRef<HTMLDivElement>(null);

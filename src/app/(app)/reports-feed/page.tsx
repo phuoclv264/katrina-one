@@ -2,7 +2,8 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useAuth } from '@/hooks/use-auth';
-import { useAppRouter } from '@/hooks/use-app-router';import { reportsStore } from '@/lib/reports-store';
+import { useRouter } from 'nextjs-toploader/app';
+import { reportsStore } from '@/lib/reports-store';
 import { dataStore } from '@/lib/data-store';
 import type { WhistleblowingReport, ManagedUser, AssignedUser, CommentMedia } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -16,7 +17,7 @@ import MySentReportsDialog from './_components/my-sent-reports-dialog';
 
 export default function ReportsFeedPage() {
   const { user, loading: authLoading } = useAuth();
-  const router = useAppRouter();
+  const router = useRouter();
   const reportRefs = useRef(new Map<string, HTMLDivElement | null>());
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);

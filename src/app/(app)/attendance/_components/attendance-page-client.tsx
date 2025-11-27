@@ -1,7 +1,8 @@
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { useAppRouter } from '@/hooks/use-app-router';import { Button } from '@/components/ui/button';
+import { useRouter } from 'nextjs-toploader/app';
+import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { ArrowLeft, UserCheck, RefreshCw, Loader2, DollarSign, LayoutGrid, GanttChartSquare, X, Calendar as CalendarIcon, Calculator } from 'lucide-react';
 import { dataStore } from '@/lib/data-store';
@@ -31,7 +32,7 @@ import { LoadingPage } from '@/components/loading/LoadingPage';
 
 export default function AttendancePageComponent() {
     const { user, loading: authLoading } = useAuth();
-    const router = useAppRouter();
+    const router = useRouter();
     const isMobile = useIsMobile();
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
