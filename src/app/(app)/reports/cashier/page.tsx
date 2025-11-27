@@ -277,7 +277,7 @@ export default function CashierReportsPage() {
   useDataRefresher(handleDataRefresh);
 
   useEffect(() => {
-      if (!isLoading && (revenueStats.length > 0 || expenseSlips.length > 0 || incidents.length > 0 || inventoryList.length > 0 || otherCostCategories.length > 0 || incidentCategories.length > 0 || users.length > 0 || cashHandoverReports.length > 0)) {
+      if (isLoading && (revenueStats.length > 0 || expenseSlips.length > 0 || incidents.length > 0 || inventoryList.length > 0 || otherCostCategories.length > 0 || incidentCategories.length > 0 || users.length > 0 || cashHandoverReports.length > 0)) {
           setIsLoading(false);
       }
   }, [revenueStats, expenseSlips, incidents, inventoryList, otherCostCategories, incidentCategories, users, cashHandoverReports]);

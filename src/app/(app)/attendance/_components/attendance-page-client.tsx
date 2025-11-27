@@ -95,7 +95,7 @@ export default function AttendancePageComponent() {
     useDataRefresher(handleReconnect);
 
     useEffect(() => {
-        if (!isLoading && (schedules || attendanceRecords.length > 0 || allUsers.length > 0)) {
+        if (isLoading && (schedules || attendanceRecords.length > 0 || allUsers.length > 0)) {
             setIsLoading(false);
         }
     }, [schedules, attendanceRecords, allUsers]);
