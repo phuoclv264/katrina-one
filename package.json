@@ -14,6 +14,7 @@
   "dependencies": {
     "@capacitor/app": "^7.1.0",
     "@capacitor/core": "^7.4.4",
+    "@capacitor/keyboard": "^7.0.3",
     "@capacitor/status-bar": "^7.0.3",
     "@genkit-ai/googleai": "^1.14.1",
     "@genkit-ai/next": "^1.14.1",
