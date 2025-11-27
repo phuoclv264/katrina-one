@@ -134,10 +134,9 @@ export default function UsersPage() {
                 router.replace('/');
             } else {
                 let userSubscribed = false;
-                let settingsSubscribed = false;
 
                 const checkLoadingDone = () => {
-                    if (userSubscribed && settingsSubscribed) {
+                    if (userSubscribed) {
                         setIsLoading(false);
                     }
                 }
@@ -149,8 +148,6 @@ export default function UsersPage() {
                 });
                 const unsubSettings = dataStore.subscribeToAppSettings((settings) => {
                     setAppSettings(settings);
-                    settingsSubscribed = true;
-                    checkLoadingDone();
                 });
                 return () => {
                     unsubUsers();

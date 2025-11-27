@@ -95,7 +95,7 @@ export default function ViolationsPage() {
         }
       }, 1000);
     }
-  }, [violations]);
+  }, [violations, isLoading]);
       
   useDataRefresher(handleDataRefresh);
 

@@ -85,8 +85,6 @@ export default function AttendancePageComponent() {
         
         const unsubRecords = dataStore.subscribeToAttendanceRecordsForDateRange(dateRange, setAttendanceRecords);
 
-        setIsLoading(false);
-
         return () => {
             unsubUsers();
             unsubRecords();
