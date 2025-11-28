@@ -3,6 +3,7 @@
 
 import { usePathname } from 'next/navigation';
 import { useMemo } from 'react';
+import { NotificationBell } from './notification-bell';
 
 const pathToTitleMap: { [key: string]: string } = {
     '/shifts': 'Chọn ca làm việc',
@@ -46,8 +47,11 @@ export function MobileHeader() {
     }, [pathname]);
 
     return (
-        <h1 className="text-lg font-semibold text-primary truncate">
-            {title}
-        </h1>
+        <div className="flex items-center gap-4">
+            <h1 className="text-lg font-semibold text-primary truncate">
+                {title}
+            </h1>
+            <NotificationBell />
+        </div>
     );
 }

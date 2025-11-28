@@ -9,7 +9,7 @@ import { toast } from 'react-hot-toast';
 import { dataStore } from '@/lib/data-store';
 import { useDataRefresher } from './useDataRefresher';
 import { isUserOnActiveShift, getActiveShifts } from '@/lib/schedule-utils';
-import type { Schedule, AssignedShift } from '@/lib/types';
+import type { Schedule, AssignedShift, Notification } from '@/lib/types';
 import { getISOWeek, format } from 'date-fns';
 
 export type UserRole = 'Phục vụ' | 'Pha chế' | 'Quản lý' | 'Chủ nhà hàng' | 'Thu ngân';
@@ -27,6 +27,7 @@ export const useAuth = () => {
   const [isOnActiveShift, setIsOnActiveShift] = useState(false);
   const [activeShifts, setActiveShifts] = useState<AssignedShift[]>([]);
   const [todaysShifts, setTodaysShifts] = useState<AssignedShift[]>([]);
+  const [notifications, setNotifications] = useState<Notification[] | null>(null);
   const router = useRouter();
   const pathname = usePathname();
   const loadingTimer = useRef<NodeJS.Timeout | null>(null);
@@ -151,6 +152,7 @@ export const useAuth = () => {
       setIsOnActiveShift(false);
       setActiveShifts([]);
       setTodaysShifts([]);
+      setNotifications(null);
       return;
     };
 
@@ -185,7 +187,7 @@ export const useAuth = () => {
         clearTimeout(loadingTimer.current);
       }
     };
-  }, [loading]);
+  }, [loading, router]);
 
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     try {
@@ -246,6 +248,8 @@ export const useAuth = () => {
     isOnActiveShift,
     activeShifts,
     todaysShifts,
+    notifications,
+    setNotifications,
     login,
     register,
     logout,

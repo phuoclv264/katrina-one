@@ -35,8 +35,8 @@ export type Task = {
 
 // Type for AI-parsed server tasks
 export type ParsedServerTask = Omit<Task, 'id'> & {
-    text: string;
-    isCritical: boolean;
+  text: string;
+  isCritical: boolean;
 };
 
 
@@ -61,7 +61,7 @@ export type ComprehensiveTaskSection = {
 }
 
 export type Shift = {
-  name:string;
+  name: string;
   sections: TaskSection[];
 };
 
@@ -78,7 +78,7 @@ export type CompletionRecord = {
 };
 
 export type TaskCompletion = {
-  [taskId:string]: CompletionRecord[];
+  [taskId: string]: CompletionRecord[];
 };
 
 // Represents a report, either locally or on Firestore
@@ -87,16 +87,16 @@ export type ShiftReport = {
   userId: string;
   staffName: string;
   shiftKey: string;
-  
+
   // Status tracking
   status: 'ongoing' | 'submitted'; // 'submitted' is final
-  
+
   // Timestamps
   date: string; // YYYY-MM-DD
   startedAt: string | Timestamp; // ISO string locally, Timestamp on server
   submittedAt?: string | Timestamp; // ISO string, set on submission
   lastUpdated: string | Timestamp; // ISO string locally, Timestamp on server
-  
+
   // Report data
   completedTasks: TaskCompletion;
   issues: string | null;
@@ -116,22 +116,22 @@ export type UnitDefinition = {
 };
 
 export type InventoryItem = {
-    id: string;
-    name: string;
-    shortName: string; 
-    category: string;
-    supplier: string;
-    
-    unit?: string; // DEPRECATED, use baseUnit and units instead
-    baseUnit: string; // The smallest unit for stock tracking (e.g., "ml", "gram")
-    units: UnitDefinition[]; // Array of all possible units for this item
-    
-    minStock: number; // In baseUnit
-    orderSuggestion: string; // e.g., "4" or "5kg"
-    requiresPhoto?: boolean;
-    isImportant?: boolean;
-    dataType: 'number' | 'list';
-    listOptions?: string[];
+  id: string;
+  name: string;
+  shortName: string;
+  category: string;
+  supplier: string;
+
+  unit?: string; // DEPRECATED, use baseUnit and units instead
+  baseUnit: string; // The smallest unit for stock tracking (e.g., "ml", "gram")
+  units: UnitDefinition[]; // Array of all possible units for this item
+
+  minStock: number; // In baseUnit
+  orderSuggestion: string; // e.g., "4" or "5kg"
+  requiresPhoto?: boolean;
+  isImportant?: boolean;
+  dataType: 'number' | 'list';
+  listOptions?: string[];
 };
 
 
@@ -142,7 +142,7 @@ export type ParsedInventoryItem = Omit<InventoryItem, 'id' | 'unit'>;
 
 
 export type UpdateInventoryItemsOutput = {
-    items: InventoryItem[];
+  items: InventoryItem[];
 };
 
 export type InventoryStockRecord = {
@@ -152,12 +152,12 @@ export type InventoryStockRecord = {
 };
 
 export type InventoryStockLevels = {
-    [itemId: string]: InventoryStockRecord;
+  [itemId: string]: InventoryStockRecord;
 };
 
 export type OrderItem = {
-    itemId: string;
-    quantityToOrder: string;
+  itemId: string;
+  quantityToOrder: string;
 };
 
 export type OrderBySupplier = {
@@ -166,20 +166,20 @@ export type OrderBySupplier = {
 }
 
 export type InventoryOrderSuggestion = {
-    summary: string;
-    ordersBySupplier: OrderBySupplier[];
+  summary: string;
+  ordersBySupplier: OrderBySupplier[];
 };
 
 export type InventoryReport = {
-    id: string; // inventory-report-{userId}-{date}
-    userId: string;
-    staffName: string;
-    date: string; // YYYY-MM-DD
-    status: 'ongoing' | 'submitted';
-    stockLevels: InventoryStockLevels;
-    suggestions: InventoryOrderSuggestion | null;
-    lastUpdated: string | Timestamp;
-    submittedAt?: string | Timestamp;
+  id: string; // inventory-report-{userId}-{date}
+  userId: string;
+  staffName: string;
+  date: string; // YYYY-MM-DD
+  status: 'ongoing' | 'submitted';
+  stockLevels: InventoryStockLevels;
+  suggestions: InventoryOrderSuggestion | null;
+  lastUpdated: string | Timestamp;
+  submittedAt?: string | Timestamp;
 };
 
 // --- Product & Recipe Types ---
@@ -210,12 +210,12 @@ export type ParsedProduct = Omit<Product, 'id'>;
 
 // --- Violation Logging Types ---
 export type FineRule = {
-    id: string;
-    condition: 'repeat_in_month' | 'is_flagged';
-    threshold: number; // e.g., 4 for "from the 4th time"
-    action: 'multiply' | 'add';
-    value: number; // e.g., 2 for "multiply by 2"
-    severityAction?: 'increase' | 'set_to_high' | null;
+  id: string;
+  condition: 'repeat_in_month' | 'is_flagged';
+  threshold: number; // e.g., 4 for "from the 4th time"
+  action: 'multiply' | 'add';
+  value: number; // e.g., 2 for "multiply by 2"
+  severityAction?: 'increase' | 'set_to_high' | null;
 };
 
 export type ViolationCategory = {
@@ -229,9 +229,9 @@ export type ViolationCategory = {
 };
 
 export type ViolationCategoryData = {
-    list: ViolationCategory[];
-    generalRules?: FineRule[];
-    generalNote?: string;
+  list: ViolationCategory[];
+  generalRules?: FineRule[];
+  generalNote?: string;
 };
 
 
@@ -308,9 +308,9 @@ export type Violation = {
 
 // --- Summary Types ---
 export type DailySummary = {
-    id?: string; // date YYYY-MM-DD
-    summary: string;
-    generatedAt: string | Timestamp;
+  id?: string; // date YYYY-MM-DD
+  summary: string;
+  generatedAt: string | Timestamp;
 };
 
 export type IssueNote = {
@@ -373,9 +373,10 @@ export type Availability = {
 // --- Notification System Types ---
 
 export type NotificationStatus = 'pending' | 'pending_approval' | 'resolved' | 'cancelled';
-export type NotificationType = 'pass_request';
+export type NotificationType = 'pass_request' | 'new_schedule' | 'new_violation';
 
 export type PassRequestPayload = {
+  notificationType?: 'pass_request';
   weekId: string;
   shiftId: string;
   shiftLabel: string;
@@ -388,24 +389,37 @@ export type PassRequestPayload = {
   targetUserId?: string; // For direct pass requests
   isSwapRequest?: boolean; // For direct shift swaps
   targetUserShiftPayload?: { // Snapshot of the target user's shift for swaps
-      shiftId: string;
-      shiftLabel: string;
-      shiftTimeSlot: TimeSlot;
-      date: string;
+    shiftId: string;
+    shiftLabel: string;
+    shiftTimeSlot: TimeSlot;
+    date: string;
   };
   cancellationReason?: string; // Reason for automatic cancellation
 }
 
-export type Notification = {
-    id: string;
-    type: NotificationType;
-    status: NotificationStatus;
-    payload: PassRequestPayload;
-    createdAt: string | Timestamp;
-    resolvedBy?: AssignedUser;
-    resolvedAt?: string | Timestamp;
-};
+export type NewSchedulePayload = {
+  notificationType?: 'new_schedule'
+}
 
+export type NewViolationPayload = {
+  notificationType?: 'new_violation';
+  violationId: string;
+  title: string;
+}
+
+export type AnyNotificationPayload = PassRequestPayload | NewSchedulePayload | NewViolationPayload;
+
+export type Notification = {
+  id: string;
+  type: NotificationType;
+  payload: any;
+  createdAt: string | Timestamp;
+  isRead?: { [userId: string]: boolean };
+  // pass_request notifications only
+  status?: NotificationStatus;
+  resolvedBy?: AssignedUser;
+  resolvedAt?: string | Timestamp;
+};
 
 export interface AuthUser extends User {
   displayName: string;
@@ -421,15 +435,15 @@ export type ExpenseType = 'goods_import' | 'other_cost';
 export type PaymentMethod = 'cash' | 'bank_transfer' | 'intangible_cost';
 
 export type ExpenseItem = {
-    itemId: string; // Product ID for goods, or 'other_cost'
-    otherCostCategoryId?: string; // ID of the OtherCostCategory
-    name: string; // For goods: Product Name. For 'other': The specific category name like "Tiền điện"
-    description?: string; // Specific description for 'other_cost' when category is "Khác"
-    supplier?: string;
-    quantity: number;
-    unitPrice: number;
-    unit: string; // The name of the UnitDefinition used for this transaction.
-    isPaid?: boolean; // Track payment status for each item
+  itemId: string; // Product ID for goods, or 'other_cost'
+  otherCostCategoryId?: string; // ID of the OtherCostCategory
+  name: string; // For goods: Product Name. For 'other': The specific category name like "Tiền điện"
+  description?: string; // Specific description for 'other_cost' when category is "Khác"
+  supplier?: string;
+  quantity: number;
+  unitPrice: number;
+  unit: string; // The name of the UnitDefinition used for this transaction.
+  isPaid?: boolean; // Track payment status for each item
 }
 
 export type ExpenseSlip = {
@@ -444,7 +458,7 @@ export type ExpenseSlip = {
   notes?: string;
   attachmentPhotos?: string[]; // URLs to the evidence images
   paymentStatus?: 'paid' | 'unpaid';
-  
+
   isAiGenerated?: boolean; // Flag to indicate if the slip was generated by AI without manual edits
 
   createdBy: AssignedUser;
@@ -511,7 +525,7 @@ export type IncidentReport = {
   paymentMethod?: PaymentMethod;
   photos: string[];
   category: string;
-  
+
   createdBy: AssignedUser;
   createdAt: string | Timestamp;
   associatedExpenseSlipId?: string;
@@ -546,22 +560,22 @@ export type ExtractHandoverDataInput = {
 };
 
 export type ExtractHandoverDataOutput = {
-    isReceipt: boolean;
-    rejectionReason?: string;
-    shiftEndTime?: string;
-    expectedCash?: number;
-    startOfDayCash?: number;
-    cashExpense?: number;
-    cashRevenue?: number;
-    deliveryPartnerPayout?: number;
-    cashRefund?: number;
-    otherRefund?: number;
-    revenueByCard?: {
-        techcombankVietQrPro?: number;
-        shopeeFood?: number;
-        grabFood?: number;
-        bankTransfer?: number;
-    };
+  isReceipt: boolean;
+  rejectionReason?: string;
+  shiftEndTime?: string;
+  expectedCash?: number;
+  startOfDayCash?: number;
+  cashExpense?: number;
+  cashRevenue?: number;
+  deliveryPartnerPayout?: number;
+  cashRefund?: number;
+  otherRefund?: number;
+  revenueByCard?: {
+    techcombankVietQrPro?: number;
+    shopeeFood?: number;
+    grabFood?: number;
+    bankTransfer?: number;
+  };
 };
 
 export type ExtractInvoiceItemsInput = {
@@ -580,16 +594,16 @@ export type ExtractedItem = {
 };
 
 export type InvoiceResult = {
-    invoiceTitle: string;
-    imageIds: string[];
-    items: ExtractedItem[];
-    totalDiscount: number;
+  invoiceTitle: string;
+  imageIds: string[];
+  items: ExtractedItem[];
+  totalDiscount: number;
 };
 
 export type ExtractInvoiceItemsOutput = {
-    isInvoiceFound: boolean;
-    rejectionReason?: string;
-    results: InvoiceResult[];
+  isInvoiceFound: boolean;
+  rejectionReason?: string;
+  results: InvoiceResult[];
 };
 
 export type ExtractRevenueInput = {
@@ -605,12 +619,12 @@ export type RevenueByPaymentMethod = {
 }
 
 export type ExtractRevenueOutput = {
-    isReceipt: boolean;
-    rejectionReason?: string;
-    reportTimestamp?: string;
-    netRevenue?: number;
-    deliveryPartnerPayout?: number;
-    revenueByPaymentMethod?: RevenueByPaymentMethod;
+  isReceipt: boolean;
+  rejectionReason?: string;
+  reportTimestamp?: string;
+  netRevenue?: number;
+  deliveryPartnerPayout?: number;
+  revenueByPaymentMethod?: RevenueByPaymentMethod;
 };
 
 export type GenerateBartenderTasksInput = {
@@ -661,7 +675,7 @@ export type GenerateInventoryListInput = {
 };
 
 export type GenerateInventoryListOutput = {
-    items: InventoryItem[];
+  items: InventoryItem[];
 };
 
 export type GenerateProductRecipesInput = {
@@ -718,23 +732,23 @@ export type UpdateInventoryItemsInput = {
 
 // --- AI Invoice Extraction Types ---
 export type ExtractedInvoiceItem = {
-    itemName: string;
-    quantity: number;
-    unitPrice: number;
-    totalAmount: number;
-    lineItemDiscount: number;
-    matchedItemId: string | null;
-    status: 'matched' | 'unmatched';
+  itemName: string;
+  quantity: number;
+  unitPrice: number;
+  totalAmount: number;
+  lineItemDiscount: number;
+  matchedItemId: string | null;
+  status: 'matched' | 'unmatched';
 };
 
 export type InvoiceExtractionResult = {
-    isInvoiceFound: boolean;
-    results: {
-        invoiceTitle: string;
-        imageIds: string[];
-        items: ExtractedInvoiceItem[];
-        totalDiscount: number;
-    }[];
+  isInvoiceFound: boolean;
+  results: {
+    invoiceTitle: string;
+    imageIds: string[];
+    items: ExtractedInvoiceItem[];
+    totalDiscount: number;
+  }[];
 };
 
 // --- Report System Types ---
@@ -752,7 +766,7 @@ export type ReportComment = {
   content: string;
   createdAt: string | Timestamp;
   /** @deprecated Use media instead */
-  photos?: string[]; 
+  photos?: string[];
   media?: MediaAttachment[];
 };
 
@@ -836,33 +850,33 @@ export type MonthlySalarySheet = {
 
 // --- Monthly Tasks ---
 
-export type TaskSchedule = 
+export type TaskSchedule =
   | {
-      type: 'weekly';
-      daysOfWeek: number[]; // 0=Sun, 1=Mon, ..., 6=Sat
-    }
+    type: 'weekly';
+    daysOfWeek: number[]; // 0=Sun, 1=Mon, ..., 6=Sat
+  }
   | {
-      type: 'interval';
-      intervalDays: number; // e.g., 3 for "every 3 days"
-      startDate: string; // YYYY-MM-DD, the anchor date for the interval
-    }
+    type: 'interval';
+    intervalDays: number; // e.g., 3 for "every 3 days"
+    startDate: string; // YYYY-MM-DD, the anchor date for the interval
+  }
   | {
-      type: 'monthly_date';
-      daysOfMonth: number[]; // e.g., [1, 15] for 1st and 15th of the month
-    }
+    type: 'monthly_date';
+    daysOfMonth: number[]; // e.g., [1, 15] for 1st and 15th of the month
+  }
   | {
-      type: 'monthly_weekday';
-      // e.g., [{ week: 1, day: 1 }] for the first Monday of the month
-      // e.g., [{ week: -1, day: 5 }] for the last Friday of the month
-      occurrences: { week: number; day: number }[]; 
-    }
+    type: 'monthly_weekday';
+    // e.g., [{ week: 1, day: 1 }] for the first Monday of the month
+    // e.g., [{ week: -1, day: 5 }] for the last Friday of the month
+    occurrences: { week: number; day: number }[];
+  }
   | {
-      type: 'random';
-      period: 'week' | 'month' | 'custom_days';
-      count: number; // How many times per period
-      customDays?: number; // For 'custom_days' period
-      excludeWeekends?: boolean;
-    };
+    type: 'random';
+    period: 'week' | 'month' | 'custom_days';
+    count: number; // How many times per period
+    customDays?: number; // For 'custom_days' period
+    excludeWeekends?: boolean;
+  };
 
 export type MonthlyTask = {
   id: string;
@@ -897,7 +911,7 @@ export type MonthlyTaskAssignment = {
   taskName: string;
   description: string;
   assignedDate: string; // YYYY-MM-DD
-  
+
   // New structure for collaborative tasks
   responsibleUsersByShift: {
     shiftId: string;

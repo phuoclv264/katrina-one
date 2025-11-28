@@ -34,7 +34,7 @@ import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, Inventor
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories, initialIncidentCategories, initialProducts, initialGlobalUnits } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
-import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, addDays, parseISO, isPast, isWithinInterval } from 'date-fns';
+import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, addDays, parseISO, isPast, isWithinInterval, isSameMonth } from 'date-fns';
 import { hasTimeConflict, getActiveShifts } from './schedule-utils';
 import isEqual from 'lodash.isequal';
 import * as scheduleStore from './schedule-store';
@@ -93,6 +93,54 @@ export const dataStore = {
     ...scheduleStore, // Spread all functions from schedule-store
     ...attendanceStore, // Spread all functions from attendance-store
     ...cashierStore, // Spread all functions from cashier-store
+    
+    // --- Firebase Push Notifications ---
+    async saveFcmToken(userId: string, token: string): Promise<void> {
+        if (!userId || !token) return;
+        const userRef = doc(db, 'users', userId);
+        try {
+            // Use arrayUnion to add the token only if it's not already there.
+            await updateDoc(userRef, {
+                fcmTokens: arrayUnion(token)
+            });
+        } catch (error) {
+            // If the document doesn't exist yet (e.g., race condition on signup), create it.
+            console.error("Error saving FCM token, trying to set doc: ", error);
+            try {
+                await setDoc(userRef, { fcmTokens: [token] }, { merge: true });
+            } catch (set_error) {
+                console.error("Failed to set doc with FCM token: ", set_error);
+            }
+        }
+    },
+
+    async markNotificationAsRead(notificationId: string, userId: string): Promise<void> {
+        const docRef = doc(db, 'notifications', notificationId);
+        const fieldPath = `isRead.${userId}`;
+        await updateDoc(docRef, {
+            [fieldPath]: true
+        });
+    },
+    
+    async markAllNotificationsAsRead(userId: string): Promise<void> {
+        const notificationsQuery = query(
+            collection(db, 'notifications'),
+            where(`isRead.${userId}`, '!=', true)
+        );
+    
+        const snapshot = await getDocs(notificationsQuery);
+        if (snapshot.empty) {
+            return;
+        }
+    
+        const batch = writeBatch(db);
+        const fieldPath = `isRead.${userId}`;
+        snapshot.docs.forEach(docSnap => {
+            batch.update(docSnap.ref, { [fieldPath]: true });
+        });
+    
+        await batch.commit();
+    },
     
     // --- Monthly Tasks ---
     subscribeToMonthlyTasks(callback: (tasks: MonthlyTask[]) => void): () => void {
@@ -1774,3 +1822,4 @@ export const dataStore = {
     });
   },
 };
+    
