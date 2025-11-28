@@ -12,7 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import CheckInCard from '../_components/check-in-card';
 import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
-import TaskReportingCard from '../monthly-tasks/_components/task-reporting-card';
+import TodaysTasksCard from '../monthly-tasks/_components/task-reporting-card';
 import type { MonthlyTaskAssignment, ShiftTemplate } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { format } from 'date-fns';
@@ -64,14 +64,7 @@ export default function BartenderDashboardPage() {
       <div className="w-full max-w-md space-y-6">
         {showCheckInCardOnTop && <CheckInCard />}
 
-        {isCheckedIn && todaysMonthlyAssignments.length > 0 && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-center text-primary">Công việc định kỳ hôm nay</h2>
-            {todaysMonthlyAssignments.map(assignment => (
-              <TaskReportingCard key={`${assignment.taskId}-${assignment.assignedDate}`} assignment={assignment} shiftTemplates={shiftTemplates} />
-            ))}
-          </div>
-        )}
+        {isCheckedIn && todaysMonthlyAssignments.length > 0 && <TodaysTasksCard assignments={todaysMonthlyAssignments} shiftTemplates={shiftTemplates} />}
 
         <Card>
           <CardHeader>
