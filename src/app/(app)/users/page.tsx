@@ -1,15 +1,16 @@
 
 
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useRouter } from 'nextjs-toploader/app';
 import { dataStore } from '@/lib/data-store';
 import { toast } from 'react-hot-toast';
 import type { ManagedUser, UserRole, AppSettings } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -18,10 +19,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users2, Trash2, Edit, Loader2, Settings } from 'lucide-react';
+import { Users2, Trash2, Edit, Loader2, Settings, StickyNote, Search } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { UserMultiSelect } from '@/components/user-multi-select';
 import { Badge } from '@/components/ui/badge';
+import { normalizeSearchString } from '@/lib/utils';
 
 
 function EditUserDialog({ user, onSave, onOpenChange, open }: { user: ManagedUser, onSave: (data: Partial<ManagedUser>) => void, onOpenChange: (open: boolean) => void, open: boolean }) {
@@ -115,10 +117,12 @@ function EditUserDialog({ user, onSave, onOpenChange, open }: { user: ManagedUse
 export default function UsersPage() {
     const { user, loading: authLoading } = useAuth();
     const router = useRouter();
+    const isMobile = useIsMobile();
     const [users, setUsers] = useState<ManagedUser[]>([]);
     const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [filterText, setFilterText] = useState('');
     
   const [refreshTrigger, setRefreshTrigger] = useState(0);
     const handleDataRefresh = useCallback(() => {
@@ -203,6 +207,17 @@ export default function UsersPage() {
         toast.success(`Đã ${isEnabled ? 'bật' : 'tắt'} tính năng đăng ký. Người dùng mới ${isEnabled ? 'có thể' : 'không thể'} tạo tài khoản.`);
     }
     
+    const filteredUsers = useMemo(() => {
+        if (!filterText) {
+            return users;
+        }
+        const normalizedFilter = normalizeSearchString(filterText);
+        return users.filter(u => 
+            normalizeSearchString(u.displayName).includes(normalizedFilter) ||
+            (u.email && normalizeSearchString(u.email).includes(normalizedFilter))
+        );
+    }, [users, filterText]);
+
     if(isLoading || authLoading) {
         return <LoadingPage />;
     }
@@ -242,66 +257,140 @@ export default function UsersPage() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Danh sách người dùng</CardTitle>
-                    <CardDescription>
-                        Hiện có {users.length} tài khoản trong hệ thống.
-                    </CardDescription>
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <CardTitle>Danh sách người dùng</CardTitle>
+                            <CardDescription>
+                                Hiện có {filteredUsers.length} trên tổng số {users.length} tài khoản trong hệ thống.
+                            </CardDescription>
+                        </div>
+                        <div className="relative w-full sm:max-w-xs">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input placeholder="Lọc theo tên hoặc email..." className="pl-8 w-full" value={filterText} onChange={(e) => setFilterText(e.target.value)} />
+                        </div>
+                    </div>
                 </CardHeader>
                 <CardContent>
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Tên hiển thị</TableHead>
-                                    <TableHead>Email</TableHead>
-                                    <TableHead>Vai trò</TableHead>
-                                    <TableHead>Ghi chú</TableHead>
-                                    <TableHead className="text-right">Hành động</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {users.map((u) => (
-                                    <TableRow key={u.uid} className={isProcessing ? 'opacity-50 pointer-events-none' : ''}>
-                                        <TableCell className="font-medium">{u.displayName}</TableCell>
-                                        <TableCell className="text-muted-foreground">{u.email}</TableCell>
-                                        <TableCell>
-                                            <div className='flex flex-wrap gap-1'>
+                    {isMobile ? (
+                        <div className="space-y-4">
+                            {filteredUsers.length > 0 ? (
+                                filteredUsers.map((u) => (
+                                <Card key={u.uid} className={isProcessing ? 'opacity-50 pointer-events-none' : ''}>
+                                    <CardHeader>
+                                        <CardTitle>{u.displayName}</CardTitle>
+                                        <CardDescription>{u.email}</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="space-y-3">
+                                        <div>
+                                            <Label className="text-xs text-muted-foreground">Vai trò</Label>
+                                            <div className='flex flex-wrap gap-1 mt-1'>
                                                 <Badge>{u.role}</Badge>
                                                 {u.secondaryRoles?.map(role => <Badge key={role} variant="secondary">{role}</Badge>)}
                                             </div>
-                                        </TableCell>
-                                        <TableCell className="text-sm text-muted-foreground italic max-w-xs truncate">{u.notes || '...'}</TableCell>
-                                        <TableCell className="text-right">
-                                            <Button variant="ghost" size="icon" className="mr-2" onClick={() => handleEditClick(u)} disabled={isProcessing}>
-                                                <Edit className="h-4 w-4" />
-                                                <span className="sr-only">Sửa</span>
-                                            </Button>
-                                            <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" disabled={u.uid === user?.uid || isProcessing}>
-                                                        <Trash2 className="h-4 w-4" />
-                                                        <span className="sr-only">Xóa</span>
-                                                    </Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle>
-                                                        <AlertDialogDescription>
-                                                            Hành động này sẽ xóa thông tin của người dùng <span className="font-bold">{u.displayName}</span> khỏi hệ thống. Người dùng này sẽ không thể đăng nhập được nữa. Hành động này không thể được hoàn tác.
-                                                        </AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={() => handleDeleteUser(u)}>Xác nhận Xóa</AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
-                                        </TableCell>
+                                        </div>
+                                        {u.notes && (
+                                            <div>
+                                                <Label className="text-xs text-muted-foreground">Ghi chú</Label>
+                                                <p className="text-sm italic text-muted-foreground flex items-start gap-2 mt-1">
+                                                    <StickyNote className="h-4 w-4 mt-0.5 shrink-0" />
+                                                    <span>{u.notes}</span>
+                                                </p>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                    <CardFooter className="flex justify-end gap-2">
+                                        <Button variant="outline" size="sm" onClick={() => handleEditClick(u)} disabled={isProcessing}>
+                                            <Edit className="mr-2 h-4 w-4" /> Sửa
+                                        </Button>
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="destructive" size="sm" disabled={u.uid === user?.uid || isProcessing}>
+                                                    <Trash2 className="mr-2 h-4 w-4" /> Xóa
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        Hành động này sẽ xóa thông tin của người dùng <span className="font-bold">{u.displayName}</span> khỏi hệ thống. Người dùng này sẽ không thể đăng nhập được nữa. Hành động này không thể được hoàn tác.
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleDeleteUser(u)}>Xác nhận Xóa</AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </CardFooter>
+                                </Card>
+                            ))
+                            ) : (
+                                <div className="text-center py-16 text-muted-foreground">
+                                    <p>Không tìm thấy người dùng nào.</p>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Tên hiển thị</TableHead>
+                                        <TableHead>Email</TableHead>
+                                        <TableHead>Vai trò</TableHead>
+                                        <TableHead>Ghi chú</TableHead>
+                                        <TableHead className="text-right">Hành động</TableHead>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </div>
+                                </TableHeader>
+                                <TableBody>
+                                    {filteredUsers.map((u) => (
+                                        <TableRow key={u.uid} className={isProcessing ? 'opacity-50 pointer-events-none' : ''}>
+                                            <TableCell className="font-medium">{u.displayName}</TableCell>
+                                            <TableCell className="text-muted-foreground">{u.email}</TableCell>
+                                            <TableCell>
+                                                <div className='flex flex-wrap gap-1'>
+                                                    <Badge>{u.role}</Badge>
+                                                    {u.secondaryRoles?.map(role => <Badge key={role} variant="secondary">{role}</Badge>)}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-sm text-muted-foreground italic max-w-xs truncate">{u.notes || '...'}</TableCell>
+                                            <TableCell className="text-right">
+                                                <Button variant="ghost" size="icon" className="mr-2" onClick={() => handleEditClick(u)} disabled={isProcessing}>
+                                                    <Edit className="h-4 w-4" />
+                                                    <span className="sr-only">Sửa</span>
+                                                </Button>
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" disabled={u.uid === user?.uid || isProcessing}>
+                                                            <Trash2 className="h-4 w-4" />
+                                                            <span className="sr-only">Xóa</span>
+                                                        </Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle>
+                                                            <AlertDialogDescription>
+                                                                Hành động này sẽ xóa thông tin của người dùng <span className="font-bold">{u.displayName}</span> khỏi hệ thống. Người dùng này sẽ không thể đăng nhập được nữa. Hành động này không thể được hoàn tác.
+                                                            </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                            <AlertDialogAction onClick={() => handleDeleteUser(u)}>Xác nhận Xóa</AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                    {filteredUsers.length === 0 && (
+                                        <TableRow>
+                                            <TableCell colSpan={5} className="h-24 text-center">Không tìm thấy người dùng nào.</TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    )}
                     {isProcessing && <div className="absolute inset-0 bg-white/70 dark:bg-black/70 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin"/></div>}
                 </CardContent>
             </Card>

@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShieldX, Plus, FilterX, BadgeInfo, Settings } from 'lucide-react';
+import { ShieldX, Plus, FilterX, BadgeInfo, Settings, UserSearch } from 'lucide-react';
 import type { ManagedUser, Violation, ViolationCategory, ViolationUser, ViolationCategoryData, MediaAttachment } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
@@ -21,6 +21,7 @@ import ViolationInfoDialog from './_components/violation-info-dialog';
 import { ViolationDialog } from './_components/violation-dialog';
 import { ViolationCard } from './_components/violation-card';
 import { generateSmartAbbreviations } from '@/lib/violations-utils';
+import { UserMultiSelect } from '@/components/user-multi-select';
 import { useRouter } from 'nextjs-toploader/app';
 
 /**
@@ -54,7 +55,7 @@ export default function ViolationsPage() {
   const [isSelfConfessMode, setIsSelfConfessMode] = useState(false);
   const [violationToEdit, setViolationToEdit] = useState<Violation | null>(null);
   
-  const [filterUserId, setFilterUserId] = useState<string | null>(null);
+  const [filterUsers, setFilterUsers] = useState<ManagedUser[]>([]);
   const [filterCategoryName, setFilterCategoryName] = useState<string>('');
 
   const [isPenaltyCameraOpen, setIsPenaltyCameraOpen] = useState(false);
@@ -260,14 +261,15 @@ export default function ViolationsPage() {
 
   const filteredViolations = useMemo(() => {
       let result = violations;
-      if (filterUserId) {
-        result = result.filter(v => v.users.some(vu => vu.id === filterUserId));
+      if (filterUsers.length > 0) {
+        const filterUserIds = new Set(filterUsers.map(u => u.uid));
+        result = result.filter(v => v.users.some(vu => filterUserIds.has(vu.id)));
       }
       if(filterCategoryName) {
           result = result.filter(v => v.categoryName === filterCategoryName);
       }
       return result;
-  }, [violations, filterUserId, filterCategoryName]);
+  }, [violations, filterUsers, filterCategoryName]);
 
   const groupedViolations = useMemo(() => {
       return filteredViolations.reduce((acc, violation) => {
@@ -354,17 +356,12 @@ export default function ViolationsPage() {
                     </div>
                 </div>
                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
-                    <Select value={filterUserId || 'all'} onValueChange={(val) => setFilterUserId(val === 'all' ? null : val)}>
-                        <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Lọc theo nhân viên..."/>
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Tất cả nhân viên</SelectItem>
-                            {displayUsers.map(u => (
-                                <SelectItem key={u.uid} value={u.uid}>{u.displayName}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    <UserMultiSelect
+                        users={displayUsers}
+                        selectedUsers={filterUsers}
+                        onChange={setFilterUsers}
+                        className="w-full"
+                    />
                     <ViolationCategoryCombobox
                         categories={categoryData.list}
                         value={filterCategoryName}

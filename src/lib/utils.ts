@@ -36,3 +36,18 @@ export function getReportLink(date: string, key: string): string {
       return `/reports`; // Fallback to the main reports page
   }
 }
+
+export function removeVietnameseTones(str: string) {
+  return str
+    .normalize("NFD")               // Tách ký tự gốc và dấu
+    .replace(/[\u0300-\u036f]/g, "") // Loại bỏ dấu
+    .replace(/đ/g, "d")             // Thay thế ký tự đặc biệt
+    .replace(/Đ/g, "D")
+    .replace(/[^\w\s]/g, "")        // Loại bỏ ký tự đặc biệt (tùy chọn)
+    .replace(/\s+/g, " ")           // Gom nhiều khoảng trắng thành 1
+    .trim();
+}
+
+export function normalizeSearchString(str: string) {
+  return removeVietnameseTones(str).toLowerCase().trim();
+}

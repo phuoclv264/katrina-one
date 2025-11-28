@@ -2,8 +2,8 @@
 "use client"
 
 import * as React from "react"
-import { Check, ChevronsUpDown, X } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Check, ChevronsUpDown } from "lucide-react"
+import { cn, normalizeSearchString } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
   Command,
@@ -34,6 +34,7 @@ const roleOrder: Record<UserRole, number> = {
   'Pha chế': 2,
   'Quản lý': 3,
   'Chủ nhà hàng': 4,
+  "Thu ngân": 0
 };
 
 
@@ -109,8 +110,14 @@ export function UserMultiSelect({
           </Button>
         </div>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" position="popper"  onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
-        <Command>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
+        <Command
+          filter={(value, search) => {
+            const normalizedValue = normalizeSearchString(value)
+            const normalizedSearch = normalizeSearchString(search)
+            return normalizedValue.includes(normalizedSearch) ? 1 : 0
+          }}
+        >
           <CommandInput placeholder="Tìm nhân viên..." />
           <CommandList>
             <CommandEmpty>Không tìm thấy nhân viên.</CommandEmpty>

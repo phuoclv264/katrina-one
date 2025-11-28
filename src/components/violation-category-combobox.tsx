@@ -61,7 +61,12 @@ export function ViolationCategoryCombobox({
 
   const handleAddNew = () => {
     if (inputValue && !categories.find(c => c.name.toLowerCase() === inputValue.toLowerCase())) {
-        const newCategory: ViolationCategory = { id: `cat-${Date.now()}`, name: inputValue, severity: 'low', fineAmount: 0 };
+        const newCategory: ViolationCategory = {
+          id: `cat-${Date.now()}`, name: inputValue, severity: 'low', fineAmount: 0,
+          calculationType: "fixed",
+          finePerUnit: null,
+          unitLabel: null
+        };
         const newCategories = [...categories, newCategory].sort((a, b) => a.name.localeCompare(b.name, 'vi'));
         onCategoriesChange(newCategories);
         onChange(newCategory.name);
@@ -110,7 +115,7 @@ export function ViolationCategoryCombobox({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" position="popper"  onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
         <Command>
           <CommandInput 
             placeholder={canManage ? "Tìm hoặc thêm mới..." : "Tìm kiếm..."}
