@@ -22,7 +22,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter }
 
 import isEqual from 'lodash.isequal';
 import { toast } from 'react-hot-toast';
-import { cn } from '@/lib/utils';
+import { cn, normalizeSearchString } from '@/lib/utils';
 import { UnitCombobox } from '@/components/unit-combobox';
 
 
@@ -162,14 +162,14 @@ function AddIngredientDialog({
   }
 
   const filteredItems = useMemo(() => {
-    const searchLower = search.toLowerCase();
+    const normalizedSearchText = normalizeSearchString(search);
     if (ingredientSource === 'inventory') {
-      return inventoryList.filter(item => item.name.toLowerCase().includes(searchLower));
+      return inventoryList.filter(item => normalizeSearchString(item.name).includes(normalizedSearchText));
     } else {
       return allProducts.filter(p =>
         p.id !== currentProductId &&
         p.isIngredient === true &&
-        p.name.toLowerCase().includes(searchLower)
+        normalizeSearchString(p.name).includes(normalizedSearchText)
       );
     }
   }, [search, ingredientSource, inventoryList, allProducts, currentProductId]);

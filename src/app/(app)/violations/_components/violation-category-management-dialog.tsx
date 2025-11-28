@@ -29,7 +29,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { v4 as uuidv4 } from 'uuid';
-import { cn } from '@/lib/utils';
+import { cn, normalizeSearchString } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -167,7 +167,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
   
   const handleAddNewCategory = () => {
     if (newCategoryName.trim() === '') return;
-    if (categoryData.list.some(c => c.name.toLowerCase() === newCategoryName.trim().toLowerCase())) {
+    if (categoryData.list.some(c => normalizeSearchString(c.name) === normalizeSearchString(newCategoryName))) {
         toast.error('Loại vi phạm này đã tồn tại.');
         return;
     }

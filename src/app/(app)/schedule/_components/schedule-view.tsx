@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'nextjs-toploader/app';
 import { dataStore } from '@/lib/data-store';
@@ -44,6 +44,8 @@ import ShiftInfoDialog from './shift-info-dialog';
 export default function ScheduleView() {
     const { user, loading: authLoading } = useAuth();
     const router = useRouter();
+    const routerRef = useRef(router);
+    routerRef.current = router;
 
     const [currentDate, setCurrentDate] = useState(new Date());
     const [schedule, setSchedule] = useState<Schedule | null>(null);
@@ -77,11 +79,11 @@ export default function ScheduleView() {
     useEffect(() => {
         if (authLoading) return;
         if (!user) {
-            router.replace('/');
+            routerRef.current.replace('/');
             return;
         }
         if (user.role === 'Chủ nhà hàng') {
-            router.replace('/shift-scheduling');
+            routerRef.current.replace('/shift-scheduling');
             return;
         }
 
@@ -146,7 +148,7 @@ export default function ScheduleView() {
             unsubNotifications();
             unsubUsers();
         };
-    }, [user, authLoading, router, weekId, canManage]);
+    }, [user, authLoading, weekId, canManage]);
 
     const handleDateChange = (direction: 'next' | 'prev') => {
         setCurrentDate(current => addDays(current, direction === 'next' ? 7 : -7));

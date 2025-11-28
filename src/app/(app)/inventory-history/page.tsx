@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
+import { cn, normalizeSearchString } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 
 type CombinedHistoryEntry = {
@@ -233,7 +233,7 @@ function InventoryHistoryView() {
 
         // 4. Filter
         let filtered = processedHistory.filter(entry => {
-             if (filterItemName && !entry.itemName.toLowerCase().includes(filterItemName.toLowerCase())) {
+             if (filterItemName && !normalizeSearchString(entry.itemName).includes(normalizeSearchString(filterItemName))) {
                 return false;
             }
             if (filterSupplier && entry.itemSupplier !== filterSupplier) {

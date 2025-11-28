@@ -16,7 +16,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import ProductTools from './_components/product-tools';
 import { v4 as uuidv4 } from 'uuid';
 import { Checkbox } from '@/components/ui/checkbox';
-import { cn } from '@/lib/utils';
+import { cn, normalizeSearchString } from '@/lib/utils';
 import isEqual from 'lodash.isequal';
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -96,7 +96,7 @@ export default function ProductManagementPage() {
     if (!products) return [];
     let list = products;
     if (filter) {
-      list = list.filter(product => product.name.toLowerCase().includes(filter.toLowerCase()));
+      list = list.filter(product => normalizeSearchString(product.name).includes(normalizeSearchString(filter)));
     }
     if (categoryFilter !== 'all') {
       list = list.filter(product => product.category === categoryFilter);
@@ -152,7 +152,7 @@ export default function ProductManagementPage() {
       let updatedProductList = [...products, ...newProducts];
 
       productsToUpdate.forEach(updatedProduct => {
-          const index = updatedProductList.findIndex(p => p.name.toLowerCase() === updatedProduct.name.toLowerCase());
+          const index = updatedProductList.findIndex(p => normalizeSearchString(p.name) === normalizeSearchString(updatedProduct.name));
           if (index !== -1) {
               const originalId = updatedProductList[index].id;
               updatedProductList[index] = { 

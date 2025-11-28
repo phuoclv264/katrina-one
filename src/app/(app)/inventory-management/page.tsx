@@ -13,7 +13,7 @@ import { LoadingPage } from '@/components/loading/LoadingPage';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'nextjs-toploader/app';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { cn } from '@/lib/utils';
+import { cn, normalizeSearchString } from '@/lib/utils';
 import isEqual from 'lodash.isequal';
 import InventoryTools from './_components/inventory-tools';
 import ItemEditPopover from './_components/item-edit-popover';
@@ -78,7 +78,7 @@ export default function InventoryManagementPage() {
     if (!inventoryList) return [];
     let list = inventoryList;
     if (filter) {
-        list = list.filter(item => item.name.toLowerCase().includes(filter.toLowerCase()));
+        list = list.filter(item => normalizeSearchString(item.name).includes(normalizeSearchString(filter)));
     }
     if (categoryFilter !== 'all') {
         list = list.filter(item => item.category === categoryFilter);
