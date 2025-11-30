@@ -17,7 +17,6 @@ export default function NotificationHandler() {
   }, []);
 
   useEffect(() => {
-    console.log("KrisLee user: " + user);
     if (user && (!lastUserObject.current || lastUserObject.current.uid !== user.uid) && Capacitor.isNativePlatform()) {
       lastUserObject.current = user;
 

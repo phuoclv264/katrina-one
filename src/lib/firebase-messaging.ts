@@ -1,4 +1,3 @@
-
 'use client';
 
 import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging';
@@ -8,16 +7,13 @@ import { toast } from 'react-hot-toast';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 import type { Notification } from './types';
+import { Device } from '@capacitor/device';
 
 const addPushNotificationListeners = async (userId: string, onNotificationReceived: (notification: Notification) => void) => {
-    console.log("KrisLee addPushNotificationListeners");
-
     await PushNotifications.addListener('registration', async token => {
         console.log('KrisLee Push registration success, token: ', token.value);
-        await dataStore.saveFcmToken(userId, token.value);
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('fcm_token', token.value);
-        }
+        const deviceId = await Device.getId();
+        await dataStore.saveFcmToken(userId, deviceId.identifier, token.value);
     });
 
     await PushNotifications.addListener('registrationError', err => {
@@ -79,10 +75,10 @@ export const unregisterNotifications = async (userId: string) => {
     if (Capacitor.isNativePlatform()) {
         try {
             if (typeof window !== 'undefined') {
-                const token = localStorage.getItem('fcm_token');
-                if (userId && token) {
-                    await dataStore.removeFcmToken(userId, token);
-                    localStorage.removeItem('fcm_token');
+                const device = await Device.getId();
+                if (userId) {
+                    console.log("KrisLee unregistering for notifications, deviceId " + device.identifier)
+                    await dataStore.removeFcmToken(userId, device.identifier);
                 }
             }
             await PushNotifications.removeAllListeners();

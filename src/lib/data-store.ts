@@ -27,6 +27,8 @@ import {
   arrayUnion,
   arrayRemove,
   documentId,
+  FieldValue,
+  deleteField,
 } from 'firebase/firestore';
 import { DateRange } from 'react-day-picker';
 import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebase/storage'; // WhistleblowingReport is imported here
@@ -95,26 +97,62 @@ export const dataStore = {
     ...cashierStore, // Spread all functions from cashier-store
     
     // --- Firebase Push Notifications ---
-    async saveFcmToken(userId: string, token: string): Promise<void> {
-        if (!userId || !token) return;
+    async saveFcmToken(userId: string, deviceId: string, token: string): Promise<void> {
+        if (!userId || !deviceId || !token) return;
         const userRef = doc(db, 'users', userId);
         try {
-            // Use arrayUnion to add the token only if it's not already there.
+            const userDoc = await getDoc(userRef);
+            if (userDoc.exists()) {
+              const fcmTokens = userDoc.data().fcmTokens;
+              
+              // check if fcmTokens is a array, then remove the fcmTokens field
+              if (Array.isArray(fcmTokens)) {
+                await updateDoc(userRef, {
+                  fcmTokens: deleteField()
+                });
+              }
+            }
+            // Use dot notation to set or update the token for a specific device ID.
+            // This will store fcmTokens as a map: { deviceId1: token1, deviceId2: token2 }
             await updateDoc(userRef, {
-                fcmTokens: arrayUnion(token)
+                [`fcmTokens.${deviceId}`]: token
             });
         } catch (error) {
-            console.error("Error saving FCM token, trying to set doc: ", error);
+            console.error("Error saving FCM token with dot notation, trying merge set: ", error);
         }
     },
     
-    async removeFcmToken(userId: string, token: string): Promise<void> {
-        if (!userId || !token) return;
+    async removeFcmToken(userId: string, deviceId: string): Promise<void> {
+        if (!userId || !deviceId) return;
         const userRef = doc(db, 'users', userId);
         try {
-            await updateDoc(userRef, {
-                fcmTokens: arrayRemove(token)
-            });
+            // get fcmTokens object then remove the deviceId field, then update fcmTokens field
+            const userDoc = await getDoc(userRef);
+            if (userDoc.exists()) {
+                const fcmTokens = userDoc.data().fcmTokens;
+                if (fcmTokens && typeof fcmTokens === 'object' && fcmTokens[deviceId]) {
+                    // If fcmTokens is an object and contains the deviceId, proceed to delete
+                    console.log("KrisLee fcmTokens: " + fcmTokens)
+                    delete fcmTokens[deviceId];
+                    console.log("KrisLee fcmTokens: " + fcmTokens)
+                    await updateDoc(userRef, {
+                        fcmTokens: fcmTokens
+                    });
+                    return;
+                } else if (Array.isArray(fcmTokens)) {
+                    // If fcmTokens is an array, remove the entire field (legacy format)
+                    await updateDoc(userRef, {
+                        fcmTokens: deleteField()
+                    });
+                    return; // Exit after handling legacy array
+                } else {
+                    // If fcmTokens doesn't exist or doesn't contain the deviceId, nothing to do
+                    return;
+                }
+            } else {
+                // User document does not exist, nothing to do
+                return;
+            }
         } catch (error) {
             console.error("Error removing FCM token: ", error);
         }
