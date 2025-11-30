@@ -34,7 +34,7 @@ import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, Inventor
 import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories, initialIncidentCategories, initialProducts, initialGlobalUnits } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
-import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, addDays, parseISO, isPast, isWithinInterval } from 'date-fns';
+import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, addDays, parseISO, isPast, isWithinInterval, isSameMonth } from 'date-fns';
 import { hasTimeConflict, getActiveShifts } from './schedule-utils';
 import isEqual from 'lodash.isequal';
 import * as scheduleStore from './schedule-store';
@@ -93,6 +93,32 @@ export const dataStore = {
     ...scheduleStore, // Spread all functions from schedule-store
     ...attendanceStore, // Spread all functions from attendance-store
     ...cashierStore, // Spread all functions from cashier-store
+    
+    // --- Firebase Push Notifications ---
+    async saveFcmToken(userId: string, token: string): Promise<void> {
+        if (!userId || !token) return;
+        const userRef = doc(db, 'users', userId);
+        try {
+            // Use arrayUnion to add the token only if it's not already there.
+            await updateDoc(userRef, {
+                fcmTokens: arrayUnion(token)
+            });
+        } catch (error) {
+            console.error("Error saving FCM token, trying to set doc: ", error);
+        }
+    },
+    
+    async removeFcmToken(userId: string, token: string): Promise<void> {
+        if (!userId || !token) return;
+        const userRef = doc(db, 'users', userId);
+        try {
+            await updateDoc(userRef, {
+                fcmTokens: arrayRemove(token)
+            });
+        } catch (error) {
+            console.error("Error removing FCM token: ", error);
+        }
+    },
     
     // --- Monthly Tasks ---
     subscribeToMonthlyTasks(callback: (tasks: MonthlyTask[]) => void): () => void {
@@ -1774,3 +1800,4 @@ export const dataStore = {
     });
   },
 };
+    

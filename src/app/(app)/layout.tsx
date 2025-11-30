@@ -12,6 +12,7 @@ import { LightboxProvider } from '@/contexts/lightbox-context';
 import { BackButtonHandler } from '@/components/back-button-handler';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBar, Style } from '@capacitor/status-bar';
+import NotificationHandler from '@/components/notification-handler';
 
 export default function AppLayout({
   children,
@@ -37,6 +38,7 @@ export default function AppLayout({
           <AppSidebar />
         </Sidebar>
         <BackButtonHandler />
+        <NotificationHandler />
         <SidebarInset>
           <header className="safe-top sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:px-6">
             <div>
