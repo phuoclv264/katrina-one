@@ -31,7 +31,6 @@ import {
 import { DateRange } from 'react-day-picker';
 import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebase/storage'; // WhistleblowingReport is imported here
 import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission, ViolationUserCost, MediaAttachment, CashCount, ExtractHandoverDataOutput, AttendanceRecord, MonthlyTask, MonthlyTaskAssignment } from './types';
-import { tasksByShift as initialTasksByShift, bartenderTasks as initialBartenderTasks, inventoryList as initialInventoryList, suppliers as initialSuppliers, initialViolationCategories, defaultTimeSlots, initialOtherCostCategories, initialIncidentCategories, initialProducts, initialGlobalUnits } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
 import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, addDays, parseISO, isPast, isWithinInterval, isSameMonth } from 'date-fns';
@@ -43,6 +42,7 @@ import * as idbKeyvalStore from './idb-keyval-store';
 import * as cashierStore from './cashier-store';
 import { deleteFileByUrl, uploadFile } from './data-store-helpers';
 import { error } from 'console';
+import { InventoryItemRow } from '@/app/(app)/bartender/inventory/_components/inventory-item-row';
 
 
 const getTodaysDateKey = () => {
@@ -625,7 +625,7 @@ export const dataStore = {
             units: (item.units && item.units.length > 0) ? item.units : [{ name: item.baseUnit || (item as any).unit || 'cái', isBaseUnit: true, conversionRate: 1 }]
         }));
     }
-    return initialInventoryList;
+    return [] as InventoryItem[];
   },
 
   subscribeToInventoryList(callback: (items: InventoryItem[]) => void): () => void {
@@ -678,13 +678,14 @@ export const dataStore = {
     });
     return unsubscribe;
   },
+
   async getSuppliers(): Promise<string[]> {
     const docRef = doc(db, 'app-data', 'suppliers');
     const docSnap = await getDoc(docRef);
     if(docSnap.exists()){
       return docSnap.data().list as string[];
     }
-    return initialSuppliers;
+    return [] as string[];
   },
 
   async updateSuppliers(newSuppliers: string[]) {
@@ -1410,19 +1411,22 @@ export const dataStore = {
   subscribeToViolationCategories(callback: (data: ViolationCategoryData) => void): () => void {
     const docRef = doc(db, 'app-data', 'violationCategories');
     const defaultData: ViolationCategoryData = { 
-        list: initialViolationCategories, 
-        generalRules: [],
+        list: [] as ViolationCategory[], 
+        generalRules: [] as FineRule[],
         generalNote: '',
     };
     const unsubscribe = onSnapshot(docRef, async (docSnap) => {
         if(docSnap.exists()) {
             const data = docSnap.data();
             callback({
-                list: (data.list || initialViolationCategories) as ViolationCategory[],
+                list: (data.list || defaultData.list) as ViolationCategory[],
                 generalRules: (data.generalRules || []) as FineRule[],
             });
         } else {
-            callback({} as ViolationCategoryData);
+            callback({
+              list: defaultData.list,
+              generalRules: defaultData.generalRules,
+            } as ViolationCategoryData);
         }
     }, (error) => {
         console.warn(`[Firestore Read Error] Could not read violation categories: ${error.code}`);
@@ -1437,11 +1441,11 @@ export const dataStore = {
      if (docSnap.exists()) {
         const data = docSnap.data();
         return {
-            list: (data.list || initialViolationCategories) as ViolationCategory[],
+            list: (data.list || []) as ViolationCategory[],
             generalRules: (data.generalRules || []) as FineRule[],
         };
     }
-    return { list: initialViolationCategories, generalRules: [] };
+    return { list: [] as ViolationCategory[], generalRules: [] };
   },
 
   async updateViolationCategories(newData: Partial<ViolationCategoryData>): Promise<void> {
