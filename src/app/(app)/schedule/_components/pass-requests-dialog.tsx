@@ -119,7 +119,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
 
     const metadataText = useMemo(() => {
         if (status === 'resolved' && resolvedBy && resolvedAt) {
-            return `Giải quyết bởi ${resolvedBy.userName} lúc ${format(parseISO(resolvedAt), 'HH:mm')}`;
+            return `Giải quyết bởi ${resolvedBy.userName} lúc ${format(resolvedAt as string, 'HH:mm')}`;
         }
         if (status === 'cancelled' && payload.cancellationReason) {
             if (payload.cancellationReason === 'Hủy bởi quản lý' && resolvedBy) {
@@ -471,7 +471,7 @@ export default function PassRequestsDialog({
   const handleDeleteFromHistory = async (notificationId: string) => {
     if (currentUser?.role !== 'Chủ nhà hàng') return;
     try {
-        await dataStore.deleteNotification(notificationId);
+        await dataStore.deletePassRequestNotification(notificationId);
         toast({
             title: "Thành công",
             description: "Đã xóa yêu cầu khỏi lịch sử."
