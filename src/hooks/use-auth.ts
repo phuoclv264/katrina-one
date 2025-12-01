@@ -7,6 +7,7 @@ import { doc, setDoc, getDoc, updateDoc, getDocFromCache } from 'firebase/firest
 import { auth, db } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
 import { dataStore } from '@/lib/data-store';
+import { unregisterNotifications } from '@/lib/firebase-messaging';
 import { useDataRefresher } from './useDataRefresher';
 import { isUserOnActiveShift, getActiveShifts } from '@/lib/schedule-utils';
 import type { Schedule, AssignedShift } from '@/lib/types';
@@ -66,7 +67,7 @@ export const useAuth = () => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         const userDocRef = doc(db, 'users', firebaseUser.uid);
-        
+
         // First, try to get the document from the cache for a fast initial load.
         let userDoc, isFromCache = false;
         try {
@@ -116,9 +117,9 @@ export const useAuth = () => {
                   anonymousName: serverData.anonymousName,
                 } as AuthUser;
                 // Update state only if there's a change to avoid unnecessary re-renders
-                setUser(currentUser => 
-                  JSON.stringify(currentUser) !== JSON.stringify(serverAuthUser) 
-                    ? serverAuthUser 
+                setUser(currentUser =>
+                  JSON.stringify(currentUser) !== JSON.stringify(serverAuthUser)
+                    ? serverAuthUser
                     : currentUser
                 );
               }
@@ -126,6 +127,9 @@ export const useAuth = () => {
           }
 
         } else {
+          if (user) {
+            await unregisterNotifications(user.uid);
+          }
           await signOut(auth);
           setUser(null);
           setIsOnActiveShift(false);
@@ -144,7 +148,7 @@ export const useAuth = () => {
     });
 
     return () => unsubscribeAuth();
-  }, [pathname, router]);
+  }, [pathname, router, user?.uid]);
 
   useEffect(() => {
     if (!user) {
@@ -231,6 +235,10 @@ export const useAuth = () => {
 
   const logout = useCallback(async () => {
     try {
+      // Unregister from push notifications before signing out to ensure permissions are still valid.
+      if (user) {
+        await unregisterNotifications(user.uid);
+      }
       await signOut(auth);
       router.replace('/');
       toast.success('Đã đăng xuất.');
@@ -238,7 +246,7 @@ export const useAuth = () => {
       console.error(error);
       toast.error('Không thể đăng xuất. Vui lòng thử lại.');
     }
-  }, [router]);
+  }, [router, user?.uid]);
 
   return {
     user,

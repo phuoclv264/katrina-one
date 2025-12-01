@@ -11,7 +11,6 @@ import { Device } from '@capacitor/device';
 
 const addPushNotificationListeners = async (userId: string, onNotificationReceived: (notification: Notification) => void) => {
     await PushNotifications.addListener('registration', async token => {
-        console.log('KrisLee Push registration success, token: ', token.value);
         const deviceId = await Device.getId();
         await dataStore.saveFcmToken(userId, deviceId.identifier, token.value);
     });
@@ -71,13 +70,11 @@ export const requestNotificationPermission = async (userId: string, onNotificati
  * This should be called on user logout.
  */
 export const unregisterNotifications = async (userId: string) => {
-    console.log("KrisLee unregisterNotifications called")
     if (Capacitor.isNativePlatform()) {
         try {
             if (typeof window !== 'undefined') {
                 const device = await Device.getId();
                 if (userId) {
-                    console.log("KrisLee unregistering for notifications, deviceId " + device.identifier)
                     await dataStore.removeFcmToken(userId, device.identifier);
                 }
             }

@@ -12,7 +12,6 @@ export default function NotificationHandler() {
   const lastUserObject = useRef(user);
 
   const handleNewNotification = useCallback((notification: Notification) => {
-    console.log("KrisLee new notification received: " + JSON.stringify(notification));
     toast.success(JSON.stringify(notification));
   }, []);
 
@@ -20,12 +19,10 @@ export default function NotificationHandler() {
     if (user && (!lastUserObject.current || lastUserObject.current.uid !== user.uid) && Capacitor.isNativePlatform()) {
       lastUserObject.current = user;
 
-      console.log("KrisLee requestNotificationPermission called");
       // We only request permission if it hasn't been granted yet.
       // We can also ask later, e.g. after user clicks a button.
       requestNotificationPermission(user.uid, handleNewNotification);
     } else if (!user && lastUserObject.current) {
-      unregisterNotifications(lastUserObject.current.uid);
       lastUserObject.current = null;
     }
   }, [user]);
