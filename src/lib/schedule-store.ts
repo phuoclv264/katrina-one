@@ -261,6 +261,7 @@ export async function updateSchedule(weekId: string, data: Partial<Schedule>): P
     const notificationsQuery = query(
         collection(db, 'notifications'),
         and(
+            where('type', '==', 'pass_request'),
             where('payload.weekId', '==', weekId),
             or(where('status', '==', 'pending'), where('status', '==', 'pending_approval'))
         )
@@ -745,15 +746,18 @@ export async function resolvePassRequestByAssignment(notification: Notification,
 }
 
 // --- Notifications ---
-export function subscribeToRelevantNotifications(userId: string, userRole: UserRole, callback: (notifications: Notification[]) => void): () => void {
+export function subscribeToRelevantPassRequestNotifications(userId: string, userRole: UserRole, callback: (notifications: Notification[]) => void): () => void {
     const notificationsCollection = collection(db, 'notifications');
     
     const myRequestsQuery = query(
         notificationsCollection,
-        or(
-            where('payload.requestingUser.userId', '==', userId),
-            where('payload.targetUserId', '==', userId),
-            where('payload.takenBy.userId', '==', userId)
+        and(
+            where('type', '==', 'pass_request'),
+            or(
+                where('payload.requestingUser.userId', '==', userId),
+                where('payload.targetUserId', '==', userId),
+                where('payload.takenBy.userId', '==', userId)
+            )
         )
     );
 
@@ -770,7 +774,7 @@ export function subscribeToRelevantNotifications(userId: string, userRole: UserR
         const combined = new Map<string, Notification>();
         
         myRequests.forEach(n => {
-             if (n.type === 'pass_request' && (n.status === 'pending' || n.status === 'pending_approval')) {
+             if (n.status === 'pending' || n.status === 'pending_approval') {
                 const shiftDateTime = parseISO(`${n.payload.shiftDate}T${n.payload.shiftTimeSlot.start}`);
                 if (isPast(shiftDateTime)) {
                     const docRef = doc(db, 'notifications', n.id);
@@ -787,7 +791,7 @@ export function subscribeToRelevantNotifications(userId: string, userRole: UserR
 
         otherRequests.forEach(n => {
             const payload = n.payload;
-            if (n.type === 'pass_request' && n.status === 'pending') {
+            if (n.status === 'pending') {
                 const shiftDateTime = parseISO(`${payload.shiftDate}T${payload.shiftTimeSlot.start}`);
                 if (isPast(shiftDateTime)) {
                     return;
@@ -836,9 +840,13 @@ export function subscribeToRelevantNotifications(userId: string, userRole: UserR
     };
 }
 
-export function subscribeToAllNotifications(callback: (notifications: Notification[]) => void): () => void {
+export function subscribeToAllPassRequestNotifications(callback: (notifications: Notification[]) => void): () => void {
     const notificationsCollection = collection(db, 'notifications');
-    const q = query(notificationsCollection, orderBy('createdAt', 'desc'));
+    const q = query(
+        notificationsCollection,
+        where('type', '==', 'pass_request'),
+        orderBy('createdAt', 'desc')
+    );
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const now = new Date();
@@ -854,7 +862,7 @@ export function subscribeToAllNotifications(callback: (notifications: Notificati
             } as Notification;
             
             // Identify expired pass requests
-            if (notification.type === 'pass_request' && (notification.status === 'pending' || notification.status === 'pending_approval')) {
+            if (notification.status === 'pending' || notification.status === 'pending_approval') {
                 const shiftDateTime = parseISO(`${notification.payload.shiftDate}T${notification.payload.shiftTimeSlot.start}`);
                 if (isPast(shiftDateTime)) {
                     expiredRequests.push(notification);
@@ -888,7 +896,7 @@ export function subscribeToAllNotifications(callback: (notifications: Notificati
     return unsubscribe;
 }
 
-export async function updateNotificationStatus(notificationId: string, status: Notification['status'], resolver?: AuthUser): Promise<void> {
+export async function updatePassRequestNotificationStatus(notificationId: string, status: Notification['status'], resolver?: AuthUser): Promise<void> {
     const docRef = doc(db, 'notifications', notificationId);
     const updateData: any = { status, resolvedAt: serverTimestamp() };
     if (resolver) {
@@ -900,7 +908,7 @@ export async function updateNotificationStatus(notificationId: string, status: N
     await updateDoc(docRef, updateData);
 }
 
-export async function deleteNotification(notificationId: string): Promise<void> {
+export async function deletePassRequestNotification(notificationId: string): Promise<void> {
     const docRef = doc(db, 'notifications', notificationId);
     await deleteDoc(docRef);
 }

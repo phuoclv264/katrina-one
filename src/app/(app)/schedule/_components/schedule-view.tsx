@@ -127,13 +127,13 @@ export default function ScheduleView() {
         
         let unsubNotifications: () => void;
         if (canManage) {
-            unsubNotifications = dataStore.subscribeToAllNotifications((notifs) => {
+            unsubNotifications = dataStore.subscribeToAllPassRequestNotifications((notifs) => {
                 setNotifications(notifs);
                 notificationsSubscribed = true;
                 checkLoadingDone();
             });
-        } else {
-             unsubNotifications = dataStore.subscribeToRelevantNotifications(user.uid, user.role, (notifs) => {
+        } else if (user) {
+             unsubNotifications = dataStore.subscribeToRelevantPassRequestNotifications(user.uid, user.role, (notifs) => {
                 setNotifications(notifs);
                 notificationsSubscribed = true;
                 checkLoadingDone();
@@ -271,7 +271,7 @@ export default function ScheduleView() {
     const handleCancelPassRequest = async (notificationId: string) => {
         if (!user) return;
         try {
-            await dataStore.updateNotificationStatus(notificationId, 'cancelled', user);
+            await dataStore.updatePassRequestNotificationStatus(notificationId, 'cancelled', user);
              toast.success('Đã hủy yêu cầu pass ca của bạn.');
         } catch (error: any) {
              toast.error('Không thể hủy yêu cầu.');

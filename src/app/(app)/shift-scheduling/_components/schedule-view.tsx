@@ -215,7 +215,7 @@ export default function ScheduleView() {
             setShiftTemplates(sortedTemplates);
         });
 
-        const unsubNotifications = dataStore.subscribeToAllNotifications(setNotifications);
+        const unsubNotifications = dataStore.subscribeToAllPassRequestNotifications(setNotifications);
 
 
         return () => {
@@ -479,7 +479,7 @@ export default function ScheduleView() {
         if (!user) return;
         setProcessingNotificationId(notificationId);
         try {
-            await dataStore.updateNotificationStatus(notificationId, 'cancelled', user);
+            await dataStore.updatePassRequestNotificationStatus(notificationId, 'cancelled', user);
              toast.success('Đã hủy yêu cầu pass ca của bạn.');
         } catch (error: any) {
              toast.error('Không thể hủy yêu cầu.');
