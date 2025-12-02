@@ -85,6 +85,18 @@ const registerPushNotifications = async () => {
         throw new Error('User denied permissions!');
     }
 
+    const channels = await PushNotifications.listChannels();
+    if (channels.channels.length === 0) {
+        await PushNotifications.createChannel({
+            id: 'katrinaone_default',
+            name: 'Katrina One Notification Channel',
+            description: 'This is the app main channel for all notifications',
+            importance: 5, // Importance level (1-5)
+            visibility: 1, // VISIBILITY_PUBLIC
+            vibration: true,
+        })
+    }
+
     await PushNotifications.register();
 }
 
@@ -97,6 +109,7 @@ export const requestNotificationPermission = async (
     if (!Capacitor.isNativePlatform()) return;
 
     try {
+        await PushNotifications.removeAllListeners();
         await registerPushNotifications();
         await addPushNotificationListeners(userId, onNotificationReceived, onNotificationAction);
     } catch (error) {
