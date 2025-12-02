@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'nextjs-toploader/app';
+import { useSearchParams } from 'next/navigation';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useAuth, type AuthUser } from '@/hooks/use-auth';
 import { dataStore } from '@/lib/data-store';
@@ -122,7 +123,9 @@ export default function CashierReportsPage() {
   const { openLightbox } = useLightbox();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const initialMonthSet = useRef(false);
+  const routerRef = useRef(router);
+  const searchParams = useSearchParams();
+  const isInitialLoad = useRef(true);
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const handleDataRefresh = useCallback(() => {
@@ -159,6 +162,8 @@ export default function CashierReportsPage() {
   const [dateForNewEntry, setDateForNewEntry] = useState<string | null>(null);
   const [dateForCashHandover, setDateForCashHandover] = useState<string | null>(null);
   
+  const itemRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
+  
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const sortedDatesInMonth = useMemo(() => {
@@ -172,9 +177,9 @@ export default function CashierReportsPage() {
     return allDays.map(day => format(day, 'yyyy-MM-dd')).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
   }, [currentMonth]);
 
-  const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
+  const [openDays, setOpenDays] = useState<string[]>([]);
 
-  const reportsForCurrentMonth = useMemo(() => {
+  const reportsByDay = useMemo(() => {
     const reports: { [date: string]: { revenue: RevenueStats[], expenses: ExpenseSlip[], incidents: IncidentReport[], cashHandovers: CashHandoverReport[] }} = {};
     const processItems = (items: (RevenueStats | ExpenseSlip | IncidentReport | CashHandoverReport)[]) => {
       items.forEach(item => {
@@ -209,6 +214,10 @@ export default function CashierReportsPage() {
   const [finalHandoverToView, setFinalHandoverToView] = useState<CashHandoverReport | null>(null);
 
   useEffect(() => {
+    routerRef.current = router;
+  }, [router]); 
+
+  useEffect(() => {
       if (isCashHandoverDialogOpen) {
           const relevantDate = dateForNewEntry || cashHandoverToEdit?.date;
 
@@ -232,7 +241,7 @@ export default function CashierReportsPage() {
           } else if (relevantDate) {
               // Case 2: Creating a new report for a specific (past) date.
               // Find the latest revenue and all expenses for that date.
-              const reportsForDate = reportsForCurrentMonth[relevantDate] || { revenue: [], expenses: [], incidents: [], cashHandovers: [] };
+              const reportsForDate = reportsByDay[relevantDate] || { revenue: [], expenses: [], incidents: [], cashHandovers: [] };
               const latestRevenue = reportsForDate.revenue[0] || null;
               const expensesForDate = reportsForDate.expenses;
   
@@ -247,7 +256,7 @@ export default function CashierReportsPage() {
               setExpectedCashForDialog(cashRevenue - totalCashExpense + 1_500_000); // Assume default start of day cash
           }
       }
-  }, [isCashHandoverDialogOpen, cashHandoverToEdit, dateForNewEntry, revenueStats, expenseSlips, reportsForCurrentMonth]);
+  }, [isCashHandoverDialogOpen, cashHandoverToEdit, dateForNewEntry, revenueStats, expenseSlips, reportsByDay]);
 
 
   useEffect(() => {
@@ -290,18 +299,53 @@ export default function CashierReportsPage() {
     return Array.from(monthSet).sort().reverse();
   }, [revenueStats, expenseSlips, incidents, cashHandoverReports]);
 
+  // Effect to scroll to and highlight an item from URL param
   useEffect(() => {
-    if (allMonthsWithData.length > 0 && !initialMonthSet.current) {
+    const highlightId = searchParams.get('highlight');
+    if (highlightId && sortedDatesInMonth.length > 0 && !processingItemId) {
+      const [type, id] = highlightId.split('-');
+      let itemDate: string | undefined;
+
+      if (type === 'expense') itemDate = expenseSlips.find(s => s.id === id)?.date;
+      else if (type === 'revenue') itemDate = revenueStats.find(s => s.id === id)?.date;
+      else if (type === 'incident') itemDate = incidents.find(i => i.id === id)?.date;
+      else if (type === 'handover') itemDate = cashHandoverReports.find(h => h.id === id)?.date;
+
+      if (!itemDate) return;
+
+      const element = itemRefs.current.get(highlightId);
+      if (element) {
+        // Ensure the accordion item is open
+        if (!openDays.includes(itemDate)) {
+          setOpenDays(prev => [...prev, itemDate]);
+        }
+
+        setTimeout(() => {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          element.classList.add('highlight-animation');
+          setTimeout(() => {
+            element.classList.remove('highlight-animation');
+          }, 2500); // Animation duration
+          routerRef.current.replace('/reports/cashier', {
+            scroll: false,
+          });
+        }, 200); // Delay to allow accordion to open
+      }
+    } 
+  }, [searchParams, sortedDatesInMonth, processingItemId, openDays, expenseSlips, revenueStats, incidents, cashHandoverReports]);
+
+  useEffect(() => {
+    if (allMonthsWithData.length > 0 && isInitialLoad.current) {
       setCurrentMonth(parseISO(`${allMonthsWithData[0]}-01`));
-      initialMonthSet.current = true;
+      isInitialLoad.current = false;
     }
   }, [allMonthsWithData]);
 
   useEffect(() => {
     if (sortedDatesInMonth.length > 0) {
-      setOpenAccordionItems(sortedDatesInMonth.slice(0, 1));
+      setOpenDays(sortedDatesInMonth.slice(0, 1));
     } else {
-      setOpenAccordionItems([]);
+      setOpenDays([]);
     }
   }, [sortedDatesInMonth]);
   
@@ -310,12 +354,12 @@ export default function CashierReportsPage() {
   const monthlyIncidents = useMemo(() => incidents.filter(i => isSameMonth(parseISO(i.date), currentMonth)), [incidents, currentMonth]);
 
   const handleToggleAllAccordions = () => {
-    if (openAccordionItems.length === sortedDatesInMonth.length) {
+    if (openDays.length === sortedDatesInMonth.length) {
       // If all are open, close all
-      setOpenAccordionItems([]);
+      setOpenDays([]);
     } else {
       // Otherwise, open all
-      setOpenAccordionItems(sortedDatesInMonth);
+      setOpenDays(sortedDatesInMonth);
     }
   };
 
@@ -392,7 +436,7 @@ export default function CashierReportsPage() {
         const relevantDate = revenueDate;
 
         // Find if a cash handover already exists for this revenue stat.
-        const reportsForDate = reportsForCurrentMonth[relevantDate] || { revenue: [], expenses: [], incidents: [], cashHandovers: [] };
+        const reportsForDate = reportsByDay[relevantDate] || { revenue: [], expenses: [], incidents: [], cashHandovers: [] };
         const handoverToEdit = reportsForDate.cashHandovers.find(report => report.linkedRevenueStatsId === (docId || newDocId));
 
         // Set the state needed for the CashHandoverDialog and open it.
@@ -402,7 +446,7 @@ export default function CashierReportsPage() {
 
     } catch (error) { toast.error("Không thể lưu doanh thu."); console.error(error); }
     finally { setProcessingItemId(null); }
-  }, [user, revenueStatsToEdit, dateForNewEntry, reportsForCurrentMonth]);
+  }, [user, revenueStatsToEdit, dateForNewEntry, reportsByDay]);
 
   const handleSaveIncident = useCallback(async (data: any, id?: string) => {
     if (!user) return;
@@ -435,7 +479,7 @@ export default function CashierReportsPage() {
                 toast.error("Không xác định được ngày để tạo biên bản.");
                 return;
             }
-            const reportsForDate = reportsForCurrentMonth[relevantDate] || { revenue: [], expenses: [], incidents: [], cashHandovers: [] };
+            const reportsForDate = reportsByDay[relevantDate] || { revenue: [], expenses: [], incidents: [], cashHandovers: [] };
             const latestRevenueForDate = reportsForDate.revenue[0] || null;
 
             await dataStore.addCashHandoverReport({
@@ -451,7 +495,7 @@ export default function CashierReportsPage() {
         setIsCashHandoverDialogOpen(false);
     } catch (error) { toast.error('Không thể lưu biên bản kiểm kê.'); console.error(error); }
     finally { setProcessingItemId(null); }
-  }, [user, dateForNewEntry, cashHandoverToEdit, reportsForCurrentMonth]);
+  }, [user, dateForNewEntry, cashHandoverToEdit, reportsByDay]);
 
   const handleSaveFinalHandover = useCallback(async (data: any, id?: string) => {
     if (!user) return;
@@ -577,13 +621,14 @@ export default function CashierReportsPage() {
             <div className="flex justify-end">
               <Button variant="outline" size="sm" onClick={handleToggleAllAccordions} disabled={sortedDatesInMonth.length === 0}>
                 <ChevronsUpDown className="mr-2 h-4 w-4" />
-                {openAccordionItems.length === sortedDatesInMonth.length ? 'Thu gọn tất cả' : 'Mở rộng tất cả'}
+                {openDays.length === sortedDatesInMonth.length ? 'Thu gọn tất cả' : 'Mở rộng tất cả'}
               </Button>
             </div>
 
-            <Accordion type="multiple" value={openAccordionItems} onValueChange={setOpenAccordionItems} className="space-y-4">
+            <Accordion type="multiple" value={openDays} onValueChange={setOpenDays} className="space-y-4">
               {sortedDatesInMonth.map(date => {
-                const dayReports = reportsForCurrentMonth[date] || { revenue: [], expenses: [], incidents: [], cashHandovers: [] };
+                const dayReports = reportsByDay[date] || { revenue: [], expenses: [], incidents: [], cashHandovers: [] };
+
                 return (
                  <DailyReportAccordionItem
                     key={date}
@@ -601,6 +646,7 @@ export default function CashierReportsPage() {
                     onDeleteCashHandover={handleDeleteCashHandover}
                     processingItemId={processingItemId}
                     inventoryList={inventoryList}
+                    itemRefs={itemRefs}
                  />
                 );
               })}

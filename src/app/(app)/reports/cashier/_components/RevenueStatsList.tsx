@@ -16,13 +16,21 @@ const ChangeIndicator = ({ value, isRevenue = true }: { value: number, isRevenue
 
     return (
         <span className={cn("text-xs font-semibold flex items-center gap-0.5", colorClass)}>
-            {isPositive ? <TrendingUp className="h-3 w-3"/> : <TrendingDown className="h-3 w-3"/>}
+            {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
             {Math.abs(value).toLocaleString('vi-VN')}đ
         </span>
     );
 };
 
-const RevenueStatsList = React.memo(({ stats, onEdit, onDelete, processingItemId }: { stats: RevenueStats[], onEdit: (stat: RevenueStats) => void, onDelete: (id: string) => void, processingItemId: string | null }) => {
+type RevenueStatsListProps = {
+    stats: RevenueStats[];
+    onEdit: (stat: RevenueStats) => void;
+    onDelete: (id: string) => void;
+    processingItemId: string | null;
+    itemRefs: React.MutableRefObject<Map<string, HTMLDivElement | null>>;
+};
+
+const RevenueStatsList = React.memo(({ stats, onEdit, onDelete, processingItemId, itemRefs }: RevenueStatsListProps) => {
     if (stats.length === 0) return <p className="text-sm text-center text-muted-foreground py-2">Chưa có báo cáo.</p>;
 
     return (
@@ -31,16 +39,24 @@ const RevenueStatsList = React.memo(({ stats, onEdit, onDelete, processingItemId
                 const prevStat = stats[index + 1];
                 const difference = prevStat ? stat.netRevenue - prevStat.netRevenue : 0;
                 const isProcessing = processingItemId === stat.id;
-                const displayTime = stat.reportTimestamp 
+                const highlightKey = `revenue-${stat.id}`;
+
+                const displayTime = stat.reportTimestamp
                     ? format(parseISO(stat.reportTimestamp), 'HH:mm')
                     : format(new Date(stat.createdAt as string), 'HH:mm');
 
                 return (
-                    <div key={stat.id} className="border-t first:border-t-0 pt-3 first:pt-0 relative">
+                    <div
+                        key={stat.id}
+                        className="border-t first:border-t-0 pt-3 first:pt-0 relative"
+                        ref={el => {
+                            if (el) itemRefs.current.set(highlightKey, el);
+                            else itemRefs.current.delete(highlightKey);
+                        }}>
                         <div className="flex justify-between items-start">
                             <p className="text-sm text-muted-foreground">Lúc {displayTime} bởi {stat.createdBy.userName}</p>
                             <div className="flex items-center gap-2">
-                                {stat.isAiGenerated && <Badge className="bg-blue-100 text-blue-800"><Wand2 className="h-3 w-3 mr-1"/>AI</Badge>}
+                                {stat.isAiGenerated && <Badge className="bg-blue-100 text-blue-800"><Wand2 className="h-3 w-3 mr-1" />AI</Badge>}
                                 {stat.isEdited && <Badge variant="secondary" className="text-xs">Đã sửa</Badge>}
                             </div>
                         </div>
@@ -61,10 +77,10 @@ const RevenueStatsList = React.memo(({ stats, onEdit, onDelete, processingItemId
                             </div>
                         </div>
                         {isProcessing && (
-                          <div className="absolute inset-0 bg-white/80 dark:bg-black/80 flex items-center justify-center rounded-md">
-                            <Loader2 className="h-6 w-6 animate-spin text-destructive"/>
-                            <span className="ml-2 text-sm font-medium text-destructive">Đang xóa...</span>
-                          </div>
+                            <div className="absolute inset-0 bg-white/80 dark:bg-black/80 flex items-center justify-center rounded-md">
+                                <Loader2 className="h-6 w-6 animate-spin text-destructive" />
+                                <span className="ml-2 text-sm font-medium text-destructive">Đang xóa...</span>
+                            </div>
                         )}
                     </div>
                 );

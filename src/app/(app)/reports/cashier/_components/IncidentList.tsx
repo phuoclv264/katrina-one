@@ -7,14 +7,26 @@ import { Edit, Trash2, Eye, Loader2 } from 'lucide-react';
 import type { IncidentReport } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 
-const IncidentList = React.memo(({ incidents, onEdit, onDelete, onOpenLightbox, processingItemId }: { incidents: IncidentReport[], onEdit: (incident: IncidentReport) => void, onDelete: (id: string) => void, onOpenLightbox: (photos: string[], index: number) => void, processingItemId: string | null }) => {
+type IncidentListProps = {
+    incidents: IncidentReport[];
+    onEdit: (incident: IncidentReport) => void;
+    onDelete: (id: string) => void;
+    onOpenLightbox: (photos: string[], index: number) => void;
+    processingItemId: string | null;
+    itemRefs: React.MutableRefObject<Map<string, HTMLDivElement | null>>;
+};
+
+const IncidentList = React.memo(({ incidents, onEdit, onDelete, onOpenLightbox, processingItemId, itemRefs }: IncidentListProps) => {
     if (incidents.length === 0) return <p className="text-sm text-center text-muted-foreground py-2">Không có sự cố nào.</p>;
     return (
         <div className="space-y-3">
             {incidents.map(incident => {
                 const isProcessing = processingItemId === incident.id;
+                const highlightKey = `incident-${incident.id}`;
                 return (
-                    <div key={incident.id} className="border-t first:border-t-0 pt-3 first:pt-0 relative">
+                    <div key={incident.id} className="border-t first:border-t-0 pt-3 first:pt-0 relative" ref={el => {
+                        if (el) itemRefs.current.set(highlightKey, el); else itemRefs.current.delete(highlightKey);
+                    }}>
                         <div className="flex justify-between items-start gap-2">
                             <div>
                                 <div className="flex items-center gap-2 flex-wrap">

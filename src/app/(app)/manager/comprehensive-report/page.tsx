@@ -34,7 +34,6 @@ function ComprehensiveReportPageComponent() {
   // current router instance via routerRef.current inside effects
   // without needing to add it as a dependency.
   const routerRef = useRef(router);
-  routerRef.current = router;
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const shiftKey = 'manager_comprehensive';
   
@@ -57,6 +56,10 @@ function ComprehensiveReportPageComponent() {
   const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
   const { openLightbox } = useLightbox();
+
+  useEffect(() => {
+    routerRef.current = router;
+  }, [router]); 
 
   // Initialize accordion to be all open by default
   useEffect(() => {

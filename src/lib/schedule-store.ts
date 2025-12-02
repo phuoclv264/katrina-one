@@ -4,28 +4,28 @@
 
 import { db } from './firebase';
 import {
-  collection,
-  doc,
-  getDoc,
-  setDoc,
-  onSnapshot,
-  query,
-  orderBy,
-  updateDoc,
-  serverTimestamp,
-  Timestamp,
-  where,
-  getDocs,
-  documentId,
-  addDoc,
-  deleteDoc,
-  writeBatch,
-  WriteBatch,
-  collectionGroup,
-  runTransaction,
-  or,
-  and,
-  arrayUnion,
+    collection,
+    doc,
+    getDoc,
+    setDoc,
+    onSnapshot,
+    query,
+    orderBy,
+    updateDoc,
+    serverTimestamp,
+    Timestamp,
+    where,
+    getDocs,
+    documentId,
+    addDoc,
+    deleteDoc,
+    writeBatch,
+    WriteBatch,
+    collectionGroup,
+    runTransaction,
+    or,
+    and,
+    arrayUnion,
 } from 'firebase/firestore';
 import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, AuthUser, PassRequestPayload, TimeSlot, MonthlyTask, MonthlyTaskAssignment, MediaAttachment, MediaItem, TaskCompletionRecord } from './types';
 import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, getDay, parseISO, isPast, isWithinInterval, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, getDate, getWeekOfMonth, addMonths } from 'date-fns';
@@ -81,15 +81,15 @@ export async function saveUserAvailability(userId: string, userName: string, dat
         date: Timestamp.fromDate(date),
         availableSlots: slots,
     };
-    
+
     // To maintain one availability doc per user per day, we first query for an existing one.
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 
-    const q = query(collection(db, 'user_availability'), 
-        where('userId', '==', userId), 
+    const q = query(collection(db, 'user_availability'),
+        where('userId', '==', userId),
         where('date', '>=', Timestamp.fromDate(startOfDay)),
         where('date', '<=', Timestamp.fromDate(endOfDay))
     );
@@ -103,7 +103,7 @@ export async function saveUserAvailability(userId: string, userName: string, dat
 export function subscribeToAvailabilityForDateRange(dateRange: DateRange, callback: (availability: Availability[]) => void): () => void {
     if (!dateRange.from || !dateRange.to) {
         callback([]);
-        return () => {};
+        return () => { };
     }
     const q = query(collection(db, 'user_availability'), where('date', '>=', Timestamp.fromDate(dateRange.from)), where('date', '<=', Timestamp.fromDate(dateRange.to)));
     return onSnapshot(q, (snapshot) => {
@@ -141,7 +141,7 @@ export function subscribeToSchedule(weekId: string, callback: (schedule: Schedul
 export function subscribeToAllSchedules(callback: (schedules: Schedule[]) => void): () => void {
     const q = query(collection(db, 'schedules'), orderBy('weekId', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-        const schedules = snapshot.docs.map(doc => ({...doc.data(), weekId: doc.id} as Schedule));
+        const schedules = snapshot.docs.map(doc => ({ ...doc.data(), weekId: doc.id } as Schedule));
         callback(schedules);
     }, (error) => {
         console.warn(`[Firestore Read Error] Could not read all schedules: ${error.code}`);
@@ -167,7 +167,7 @@ export async function getSchedulesForMonth(date: Date): Promise<Schedule[]> {
 
     return scheduleDocs
         .filter(docSnap => docSnap.exists())
-        .map(docSnap => ({...docSnap.data(), weekId: docSnap.id} as Schedule));
+        .map(docSnap => ({ ...docSnap.data(), weekId: docSnap.id } as Schedule));
 }
 
 export function subscribeToSchedulesForMonth(date: Date, callback: (schedules: Schedule[]) => void): () => void {
@@ -183,12 +183,12 @@ export function subscribeToSchedulesForMonth(date: Date, callback: (schedules: S
 
     if (weekIds.length === 0) {
         callback([]);
-        return () => {}; // Return a no-op unsubscribe function
+        return () => { }; // Return a no-op unsubscribe function
     }
 
     const q = query(collection(db, 'schedules'), where('weekId', 'in', weekIds));
     return onSnapshot(q, (snapshot) => {
-        const schedules = snapshot.docs.map(doc => ({...doc.data(), weekId: doc.id} as Schedule));
+        const schedules = snapshot.docs.map(doc => ({ ...doc.data(), weekId: doc.id } as Schedule));
         callback(schedules);
     });
 }
@@ -217,7 +217,7 @@ export async function getSchedulesForDateRange(
 
     const q = query(collection(db, 'schedules'), where(documentId(), 'in', weekIds));
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({...doc.data(), weekId: doc.id} as Schedule));
+    return snapshot.docs.map(doc => ({ ...doc.data(), weekId: doc.id } as Schedule));
 }
 
 export function subscribeToSchedulesForDateRange(
@@ -226,7 +226,7 @@ export function subscribeToSchedulesForDateRange(
 ): () => void {
     if (!dateRange || !dateRange.from || !dateRange.to) {
         callback([]);
-        return () => {}; // Return a no-op unsubscribe function
+        return () => { }; // Return a no-op unsubscribe function
     }
 
     const fromDate = dateRange.from;
@@ -244,12 +244,12 @@ export function subscribeToSchedulesForDateRange(
 
     if (weekIds.length === 0) {
         callback([]);
-        return () => {};
+        return () => { };
     }
 
     const q = query(collection(db, 'schedules'), where(documentId(), 'in', weekIds));
     return onSnapshot(q, (snapshot) => {
-        const schedules = snapshot.docs.map(doc => ({...doc.data(), weekId: doc.id} as Schedule));
+        const schedules = snapshot.docs.map(doc => ({ ...doc.data(), weekId: doc.id } as Schedule));
         callback(schedules);
     });
 }
@@ -267,8 +267,8 @@ export async function updateSchedule(weekId: string, data: Partial<Schedule>): P
         )
     );
     const notificationsSnapshot = await getDocs(notificationsQuery);
-    const pendingNotifications = notificationsSnapshot.docs.map(d => ({id: d.id, ...d.data()} as Notification));
-    
+    const pendingNotifications = notificationsSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as Notification));
+
     // Create a batch to update notifications that become invalid
     const batch = writeBatch(db);
 
@@ -278,9 +278,9 @@ export async function updateSchedule(weekId: string, data: Partial<Schedule>): P
 
         // Case 1: The original requester is no longer in the shift. The request is invalid.
         if (!shiftInNewSchedule || !shiftInNewSchedule.assignedUsers.some(u => u.userId === payload.requestingUser.userId)) {
-            batch.update(doc(db, 'notifications', notif.id), { 
-                status: 'cancelled', 
-                'payload.cancellationReason': 'Tự động hủy do người yêu cầu không còn trong ca.' 
+            batch.update(doc(db, 'notifications', notif.id), {
+                status: 'cancelled',
+                'payload.cancellationReason': 'Tự động hủy do người yêu cầu không còn trong ca.'
             });
             continue;
         }
@@ -289,24 +289,24 @@ export async function updateSchedule(weekId: string, data: Partial<Schedule>): P
         if (payload.isSwapRequest && payload.targetUserShiftPayload) {
             const targetShiftInNewSchedule = data.shifts?.find(s => s.id === payload.targetUserShiftPayload!.shiftId);
             const targetUserStillInTheirShift = targetShiftInNewSchedule?.assignedUsers.some(u => u.userId === payload.targetUserId);
-            
+
             if (!targetUserStillInTheirShift) {
-                batch.update(doc(db, 'notifications', notif.id), { 
-                    status: 'cancelled', 
-                    'payload.cancellationReason': 'Tự động hủy do ca cần đổi đã thay đổi.' 
+                batch.update(doc(db, 'notifications', notif.id), {
+                    status: 'cancelled',
+                    'payload.cancellationReason': 'Tự động hủy do ca cần đổi đã thay đổi.'
                 });
                 continue;
             }
         }
-        
+
         // Case 3: The request is pending_approval. We need to check for new conflicts.
         if (notif.status === 'pending_approval' && payload.takenBy) {
             const takerId = payload.takenBy.userId;
             const shiftToTake = shiftInNewSchedule; // We know it exists from the first check
             const allShiftsOnDay = data.shifts?.filter(s => s.date === payload.shiftDate) || [];
-            
+
             const conflict = hasTimeConflict(takerId, shiftToTake, allShiftsOnDay.filter(s => s.id !== shiftToTake.id));
-            
+
             if (conflict) {
                 // If there's a conflict, revert the request to 'pending' and remove the 'takenBy' user.
                 batch.update(doc(db, 'notifications', notif.id), {
@@ -317,7 +317,7 @@ export async function updateSchedule(weekId: string, data: Partial<Schedule>): P
             }
         }
     }
-    
+
     // Commit all notification updates first
     await batch.commit();
 
@@ -388,7 +388,7 @@ export function subscribeToShiftTemplates(callback: (templates: ShiftTemplate[])
             try {
                 await setDoc(docRef, { templates: [] });
                 callback([]);
-            } catch(e) {
+            } catch (e) {
                 console.error("Permission denied to create default shift templates.", e);
                 callback([]);
             }
@@ -471,7 +471,7 @@ export async function requestDirectPassShift(shiftToPass: AssignedShift, request
     if (!currentShiftA || !currentShiftA.assignedUsers.some(u => u.userId === requestingUser.uid)) {
         throw new Error("Bạn không còn trong ca làm việc này nên không thể gửi yêu cầu.");
     }
-    
+
     if (isSwap) {
         if (!targetUserShift) {
             throw new Error(`${targetUser.displayName} không có ca làm việc trong ngày này để đổi.`);
@@ -481,7 +481,7 @@ export async function requestDirectPassShift(shiftToPass: AssignedShift, request
             throw new Error(`Ca làm việc của ${targetUser.displayName} đã thay đổi, không thể thực hiện đổi ca.`);
         }
     }
-    
+
     const existingRequestQuery = query(
         collection(db, 'notifications'),
         where('type', '==', 'pass_request'),
@@ -497,7 +497,7 @@ export async function requestDirectPassShift(shiftToPass: AssignedShift, request
     }
 
     if (isSwap && targetUserShift) {
-         const targetShiftRequestQuery = query(
+        const targetShiftRequestQuery = query(
             collection(db, 'notifications'),
             where('type', '==', 'pass_request'),
             where('payload.shiftId', '==', targetUserShift.id),
@@ -566,7 +566,7 @@ export async function revertPassRequest(notification: Notification, resolver: Au
             }
             return s;
         });
-         transaction.update(scheduleRef, { shifts: updatedShifts });
+        transaction.update(scheduleRef, { shifts: updatedShifts });
 
         const notificationRef = doc(db, "notifications", notification.id);
         transaction.update(notificationRef, {
@@ -574,7 +574,7 @@ export async function revertPassRequest(notification: Notification, resolver: Au
             resolvedBy: { userId: resolver.uid, userName: resolver.displayName },
             resolvedAt: serverTimestamp(),
             'payload.takenBy': null,
-             cancellationReason: null, // Clear cancellation reason
+            cancellationReason: null, // Clear cancellation reason
         });
     });
 }
@@ -595,13 +595,13 @@ export async function acceptPassShift(notificationId: string, payload: PassReque
     if (!payload.isSwapRequest) {
         const allShiftsOnDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
         const shiftToTake: AssignedShift = { ...schedule.shifts.find(s => s.id === payload.shiftId)!, assignedUsers: [] };
-        
+
         const conflict = hasTimeConflict(acceptingUser.userId, shiftToTake, allShiftsOnDay);
         if (conflict) {
             throw new Error(`Ca này bị trùng giờ với ca "${conflict.label}" (${conflict.timeSlot.start} - ${conflict.timeSlot.end}) mà bạn đã được phân công.`);
         }
     }
-    
+
     await updateDoc(notificationRef, {
         status: 'pending_approval',
         'payload.takenBy': acceptingUser
@@ -644,19 +644,19 @@ export async function approvePassRequest(notification: Notification, resolver: A
     await runTransaction(db, async (transaction) => {
         const scheduleDoc = await transaction.get(scheduleRef);
         if (!scheduleDoc.exists()) throw new Error("Không tìm thấy lịch làm việc.");
-        
+
         const scheduleData = scheduleDoc.data() as Schedule;
         let updatedShifts = [...scheduleData.shifts];
 
         const shiftA_Index = updatedShifts.findIndex(s => s.id === shiftId);
-         if (shiftA_Index === -1 || !updatedShifts[shiftA_Index].assignedUsers.some(u => u.userId === requestingUser.userId)) {
+        if (shiftA_Index === -1 || !updatedShifts[shiftA_Index].assignedUsers.some(u => u.userId === requestingUser.userId)) {
             transaction.update(notificationRef, { status: 'cancelled', 'payload.cancellationReason': 'Người yêu cầu không còn trong ca.' });
             throw new Error("Không thể phê duyệt: Người yêu cầu ban đầu không còn trong ca làm việc này.");
         }
 
         if (isSwapRequest) {
             if (!payload.targetUserShiftPayload) {
-                 throw new Error("Lỗi dữ liệu: Thiếu thông tin ca cần đổi.");
+                throw new Error("Lỗi dữ liệu: Thiếu thông tin ca cần đổi.");
             }
             const shiftB_Index = updatedShifts.findIndex(s => s.id === payload.targetUserShiftPayload!.shiftId);
 
@@ -667,13 +667,13 @@ export async function approvePassRequest(notification: Notification, resolver: A
 
             const shiftA = { ...updatedShifts[shiftA_Index] };
             const shiftB = { ...updatedShifts[shiftB_Index] };
-            
+
             shiftA.assignedUsers = shiftA.assignedUsers.filter(u => u.userId !== requestingUser.userId);
             shiftA.assignedUsers.push(takenBy);
 
             shiftB.assignedUsers = shiftB.assignedUsers.filter(u => u.userId !== takenBy.userId);
             shiftB.assignedUsers.push(requestingUser);
-            
+
             updatedShifts[shiftA_Index] = shiftA;
             updatedShifts[shiftB_Index] = shiftB;
 
@@ -684,7 +684,7 @@ export async function approvePassRequest(notification: Notification, resolver: A
                 transaction.update(notificationRef, { status: 'cancelled', 'payload.cancellationReason': `Tự động hủy do người nhận ca (${takenBy.userName}) bị trùng lịch.`, 'payload.takenBy': null });
                 throw new Error(`SHIFT_CONFLICT: Nhân viên ${takenBy.userName} đã có ca làm việc khác (${conflict.label}) bị trùng giờ.`);
             }
-            
+
             shiftA.assignedUsers = shiftA.assignedUsers.filter(u => u.userId !== requestingUser.userId);
             shiftA.assignedUsers.push(takenBy);
             updatedShifts[shiftA_Index] = shiftA;
@@ -692,7 +692,7 @@ export async function approvePassRequest(notification: Notification, resolver: A
 
         transaction.update(scheduleRef, { shifts: updatedShifts });
         transaction.update(notificationRef, { status: 'resolved', resolvedBy: { userId: resolver.uid, userName: resolver.displayName }, resolvedAt: serverTimestamp() });
-        
+
         const otherRequestsQuery = query(collection(db, 'notifications'), and(where('type', '==', 'pass_request'), where('payload.shiftId', '==', shiftId), or(where('status', '==', 'pending'), where('status', '==', 'pending_approval'))));
         const otherRequestsSnapshot = await getDocs(otherRequestsQuery);
         otherRequestsSnapshot.forEach(doc => {
@@ -748,7 +748,7 @@ export async function resolvePassRequestByAssignment(notification: Notification,
 // --- Notifications ---
 export function subscribeToRelevantPassRequestNotifications(userId: string, userRole: UserRole, callback: (notifications: Notification[]) => void): () => void {
     const notificationsCollection = collection(db, 'notifications');
-    
+
     const myRequestsQuery = query(
         notificationsCollection,
         and(
@@ -772,9 +772,9 @@ export function subscribeToRelevantPassRequestNotifications(userId: string, user
 
     const processResults = (myRequests: Notification[], otherRequests: Notification[]) => {
         const combined = new Map<string, Notification>();
-        
+
         myRequests.forEach(n => {
-             if (n.status === 'pending' || n.status === 'pending_approval') {
+            if (n.status === 'pending' || n.status === 'pending_approval') {
                 const shiftDateTime = parseISO(`${n.payload.shiftDate}T${n.payload.shiftTimeSlot.start}`);
                 if (isPast(shiftDateTime)) {
                     const docRef = doc(db, 'notifications', n.id);
@@ -807,13 +807,13 @@ export function subscribeToRelevantPassRequestNotifications(userId: string, user
 
         const finalNotifications = Array.from(combined.values())
             .sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
-            
+
         callback(finalNotifications);
     };
 
     let myRequestsCache: Notification[] = [];
     let otherRequestsCache: Notification[] = [];
-    
+
     const unsubMyRequests = onSnapshot(myRequestsQuery, (snapshot) => {
         myRequestsCache = snapshot.docs.map(doc => ({
             id: doc.id,
@@ -823,7 +823,7 @@ export function subscribeToRelevantPassRequestNotifications(userId: string, user
         } as Notification));
         processResults(myRequestsCache, otherRequestsCache);
     }, (error) => console.error("Error fetching my pass requests:", error));
-    
+
     const unsubOtherRequests = onSnapshot(otherRequestsQuery, (snapshot) => {
         otherRequestsCache = snapshot.docs.map(doc => ({
             id: doc.id,
@@ -833,7 +833,7 @@ export function subscribeToRelevantPassRequestNotifications(userId: string, user
         } as Notification));
         processResults(myRequestsCache, otherRequestsCache);
     }, (error) => console.error("Error fetching other pass requests:", error));
-    
+
     return () => {
         unsubMyRequests();
         unsubOtherRequests();
@@ -853,14 +853,14 @@ export function subscribeToAllPassRequestNotifications(callback: (notifications:
         const expiredRequests: Notification[] = [];
 
         const notifications: Notification[] = querySnapshot.docs.map(doc => {
-                const data = doc.data();
+            const data = doc.data();
             const notification = {
                 id: doc.id,
                 ...data,
                 createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
                 resolvedAt: (data.resolvedAt as Timestamp)?.toDate()?.toISOString(),
             } as Notification;
-            
+
             // Identify expired pass requests
             if (notification.status === 'pending' || notification.status === 'pending_approval') {
                 const shiftDateTime = parseISO(`${notification.payload.shiftDate}T${notification.payload.shiftTimeSlot.start}`);
@@ -868,10 +868,10 @@ export function subscribeToAllPassRequestNotifications(callback: (notifications:
                     expiredRequests.push(notification);
                 }
             }
-            
+
             return notification;
         });
-        
+
         // Automatically cancel expired requests
         if (expiredRequests.length > 0) {
             const batch = writeBatch(db);
@@ -889,7 +889,7 @@ export function subscribeToAllPassRequestNotifications(callback: (notifications:
         callback(notifications);
 
     }, (error) => {
-        console.warn(`[Firestore Read Error] Could not read notifications: ${error.code}`);
+        console.warn(`[Firestore Read Error] Could not read notifications: ${error.code} - ${error.message}`);
         callback([]);
     });
 
@@ -916,309 +916,309 @@ export async function deletePassRequestNotification(notificationId: string): Pro
 // --- Monthly Tasks (New Rule-Based System) ---
 
 function isTaskScheduledForDate(task: MonthlyTask, date: Date): boolean {
-  const dayOfWeek = getDay(date); // 0=Sun, 1=Mon, ...
-  const dayOfMonth = getDate(date);
+    const dayOfWeek = getDay(date); // 0=Sun, 1=Mon, ...
+    const dayOfMonth = getDate(date);
 
-  if (task.schedule.type === 'random') {
-    return task.scheduledDates?.includes(format(date, 'yyyy-MM-dd')) ?? false;
-  }
+    if (task.schedule.type === 'random') {
+        return task.scheduledDates?.includes(format(date, 'yyyy-MM-dd')) ?? false;
+    }
 
-  switch (task.schedule.type) {
-    case 'weekly':
-      return task.schedule.daysOfWeek.includes(dayOfWeek);
+    switch (task.schedule.type) {
+        case 'weekly':
+            return task.schedule.daysOfWeek.includes(dayOfWeek);
 
-    case 'interval':
-      const startDate = parseISO(task.schedule.startDate);
+        case 'interval':
+            const startDate = parseISO(task.schedule.startDate);
 
-      startDate.setHours(0, 0, 0, 0);
-      date.setHours(0, 0, 0, 0);
+            startDate.setHours(0, 0, 0, 0);
+            date.setHours(0, 0, 0, 0);
 
-      const diffInMs = date.getTime() - startDate.getTime();
-      const diffInDays = Math.round(diffInMs / (1000 * 60 * 60 * 24));
+            const diffInMs = date.getTime() - startDate.getTime();
+            const diffInDays = Math.round(diffInMs / (1000 * 60 * 60 * 24));
 
-      return diffInDays >= 0 && diffInDays % task.schedule.intervalDays === 0;
-    case 'monthly_date':
-      return task.schedule.daysOfMonth.includes(dayOfMonth);
+            return diffInDays >= 0 && diffInDays % task.schedule.intervalDays === 0;
+        case 'monthly_date':
+            return task.schedule.daysOfMonth.includes(dayOfMonth);
 
-    case 'monthly_weekday':
-      const weekOfMonth = getWeekOfMonth(date); // 1-based
-      const lastDayOfMonth = endOfMonth(date);
-      const lastWeekOfMonth = getWeekOfMonth(lastDayOfMonth);
+        case 'monthly_weekday':
+            const weekOfMonth = getWeekOfMonth(date); // 1-based
+            const lastDayOfMonth = endOfMonth(date);
+            const lastWeekOfMonth = getWeekOfMonth(lastDayOfMonth);
 
-      return task.schedule.occurrences.some(occ => {
-        if (occ.day !== dayOfWeek) return false;
-        // Handle last week of month (e.g., -1 for last)
-        if (occ.week < 0) {
-          const weekFromEnd = lastWeekOfMonth - weekOfMonth + 1;
-          return weekFromEnd === Math.abs(occ.week);
-        }
-        return occ.week === weekOfMonth;
-      });
+            return task.schedule.occurrences.some(occ => {
+                if (occ.day !== dayOfWeek) return false;
+                // Handle last week of month (e.g., -1 for last)
+                if (occ.week < 0) {
+                    const weekFromEnd = lastWeekOfMonth - weekOfMonth + 1;
+                    return weekFromEnd === Math.abs(occ.week);
+                }
+                return occ.week === weekOfMonth;
+            });
 
-    default:
-      return false;
-  }
+        default:
+            return false;
+    }
 }
 
 export function subscribeToMonthlyTasksForDate(
-  date: Date,
-  callback: (assignments: MonthlyTaskAssignment[]) => void
+    date: Date,
+    callback: (assignments: MonthlyTaskAssignment[]) => void
 ): () => void {
-  const dateKey = format(date, 'yyyy-MM-dd');
-  const weekId = `${getYear(date)}-W${getISOWeek(date)}`;
+    const dateKey = format(date, 'yyyy-MM-dd');
+    const weekId = `${getYear(date)}-W${getISOWeek(date)}`;
 
-  let allDefinedTasks: MonthlyTask[] = [];
-  let allUsers: ManagedUser[] = [];
-  let schedule: Schedule | null = null;
-  let allCompletionsForDay: TaskCompletionRecord[] = [];
+    let allDefinedTasks: MonthlyTask[] = [];
+    let allUsers: ManagedUser[] = [];
+    let schedule: Schedule | null = null;
+    let allCompletionsForDay: TaskCompletionRecord[] = [];
 
-  const processAndCallback = () => {
-    if (!schedule) { // Don't process until we have the schedule for the day
-        callback([]);
-        return;
-    }
-
-    const tasksDueToday = allDefinedTasks.filter(task => {
-        if (!isTaskScheduledForDate(task, date)) {
-        return false;
-      }
-      return true;
-    });
-
-    const shiftsToday = schedule.shifts.filter(s => s.date === dateKey);
-
-    const finalAssignments: MonthlyTaskAssignment[] = tasksDueToday.map(task => {
-      const responsibleUsersByShift = new Map<string, { shiftId: string; shiftLabel: string; users: AssignedUser[] }>();
-      const allResponsibleUserIds = new Set<string>();
-
-      shiftsToday.forEach(shift => {
-        const taskAppliesToShift = (
-          !task.timeOfDay || 
-          isWithinInterval(parseISO(`${dateKey}T${task.timeOfDay}`), {
-            start: parseISO(`${shift.date}T${shift.timeSlot.start}`),
-            end: parseISO(`${shift.date}T${shift.timeSlot.end}`)
-          })
-        );
-
-        if (taskAppliesToShift) {
-          shift.assignedUsers.forEach(assignedUser => {
-            const fullUser = allUsers.find(u => u.uid === assignedUser.userId);
-            if (fullUser) {
-              const userRoles = [fullUser.role, ...(fullUser.secondaryRoles || [])];
-              if (task.appliesToRole === 'Tất cả' || userRoles.includes(task.appliesToRole)) {
-                if (!responsibleUsersByShift.has(shift.id)) {
-                  responsibleUsersByShift.set(shift.id, { shiftId: shift.id, shiftLabel: shift.label, users: [] });
-                }
-                const shiftGroup = responsibleUsersByShift.get(shift.id)!;
-                if (!shiftGroup.users.some(u => u.userId === assignedUser.userId)) {
-                  shiftGroup.users.push(assignedUser);
-                }
-                allResponsibleUserIds.add(assignedUser.userId);
-              }
-            }
-          });
+    const processAndCallback = () => {
+        if (!schedule) { // Don't process until we have the schedule for the day
+            callback([]);
+            return;
         }
-      });
 
-      const allCompletionsForThisTask = allCompletionsForDay.filter(c => c.taskId === task.id);
-      const assignedCompletions = allCompletionsForThisTask.filter(c => c.completedBy && allResponsibleUserIds.has(c.completedBy.userId));
-      const otherCompletions = allCompletionsForThisTask.filter(c => !c.completedBy || !allResponsibleUserIds.has(c.completedBy.userId));
+        const tasksDueToday = allDefinedTasks.filter(task => {
+            if (!isTaskScheduledForDate(task, date)) {
+                return false;
+            }
+            return true;
+        });
 
-      return {
-        taskId: task.id,
-        taskName: task.name,
-        description: task.description,
-        assignedDate: dateKey,
-        responsibleUsersByShift: Array.from(responsibleUsersByShift.values()),
-        completions: assignedCompletions,
-        otherCompletions: otherCompletions,
-      };
+        const shiftsToday = schedule.shifts.filter(s => s.date === dateKey);
+
+        const finalAssignments: MonthlyTaskAssignment[] = tasksDueToday.map(task => {
+            const responsibleUsersByShift = new Map<string, { shiftId: string; shiftLabel: string; users: AssignedUser[] }>();
+            const allResponsibleUserIds = new Set<string>();
+
+            shiftsToday.forEach(shift => {
+                const taskAppliesToShift = (
+                    !task.timeOfDay ||
+                    isWithinInterval(parseISO(`${dateKey}T${task.timeOfDay}`), {
+                        start: parseISO(`${shift.date}T${shift.timeSlot.start}`),
+                        end: parseISO(`${shift.date}T${shift.timeSlot.end}`)
+                    })
+                );
+
+                if (taskAppliesToShift) {
+                    shift.assignedUsers.forEach(assignedUser => {
+                        const fullUser = allUsers.find(u => u.uid === assignedUser.userId);
+                        if (fullUser) {
+                            const userRoles = [fullUser.role, ...(fullUser.secondaryRoles || [])];
+                            if (task.appliesToRole === 'Tất cả' || userRoles.includes(task.appliesToRole)) {
+                                if (!responsibleUsersByShift.has(shift.id)) {
+                                    responsibleUsersByShift.set(shift.id, { shiftId: shift.id, shiftLabel: shift.label, users: [] });
+                                }
+                                const shiftGroup = responsibleUsersByShift.get(shift.id)!;
+                                if (!shiftGroup.users.some(u => u.userId === assignedUser.userId)) {
+                                    shiftGroup.users.push(assignedUser);
+                                }
+                                allResponsibleUserIds.add(assignedUser.userId);
+                            }
+                        }
+                    });
+                }
+            });
+
+            const allCompletionsForThisTask = allCompletionsForDay.filter(c => c.taskId === task.id);
+            const assignedCompletions = allCompletionsForThisTask.filter(c => c.completedBy && allResponsibleUserIds.has(c.completedBy.userId));
+            const otherCompletions = allCompletionsForThisTask.filter(c => !c.completedBy || !allResponsibleUserIds.has(c.completedBy.userId));
+
+            return {
+                taskId: task.id,
+                taskName: task.name,
+                description: task.description,
+                assignedDate: dateKey,
+                responsibleUsersByShift: Array.from(responsibleUsersByShift.values()),
+                completions: assignedCompletions,
+                otherCompletions: otherCompletions,
+            };
+        });
+
+        callback(finalAssignments.filter(a => a.responsibleUsersByShift.length > 0 || a.otherCompletions.length > 0));
+    };
+
+    const unsubTasks = onSnapshot(doc(db, 'app-data', 'monthlyTasks'), (docSnap) => {
+        allDefinedTasks = docSnap.exists() ? (docSnap.data().tasks as MonthlyTask[]) : [];
+        processAndCallback();
     });
 
-    callback(finalAssignments.filter(a => a.responsibleUsersByShift.length > 0 || a.otherCompletions.length > 0));
-  };
-
-  const unsubTasks = onSnapshot(doc(db, 'app-data', 'monthlyTasks'), (docSnap) => {
-    allDefinedTasks = docSnap.exists() ? (docSnap.data().tasks as MonthlyTask[]) : [];
-    processAndCallback();
-  });
-
-  const unsubSchedule = onSnapshot(doc(db, 'schedules', weekId), (docSnap) => {
-    schedule = docSnap.exists() ? (docSnap.data() as Schedule) : null;
-    processAndCallback();
-  });
-
-  // Query for all completion documents for the given date.
-  // The document IDs are in the format 'YYYY-MM-DD_userId'.
-  const completionsQuery = query(
-    collection(db, 'monthly_task_completions'),
-    where(documentId(), '>=', dateKey),
-    where(documentId(), '<', dateKey + 'z') // Use 'z' as a simple way to create an upper bound for the query
-  );
-
-  const unsubCompletions = onSnapshot(completionsQuery, (querySnapshot) => {
-    let completions: TaskCompletionRecord[] = [];
-    querySnapshot.forEach(docSnap => {
-      completions = completions.concat(docSnap.data().completions || []);
+    const unsubSchedule = onSnapshot(doc(db, 'schedules', weekId), (docSnap) => {
+        schedule = docSnap.exists() ? (docSnap.data() as Schedule) : null;
+        processAndCallback();
     });
-    allCompletionsForDay = completions;
-    processAndCallback();
-  });
 
-  const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-    allUsers = snapshot.docs.map(d => ({ ...d.data(), uid: d.id } as ManagedUser));
-    processAndCallback();
-  });
+    // Query for all completion documents for the given date.
+    // The document IDs are in the format 'YYYY-MM-DD_userId'.
+    const completionsQuery = query(
+        collection(db, 'monthly_task_completions'),
+        where(documentId(), '>=', dateKey),
+        where(documentId(), '<', dateKey + 'z') // Use 'z' as a simple way to create an upper bound for the query
+    );
 
-  return () => {
-    unsubTasks();
-    unsubSchedule();
-    unsubCompletions();
-    unsubUsers();
-  };
+    const unsubCompletions = onSnapshot(completionsQuery, (querySnapshot) => {
+        let completions: TaskCompletionRecord[] = [];
+        querySnapshot.forEach(docSnap => {
+            completions = completions.concat(docSnap.data().completions || []);
+        });
+        allCompletionsForDay = completions;
+        processAndCallback();
+    });
+
+    const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+        allUsers = snapshot.docs.map(d => ({ ...d.data(), uid: d.id } as ManagedUser));
+        processAndCallback();
+    });
+
+    return () => {
+        unsubTasks();
+        unsubSchedule();
+        unsubCompletions();
+        unsubUsers();
+    };
 }
 
 export function subscribeToMonthlyTaskCompletionsForMonth(
-  date: Date,
-  callback: (completions: TaskCompletionRecord[]) => void
+    date: Date,
+    callback: (completions: TaskCompletionRecord[]) => void
 ): () => void {
-  const monthPrefix = format(date, 'yyyy-MM');
-  const nextMonthDate = addMonths(date, 1);
-  const nextMonthPrefix = format(nextMonthDate, 'yyyy-MM');
+    const monthPrefix = format(date, 'yyyy-MM');
+    const nextMonthDate = addMonths(date, 1);
+    const nextMonthPrefix = format(nextMonthDate, 'yyyy-MM');
 
-  const completionsQuery = query(
-    collection(db, 'monthly_task_completions'),
-    where(documentId(), '>=', monthPrefix),
-    where(documentId(), '<', nextMonthPrefix)
-  );
+    const completionsQuery = query(
+        collection(db, 'monthly_task_completions'),
+        where(documentId(), '>=', monthPrefix),
+        where(documentId(), '<', nextMonthPrefix)
+    );
 
-  const unsubscribe = onSnapshot(completionsQuery, (querySnapshot) => {
-    let allCompletionsForMonth: TaskCompletionRecord[] = [];
-    querySnapshot.forEach(docSnap => {
-      const data = docSnap.data();
-      if (data.completions && Array.isArray(data.completions)) {
-        allCompletionsForMonth = allCompletionsForMonth.concat(data.completions);
-      }
+    const unsubscribe = onSnapshot(completionsQuery, (querySnapshot) => {
+        let allCompletionsForMonth: TaskCompletionRecord[] = [];
+        querySnapshot.forEach(docSnap => {
+            const data = docSnap.data();
+            if (data.completions && Array.isArray(data.completions)) {
+                allCompletionsForMonth = allCompletionsForMonth.concat(data.completions);
+            }
+        });
+        callback(allCompletionsForMonth);
+    }, (error) => {
+        console.error("Error fetching monthly task completions:", error);
+        callback([]);
     });
-    callback(allCompletionsForMonth);
-  }, (error) => {
-    console.error("Error fetching monthly task completions:", error);
-    callback([]);
-  });
 
-  return unsubscribe;
+    return unsubscribe;
 }
 
 export async function updateMonthlyTaskCompletionStatus(taskId: string, taskName: string, user: AssignedUser, date: Date, isCompleted: boolean, media?: MediaItem[], note?: string): Promise<void> {
-  const dateKey = format(date, 'yyyy-MM-dd');
-  const docRef = doc(db, 'monthly_task_completions', `${dateKey}_${user.userId}`);
+    const dateKey = format(date, 'yyyy-MM-dd');
+    const docRef = doc(db, 'monthly_task_completions', `${dateKey}_${user.userId}`);
 
-  if (!taskId || !taskName || !user || !dateKey){
-    throw new Error("Missing required parameters for updateMonthlyTaskCompletionStatus.");
-  }
-  
-  await runTransaction(db, async (transaction) => {
-    const docSnap = await transaction.get(docRef);
-    const allCompletions = docSnap.exists() ? (docSnap.data().completions as TaskCompletionRecord[]) : [];
-
-    const completionIndex = allCompletions.findIndex(
-      c => c.taskId === taskId, // Since this doc is now user-specific, we only need to find by taskId
-    );
-
-    if (completionIndex > -1) {
-      // Update existing completion record
-      const currentCompletion = allCompletions[completionIndex];
-      let newMediaAttachments: MediaAttachment[] | undefined = undefined;
-
-      if (isCompleted && media && media.length > 0) {
-        const uploadPath = `monthly-task-completions/${dateKey}/${user.userId}/${taskId}`;
-        newMediaAttachments = await uploadMedia(media, uploadPath);
-      } else if (!isCompleted && currentCompletion.media && currentCompletion.media.length > 0) {
-        const deletePromises = currentCompletion.media.map(att => deleteFileByUrl(att.url));
-        await Promise.all(deletePromises).catch(err => {
-          console.error("Failed to delete some media files from storage:", err);
-        });
-      }
-      
-      const finalMedia = [...(currentCompletion.media || []), ...(newMediaAttachments || [])];
-
-      const updatedCompletions = [...allCompletions];
-      const updatedCompletion: TaskCompletionRecord = {
-        ...currentCompletion,
-        note: note ?? currentCompletion.note ?? '',
-      };
-
-      if (isCompleted) {
-        updatedCompletion.completedAt = Timestamp.now();
-        updatedCompletion.media = finalMedia;
-      } else {
-        // If we are not completing the task, but there's a note,
-        // we should not delete existing media.
-        // Only delete media if explicitly un-completing and not adding a note with media.
-        if (!note) {
-            delete updatedCompletion.media;
-        }
-        // Preserve completion time if it exists and we are just adding a note
-        if (!currentCompletion.completedAt) {
-            delete updatedCompletion.completedAt;
-        }
-      }
-      updatedCompletions[completionIndex] = updatedCompletion;
-
-      transaction.set(docRef, { completions: updatedCompletions });
-    } else if (isCompleted || note) {
-      // Create new completion record
-      let newMediaAttachments: MediaAttachment[] | undefined = undefined;
-      if (media && media.length > 0) {
-        const uploadPath = `monthly-task-completions/${dateKey}/${user.userId}/${taskId}`;
-        newMediaAttachments = await uploadMedia(media, uploadPath);
-      }
-
-      const newCompletion: TaskCompletionRecord = {
-        taskId,
-        taskName,
-        completedBy: user,
-        assignedDate: dateKey,
-        ...(isCompleted && { completedAt: Timestamp.now() }),
-        ...(newMediaAttachments && { media: newMediaAttachments }),
-        ...(note && { note: note }),
-      };
-      
-      const updatedCompletions = [...allCompletions, newCompletion];
-    
-      transaction.set(docRef, { completions: updatedCompletions });
+    if (!taskId || !taskName || !user || !dateKey) {
+        throw new Error("Missing required parameters for updateMonthlyTaskCompletionStatus.");
     }
-  });
+
+    await runTransaction(db, async (transaction) => {
+        const docSnap = await transaction.get(docRef);
+        const allCompletions = docSnap.exists() ? (docSnap.data().completions as TaskCompletionRecord[]) : [];
+
+        const completionIndex = allCompletions.findIndex(
+            c => c.taskId === taskId, // Since this doc is now user-specific, we only need to find by taskId
+        );
+
+        if (completionIndex > -1) {
+            // Update existing completion record
+            const currentCompletion = allCompletions[completionIndex];
+            let newMediaAttachments: MediaAttachment[] | undefined = undefined;
+
+            if (isCompleted && media && media.length > 0) {
+                const uploadPath = `monthly-task-completions/${dateKey}/${user.userId}/${taskId}`;
+                newMediaAttachments = await uploadMedia(media, uploadPath);
+            } else if (!isCompleted && currentCompletion.media && currentCompletion.media.length > 0) {
+                const deletePromises = currentCompletion.media.map(att => deleteFileByUrl(att.url));
+                await Promise.all(deletePromises).catch(err => {
+                    console.error("Failed to delete some media files from storage:", err);
+                });
+            }
+
+            const finalMedia = [...(currentCompletion.media || []), ...(newMediaAttachments || [])];
+
+            const updatedCompletions = [...allCompletions];
+            const updatedCompletion: TaskCompletionRecord = {
+                ...currentCompletion,
+                note: note ?? currentCompletion.note ?? '',
+            };
+
+            if (isCompleted) {
+                updatedCompletion.completedAt = Timestamp.now();
+                updatedCompletion.media = finalMedia;
+            } else {
+                // If we are not completing the task, but there's a note,
+                // we should not delete existing media.
+                // Only delete media if explicitly un-completing and not adding a note with media.
+                if (!note) {
+                    delete updatedCompletion.media;
+                }
+                // Preserve completion time if it exists and we are just adding a note
+                if (!currentCompletion.completedAt) {
+                    delete updatedCompletion.completedAt;
+                }
+            }
+            updatedCompletions[completionIndex] = updatedCompletion;
+
+            transaction.set(docRef, { completions: updatedCompletions });
+        } else if (isCompleted || note) {
+            // Create new completion record
+            let newMediaAttachments: MediaAttachment[] | undefined = undefined;
+            if (media && media.length > 0) {
+                const uploadPath = `monthly-task-completions/${dateKey}/${user.userId}/${taskId}`;
+                newMediaAttachments = await uploadMedia(media, uploadPath);
+            }
+
+            const newCompletion: TaskCompletionRecord = {
+                taskId,
+                taskName,
+                completedBy: user,
+                assignedDate: dateKey,
+                ...(isCompleted && { completedAt: Timestamp.now() }),
+                ...(newMediaAttachments && { media: newMediaAttachments }),
+                ...(note && { note: note }),
+            };
+
+            const updatedCompletions = [...allCompletions, newCompletion];
+
+            transaction.set(docRef, { completions: updatedCompletions });
+        }
+    });
 }
 
 export async function deleteMonthlyTaskCompletion(taskId: string, userId: string, dateKey: string): Promise<void> {
-  const docRef = doc(db, 'monthly_task_completions', `${dateKey}_${userId}`);
+    const docRef = doc(db, 'monthly_task_completions', `${dateKey}_${userId}`);
 
-  await runTransaction(db, async (transaction) => {
-    const docSnap = await transaction.get(docRef);
-    if (!docSnap.exists()) {
-      console.warn(`Completion document not found for ${dateKey}_${userId}`);
-      return;
-    }
+    await runTransaction(db, async (transaction) => {
+        const docSnap = await transaction.get(docRef);
+        if (!docSnap.exists()) {
+            console.warn(`Completion document not found for ${dateKey}_${userId}`);
+            return;
+        }
 
-    const allCompletions = docSnap.data().completions as TaskCompletionRecord[];
-    const completionToDelete = allCompletions.find(c => c.taskId === taskId);
+        const allCompletions = docSnap.data().completions as TaskCompletionRecord[];
+        const completionToDelete = allCompletions.find(c => c.taskId === taskId);
 
-    if (!completionToDelete) {
-      console.warn(`Completion record not found for task ${taskId} in document ${dateKey}_${userId}`);
-      return;
-    }
+        if (!completionToDelete) {
+            console.warn(`Completion record not found for task ${taskId} in document ${dateKey}_${userId}`);
+            return;
+        }
 
-    // Delete associated media from storage
-    if (completionToDelete.media && completionToDelete.media.length > 0) {
-      const deletePromises = completionToDelete.media.map(att => deleteFileByUrl(att.url));
-      await Promise.all(deletePromises).catch(err => {
-        console.error("Failed to delete some media files from storage during completion deletion:", err);
-      });
-    }
+        // Delete associated media from storage
+        if (completionToDelete.media && completionToDelete.media.length > 0) {
+            const deletePromises = completionToDelete.media.map(att => deleteFileByUrl(att.url));
+            await Promise.all(deletePromises).catch(err => {
+                console.error("Failed to delete some media files from storage during completion deletion:", err);
+            });
+        }
 
-    const updatedCompletions = allCompletions.filter(c => c.taskId !== taskId);
+        const updatedCompletions = allCompletions.filter(c => c.taskId !== taskId);
 
-    transaction.update(docRef, { completions: updatedCompletions });
-  });
+        transaction.update(docRef, { completions: updatedCompletions });
+    });
 }

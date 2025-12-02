@@ -27,7 +27,7 @@ export const useAuth = () => {
   const [isOnActiveShift, setIsOnActiveShift] = useState(false);
   const [activeShifts, setActiveShifts] = useState<AssignedShift[]>([]);
   const [todaysShifts, setTodaysShifts] = useState<AssignedShift[]>([]);
-  const [notifications, setNotifications] = useState<Notification[] | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const router = useRouter();
   const pathname = usePathname();
   const loadingTimer = useRef<NodeJS.Timeout | null>(null);
@@ -152,7 +152,7 @@ export const useAuth = () => {
       setIsOnActiveShift(false);
       setActiveShifts([]);
       setTodaysShifts([]);
-      setNotifications(null);
+      setNotifications([]);
       return;
     };
 
@@ -162,9 +162,13 @@ export const useAuth = () => {
     const unsubscribeSchedule = dataStore.subscribeToSchedule(weekId, (schedule) => {
       checkUserShift(user, schedule);
     });
+    const unsubcribeRelevantNotifications = dataStore.subscribeToAllRelevantNotifications(user.uid, (newNotifications) => {
+      setNotifications(newNotifications);
+    });
 
     return () => {
       unsubscribeSchedule();
+      unsubcribeRelevantNotifications();
     };
   }, [user, checkUserShift, refreshTrigger]);
 
@@ -188,6 +192,11 @@ export const useAuth = () => {
       }
     };
   }, [loading, router]);
+
+  const unreadNotificationCount = useMemo(() => {
+    if (!user || !notifications) return 0;
+    return notifications.filter(n => !n.isRead?.[user.uid]).length;
+  }, [notifications, user]);
 
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     try {
@@ -249,7 +258,7 @@ export const useAuth = () => {
     activeShifts,
     todaysShifts,
     notifications,
-    setNotifications,
+    unreadNotificationCount,
     login,
     register,
     logout,

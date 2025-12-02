@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { LoadingPage } from '@/components/loading/LoadingPage';
@@ -39,6 +39,7 @@ import {
     isSameDay,
     getDay,
     isSameWeek,
+    isAfter,
     isWithinInterval,
     parseISO,
 } from 'date-fns';
@@ -61,6 +62,8 @@ import { Badge } from '@/components/ui/badge';
 import PassRequestsDialog from '../../schedule/_components/pass-requests-dialog';
 import UserDetailsDialog from './user-details-dialog';
 import { isUserAvailable, hasTimeConflict } from '@/lib/schedule-utils';
+import { useSearchParams } from 'next/navigation';
+import { useRouter } from 'nextjs-toploader/app';
 
 
 // Helper function to abbreviate names
@@ -131,6 +134,9 @@ const roleOrder: Record<UserRole, number> = {
 export default function ScheduleView() {
     const { user } = useAuth();
     const isMobile = useIsMobile();
+    const searchParams = useSearchParams();
+    const router = useRouter();
+    const routerRef = useRef(router);
     
     const getInitialDate = () => {
         const today = new Date();
@@ -194,6 +200,10 @@ export default function ScheduleView() {
     const [showAdminActionConfirm, setShowAdminActionConfirm] = useState(false);
 
     useEffect(() => {
+        routerRef.current = router;
+    }, [router]); 
+
+    useEffect(() => {
         if (!user || !canManage) return;
 
         setIsLoading(true);
@@ -227,6 +237,13 @@ export default function ScheduleView() {
         };
 
     }, [user, weekId, canManage]);
+
+    useEffect(() => {
+        if (searchParams.get('openPassRequest') === 'true') {
+            setIsPassRequestsDialogOpen(true);
+            routerRef.current.replace('/shift-scheduling', { scroll: false });
+        }
+    }, [searchParams]);
     
     // Check for unsaved changes before leaving the page
     useEffect(() => {

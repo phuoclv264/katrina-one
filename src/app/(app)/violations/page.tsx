@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useAuth } from '@/hooks/use-auth';
 import { dataStore } from '@/lib/data-store';
@@ -23,19 +23,22 @@ import { ViolationCard } from './_components/violation-card';
 import { generateSmartAbbreviations } from '@/lib/violations-utils';
 import { UserMultiSelect } from '@/components/user-multi-select';
 import { useRouter } from 'nextjs-toploader/app';
+import { useSearchParams } from 'next/navigation';
 
 /**
  * Type guard to check if an item is a MediaAttachment.
  */
 function isMediaAttachment(item: any): item is MediaAttachment {
-    return typeof item === 'object' && item !== null && 
-           typeof item.url === 'string' && 
-           (item.type === 'photo' || item.type === 'video');
+  return typeof item === 'object' && item !== null &&
+    typeof item.url === 'string' &&
+    (item.type === 'photo' || item.type === 'video');
 }
 
 export default function ViolationsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const routerRef = useRef(router);
+  const searchParams = useSearchParams();
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const handleDataRefresh = useCallback(() => {
@@ -44,17 +47,18 @@ export default function ViolationsPage() {
 
   const [violations, setViolations] = useState<Violation[]>([]);
   const [users, setUsers] = useState<ManagedUser[]>([]);
-  const [categoryData, setCategoryData] = useState<ViolationCategoryData>({ list: [], generalRules: []});
+  const [categoryData, setCategoryData] = useState<ViolationCategoryData>({ list: [], generalRules: [] });
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingViolationId, setProcessingViolationId] = useState<string | null>(null);
-  
+
+  const violationRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
   const [isSelfConfessMode, setIsSelfConfessMode] = useState(false);
   const [violationToEdit, setViolationToEdit] = useState<Violation | null>(null);
-  
+
   const [filterUsers, setFilterUsers] = useState<ManagedUser[]>([]);
   const [filterCategoryName, setFilterCategoryName] = useState<string>('');
 
@@ -74,30 +78,53 @@ export default function ViolationsPage() {
   }, [user, authLoading, router]);
 
   useEffect(() => {
+    routerRef.current = router;
+  }, [router]);
+
+  useEffect(() => {
     if (!user) return;
     const unsubViolations = dataStore.subscribeToViolations(setViolations);
     const unsubUsers = dataStore.subscribeToUsers(setUsers);
     const unsubCategories = dataStore.subscribeToViolationCategories(setCategoryData);
-      
+
     return () => {
-        unsubViolations();
-        unsubUsers();
-        unsubCategories();
+      unsubViolations();
+      unsubUsers();
+      unsubCategories();
     };
   }, [user, refreshTrigger]);
 
   useEffect(() => {
     if (isLoading && (violations.length > 0)) {
-        setIsLoading(false);
+      setIsLoading(false);
     } else if (isLoading) {
       setTimeout(() => {
-        if (isLoading) { 
+        if (isLoading) {
           setIsLoading(false);
         }
       }, 1000);
     }
   }, [violations, isLoading]);
-      
+
+  // Effect to scroll to and highlight a violation from URL param
+  useEffect(() => {
+    const highlightId = searchParams.get('highlight');
+    if (highlightId && violations.length > 0) {
+      const element = violationRefs.current.get(highlightId);
+      if (element) {
+        setTimeout(() => {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          element.classList.add('highlight-animation');
+          setTimeout(() => {
+            element.classList.remove('highlight-animation');
+          }, 2500); // Animation duration
+        }, 100);
+      }
+      // Clean up the URL
+      routerRef.current.replace('/violations', { scroll: false });
+    }
+  }, [searchParams, violations]);
+
   useDataRefresher(handleDataRefresh);
 
   useEffect(() => {
@@ -124,15 +151,15 @@ export default function ViolationsPage() {
   const handleSaveViolation = async (data: any, id?: string) => {
     setIsProcessing(true);
     try {
-        await dataStore.addOrUpdateViolation(data, id);
-        toast.success('Đã lưu lại vi phạm.');
-        setIsDialogOpen(false);
-        setViolationToEdit(null);
-    } catch(error) {
-        console.error("Failed to save violation:", error);
-        toast.error('Không thể lưu vi phạm.');
+      await dataStore.addOrUpdateViolation(data, id);
+      toast.success('Đã lưu lại vi phạm.');
+      setIsDialogOpen(false);
+      setViolationToEdit(null);
+    } catch (error) {
+      console.error("Failed to save violation:", error);
+      toast.error('Không thể lưu vi phạm.');
     } finally {
-        setIsProcessing(false);
+      setIsProcessing(false);
     }
   };
 
@@ -143,145 +170,145 @@ export default function ViolationsPage() {
   const handleDeleteViolation = async (violation: Violation) => {
     setProcessingViolationId(violation.id);
     try {
-        await dataStore.deleteViolation(violation);
-        toast.success('Đã xóa ghi nhận vi phạm.');
+      await dataStore.deleteViolation(violation);
+      toast.success('Đã xóa ghi nhận vi phạm.');
     } catch (error) {
-        console.error("Failed to delete violation:", error);
-        toast.error('Không thể xóa vi phạm.');
+      console.error("Failed to delete violation:", error);
+      toast.error('Không thể xóa vi phạm.');
     } finally {
-        setProcessingViolationId(null);
+      setProcessingViolationId(null);
     }
   };
 
-    const handleToggleFlag = async (violation: Violation) => {
-        if (user?.role !== 'Chủ nhà hàng') return;
-        setProcessingViolationId(violation.id);
-        try {
-            await dataStore.toggleViolationFlag(violation.id, !!violation.isFlagged);
-            toast.success(violation.isFlagged ? 'Đã bỏ gắn cờ vi phạm.' : 'Đã gắn cờ vi phạm.');
-        } catch (error) {
-            console.error("Failed to toggle flag:", error);
-            toast.error('Không thể thay đổi trạng thái gắn cờ.');
-        } finally {
-            setProcessingViolationId(null);
-        }
-    };
-    
-    const handleToggleWaivePenalty = async (violation: Violation) => {
-        if (user?.role !== 'Chủ nhà hàng') return;
-        setProcessingViolationId(violation.id);
-        try {
-            await dataStore.toggleViolationPenaltyWaived(violation.id, !!violation.isPenaltyWaived);
-            toast.success(violation.isPenaltyWaived ? 'Đã hủy miễn phạt.' : 'Đã miễn phạt cho vi phạm này.');
-        } catch (error) {
-            console.error("Failed to waive penalty:", error);
-            toast.error('Không thể thay đổi trạng thái miễn phạt.');
-        } finally {
-            setProcessingViolationId(null);
-        }
+  const handleToggleFlag = async (violation: Violation) => {
+    if (user?.role !== 'Chủ nhà hàng') return;
+    setProcessingViolationId(violation.id);
+    try {
+      await dataStore.toggleViolationFlag(violation.id, !!violation.isFlagged);
+      toast.success(violation.isFlagged ? 'Đã bỏ gắn cờ vi phạm.' : 'Đã gắn cờ vi phạm.');
+    } catch (error) {
+      console.error("Failed to toggle flag:", error);
+      toast.error('Không thể thay đổi trạng thái gắn cờ.');
+    } finally {
+      setProcessingViolationId(null);
     }
+  };
 
-    const handleCommentSubmit = async (violationId: string, commentText: string, photoIds: string[]) => {
-      if (!user) return;
-      setProcessingViolationId(violationId);
-      try {
-        const commentData = {
-          commenterId: user.uid,
-          commenterName: user.displayName,
-          text: commentText,
-        };
-        await dataStore.addCommentToViolation(violationId, commentData, photoIds);
-        toast.success('Đã gửi bình luận');
-      } catch (error) {
-        console.error("Failed to submit comment:", error);
-        toast.error('Không thể gửi bình luận.');
-      } finally {
-        setProcessingViolationId(null);
-      }
-    };
+  const handleToggleWaivePenalty = async (violation: Violation) => {
+    if (user?.role !== 'Chủ nhà hàng') return;
+    setProcessingViolationId(violation.id);
+    try {
+      await dataStore.toggleViolationPenaltyWaived(violation.id, !!violation.isPenaltyWaived);
+      toast.success(violation.isPenaltyWaived ? 'Đã hủy miễn phạt.' : 'Đã miễn phạt cho vi phạm này.');
+    } catch (error) {
+      console.error("Failed to waive penalty:", error);
+      toast.error('Không thể thay đổi trạng thái miễn phạt.');
+    } finally {
+      setProcessingViolationId(null);
+    }
+  }
 
-    const handleCommentEdit = async (violationId: string, commentId: string, newText: string) => {
-        setProcessingViolationId(violationId);
-        try {
-            await dataStore.editCommentInViolation(violationId, commentId, newText);
-            toast.success('Đã cập nhật bình luận');
-        } catch (error) {
-            console.error("Failed to edit comment:", error);
-            toast.error('Không thể cập nhật bình luận.');
-        } finally {
-            setProcessingViolationId(null);
-        }
-    };
+  const handleCommentSubmit = async (violationId: string, commentText: string, photoIds: string[]) => {
+    if (!user) return;
+    setProcessingViolationId(violationId);
+    try {
+      const commentData = {
+        commenterId: user.uid,
+        commenterName: user.displayName,
+        text: commentText,
+      };
+      await dataStore.addCommentToViolation(violationId, commentData, photoIds);
+      toast.success('Đã gửi bình luận');
+    } catch (error) {
+      console.error("Failed to submit comment:", error);
+      toast.error('Không thể gửi bình luận.');
+    } finally {
+      setProcessingViolationId(null);
+    }
+  };
 
-    const handleCommentDelete = async (violationId: string, commentId: string) => {
-        setProcessingViolationId(violationId);
-        try {
-            await dataStore.deleteCommentInViolation(violationId, commentId);
-            toast.success('Đã xóa bình luận');
-        } catch (error) {
-            console.error("Failed to delete comment:", error);
-            toast.error('Không thể xóa bình luận.');
-        } finally {
-            setProcessingViolationId(null);
-        }
-    };
-  
+  const handleCommentEdit = async (violationId: string, commentId: string, newText: string) => {
+    setProcessingViolationId(violationId);
+    try {
+      await dataStore.editCommentInViolation(violationId, commentId, newText);
+      toast.success('Đã cập nhật bình luận');
+    } catch (error) {
+      console.error("Failed to edit comment:", error);
+      toast.error('Không thể cập nhật bình luận.');
+    } finally {
+      setProcessingViolationId(null);
+    }
+  };
+
+  const handleCommentDelete = async (violationId: string, commentId: string) => {
+    setProcessingViolationId(violationId);
+    try {
+      await dataStore.deleteCommentInViolation(violationId, commentId);
+      toast.success('Đã xóa bình luận');
+    } catch (error) {
+      console.error("Failed to delete comment:", error);
+      toast.error('Không thể xóa bình luận.');
+    } finally {
+      setProcessingViolationId(null);
+    }
+  };
+
   const handlePenaltySubmit = async (media: { id: string; type: 'photo' | 'video' }[]) => {
     setIsPenaltyCameraOpen(false);
     if (!activeViolationForPenalty || !activeUserForPenalty || media.length === 0) {
-        return;
+      return;
     }
-    
+
     setProcessingViolationId(activeViolationForPenalty.id);
     const violationId = activeViolationForPenalty.id;
     toast.loading('Bằng chứng nộp phạt đang được tải lên.');
 
     // Separate photos and videos for backward compatibility and correct data structure
     const photosToSubmit = media
-        .filter(m => m.type === 'photo')
-        .map(m => ({ id: m.id, type: m.type as 'photo' | 'video' }));
+      .filter(m => m.type === 'photo')
+      .map(m => ({ id: m.id, type: m.type as 'photo' | 'video' }));
 
     const videosToSubmit = media
-        .filter(m => m.type === 'video')
-        .map(m => ({ id: m.id, type: m.type as 'photo' | 'video' }));
+      .filter(m => m.type === 'video')
+      .map(m => ({ id: m.id, type: m.type as 'photo' | 'video' }));
 
     try {
-        await dataStore.submitPenaltyProof(violationId, [...photosToSubmit, ...videosToSubmit], { userId: activeUserForPenalty.id, userName: activeUserForPenalty.name });
-        toast.success('Đã cập nhật bằng chứng nộp phạt.');
+      await dataStore.submitPenaltyProof(violationId, [...photosToSubmit, ...videosToSubmit], { userId: activeUserForPenalty.id, userName: activeUserForPenalty.name });
+      toast.success('Đã cập nhật bằng chứng nộp phạt.');
     } catch (error) {
-        console.error("Failed to submit penalty proof:", error);
-        toast.error('Không thể gửi bằng chứng nộp phạt.');
+      console.error("Failed to submit penalty proof:", error);
+      toast.error('Không thể gửi bằng chứng nộp phạt.');
     } finally {
-        toast.dismiss();
-        setProcessingViolationId(null);
-        setActiveViolationForPenalty(null);
-        setActiveUserForPenalty(null);
+      toast.dismiss();
+      setProcessingViolationId(null);
+      setActiveViolationForPenalty(null);
+      setActiveUserForPenalty(null);
     }
-};
+  };
 
   const filteredViolations = useMemo(() => {
-      let result = violations;
-      if (filterUsers.length > 0) {
-        const filterUserIds = new Set(filterUsers.map(u => u.uid));
-        result = result.filter(v => v.users.some(vu => filterUserIds.has(vu.id)));
-      }
-      if(filterCategoryName) {
-          result = result.filter(v => v.categoryName === filterCategoryName);
-      }
-      return result;
+    let result = violations;
+    if (filterUsers.length > 0) {
+      const filterUserIds = new Set(filterUsers.map(u => u.uid));
+      result = result.filter(v => v.users.some(vu => filterUserIds.has(vu.id)));
+    }
+    if (filterCategoryName) {
+      result = result.filter(v => v.categoryName === filterCategoryName);
+    }
+    return result;
   }, [violations, filterUsers, filterCategoryName]);
 
   const groupedViolations = useMemo(() => {
-      return filteredViolations.reduce((acc, violation) => {
-          const monthKey = new Date(violation.createdAt as string).toLocaleString('vi-VN', { month: '2-digit', year: 'numeric' });
-          if (!acc[monthKey]) {
-              acc[monthKey] = [];
-          }
-          acc[monthKey].push(violation);
-          return acc;
-      }, {} as {[key: string]: Violation[]});
+    return filteredViolations.reduce((acc, violation) => {
+      const monthKey = new Date(violation.createdAt as string).toLocaleString('vi-VN', { month: '2-digit', year: 'numeric' });
+      if (!acc[monthKey]) {
+        acc[monthKey] = [];
+      }
+      acc[monthKey].push(violation);
+      return acc;
+    }, {} as { [key: string]: Violation[] });
   }, [filteredViolations]);
-  
+
   const canManage = user?.role === 'Quản lý' || user?.role === 'Chủ nhà hàng';
   const isOwner = user?.role === 'Chủ nhà hàng';
   const pageTitle = canManage ? 'Ghi nhận Vi phạm' : 'Danh sách Vi phạm';
@@ -293,17 +320,17 @@ export default function ViolationsPage() {
     setIsSelfConfessMode(isSelfConfess);
     setIsDialogOpen(true);
   }
-  
+
   const toggleCommentSection = (violationId: string) => {
-      setOpenCommentSectionIds(prevIds => {
-          const newIds = new Set(prevIds);
-          if (newIds.has(violationId)) {
-              newIds.delete(violationId);
-          } else {
-              newIds.add(violationId);
-          }
-          return newIds;
-      });
+    setOpenCommentSectionIds(prevIds => {
+      const newIds = new Set(prevIds);
+      if (newIds.has(violationId)) {
+        newIds.delete(violationId);
+      } else {
+        newIds.add(violationId);
+      }
+      return newIds;
+    });
   };
 
   if (isLoading || authLoading || !user) {
@@ -323,124 +350,128 @@ export default function ViolationsPage() {
         </header>
 
         <Card>
-            <CardHeader>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                        <CardTitle>Danh sách Vi phạm</CardTitle>
-                        <CardDescription className="mt-1">
-                            Các ghi nhận gần đây nhất sẽ được hiển thị ở đầu.
-                        </CardDescription>
-                    </div>
-                     <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                        {!canManage && (
-                          <Button variant="secondary" onClick={() => openAddDialog(true)} className="w-full sm:w-auto">
-                              <BadgeInfo className="mr-2 h-4 w-4" /> Tự thú
-                          </Button>
-                        )}
-                        {canManage && (
-                            <Button onClick={() => openAddDialog(false)} className="w-full sm:w-auto">
-                                <Plus className="mr-2 h-4 w-4" /> Thêm mới
-                            </Button>
-                        )}
-                        <div className="flex gap-2 w-full sm:w-auto">
-                           <Button variant="outline" onClick={() => setIsInfoDialogOpen(true)} className="flex-grow">
-                              <BadgeInfo className="mr-2 h-4 w-4" />
-                              Chính sách phạt
-                           </Button>
-                           {isOwner && (
-                                <Button variant="outline" size="icon" onClick={() => setIsCategoryDialogOpen(true)} className="shrink-0">
-                                    <Settings className="h-4 w-4" />
-                                </Button>
-                           )}
-                        </div>
-                    </div>
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <CardTitle>Danh sách Vi phạm</CardTitle>
+                <CardDescription className="mt-1">
+                  Các ghi nhận gần đây nhất sẽ được hiển thị ở đầu.
+                </CardDescription>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                {!canManage && (
+                  <Button variant="secondary" onClick={() => openAddDialog(true)} className="w-full sm:w-auto">
+                    <BadgeInfo className="mr-2 h-4 w-4" /> Tự thú
+                  </Button>
+                )}
+                {canManage && (
+                  <Button onClick={() => openAddDialog(false)} className="w-full sm:w-auto">
+                    <Plus className="mr-2 h-4 w-4" /> Thêm mới
+                  </Button>
+                )}
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <Button variant="outline" onClick={() => setIsInfoDialogOpen(true)} className="flex-grow">
+                    <BadgeInfo className="mr-2 h-4 w-4" />
+                    Chính sách phạt
+                  </Button>
+                  {isOwner && (
+                    <Button variant="outline" size="icon" onClick={() => setIsCategoryDialogOpen(true)} className="shrink-0">
+                      <Settings className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
-                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
-                    <UserMultiSelect
-                        users={displayUsers}
-                        selectedUsers={filterUsers}
-                        onChange={setFilterUsers}
-                        className="w-full"
-                    />
-                    <ViolationCategoryCombobox
-                        categories={categoryData.list}
-                        value={filterCategoryName}
-                        onChange={setFilterCategoryName}
-                        onCategoriesChange={handleCategoriesChange}
-                        canManage={false}
-                        placeholder="Lọc theo loại vi phạm..."
-                    />
-                </div>
-            </CardHeader>
-            <CardContent>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
+              <UserMultiSelect
+                users={displayUsers}
+                selectedUsers={filterUsers}
+                onChange={setFilterUsers}
+                className="w-full"
+              />
+              <ViolationCategoryCombobox
+                categories={categoryData.list}
+                value={filterCategoryName}
+                onChange={setFilterCategoryName}
+                onCategoriesChange={handleCategoriesChange}
+                canManage={false}
+                placeholder="Lọc theo loại vi phạm..."
+              />
+            </div>
+          </CardHeader>
+          <CardContent>
             {Object.keys(groupedViolations).length === 0 ? (
-                <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-4">
-                    <FilterX className="h-12 w-12"/>
-                    <p>Không tìm thấy vi phạm nào khớp với bộ lọc.</p>
-                </div>
+              <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-4">
+                <FilterX className="h-12 w-12" />
+                <p>Không tìm thấy vi phạm nào khớp với bộ lọc.</p>
+              </div>
             ) : (
-                <Accordion type="multiple" defaultValue={Object.keys(groupedViolations)} className="space-y-4">
+              <Accordion type="multiple" defaultValue={Object.keys(groupedViolations)} className="space-y-4">
                 {Object.entries(groupedViolations).map(([month, violationsInMonth]) => (
-                    <AccordionItem key={month} value={month}>
-                        <AccordionTrigger className="text-lg font-medium">Tháng {month}</AccordionTrigger>
-                        <AccordionContent className="space-y-4 pt-2">
-                            {violationsInMonth.map(v => (
-                                <ViolationCard
-                                    key={v.id}
-                                    violation={v}
-                                    currentUser={user}
-                                    categoryData={categoryData}
-                                    userAbbreviations={userAbbreviations}
-                                    processingViolationId={processingViolationId}
-                                    openCommentSectionIds={openCommentSectionIds}
-                                    onToggleFlag={handleToggleFlag}
-                                    onToggleWaivePenalty={handleToggleWaivePenalty}
-                                    onEdit={(violation) => { setViolationToEdit(violation); setIsSelfConfessMode(false); setIsDialogOpen(true); }}
-                                    onDelete={handleDeleteViolation}
-                                    onPenaltySubmit={(violation, user, mode) => { 
-                                        setActiveViolationForPenalty(violation); 
-                                        setActiveUserForPenalty(user); 
-                                        setPenaltyCaptureMode(mode);
-                                        setIsPenaltyCameraOpen(true); 
-                                    }}
-                                    onCommentSubmit={handleCommentSubmit}
-                                    onCommentEdit={handleCommentEdit}
-                                    onCommentDelete={handleCommentDelete}
-                                    onToggleCommentSection={toggleCommentSection}
-                                    setActiveViolationForPenalty={setActiveViolationForPenalty}
-                                    setActiveUserForPenalty={setActiveUserForPenalty}
-                                    setIsPenaltyCameraOpen={setIsPenaltyCameraOpen}
-                                />
-                            ))}
-                        </AccordionContent>
-                    </AccordionItem>
+                  <AccordionItem key={month} value={month}>
+                    <AccordionTrigger className="text-lg font-medium">Tháng {month}</AccordionTrigger>
+                    <AccordionContent className="space-y-4 pt-2">
+                      {violationsInMonth.map(v => (
+                        <ViolationCard
+                          ref={(el) => {
+                            if (el) violationRefs.current.set(v.id, el);
+                            else violationRefs.current.delete(v.id);
+                          }}
+                          key={v.id}
+                          violation={v}
+                          currentUser={user}
+                          categoryData={categoryData}
+                          userAbbreviations={userAbbreviations}
+                          processingViolationId={processingViolationId}
+                          openCommentSectionIds={openCommentSectionIds}
+                          onToggleFlag={handleToggleFlag}
+                          onToggleWaivePenalty={handleToggleWaivePenalty}
+                          onEdit={(violation) => { setViolationToEdit(violation); setIsSelfConfessMode(false); setIsDialogOpen(true); }}
+                          onDelete={handleDeleteViolation}
+                          onPenaltySubmit={(violation, user, mode) => {
+                            setActiveViolationForPenalty(violation);
+                            setActiveUserForPenalty(user);
+                            setPenaltyCaptureMode(mode);
+                            setIsPenaltyCameraOpen(true);
+                          }}
+                          onCommentSubmit={handleCommentSubmit}
+                          onCommentEdit={handleCommentEdit}
+                          onCommentDelete={handleCommentDelete}
+                          onToggleCommentSection={toggleCommentSection}
+                          setActiveViolationForPenalty={setActiveViolationForPenalty}
+                          setActiveUserForPenalty={setActiveUserForPenalty}
+                          setIsPenaltyCameraOpen={setIsPenaltyCameraOpen}
+                        />
+                      ))}
+                    </AccordionContent>
+                  </AccordionItem>
                 ))}
-            </Accordion>
+              </Accordion>
             )}
           </CardContent>
         </Card>
       </div>
 
       {user && (
-          <ViolationDialog 
-            open={isDialogOpen}
-            onOpenChange={setIsDialogOpen}
-            onSave={handleSaveViolation}
-            users={displayUsers}
-            isProcessing={isProcessing}
-            violationToEdit={violationToEdit}
-            reporter={user}
-            isSelfConfession={isSelfConfessMode}
-            categories={categoryData.list}
-            onCategoriesChange={handleCategoriesChange}
-            canManage={isOwner}
-          />
+        <ViolationDialog
+          open={isDialogOpen}
+          onOpenChange={setIsDialogOpen}
+          onSave={handleSaveViolation}
+          users={displayUsers}
+          isProcessing={isProcessing}
+          violationToEdit={violationToEdit}
+          reporter={user}
+          isSelfConfession={isSelfConfessMode}
+          categories={categoryData.list}
+          onCategoriesChange={handleCategoriesChange}
+          canManage={isOwner}
+        />
       )}
-      
+
       {isOwner && (
         <ViolationCategoryManagementDialog
-            isOpen={isCategoryDialogOpen}
-            onClose={() => setIsCategoryDialogOpen(false)}
+          isOpen={isCategoryDialogOpen}
+          onClose={() => setIsCategoryDialogOpen(false)}
         />
       )}
 
@@ -450,8 +481,8 @@ export default function ViolationsPage() {
         categories={categoryData.list}
         generalRules={categoryData.generalRules}
       />
-      
-       <CameraDialog
+
+      <CameraDialog
         isOpen={isPenaltyCameraOpen}
         onClose={() => setIsPenaltyCameraOpen(false)}
         onSubmit={handlePenaltySubmit}

@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { MailQuestion, Check, CalendarCheck, ShieldAlert } from 'lucide-react';
+import { MailQuestion, Check, CalendarCheck, ShieldAlert, CheckCircle2, XCircle, UserCheck, LogIn, LogOut, ClipboardCheck, Megaphone, FileText, DollarSign, FileSignature } from 'lucide-react';
 import type { Notification, AuthUser } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { useAuth } from '@/hooks/use-auth';
@@ -29,36 +29,124 @@ type NotificationSheetProps = {
   notifications: Notification[];
 };
 
-const getNotificationDetails = (notification: Notification) => {
-    const { payload, type : notificationType } = notification;
+const getNotificationDetails = (notification: Notification, currentUserId: string, currentUserRole: string) => {
+    const { payload, type: notificationType, status, messageTitle, messageBody } = notification;
 
     switch (notificationType) {
-        case 'pass_request':
-            return {
-                icon: MailQuestion,
-                title: 'Yêu cầu Pass ca',
-                description: `${payload.requestingUser.userName} muốn pass ca ${payload.shiftLabel} ngày ${format(parseISO(payload.shiftDate), 'dd/MM')}.`,
-                href: `/schedule?openPassRequest=true`,
-            };
+        case 'pass_request': {
+            const isMyRequest = payload.requestingUser.userId === currentUserId;
+            switch (status) {
+                case 'pending':
+                    if (payload.targetUserId) {
+                        return {
+                            icon: MailQuestion,
+                            title: isMyRequest ? 'Đang chờ trả lời...' : (payload.isSwapRequest ? 'Yêu cầu đổi ca' : 'Yêu cầu nhận ca'),
+                            description: isMyRequest ? `Đã gửi yêu cầu đến ${payload.targetUserName}.` : `${payload.requestingUser.userName} muốn ${payload.isSwapRequest ? 'đổi ca' : 'nhờ bạn nhận ca'}.`,
+                            href: `/schedule?openPassRequest=true`,
+                        };
+                    }
+                    return {
+                        icon: MailQuestion,
+                        title: isMyRequest ? 'Đang tìm người nhận ca...' : 'Có ca cần người nhận',
+                        description: isMyRequest ? `Yêu cầu pass ca của bạn đang được hiển thị cho mọi người.` : `${payload.requestingUser.userName} muốn pass ca ${payload.shiftLabel}.`,
+                        href: currentUserRole !== 'Chủ nhà hàng' ? `/schedule?openPassRequest=true` : `/shift-scheduling?openPassRequest=true`,
+                    };
+                case 'pending_approval':
+                    return {
+                        icon: UserCheck,
+                        title: 'Chờ quản lý duyệt',
+                        description: `${payload.takenBy.userName} đã nhận ca của ${payload.requestingUser.userName}.`,
+                        href: `/shift-scheduling?openPassRequest=true`,
+                    };
+                case 'resolved':
+                    return {
+                        icon: CheckCircle2,
+                        title: 'Yêu cầu đã được duyệt',
+                        description: `Yêu cầu pass ca ngày ${format(parseISO(payload.shiftDate), 'dd/MM')} đã được phê duyệt.`,
+                        href: `/schedule?openPassRequest=true`,
+                    };
+                case 'cancelled':
+                    return {
+                        icon: XCircle,
+                        title: 'Yêu cầu đã bị hủy',
+                        description: payload.cancellationReason || `Yêu cầu pass ca ngày ${format(parseISO(payload.shiftDate), 'dd/MM')} đã bị hủy.`,
+                        href: `/schedule?openPassRequest=true`,
+                    };
+                default:
+                    return { icon: MailQuestion, title: 'Yêu cầu Pass ca', description: 'Cập nhật trạng thái yêu cầu pass ca.', href: '/schedule?openPassRequest=true' };
+            }
+        }
         case 'new_schedule':
-             return {
+        case 'schedule_changed':
+        case 'schedule_proposal':
+            return {
                 icon: CalendarCheck,
-                title: 'Lịch làm việc mới',
-                description: `Lịch làm việc cho tuần (ID: ${payload.weekId}) đã được công bố.`,
+                title: messageTitle,
+                description: messageBody,
                 href: `/schedule`,
             };
         case 'new_violation':
-             return {
+            return {
                 icon: ShieldAlert,
-                title: 'Ghi nhận Vi phạm Mới',
-                description: `Bạn có một ghi nhận vi phạm mới: "${payload.title}".`,
+                title: messageTitle,
+                description: messageBody,
                 href: `/violations?highlight=${payload.violationId}`,
+            };
+        case 'attendance_update':
+            return {
+                icon: messageTitle!.includes('Check-in') ? LogIn : LogOut,
+                title: messageTitle,
+                description: messageBody,
+                href: '/attendance',
+            };
+        case 'new_task_report':
+        case 'new_monthly_task_report':
+            return {
+                icon: ClipboardCheck,
+                title: messageTitle,
+                description: messageBody,
+                href: payload.url || '/reports',
+            };
+        case 'new_whistleblowing_report':
+            return {
+                icon: Megaphone,
+                title: messageTitle,
+                description: messageBody,
+                href: '/reports-feed',
+            };
+        case 'new_expense_slip':
+            return {
+                icon: DollarSign,
+                title: messageTitle,
+                description: messageBody,
+                href: `/reports/cashier?highlight=expense-${payload.slipId}`,
+            };
+        case 'new_revenue_stats':
+            return {
+                icon: DollarSign,
+                title: messageTitle,
+                description: messageBody,
+                href: `/reports/cashier?highlight=revenue-${payload.statsId}`,
+            };
+        case 'new_incident_report':
+            return {
+                icon: ShieldAlert,
+                title: messageTitle,
+                description: messageBody,
+                href: `/reports/cashier?highlight=incident-${payload.incidentId}`,
+            };
+        case 'new_cash_handover_report':
+            return {
+                icon: FileSignature,
+                title: messageTitle,
+                description: messageBody,
+                href: `/reports/cashier?highlight=handover-${payload.reportId}`,
             };
         default:
             return {
                 icon: MailQuestion,
-                title: 'Thông báo không xác định',
-                description: 'Bạn có một thông báo mới.',
+                title: messageTitle || 'Thông báo mới',
+                description: messageBody || 'Bạn có một thông báo mới.',
                 href: '/',
             };
     }
@@ -113,8 +201,8 @@ export default function NotificationSheet({
         <ScrollArea className="flex-grow">
             <div className="p-4 space-y-2">
             {notifications.length > 0 ? notifications.map(n => {
-                const isRead = n.isRead?.[user.uid] ?? false;
-                const details = getNotificationDetails(n);
+                const isRead = n.isRead?.[user.uid] ?? false; // Add nullish coalescing for safety
+                const details = getNotificationDetails(n, user.uid, user.role);
                 const Icon = details.icon;
 
                 return (

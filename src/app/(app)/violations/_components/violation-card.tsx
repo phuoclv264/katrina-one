@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,7 +36,7 @@ interface ViolationCardProps {
   setIsPenaltyCameraOpen: (isOpen: boolean) => void;
 }
 
-export function ViolationCard({ 
+export const ViolationCard = React.forwardRef<HTMLDivElement, ViolationCardProps>(({
     violation: v, 
     currentUser: user, 
     categoryData, 
@@ -55,7 +55,7 @@ export function ViolationCard({
     setActiveViolationForPenalty,
     setActiveUserForPenalty,
     setIsPenaltyCameraOpen
-}: ViolationCardProps) {
+ }, ref) => {
     const { openLightbox } = useLightbox();
 
     const isItemProcessing = processingViolationId === v.id;
@@ -94,7 +94,7 @@ export function ViolationCard({
     };
 
     return (
-    <Card key={v.id} className={cn("relative shadow-sm", cardBorderColor, cardBgColor)}>
+    <Card ref={ref} className={cn("relative shadow-sm", cardBorderColor, cardBgColor)}>
         <CardContent className="p-4">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                 {/* Left side: Users & Category */}
@@ -242,4 +242,6 @@ export function ViolationCard({
         </CardContent>
     </Card>
     )
-}
+});
+
+ViolationCard.displayName = 'ViolationCard';
