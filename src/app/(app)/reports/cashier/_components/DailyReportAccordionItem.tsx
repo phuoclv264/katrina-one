@@ -34,6 +34,7 @@ type DailyReportAccordionItemProps = {
   onViewFinalHandover: (handover: CashHandoverReport) => void;
   processingItemId: string | null;
   inventoryList: InventoryItem[];
+  itemRefs: React.MutableRefObject<Map<string, HTMLDivElement | null>>;
 };
 
 const DailyReportAccordionItem = React.memo(({
@@ -51,7 +52,7 @@ const DailyReportAccordionItem = React.memo(({
   onViewFinalHandover,
   processingItemId,
   inventoryList,
-}: DailyReportAccordionItemProps) => {
+  itemRefs }: DailyReportAccordionItemProps) => {
 
   const latestRevenueStat = (dayReports.revenue || []).sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime())[0];
   const totalDailyRevenue = latestRevenueStat?.netRevenue || 0;
@@ -86,7 +87,7 @@ const DailyReportAccordionItem = React.memo(({
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 pt-0">
-              <RevenueStatsList stats={dayReports.revenue || []} onEdit={onEditRevenue} onDelete={onDeleteRevenue} processingItemId={processingItemId} />
+              <RevenueStatsList stats={dayReports.revenue || []} onEdit={onEditRevenue} onDelete={onDeleteRevenue} processingItemId={processingItemId} itemRefs={itemRefs} />
             </CardContent>
           </Card>
           <Card className="border-blue-500/50 rounded-lg shadow-sm">
@@ -100,7 +101,8 @@ const DailyReportAccordionItem = React.memo(({
                 expenses={dayReports.expenses || []} 
                 onEdit={onEditExpense} 
                 onDelete={onDeleteExpense} 
-                processingItemId={processingItemId} 
+                processingItemId={processingItemId}
+                itemRefs={itemRefs}
                 inventoryList={inventoryList} 
               />
             </CardContent>
@@ -112,7 +114,7 @@ const DailyReportAccordionItem = React.memo(({
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 pt-0">
-              <IncidentList incidents={dayReports.incidents || []} onEdit={onEditIncident} onDelete={onDeleteIncident} onOpenLightbox={onOpenLightbox} processingItemId={processingItemId} />
+              <IncidentList incidents={dayReports.incidents || []} onEdit={onEditIncident} onDelete={onDeleteIncident} onOpenLightbox={onOpenLightbox} processingItemId={processingItemId} itemRefs={itemRefs} />
             </CardContent>
           </Card>
           {dayReports.cashHandovers.length > 0 && (
@@ -123,7 +125,8 @@ const DailyReportAccordionItem = React.memo(({
               processingItemId={processingItemId}
               onViewFinalHandover={onViewFinalHandover}
               revenueStats={dayReports.revenue}
-              expenseSlips={dayReports.expenses} />
+              expenseSlips={dayReports.expenses}
+              itemRefs={itemRefs} />
           )}
         </div>
       </AccordionContent>

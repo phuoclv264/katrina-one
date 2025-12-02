@@ -11,7 +11,16 @@ import { format } from 'date-fns';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 
-const ExpenseList = React.memo(({ expenses, onEdit, onDelete, processingItemId, inventoryList }: { expenses: ExpenseSlip[], onEdit: (slip: ExpenseSlip) => void, onDelete: (id: string) => void, processingItemId: string | null, inventoryList: InventoryItem[] }) => {
+type ExpenseListProps = {
+    expenses: ExpenseSlip[];
+    onEdit: (slip: ExpenseSlip) => void;
+    onDelete: (id: string) => void;
+    processingItemId: string | null;
+    inventoryList: InventoryItem[];
+    itemRefs: React.MutableRefObject<Map<string, HTMLDivElement | null>>;
+};
+
+const ExpenseList = React.memo(({ expenses, onEdit, onDelete, processingItemId, inventoryList, itemRefs }: ExpenseListProps) => {
   const isMobile = useIsMobile();
 
   const getSlipContentName = (item: ExpenseItem): string => {
@@ -33,8 +42,16 @@ const ExpenseList = React.memo(({ expenses, onEdit, onDelete, processingItemId, 
             {expenses.map(slip => {
                 const isProcessing = processingItemId === slip.id;
                 const actualAmount = slip.paymentMethod === 'cash' ? slip.actualPaidAmount ?? slip.totalAmount : slip.totalAmount;
+                const highlightKey = `expense-${slip.id}`;
                 return (
-                    <Card key={slip.id} className="bg-background relative">
+                    <Card 
+                        key={slip.id} 
+                        ref={el => {
+                            if (el) itemRefs.current.set(highlightKey, el);
+                            else itemRefs.current.delete(highlightKey);
+                        }}
+                        className="bg-background relative"
+                    >
                         <CardContent className="p-3">
                             <div className="flex justify-between items-start mb-2">
                                 <div className="space-y-1 pr-2">
@@ -90,8 +107,17 @@ const ExpenseList = React.memo(({ expenses, onEdit, onDelete, processingItemId, 
            <TableBody>
                {expenses.map(slip => {
                   const isProcessing = processingItemId === slip.id;
+                  const highlightKey = `expense-${slip.id}`;
                   return (
-                   <TableRow key={slip.id} className="relative">
+                   <TableRow 
+                        key={slip.id} 
+                        ref={el => {
+                            // We need to get the underlying DOM element from the TableRow component
+                            if (el) itemRefs.current.set(highlightKey, el);
+                            else itemRefs.current.delete(highlightKey);
+                        }}
+                        className="relative"
+                    >
                        <TableCell className="font-medium">
                             <div className="flex items-center gap-2 flex-wrap">
                                 <span>{getSlipContentName(slip.items[0])}{slip.items.length > 1 && ` và ${slip.items.length - 1} mục khác`}</span>

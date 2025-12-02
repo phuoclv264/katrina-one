@@ -10,7 +10,7 @@ import { dataStore } from '@/lib/data-store';
 import { unregisterNotifications } from '@/lib/firebase-messaging';
 import { useDataRefresher } from './useDataRefresher';
 import { isUserOnActiveShift, getActiveShifts } from '@/lib/schedule-utils';
-import type { Schedule, AssignedShift } from '@/lib/types';
+import type { Schedule, AssignedShift, Notification } from '@/lib/types';
 import { getISOWeek, format } from 'date-fns';
 
 export type UserRole = 'Phục vụ' | 'Pha chế' | 'Quản lý' | 'Chủ nhà hàng' | 'Thu ngân';
@@ -28,6 +28,7 @@ export const useAuth = () => {
   const [isOnActiveShift, setIsOnActiveShift] = useState(false);
   const [activeShifts, setActiveShifts] = useState<AssignedShift[]>([]);
   const [todaysShifts, setTodaysShifts] = useState<AssignedShift[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const router = useRouter();
   const pathname = usePathname();
   const loadingTimer = useRef<NodeJS.Timeout | null>(null);
@@ -155,6 +156,7 @@ export const useAuth = () => {
       setIsOnActiveShift(false);
       setActiveShifts([]);
       setTodaysShifts([]);
+      setNotifications([]);
       return;
     };
 
@@ -164,9 +166,13 @@ export const useAuth = () => {
     const unsubscribeSchedule = dataStore.subscribeToSchedule(weekId, (schedule) => {
       checkUserShift(user, schedule);
     });
+    const unsubcribeRelevantNotifications = dataStore.subscribeToAllRelevantNotifications(user.uid, (newNotifications) => {
+      setNotifications(newNotifications);
+    });
 
     return () => {
       unsubscribeSchedule();
+      unsubcribeRelevantNotifications();
     };
   }, [user, checkUserShift, refreshTrigger]);
 
@@ -189,7 +195,12 @@ export const useAuth = () => {
         clearTimeout(loadingTimer.current);
       }
     };
-  }, [loading]);
+  }, [loading, router]);
+
+  const unreadNotificationCount = useMemo(() => {
+    if (!user || !notifications) return 0;
+    return notifications.filter(n => !n.isRead?.[user.uid]).length;
+  }, [notifications, user]);
 
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     try {
@@ -254,6 +265,8 @@ export const useAuth = () => {
     isOnActiveShift,
     activeShifts,
     todaysShifts,
+    notifications,
+    unreadNotificationCount,
     login,
     register,
     logout,

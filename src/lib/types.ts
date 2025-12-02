@@ -373,7 +373,20 @@ export type Availability = {
 // --- Notification System Types ---
 
 export type NotificationStatus = 'pending' | 'pending_approval' | 'resolved' | 'cancelled';
-export type NotificationType = 'pass_request' | 'new_schedule' | 'new_violation';
+export type NotificationType =
+  'pass_request'
+  | 'attendance_update'
+  | 'schedule_proposal'
+  | 'new_schedule'
+  | 'schedule_changed'
+  | 'new_task_report'
+  | 'new_whistleblowing_report'
+  | 'new_monthly_task_report'
+  | 'new_expense_slip'
+  | 'new_revenue_stats'
+  | 'new_violation'
+  | 'new_incident_report'
+  | 'new_cash_handover_report';
 
 export type PassRequestPayload = {
   notificationType?: 'pass_request';
@@ -412,8 +425,10 @@ export type AnyNotificationPayload = PassRequestPayload | NewSchedulePayload | N
 export type Notification = {
   id: string;
   type: NotificationType;
-  payload: any;
   createdAt: string | Timestamp;
+  messageTitle?: string,
+  messageBody?: string,
+  payload?: any;
   isRead?: { [userId: string]: boolean };
   // pass_request notifications only
   status?: NotificationStatus;

@@ -156,6 +156,63 @@ export const dataStore = {
     }
   },
 
+  async markNotificationAsRead(notificationId: string, userId: string): Promise<void> {
+    const docRef = doc(db, 'notifications', notificationId);
+    const fieldPath = `isRead.${userId}`;
+    await updateDoc(docRef, {
+      [fieldPath]: true
+    });
+  },
+
+  async markAllNotificationsAsRead(userId: string): Promise<void> {
+    const notificationsQuery = query(
+      collection(db, 'notifications'),
+      where(`isRead.${userId}`, '!=', true)
+    );
+
+    const snapshot = await getDocs(notificationsQuery);
+    if (snapshot.empty) {
+      return;
+    }
+
+    const batch = writeBatch(db);
+    const fieldPath = `isRead.${userId}`;
+    snapshot.docs.forEach(docSnap => {
+      batch.update(docSnap.ref, { [fieldPath]: true });
+    });
+
+    await batch.commit();
+  },
+
+  subscribeToAllRelevantNotifications(userId: string, callback: (notifications: Notification[]) => void): () => void {
+    if (!userId) {
+      callback([]);
+      return () => { };
+    }
+
+    const notificationsQuery = query(
+      collection(db, 'notifications'),
+      where(`isRead.${userId}`, 'in', [true, false]), // This is the key: check for the existence of the user's ID in the isRead map
+      orderBy('createdAt', 'desc'),
+      limit(50) // Limit to the last 50 relevant notifications for performance
+    );
+
+    const unsubscribe = onSnapshot(notificationsQuery, (snapshot) => {
+      const notifications = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+        resolvedAt: (doc.data().resolvedAt as Timestamp)?.toDate()?.toISOString(),
+      } as Notification));
+      callback(notifications);
+    }, (error) => {
+      console.error("Error subscribing to relevant notifications:", error);
+      callback([]);
+    });
+
+    return unsubscribe;
+  },
+
   // --- Monthly Tasks ---
   subscribeToMonthlyTasks(callback: (tasks: MonthlyTask[]) => void): () => void {
     const docRef = doc(db, 'app-data', 'monthlyTasks');

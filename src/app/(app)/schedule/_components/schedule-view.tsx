@@ -36,6 +36,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import isEqual from 'lodash.isequal';
+import { useSearchParams } from 'next/navigation';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { hasTimeConflict } from '@/lib/schedule-utils';
 import ShiftInfoDialog from './shift-info-dialog';
@@ -45,7 +46,7 @@ export default function ScheduleView() {
     const { user, loading: authLoading } = useAuth();
     const router = useRouter();
     const routerRef = useRef(router);
-    routerRef.current = router;
+    const searchParams = useSearchParams();
 
     const [currentDate, setCurrentDate] = useState(new Date());
     const [schedule, setSchedule] = useState<Schedule | null>(null);
@@ -75,6 +76,10 @@ export default function ScheduleView() {
     }, [currentDate]);
 
     const canManage = useMemo(() => user?.role === 'Quản lý' || user?.role === 'Chủ nhà hàng', [user]);
+
+    useEffect(() => {
+        routerRef.current = router;
+    }, [router]); 
 
     useEffect(() => {
         if (authLoading) return;
@@ -149,6 +154,14 @@ export default function ScheduleView() {
             unsubUsers();
         };
     }, [user, authLoading, weekId, canManage]);
+
+    useEffect(() => {
+        if (searchParams.get('openPassRequest') === 'true') {
+            setIsPassRequestsDialogOpen(true);
+            // Optional: remove the query param from URL without reloading
+            routerRef.current.replace('/schedule', { scroll: false });
+        }
+    }, [searchParams]);
 
     const handleDateChange = (direction: 'next' | 'prev') => {
         setCurrentDate(current => addDays(current, direction === 'next' ? 7 : -7));

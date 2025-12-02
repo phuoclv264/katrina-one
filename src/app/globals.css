@@ -111,3 +111,18 @@ body {
 .animate-scaleIn {
   animation: scaleIn 0.25s ease-out;
 }
+
+@keyframes highlight {
+  0% {
+    background-color: hsl(var(--primary) / 0.2);
+    border-color: hsl(var(--primary) / 0.5);
+  }
+  100% {
+    background-color: transparent;
+    border-color: hsl(var(--border));
+  }
+}
+
+.highlight-animation {
+  animation: highlight 2.5s ease-out;
+}

@@ -19,6 +19,7 @@ export type HandoverReportCardProps = {
     onDeleteCashHandover: (id: string) => void,
     onViewFinalHandover: (handover: CashHandoverReport) => void,
     processingItemId: string | null 
+    itemRefs: React.MutableRefObject<Map<string, HTMLDivElement | null>>;
 };
 
 const HandoverReportCard = React.memo(({ 
@@ -28,7 +29,8 @@ const HandoverReportCard = React.memo(({
     onEditCashHandover,
     onDeleteCashHandover,
     onViewFinalHandover,
-    processingItemId 
+    processingItemId,
+    itemRefs
 }: HandoverReportCardProps) => {
     if (cashHandovers.length === 0) {
         return null;
@@ -43,6 +45,7 @@ const HandoverReportCard = React.memo(({
                 <div className="space-y-3">
                     {cashHandovers.filter(handover => handover.createdAt).map(handover => {
                         const isProcessing = processingItemId === handover.id;
+                        const highlightKey = `handover-${handover.id}`;
 
                         // Calculate expected cash dynamically
                         const linkedRevenue = revenueStats.find(r => r.id === handover.linkedRevenueStatsId);
@@ -56,7 +59,10 @@ const HandoverReportCard = React.memo(({
                         const discrepancy = handover.actualCashCounted - expectedCash;
 
                         return (
-                            <div key={handover.id} className="border-t first:border-t-0 pt-3 first:pt-0 relative">
+                            <div key={handover.id} className="border-t first:border-t-0 pt-3 first:pt-0 relative" ref={el => {
+                                if (el) itemRefs.current.set(highlightKey, el); else itemRefs.current.delete(highlightKey);
+                            }}
+                            >
                                 <div className="flex justify-between items-start gap-2">
                                     <div>
                                         <div className="flex items-center gap-2 flex-wrap">
