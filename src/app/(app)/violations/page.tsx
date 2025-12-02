@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useAuth } from '@/hooks/use-auth';
 import { dataStore } from '@/lib/data-store';
@@ -33,8 +33,7 @@ function isMediaAttachment(item: any): item is MediaAttachment {
     typeof item.url === 'string' &&
     (item.type === 'photo' || item.type === 'video');
 }
-
-export default function ViolationsPage() {
+function ViolationsPageComponent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const routerRef = useRef(router);
@@ -490,5 +489,13 @@ export default function ViolationsPage() {
       />
 
     </>
+  );
+}
+
+export default function ViolationsPage() {
+  return (
+    <Suspense fallback={<LoadingPage />}>
+      <ViolationsPageComponent />
+    </Suspense>
   );
 }
