@@ -167,7 +167,8 @@ export const dataStore = {
   async markAllNotificationsAsRead(userId: string): Promise<void> {
     const notificationsQuery = query(
       collection(db, 'notifications'),
-      where(`isRead.${userId}`, '!=', true)
+      where('recipientUids', 'array-contains', userId),
+      limit(50),
     );
 
     const snapshot = await getDocs(notificationsQuery);
@@ -192,7 +193,7 @@ export const dataStore = {
 
     const notificationsQuery = query(
       collection(db, 'notifications'),
-      where(`isRead.${userId}`, 'in', [true, false]), // This is the key: check for the existence of the user's ID in the isRead map
+      where('recipientUids', 'array-contains', userId),
       orderBy('createdAt', 'desc'),
       limit(50) // Limit to the last 50 relevant notifications for performance
     );
