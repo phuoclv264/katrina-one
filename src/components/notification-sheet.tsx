@@ -3,13 +3,13 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetFooter,
-  SheetClose,
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetDescription,
+    SheetFooter,
+    SheetClose,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -24,9 +24,9 @@ import { cn } from '@/lib/utils';
 import { useDialogContext } from '@/contexts/dialog-context';
 
 type NotificationSheetProps = {
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
-  notifications: Notification[];
+    isOpen: boolean;
+    onOpenChange: (open: boolean) => void;
+    notifications: Notification[];
 };
 
 const getNotificationDetails = (notification: Notification, currentUserId: string, currentUserRole: string) => {
@@ -100,13 +100,31 @@ const getNotificationDetails = (notification: Notification, currentUserId: strin
                 href: '/attendance',
             };
         case 'new_task_report':
-        case 'new_monthly_task_report':
             return {
                 icon: ClipboardCheck,
                 title: messageTitle,
                 description: messageBody,
                 href: payload.url || '/reports',
             };
+        case 'new_monthly_task_report': {
+            const hrefBase = '/monthly-task-reports';
+            const qs: string[] = [];
+            const completionId: string | undefined = payload?.completionId;
+            if (completionId) {
+                const ym = completionId.slice(0, 7);
+                qs.push(`month=${ym}`);
+                qs.push(`highlight=${completionId}`);
+            } else if (payload?.assignedDate) {
+                const ym = (payload.assignedDate as string).slice(0, 7);
+                qs.push(`month=${ym}`);
+            }
+            return {
+                icon: ClipboardCheck,
+                title: messageTitle,
+                description: messageBody,
+                href: qs.length ? `${hrefBase}?${qs.join('&')}` : hrefBase,
+            };
+        }
         case 'new_whistleblowing_report':
             return {
                 icon: Megaphone,
@@ -154,98 +172,98 @@ const getNotificationDetails = (notification: Notification, currentUserId: strin
 
 
 export default function NotificationSheet({
-  isOpen,
-  onOpenChange,
-  notifications,
+    isOpen,
+    onOpenChange,
+    notifications,
 }: NotificationSheetProps) {
-  const { user } = useAuth();
-  const router = useRouter();
-  const { registerDialog, unregisterDialog } = useDialogContext();
+    const { user } = useAuth();
+    const router = useRouter();
+    const { registerDialog, unregisterDialog } = useDialogContext();
 
-  useEffect(() => {
-    if (isOpen) {
-      registerDialog();
-      return () => unregisterDialog();
-    }
-  }, [isOpen, registerDialog, unregisterDialog]);
+    useEffect(() => {
+        if (isOpen) {
+            registerDialog();
+            return () => unregisterDialog();
+        }
+    }, [isOpen, registerDialog, unregisterDialog]);
 
-  const handleMarkAllAsRead = async () => {
-    if (!user) return;
-    await dataStore.markAllNotificationsAsRead(user.uid);
-  };
+    const handleMarkAllAsRead = async () => {
+        if (!user) return;
+        await dataStore.markAllNotificationsAsRead(user.uid);
+    };
 
-  const handleNotificationClick = async (notification: Notification, details: ReturnType<typeof getNotificationDetails>) => {
-    if (!user) return;
-    
-    // Mark as read immediately
-    if (!notification.isRead || !notification.isRead[user.uid]) {
-        await dataStore.markNotificationAsRead(notification.id, user.uid);
-    }
-    
-    // Close the sheet
-    onOpenChange(false);
-    
-    // Navigate
-    router.push(details.href);
-  };
+    const handleNotificationClick = async (notification: Notification, details: ReturnType<typeof getNotificationDetails>) => {
+        if (!user) return;
 
-  if (!user) return null;
+        // Mark as read immediately
+        if (!notification.isRead || !notification.isRead[user.uid]) {
+            await dataStore.markNotificationAsRead(notification.id, user.uid);
+        }
 
-  return (
-    <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      <SheetContent className="flex flex-col p-0" side="right">
-        <SheetHeader className="p-4 border-b">
-          <SheetTitle>Thông báo</SheetTitle>
-        </SheetHeader>
+        // Close the sheet
+        onOpenChange(false);
 
-        <ScrollArea className="flex-grow">
-            <div className="p-4 space-y-2">
-            {notifications.length > 0 ? notifications.map(n => {
-                const isRead = n.isRead?.[user.uid] ?? false; // Add nullish coalescing for safety
-                const details = getNotificationDetails(n, user.uid, user.role);
-                const Icon = details.icon;
+        // Navigate
+        router.push(details.href);
+    };
 
-                return (
-                    <button
-                        key={n.id}
-                        onClick={() => handleNotificationClick(n, details)}
-                        className={cn(
-                            "w-full text-left p-3 rounded-lg border flex items-start gap-3 transition-colors",
-                            isRead ? 'bg-card hover:bg-muted/50' : 'bg-primary/10 hover:bg-primary/20 border-primary/20'
-                        )}
-                    >
-                        <div className="relative">
-                            <div className={cn("h-8 w-8 rounded-full flex items-center justify-center", isRead ? "bg-muted" : "bg-primary/20")}>
-                                <Icon className={cn("h-5 w-5", isRead ? "text-muted-foreground" : "text-primary")} />
+    if (!user) return null;
+
+    return (
+        <Sheet open={isOpen} onOpenChange={onOpenChange}>
+            <SheetContent className="flex flex-col p-0" side="right">
+                <SheetHeader className="p-4 border-b">
+                    <SheetTitle>Thông báo</SheetTitle>
+                </SheetHeader>
+
+                <ScrollArea className="flex-grow">
+                    <div className="p-4 space-y-2">
+                        {notifications.length > 0 ? notifications.map(n => {
+                            const isRead = n.isRead?.[user.uid] ?? false; // Add nullish coalescing for safety
+                            const details = getNotificationDetails(n, user.uid, user.role);
+                            const Icon = details.icon;
+
+                            return (
+                                <button
+                                    key={n.id}
+                                    onClick={() => handleNotificationClick(n, details)}
+                                    className={cn(
+                                        "w-full text-left p-3 rounded-lg border flex items-start gap-3 transition-colors",
+                                        isRead ? 'bg-card hover:bg-muted/50' : 'bg-primary/10 hover:bg-primary/20 border-primary/20'
+                                    )}
+                                >
+                                    <div className="relative">
+                                        <div className={cn("h-8 w-8 rounded-full flex items-center justify-center", isRead ? "bg-muted" : "bg-primary/20")}>
+                                            <Icon className={cn("h-5 w-5", isRead ? "text-muted-foreground" : "text-primary")} />
+                                        </div>
+                                        {!isRead && (
+                                            <div className="absolute top-0 right-0 h-2 w-2 rounded-full bg-blue-500" />
+                                        )}
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="font-semibold text-sm">{details.title}</p>
+                                        <p className="text-sm text-muted-foreground">{details.description}</p>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            {formatDistanceToNow(parseISO(n.createdAt as string), { addSuffix: true, locale: vi })}
+                                        </p>
+                                    </div>
+                                </button>
+                            )
+                        }) : (
+                            <div className="text-center py-16 text-muted-foreground">
+                                <p>Không có thông báo nào.</p>
                             </div>
-                            {!isRead && (
-                                <div className="absolute top-0 right-0 h-2 w-2 rounded-full bg-blue-500" />
-                            )}
-                        </div>
-                        <div className="flex-1">
-                            <p className="font-semibold text-sm">{details.title}</p>
-                            <p className="text-sm text-muted-foreground">{details.description}</p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                                {formatDistanceToNow(parseISO(n.createdAt as string), { addSuffix: true, locale: vi })}
-                            </p>
-                        </div>
-                    </button>
-                )
-            }) : (
-                <div className="text-center py-16 text-muted-foreground">
-                    <p>Không có thông báo nào.</p>
-                </div>
-            )}
-            </div>
-        </ScrollArea>
+                        )}
+                    </div>
+                </ScrollArea>
 
-        <SheetFooter className="p-4 border-t bg-muted/50">
-            <Button variant="outline" className="w-full" onClick={handleMarkAllAsRead}>
-                <Check className="mr-2 h-4 w-4" />
-                Đánh dấu tất cả đã đọc
-            </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
-  );
+                <SheetFooter className="p-4 border-t bg-muted/50">
+                    <Button variant="outline" className="w-full" onClick={handleMarkAllAsRead}>
+                        <Check className="mr-2 h-4 w-4" />
+                        Đánh dấu tất cả đã đọc
+                    </Button>
+                </SheetFooter>
+            </SheetContent>
+        </Sheet>
+    );
 }

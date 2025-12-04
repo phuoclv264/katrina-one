@@ -1,7 +1,5 @@
-
-import type { TimeSlot, Availability, AssignedShift } from './types';
-import { set, isWithinInterval } from 'date-fns';
-
+import type { AssignedShift, TimeSlot, MonthlyTask, Schedule, ManagedUser, TaskCompletionRecord, AssignedUser, Availability } from './types';
+import { set, eachDayOfInterval, startOfMonth, endOfMonth, getDay, getDate, getWeekOfMonth, parseISO, format, isWithinInterval } from 'date-fns';
 
 /**
  * Checks if the current time is within the allowed timeframe of any of the user's assigned shifts for the day.
@@ -125,6 +123,141 @@ export function hasTimeConflict(
   
   return null; // No conflict found
 }
+
+// Monthly task
+function isTaskScheduledForDate(task: MonthlyTask, date: Date): boolean {
+    const dayOfWeek = getDay(date); // 0=Sun, 1=Mon, ...
+    const dayOfMonth = getDate(date);
+
+    if (task.schedule.type === 'random') {
+        return task.scheduledDates?.includes(format(date, 'yyyy-MM-dd')) ?? false;
+    }
+
+    switch (task.schedule.type) {
+        case 'weekly':
+            return task.schedule.daysOfWeek.includes(dayOfWeek);
+
+        case 'interval':
+            const startDate = parseISO(task.schedule.startDate);
+
+            startDate.setHours(0, 0, 0, 0);
+            date.setHours(0, 0, 0, 0);
+
+            const diffInMs = date.getTime() - startDate.getTime();
+            const diffInDays = Math.round(diffInMs / (1000 * 60 * 60 * 24));
+
+            return diffInDays >= 0 && diffInDays % task.schedule.intervalDays === 0;
+        case 'monthly_date':
+            return task.schedule.daysOfMonth.includes(dayOfMonth);
+
+        case 'monthly_weekday':
+            const weekOfMonth = getWeekOfMonth(date); // 1-based
+            const lastDayOfMonth = endOfMonth(date);
+            const lastWeekOfMonth = getWeekOfMonth(lastDayOfMonth);
+
+            return task.schedule.occurrences.some(occ => {
+                if (occ.day !== dayOfWeek) return false;
+                // Handle last week of month (e.g., -1 for last)
+                if (occ.week < 0) {
+                    const weekFromEnd = lastWeekOfMonth - weekOfMonth + 1;
+                    return weekFromEnd === Math.abs(occ.week);
+                }
+                return occ.week === weekOfMonth;
+            });
+
+        default:
+            return false;
+    }
+}
+
+export function getAssignmentsForMonth(
+    month: Date,
+    tasks: MonthlyTask[],
+    schedules: Schedule[],
+    allUsers: ManagedUser[],
+    completions: TaskCompletionRecord[]
+): { [taskName: string]: DailyAssignment[] } {
+    const assignmentsByTask: { [taskName: string]: DailyAssignment[] } = {};
+    if (!tasks.length || !schedules.length || !allUsers.length) return assignmentsByTask;
+
+    const monthStart = startOfMonth(month);
+    const monthEnd = endOfMonth(month);
+    const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const daysToIterate = daysInMonth.filter(d => d.getTime() <= today.getTime());
+
+    const completionsByTaskAndDate: { [key: string]: TaskCompletionRecord[] } = {};
+    completions.forEach(c => {
+        const key = `${c.taskName}__${c.assignedDate}`;
+        if (!completionsByTaskAndDate[key]) {
+            completionsByTaskAndDate[key] = [];
+        }
+        completionsByTaskAndDate[key].push(c);
+    });
+
+    tasks.forEach(task => {
+        assignmentsByTask[task.name] = [];
+        daysToIterate.forEach(day => {
+            if (isTaskScheduledForDate(task, day)) {
+                const dateKey = format(day, 'yyyy-MM-dd');
+                const shiftsToday = schedules.flatMap(s => s.shifts).filter(s => s.date === dateKey);
+                const responsibleUsers = new Map<string, AssignedUser>();
+                const responsibleUsersByShift = new Map<string, { shiftId: string; shiftLabel: string; timeSlot: TimeSlot; users: AssignedUser[] }>();
+
+                shiftsToday.forEach(shift => {
+                    const taskAppliesToShift = !task.timeOfDay || isWithinInterval(parseISO(`${dateKey}T${task.timeOfDay}`), {
+                        start: parseISO(`${shift.date}T${shift.timeSlot.start}`),
+                        end: parseISO(`${shift.date}T${shift.timeSlot.end}`)
+                    });
+
+                    if (taskAppliesToShift) {
+                        let usersInShiftForTask: AssignedUser[] = [];
+                        shift.assignedUsers.forEach(assignedUser => {
+                            const fullUser = allUsers.find(u => u.uid === assignedUser.userId);
+                            if (fullUser) {
+                                const userRoles = [fullUser.role, ...(fullUser.secondaryRoles || [])];
+                                if (task.appliesToRole === 'Tất cả' || userRoles.includes(task.appliesToRole)) {
+                                    if (!responsibleUsers.has(assignedUser.userId)) {
+                                        responsibleUsers.set(assignedUser.userId, assignedUser);
+                                    }
+                                    usersInShiftForTask.push(assignedUser);
+                                }
+                            }
+                        });
+
+                        if (usersInShiftForTask.length > 0) {
+                            responsibleUsersByShift.set(shift.id, {
+                                shiftId: shift.id,
+                                shiftLabel: shift.label,
+                                timeSlot: shift.timeSlot,
+                                users: usersInShiftForTask
+                            });
+                        }
+                    }
+                });
+                const dailyCompletions = completionsByTaskAndDate[`${task.name}__${dateKey}`] || [];
+                if (responsibleUsers.size > 0 || dailyCompletions.length > 0) {
+                    assignmentsByTask[task.name].push({
+                        date: dateKey,
+                        assignedUsers: Array.from(responsibleUsers.values()),
+                        assignedUsersByShift: Array.from(responsibleUsersByShift.values()),
+                        completions: dailyCompletions
+                    });
+                }
+            }
+        });
+    });
+
+    return assignmentsByTask;
+}
+
+type DailyAssignment = {
+  date: string;
+  assignedUsers: AssignedUser[];
+  assignedUsersByShift: { shiftId: string; shiftLabel: string; timeSlot: TimeSlot; users: AssignedUser[] }[];
+  completions: TaskCompletionRecord[];
+};
 
 
 /**
