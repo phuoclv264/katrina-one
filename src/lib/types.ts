@@ -912,6 +912,7 @@ export type MonthlyTask = {
 };
 
 export type TaskCompletionRecord = {
+  completionId?: string;
   taskId: string;
   taskName: string;
   completedBy?: AssignedUser;

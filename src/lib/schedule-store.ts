@@ -1097,7 +1097,9 @@ export function subscribeToMonthlyTaskCompletionsForMonth(
         querySnapshot.forEach(docSnap => {
             const data = docSnap.data();
             if (data.completions && Array.isArray(data.completions)) {
-                allCompletionsForMonth = allCompletionsForMonth.concat(data.completions);
+                allCompletionsForMonth = allCompletionsForMonth.concat(
+                    data.completions.map((c: TaskCompletionRecord) => ({ ...c, completionId: docSnap.id }))
+                );
             }
         });
         callback(allCompletionsForMonth);
