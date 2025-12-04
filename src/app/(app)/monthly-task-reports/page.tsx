@@ -44,6 +44,7 @@ import { useLightbox } from "@/contexts/lightbox-context"
 import { getAssignmentsForMonth } from "@/lib/schedule-utils"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { vi } from "date-fns/locale"
 
 type DailyAssignment = {
   date: string
@@ -265,10 +266,17 @@ export default function MonthlyTaskReportsPage() {
     const matchedRecord = completions.find((rec) => rec.completionId === anchor)
     if (!matchedRecord) return
 
-    setOpenTasks((prev) => (prev.includes(matchedRecord.taskName) ? prev : [...prev, matchedRecord.taskName]))
+    if (viewMode === "tasks") {
+      console.log(viewMode);
+      setOpenTasks((prev) => (prev.includes(matchedRecord.taskName) ? prev : [...prev, matchedRecord.taskName]))
+    } else {
+      const uid = matchedRecord.completedBy?.userId
+      if (uid) setOpenUsers((prev) => (prev.includes(uid) ? prev : [...prev, uid]))
+    }
+
     setPendingScrollKey(anchor)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, completions])
+  }, [searchParams, completions, viewMode])
 
   if (authLoading) {
     return <LoadingPage />
@@ -496,7 +504,16 @@ export default function MonthlyTaskReportsPage() {
                                   ) : (
                                     <div className="space-y-4">
                                       {userRecords.map((record) => (
-                                        <Card key={record.completionId || `${record.taskId}-${record.assignedDate}-${entry.userId}`} className="relative group/card overflow-hidden border transition-all hover:shadow-md bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-200/50 dark:border-emerald-900/50">
+                                        <Card
+                                          key={record.completionId || `${record.taskId}-${record.assignedDate}-${entry.userId}`}
+                                          className="relative group/card overflow-hidden border transition-all hover:shadow-md bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-200/50 dark:border-emerald-900/50"
+                                          ref={(el) =>
+                                            setReportCardRef(
+                                              record.completionId || `${record.taskId}-${record.assignedDate}-${entry.userId}`,
+                                              el,
+                                            )
+                                          }
+                                        >
                                           <CardContent className="p-5 space-y-4">
                                             <div className="flex items-start justify-between gap-2">
                                               <div className="flex items-center gap-3 flex-1 min-w-0">
