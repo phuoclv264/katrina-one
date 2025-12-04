@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from "react"
 import Image from "next/image"
 import { useRouter } from "nextjs-toploader/app"
 import { useSearchParams } from "next/navigation"
@@ -62,7 +62,6 @@ export default function MonthlyTaskReportsPage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const routerRef = useRef(router)
-  const searchParams = useSearchParams()
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [completions, setCompletions] = useState<TaskCompletionRecord[]>([])
   const [monthlyTasks, setMonthlyTasks] = useState<MonthlyTask[]>([])
@@ -223,23 +222,55 @@ export default function MonthlyTaskReportsPage() {
     }
   }
 
-  // Initialize month and scroll to a specific report via URL params
-  useEffect(() => {
-    const monthParam = searchParams.get("month")
-    if (monthParam) {
-      const [y, m] = monthParam.split("-").map((v) => Number(v))
-      if (!Number.isNaN(y) && !Number.isNaN(m)) {
-        const newDate = new Date(y, m - 1, 1)
-        if (
-          newDate.getFullYear() !== currentMonth.getFullYear() ||
-          newDate.getMonth() !== currentMonth.getMonth()
-        ) {
-          setCurrentMonth(newDate)
+  const applyHighlight = useCallback((anchor: string) => {
+    if (!anchor || completions.length === 0) return
+    const matchedRecord = completions.find((rec) => (rec as any).completionId === anchor)
+    if (!matchedRecord) return
+    if (viewMode === "tasks") {
+      setOpenTasks((prev) => (prev.includes(matchedRecord.taskName) ? prev : [...prev, matchedRecord.taskName]))
+    } else {
+      const uid = matchedRecord.completedBy?.userId
+      if (uid) setOpenUsers((prev) => (prev.includes(uid) ? prev : [...prev, uid]))
+    }
+    setPendingScrollKey(anchor)
+  }, [completions, viewMode])
+
+  // Params controller wrapped in Suspense to avoid CSR bailout
+  function MonthlyTaskReportsParamsController({
+    currentMonth,
+    onSetMonth,
+    onHighlight,
+  }: {
+    currentMonth: Date
+    onSetMonth: (newMonth: Date) => void
+    onHighlight: (anchor: string) => void
+  }) {
+    const searchParams = useSearchParams()
+    useEffect(() => {
+      const monthParam = searchParams.get("month")
+      if (monthParam) {
+        const [y, m] = monthParam.split("-").map((v) => Number(v))
+        if (!Number.isNaN(y) && !Number.isNaN(m)) {
+          const newDate = new Date(y, m - 1, 1)
+          if (
+            newDate.getFullYear() !== currentMonth.getFullYear() ||
+            newDate.getMonth() !== currentMonth.getMonth()
+          ) {
+            onSetMonth(newDate)
+          }
         }
       }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    }, [searchParams, currentMonth, onSetMonth])
+
+    useEffect(() => {
+      const anchor = searchParams.get("highlight")
+      if (anchor) {
+        onHighlight(anchor)
+      }
+    }, [searchParams, onHighlight])
+
+    return null
+  }
 
   const reportCardRefs = useRef<Map<string, HTMLDivElement | null>>(new Map())
   const [pendingScrollKey, setPendingScrollKey] = useState<string | null>(null)
@@ -259,31 +290,19 @@ export default function MonthlyTaskReportsPage() {
     }
   }, [pendingScrollKey])
 
-  useEffect(() => {
-    const anchor = searchParams.get("highlight")
-    if (!anchor || completions.length === 0) return
-
-    const matchedRecord = completions.find((rec) => rec.completionId === anchor)
-    if (!matchedRecord) return
-
-    if (viewMode === "tasks") {
-      console.log(viewMode);
-      setOpenTasks((prev) => (prev.includes(matchedRecord.taskName) ? prev : [...prev, matchedRecord.taskName]))
-    } else {
-      const uid = matchedRecord.completedBy?.userId
-      if (uid) setOpenUsers((prev) => (prev.includes(uid) ? prev : [...prev, uid]))
-    }
-
-    setPendingScrollKey(anchor)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, completions, viewMode])
-
   if (authLoading) {
     return <LoadingPage />
   }
 
   return (
     <>
+      <Suspense fallback={null}>
+        <MonthlyTaskReportsParamsController
+          currentMonth={currentMonth}
+          onSetMonth={setCurrentMonth}
+          onHighlight={applyHighlight}
+        />
+      </Suspense>
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/5">
         <div className="container mx-auto max-w-6xl px-4 py-8 sm:px-6 md:px-8">
           <div className="mb-8">
