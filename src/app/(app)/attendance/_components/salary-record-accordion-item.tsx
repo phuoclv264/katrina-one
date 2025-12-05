@@ -17,6 +17,7 @@ import { findShiftForRecord, getStatusInfo } from '@/lib/attendance-utils';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 type SalaryRecordAccordionItemProps = {
     record: SalaryRecord;
@@ -39,6 +40,8 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
         const [isUpdatingBonus, setIsUpdatingBonus] = useState(false);
         const isMobile = useIsMobile();
         const [isUpdatingPaymentStatus, setIsUpdatingPaymentStatus] = useState(false);
+        const [isPayDialogOpen, setIsPayDialogOpen] = useState(false);
+        const [actualPaidInput, setActualPaidInput] = useState<string>('');
 
         useEffect(() => {
             // Update local state if record.salaryAdvance changes from outside (e.g., recalculate)
@@ -97,25 +100,18 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
             if (!currentUser || !monthId || !record.userId) return;
 
             const newStatus = record.paymentStatus === 'paid' ? 'unpaid' : 'paid';
+            if (newStatus === 'paid') {
+                setActualPaidInput(String(Math.max(0, record.totalSalary - (record.salaryAdvance || 0) + (record.bonus || 0))));
+                setIsPayDialogOpen(true);
+                return;
+            }
             setIsUpdatingPaymentStatus(true);
-            const toastId = toast.loading(`Đang cập nhật trạng thái...`);
-
+            const toastId = toast.loading('Đang cập nhật trạng thái...');
             try {
-                await dataStore.updateSalaryPaymentStatus(
-                    monthId,
-                    record.userId,
-                    newStatus,
-                );
-                onRecordUpdated(record.userId, {
-                    paymentStatus: newStatus,
-                    paidAt: newStatus === 'paid' ? Timestamp.now() : undefined,
-                });
-                toast.success(
-                    `Đã cập nhật lương cho ${record.userName} thành ${newStatus === 'paid' ? 'Đã trả' : 'Chưa trả'}.`,
-                    { id: toastId }
-                );
+                await dataStore.updateSalaryPaymentStatus(monthId, record.userId, newStatus);
+                onRecordUpdated(record.userId, { paymentStatus: newStatus, paidAt: undefined });
+                toast.success(`Đã cập nhật lương cho ${record.userName} thành Chưa trả.`, { id: toastId });
             } catch (error) {
-                console.error('Lỗi khi cập nhật trạng thái thanh toán:', error);
                 toast.error('Lỗi khi cập nhật trạng thái.', { id: toastId });
             } finally {
                 setIsUpdatingPaymentStatus(false);
@@ -128,7 +124,7 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
 
         return (
             <AccordionItem value={record.userId} key={record.userId}>
-                <AccordionTrigger className="p-3 bg-muted/50 rounded-md hover:no-underline">
+                <AccordionTrigger className="p-4 bg-muted/30 rounded-lg hover:no-underline border shadow-sm">
                     <div className="flex justify-between items-center w-full">
                         <div className="text-left flex-1">
                             <p className="font-semibold flex flex-wrap items-center gap-2">
@@ -136,6 +132,9 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
                                 <Badge variant="secondary">{record.userRole}</Badge>
                                 {record.paymentStatus === 'paid' && <Badge className="bg-green-100 text-green-800">Đã trả</Badge>}
                                 {record.paymentStatus === 'unpaid' && <Badge variant="destructive">Chưa trả</Badge>}
+                                {record.paymentStatus === 'paid' && typeof record.actualPaidAmount === 'number' && (
+                                    <Badge variant="outline" className="border-blue-300 text-blue-700">Thực trả: {record.actualPaidAmount.toLocaleString('vi-VN')}đ</Badge>
+                                )}
                             </p>
                             <p className="text-sm text-muted-foreground">
                                 Lương: <span className="font-bold text-primary">{record.totalSalary.toLocaleString('vi-VN')}đ (dự tính: {Math.round(record.totalExpectedHours * record.averageHourlyRate).toLocaleString('vi-VN')}đ) </span>
@@ -144,6 +143,9 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
                                 <span className="text-xs">Giờ làm: {record.totalWorkingHours.toFixed(1)} / {record.totalExpectedHours.toFixed(1)} h, </span>
                                 <span className="text-xs">Lương/giờ: {record.averageHourlyRate.toLocaleString('vi-VN', { maximumFractionDigits: 0 })}đ, </span>
                                 <span className="text-xs">Phạt: {record.totalUnpaidPenalties.toLocaleString('vi-VN')}đ</span>)
+                                {record.paymentStatus === 'paid' && typeof record.actualPaidAmount === 'number' && (
+                                    <span className="text-xs"> — <span className="font-semibold text-blue-700">Đã trả: {record.actualPaidAmount.toLocaleString('vi-VN')}đ</span></span>
+                                )}
                             </p>
                         </div>
                         {/* <div className="text-right text-xs text-muted-foreground hidden sm:block">
@@ -348,6 +350,46 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
                         )}
                     </div>
                 </AccordionContent>
+                <AlertDialog open={isPayDialogOpen} onOpenChange={setIsPayDialogOpen}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Xác nhận trả lương</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Số tiền đề xuất: {finalTakeHomePay.toLocaleString('vi-VN')}đ. Nhập số tiền thực trả:
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <div className="mt-2">
+                            <Input type="number" value={actualPaidInput} onChange={(e) => setActualPaidInput(e.target.value)} onFocus={(e) => e.target.select()} />
+                        </div>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Hủy</AlertDialogCancel>
+                            <AlertDialogAction
+                                onClick={async () => {
+                                    const amount = Number(actualPaidInput);
+                                    if (isNaN(amount) || amount < 0) {
+                                        toast.error('Số tiền không hợp lệ.');
+                                        return;
+                                    }
+                                    setIsUpdatingPaymentStatus(true);
+                                    const toastId = toast.loading('Đang cập nhật thanh toán...');
+                                    try {
+                                        await dataStore.updateSalaryPaymentStatus(monthId!, record.userId, 'paid');
+                                        await dataStore.updateSalaryActualPaidAmount(monthId!, record.userId, amount);
+                                        onRecordUpdated(record.userId, { paymentStatus: 'paid', paidAt: Timestamp.now(), actualPaidAmount: amount });
+                                        toast.success(`Đã đánh dấu trả lương cho ${record.userName}.`, { id: toastId });
+                                        setIsPayDialogOpen(false);
+                                    } catch (error) {
+                                        toast.error('Lỗi khi cập nhật thanh toán.', { id: toastId });
+                                    } finally {
+                                        setIsUpdatingPaymentStatus(false);
+                                    }
+                                }}
+                            >
+                                Xác nhận
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </AccordionItem>
         );
     }
