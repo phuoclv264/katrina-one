@@ -12,11 +12,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarIcon, Loader2 } from 'lucide-react';
-import { Calendar } from '@/components/ui/calendar';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { format, startOfMonth, endOfMonth, addMonths } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { dataStore } from '@/lib/data-store';
@@ -42,6 +40,14 @@ export default function WorkHistoryDialog({ isOpen, onClose, user }: WorkHistory
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [schedules, setSchedules] = useState<Record<string, Schedule>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [currentMonth, setCurrentMonth] = useState<Date>(startOfMonth(new Date()));
+  const [hourlyRate, setHourlyRate] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setDateRange({ from: startOfMonth(currentMonth), to: endOfMonth(currentMonth) });
+    }
+  }, [isOpen, currentMonth]);
 
   useEffect(() => {
     if (isOpen && user && dateRange?.from && dateRange?.to) {
@@ -67,6 +73,15 @@ export default function WorkHistoryDialog({ isOpen, onClose, user }: WorkHistory
     }
   }, [isOpen, user, dateRange]);
 
+  useEffect(() => {
+    if (!isOpen || !user) return;
+    const unsubUsers = dataStore.subscribeToUsers((users) => {
+      const me = users.find(u => u.uid === user.uid);
+      setHourlyRate(me?.hourlyRate ?? null);
+    });
+    return () => { unsubUsers(); };
+  }, [isOpen, user]);
+
   const summary = useMemo(() => {
     return records.reduce(
       (acc, record) => {
@@ -89,40 +104,35 @@ export default function WorkHistoryDialog({ isOpen, onClose, user }: WorkHistory
         </DialogHeader>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 py-4 border-y px-6 -mx-6">
-            <Popover>
-                <PopoverTrigger asChild>
-                <Button
-                    variant="outline"
-                    className={cn(
-                    'w-full sm:w-[280px] justify-start text-left font-normal',
-                    !dateRange && 'text-muted-foreground'
-                    )}
-                >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateRange?.from ? (
-                    dateRange.to ? (
-                        <>
-                        {format(dateRange.from, 'dd/MM/yy')} - {format(dateRange.to, 'dd/MM/yy')}
-                        </>
-                    ) : (
-                        format(dateRange.from, 'dd/MM/yy')
-                    )
-                    ) : (
-                    <span>Chọn khoảng thời gian</span>
-                    )}
-                </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                <Calendar
-                    initialFocus
-                    mode="range"
-                    defaultMonth={dateRange?.from}
-                    selected={dateRange}
-                    onSelect={setDateRange}
-                    numberOfMonths={isMobile ? 1 : 2}
-                />
-                </PopoverContent>
-            </Popover>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setCurrentMonth(addMonths(currentMonth, -1))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                className={cn('w-full sm:w-[200px] justify-center font-medium')}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {format(currentMonth, 'MM/yyyy')}
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setCurrentMonth(startOfMonth(new Date()))}
+              >
+                Tháng hiện tại
+              </Button>
+            </div>
             <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-4 p-3 rounded-lg bg-card border mr-2">
                 <div className="text-left sm:text-right">
                     <p className="text-sm font-medium text-muted-foreground">Tổng lương dự tính</p>
@@ -131,6 +141,10 @@ export default function WorkHistoryDialog({ isOpen, onClose, user }: WorkHistory
                 <div className="text-left sm:text-right pl-4 border-l">
                     <p className="text-sm font-medium text-muted-foreground">Tổng giờ làm</p>
                     <p className="text-xl font-semibold">{summary.totalHours.toFixed(2)} <span className="text-sm text-muted-foreground">giờ</span></p>
+                </div>
+                <div className="text-left sm:text-right pl-4 border-l">
+                    <p className="text-sm font-medium text-muted-foreground">Mức lương hiện tại</p>
+                    <p className="text-xl font-semibold">{hourlyRate !== null ? `${hourlyRate.toLocaleString('vi-VN')}đ/giờ` : 'N/A'}</p>
                 </div>
             </div>
         </div>
