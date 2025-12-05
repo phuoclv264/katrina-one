@@ -299,39 +299,45 @@ export default function CashierReportsPage() {
     return Array.from(monthSet).sort().reverse();
   }, [revenueStats, expenseSlips, incidents, cashHandoverReports]);
 
-  // Effect to scroll to and highlight an item from URL param
   useEffect(() => {
     const highlightId = searchParams.get('highlight');
-    if (highlightId && sortedDatesInMonth.length > 0 && !processingItemId) {
-      const [type, id] = highlightId.split('-');
-      let itemDate: string | undefined;
+    if (!highlightId || sortedDatesInMonth.length === 0 || processingItemId) return;
+    const [type, id] = highlightId.split('-');
+    let itemDate: string | undefined;
 
-      if (type === 'expense') itemDate = expenseSlips.find(s => s.id === id)?.date;
-      else if (type === 'revenue') itemDate = revenueStats.find(s => s.id === id)?.date;
-      else if (type === 'incident') itemDate = incidents.find(i => i.id === id)?.date;
-      else if (type === 'handover') itemDate = cashHandoverReports.find(h => h.id === id)?.date;
+    if (type === 'expense') itemDate = expenseSlips.find(s => s.id === id)?.date;
+    else if (type === 'revenue') itemDate = revenueStats.find(s => s.id === id)?.date;
+    else if (type === 'incident') itemDate = incidents.find(i => i.id === id)?.date;
+    else if (type === 'handover') itemDate = cashHandoverReports.find(h => h.id === id)?.date;
 
-      if (!itemDate) return;
+    if (!itemDate) return;
 
-      const element = itemRefs.current.get(highlightId);
-      if (element) {
-        // Ensure the accordion item is open
-        if (!openDays.includes(itemDate)) {
-          setOpenDays(prev => [...prev, itemDate]);
-        }
+    if (!openDays.includes(itemDate)) {
+      setOpenDays(prev => [...prev, itemDate]);
+    }
 
-        setTimeout(() => {
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          element.classList.add('highlight-animation');
-          setTimeout(() => {
-            element.classList.remove('highlight-animation');
-          }, 2500); // Animation duration
-          routerRef.current.replace('/reports/cashier', {
-            scroll: false,
-          });
-        }, 200); // Delay to allow accordion to open
+    const tryScroll = () => {
+      const el = itemRefs.current.get(highlightId);
+      if (!el) return false;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('highlight-animation');
+      setTimeout(() => {
+        el.classList.remove('highlight-animation');
+      }, 2500);
+      routerRef.current.replace('/reports/cashier', { scroll: false });
+      return true;
+    };
+
+    if (tryScroll()) return;
+
+    let attempts = 0;
+    const maxAttempts = 20;
+    const interval = setInterval(() => {
+      attempts += 1;
+      if (tryScroll() || attempts >= maxAttempts) {
+        clearInterval(interval);
       }
-    } 
+    }, 100);
   }, [searchParams, sortedDatesInMonth, processingItemId, openDays, expenseSlips, revenueStats, incidents, cashHandoverReports]);
 
   useEffect(() => {
