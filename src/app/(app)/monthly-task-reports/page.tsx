@@ -58,7 +58,7 @@ type DailyAssignment = {
   completions: TaskCompletionRecord[]
 }
 
-export default function MonthlyTaskReportsPage() {
+function MonthlyTaskReportsView() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const routerRef = useRef(router)
@@ -589,5 +589,13 @@ export default function MonthlyTaskReportsPage() {
         </div>
       </div>
     </>
+  )
+}
+
+export default function MonthlyTaskReportsPage() {
+  return (
+    <Suspense fallback={<LoadingPage />}>
+      <MonthlyTaskReportsView />
+    </Suspense>
   )
 }

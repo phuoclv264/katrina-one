@@ -853,6 +853,7 @@ export type SalaryRecord = {
   paidAt?: Timestamp;
   salaryAdvance?: number;
   bonus?: number;
+  actualPaidAmount?: number;
 };
 
 export type MonthlySalarySheet = {

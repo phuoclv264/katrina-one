@@ -323,11 +323,20 @@ export const dataStore = {
         if (existingSheet.salaryRecords[userId]?.bonus) {
           updatedRecords[userId].bonus = existingSheet.salaryRecords[userId].bonus;
         }
+        if (existingSheet.salaryRecords[userId]?.actualPaidAmount) {
+          updatedRecords[userId].actualPaidAmount = existingSheet.salaryRecords[userId].actualPaidAmount;
+        }
       }
       await updateDoc(docRef, { ...sheetData, salaryRecords: updatedRecords });
     } else {
       // If it's a new document, just set it.
-      await setDoc(docRef, sheetData);
+      const sanitizedRecords = { ...sheetData.salaryRecords } as typeof sheetData.salaryRecords;
+      for (const userId in sanitizedRecords) {
+        if (sanitizedRecords[userId].paidAt === undefined) {
+          delete (sanitizedRecords[userId] as any).paidAt;
+        }
+      }
+      await setDoc(docRef, { ...sheetData, salaryRecords: sanitizedRecords });
     }
   },
 
@@ -351,6 +360,11 @@ export const dataStore = {
   async updateSalaryBonus(monthId: string, userId: string, bonusAmount: number): Promise<void> {
     const docRef = doc(db, 'monthly_salaries', monthId);
     await updateDoc(docRef, { [`salaryRecords.${userId}.bonus`]: bonusAmount });
+  },
+
+  async updateSalaryActualPaidAmount(monthId: string, userId: string, amount: number): Promise<void> {
+    const docRef = doc(db, 'monthly_salaries', monthId);
+    await updateDoc(docRef, { [`salaryRecords.${userId}.actualPaidAmount`]: amount });
   },
 
   async getAllViolationRecords(): Promise<Violation[]> {

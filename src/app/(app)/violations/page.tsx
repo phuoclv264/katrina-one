@@ -33,7 +33,7 @@ function isMediaAttachment(item: any): item is MediaAttachment {
     typeof item.url === 'string' &&
     (item.type === 'photo' || item.type === 'video');
 }
-function ViolationsPageComponent() {
+function ViolationsView() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const routerRef = useRef(router);
@@ -108,20 +108,30 @@ function ViolationsPageComponent() {
   // Effect to scroll to and highlight a violation from URL param
   useEffect(() => {
     const highlightId = searchParams.get('highlight');
-    if (highlightId && violations.length > 0) {
-      const element = violationRefs.current.get(highlightId);
-      if (element) {
-        setTimeout(() => {
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          element.classList.add('highlight-animation');
-          setTimeout(() => {
-            element.classList.remove('highlight-animation');
-          }, 2500); // Animation duration
-        }, 100);
-      }
-      // Clean up the URL
+    if (!highlightId || violations.length === 0) return;
+
+    const tryScroll = () => {
+      const el = violationRefs.current.get(highlightId);
+      if (!el) return false;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('highlight-animation');
+      setTimeout(() => {
+        el.classList.remove('highlight-animation');
+      }, 2500);
       routerRef.current.replace('/violations', { scroll: false });
-    }
+      return true;
+    };
+
+    if (tryScroll()) return;
+
+    let attempts = 0;
+    const maxAttempts = 20;
+    const interval = setInterval(() => {
+      attempts += 1;
+      if (tryScroll() || attempts >= maxAttempts) {
+        clearInterval(interval);
+      }
+    }, 100);
   }, [searchParams, violations]);
 
   useDataRefresher(handleDataRefresh);
@@ -494,8 +504,8 @@ function ViolationsPageComponent() {
 
 export default function ViolationsPage() {
   return (
-    <Suspense fallback={<LoadingPage />}>
-      <ViolationsPageComponent />
+    <Suspense fallback={<LoadingPage />}> 
+      <ViolationsView />
     </Suspense>
   );
 }
