@@ -369,6 +369,22 @@ export type Availability = {
   availableSlots: TimeSlot[];
 };
 
+// --- AI Shift Scheduling Types ---
+export type GenerateShiftScheduleInput = {
+  weekId: string;
+  constraintsText: string;
+  users: ManagedUser[];
+  availability: Availability[];
+  shiftTemplates: ShiftTemplate[];
+  existingSchedule?: Schedule | null;
+};
+
+export type GenerateShiftScheduleOutput = {
+  schedule: Schedule;
+  explanation: string;
+  warnings?: string[];
+};
+
 
 // --- Notification System Types ---
 

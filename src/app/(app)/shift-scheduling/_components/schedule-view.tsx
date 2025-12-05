@@ -64,6 +64,10 @@ import UserDetailsDialog from './user-details-dialog';
 import { isUserAvailable, hasTimeConflict } from '@/lib/schedule-utils';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'nextjs-toploader/app';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { callGenerateShiftSchedule } from '@/lib/ai-service';
+import AiSchedulePreviewDialog from './ai-schedule-preview-dialog';
 
 
 // Helper function to abbreviate names
@@ -177,6 +181,18 @@ export default function ScheduleView() {
     
     const [isHandlingConflict, setIsHandlingConflict] = useState(false);
     const [conflictDialog, setConflictDialog] = useState<{ isOpen: boolean; oldRequest: Notification | null; newRequestFn: () => void }>({ isOpen: false, oldRequest: null, newRequestFn: () => {} });
+
+    const [constraintsText, setConstraintsText] = useState<string>('');
+    const [isGeneratingSchedule, setIsGeneratingSchedule] = useState<boolean>(false);
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+    const [previewSchedule, setPreviewSchedule] = useState<Schedule | null>(null);
+    const [previewExplanation, setPreviewExplanation] = useState<string>('');
+    const [previewWarnings, setPreviewWarnings] = useState<string[] | undefined>(undefined);
+
+    useEffect(() => {
+        const unsub = dataStore.subscribeToScheduleConstraints((text) => setConstraintsText(text || ''));
+        return () => unsub();
+    }, []);
 
     const weekInterval = useMemo(() => {
         const start = startOfWeek(currentDate, { weekStartsOn: 1 });
@@ -760,6 +776,103 @@ export default function ScheduleView() {
                             </div>
                         </CardHeader>
                         <CardContent>
+                             <div className="mb-4 p-4 border rounded-md bg-muted/30">
+                                <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-start">
+                                    <div>
+                                        <Label htmlFor="constraintsText">Điều kiện xếp lịch (tiếng Việt hoặc tiếng Anh)</Label>
+                                        <Textarea
+                                            id="constraintsText"
+                                            value={constraintsText}
+                                            onChange={(e) => setConstraintsText(e.target.value)}
+                                            placeholder="Ví dụ: \n- Nguyễn Trọng Bá Duy chỉ làm ca sáng.\n- Quản lý Nguyễn Thị Phụng phải làm cả ca sáng và ca chiều mỗi ngày.\n- Mỗi ca sáng cần 2 Phục vụ và 2 Pha chế.\n- Không xếp một người quá 2 ca/ngày."
+                                        />
+                                    </div>
+                                    <div className="pt-6 md:pt-0 flex md:flex-col gap-2 md:gap-3">
+                                        <Button
+                                            variant="secondary"
+                                            onClick={async () => {
+                                                if (!user) return;
+                                                if (!localSchedule && shiftTemplates.length === 0) {
+                                                    toast.error('Chưa có lịch hoặc mẫu ca để xếp.');
+                                                    return;
+                                                }
+                                                setIsGeneratingSchedule(true);
+                                                try {
+                                                    let existingScheduleForAI = localSchedule ?? { weekId, status: 'draft' as const, shifts: [] };
+                                                    if (!existingScheduleForAI.shifts || existingScheduleForAI.shifts.length === 0) {
+                                                        const generatedShifts: AssignedShift[] = [];
+                                                        for (const day of daysOfWeek) {
+                                                            const dayOfWeek = getDay(day);
+                                                            const dateKey = format(day, 'yyyy-MM-dd');
+                                                            for (const template of shiftTemplates) {
+                                                                if ((template.applicableDays || []).includes(dayOfWeek)) {
+                                                                    generatedShifts.push({
+                                                                        id: `shift_${dateKey}_${template.id}`,
+                                                                        templateId: template.id,
+                                                                        date: dateKey,
+                                                                        label: template.label,
+                                                                        role: template.role,
+                                                                        timeSlot: template.timeSlot,
+                                                                        minUsers: template.minUsers ?? 0,
+                                                                        assignedUsers: [],
+                                                                    });
+                                                                }
+                                                            }
+                                                        }
+                                                        existingScheduleForAI = { ...existingScheduleForAI, shifts: generatedShifts };
+                                                    }
+                                                    const input = {
+                                                        weekId,
+                                                        constraintsText,
+                                                        users: allUsers,
+                                                        availability,
+                                                        shiftTemplates,
+                                                        existingSchedule: existingScheduleForAI,
+                                                    };
+                                                    const result = await callGenerateShiftSchedule(input);
+                                                    setPreviewSchedule(result.schedule);
+                                                    setPreviewExplanation(result.explanation);
+                                                    setPreviewWarnings(result.warnings);
+                                                    setIsPreviewOpen(true);
+                                                } catch (error: any) {
+                                                    const raw = String(error?.message || 'internal');
+                                                    let msg = 'Không thể xếp lịch tự động.';
+                                                    if (raw.includes('Failed to execute AI flow') || raw.includes('GEMINI_API_KEY')) {
+                                                        msg = 'Lỗi cấu hình AI. Hãy cấu hình GEMINI_API_KEY và triển khai callGenerateShiftSchedule.';
+                                                    } else if (raw.toLowerCase().includes('function not found') || raw.toLowerCase().includes('not found')) {
+                                                        msg = 'Chưa triển khai cloud function callGenerateShiftSchedule.';
+                                                    } else if (raw.toLowerCase().includes('internal')) {
+                                                        msg = 'Lỗi máy chủ (internal). Kiểm tra logs Functions và secrets.';
+                                                    }
+                                                    toast.error(msg);
+                                                } finally {
+                                                    setIsGeneratingSchedule(false);
+                                                }
+                                            }}
+                                            disabled={isGeneratingSchedule || !canEditSchedule}
+                                            className="shrink-0"
+                                        >
+                                            {isGeneratingSchedule ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Settings className="mr-2 h-4 w-4" />}
+                                            Xếp lịch tự động
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            onClick={async () => {
+                                                try {
+                                                    await dataStore.updateScheduleConstraints(constraintsText);
+                                                    toast.success('Đã lưu điều kiện xếp lịch.');
+                                                } catch (e: any) {
+                                                    toast.error(e?.message || 'Không thể lưu điều kiện.');
+                                                }
+                                            }}
+                                            className="shrink-0"
+                                        >
+                                            Lưu điều kiện
+                                        </Button>
+                                    </div>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-2">AI sẽ tôn trọng đăng ký rảnh, vai trò và các điều kiện bạn nhập, đồng thời tránh xếp trùng giờ.</p>
+                            </div>
                              {/* Desktop View */}
                             <div className="overflow-x-auto hidden md:block">
                                 <Table className="table-fixed w-full border">
@@ -1137,6 +1250,23 @@ export default function ScheduleView() {
                     />
                 </>
             )}
+
+            <AiSchedulePreviewDialog
+                isOpen={isPreviewOpen}
+                onClose={() => setIsPreviewOpen(false)}
+                proposed={previewSchedule}
+                current={localSchedule}
+                explanation={previewExplanation}
+                warnings={previewWarnings}
+                allUsers={allUsers}
+                canAccept={user?.role === 'Chủ nhà hàng'}
+                onAccept={(schedule) => {
+                    setLocalSchedule(schedule);
+                    setHasUnsavedChanges(true);
+                    setIsPreviewOpen(false);
+                    toast.success('Đã chấp nhận lịch AI. Hãy lưu hoặc công bố.');
+                }}
+            />
         </TooltipProvider>
     )
 }
