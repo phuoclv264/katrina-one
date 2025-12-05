@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react';
 import { useRouter } from 'nextjs-toploader/app';
 import { useSearchParams } from 'next/navigation';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
@@ -119,7 +119,7 @@ function AddDocumentDialog({
     );
 }
 
-export default function CashierReportsPage() {
+function CashierReportsView() {
   const { openLightbox } = useLightbox();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -714,5 +714,13 @@ export default function CashierReportsPage() {
       />
 
     </>
+  );
+}
+
+export default function CashierReportsPage() {
+  return (
+    <Suspense fallback={<LoadingPage />}> 
+      <CashierReportsView />
+    </Suspense>
   );
 }

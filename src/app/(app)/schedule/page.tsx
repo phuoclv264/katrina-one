@@ -1,6 +1,7 @@
 'use client';
-import React from 'react';
+import React, { Suspense } from 'react';
 import ScheduleView from './_components/schedule-view';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 
 export default function SchedulePage() {
     return (
@@ -11,7 +12,9 @@ export default function SchedulePage() {
                    Xem lịch đã được phân công và đăng ký thời gian rảnh cho tuần tới.
                 </p>
             </header>
-            <ScheduleView />
+            <Suspense fallback={<LoadingPage />}>
+                <ScheduleView />
+            </Suspense>
         </div>
     );
 }

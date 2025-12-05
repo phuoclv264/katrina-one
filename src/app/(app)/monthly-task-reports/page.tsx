@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from "react"
 import Image from "next/image"
 import { useRouter } from "nextjs-toploader/app"
 import { useSearchParams } from "next/navigation"
@@ -58,7 +58,7 @@ type DailyAssignment = {
   completions: TaskCompletionRecord[]
 }
 
-export default function MonthlyTaskReportsPage() {
+function MonthlyTaskReportsView() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const routerRef = useRef(router)
@@ -570,5 +570,13 @@ export default function MonthlyTaskReportsPage() {
         </div>
       </div>
     </>
+  )
+}
+
+export default function MonthlyTaskReportsPage() {
+  return (
+    <Suspense fallback={<LoadingPage />}>
+      <MonthlyTaskReportsView />
+    </Suspense>
   )
 }
