@@ -1,0 +1,14 @@
+import type { AssignedShift, Availability, ManagedUser, ScheduleCondition, ScheduleRunResult } from '@/lib/types';
+import { normalizeConstraints } from './constraints';
+import { allocate } from './allocator';
+
+export function schedule(
+  shifts: AssignedShift[],
+  users: ManagedUser[],
+  availability: Availability[],
+  constraints: ScheduleCondition[],
+  mode: 'merge' | 'replace' = 'merge',
+): ScheduleRunResult {
+  const ctx = normalizeConstraints(constraints, shifts, users);
+  return allocate(shifts, users, availability, ctx, mode);
+}
