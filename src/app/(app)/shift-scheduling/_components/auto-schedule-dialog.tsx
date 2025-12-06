@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,8 @@ import { cn } from '@/lib/utils';
 import { updateStructuredConstraints } from '@/lib/schedule-store';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { motion, AnimatePresence } from 'framer-motion';
 
 type Props = {
   isOpen: boolean;
@@ -42,6 +44,9 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
   const [newPriorityWeight, setNewPriorityWeight] = useState<number>(1);
   const [newPriorityMandatory, setNewPriorityMandatory] = useState<boolean>(false);
   const [linksForm, setLinksForm] = useState<{ templateId?: string; userId?: string; link?: 'force' | 'ban' }>({ link: 'force' });
+  const undoStack = useRef<ScheduleCondition[][]>([]);
+  const [priorityScrollTop, setPriorityScrollTop] = useState(0);
+  const [linksScrollTop, setLinksScrollTop] = useState(0);
 
   useEffect(() => {
     if (isOpen) {
@@ -55,6 +60,115 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
   const shifts = useMemo(() => schedule?.shifts || [], [schedule]);
 
   const validationErrors = useMemo(() => validateConstraints(editableConstraints), [editableConstraints]);
+
+  const globalWorkload = useMemo(() => {
+    const c = editableConstraints.find(c => c.type === 'WorkloadLimit' && (c as any).scope === 'global') as any;
+    return c || null;
+  }, [editableConstraints]);
+
+  const roleByUserId = useMemo(() => {
+    const m = new Map<string, string | undefined>();
+    for (const u of allUsers) m.set(u.uid, (u as any).role);
+    return m;
+  }, [allUsers]);
+
+  const availabilityMap = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const a of availability) {
+      const dateKey = typeof a.date === 'string' ? a.date : format(a.date.toDate(), 'yyyy-MM-dd');
+      const key = `${a.userId}:${dateKey}`;
+      const slots = a.availableSlots?.map(s => `${s.start}-${s.end}`) || [];
+      m.set(key, slots);
+    }
+    return m;
+  }, [availability]);
+
+  const dateRowSpanMap = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const s of shifts) {
+      const key = format(new Date(s.date), 'yyyy-MM-dd');
+      counts[key] = (counts[key] || 0) + 1;
+    }
+    return counts;
+  }, [shifts]);
+
+
+  const getRoleClasses = (role?: string) => {
+    switch (role as any) {
+      case 'Phục vụ': return 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700';
+      case 'Pha chế': return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700';
+      case 'Thu ngân': return 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/50 dark:text-orange-300 dark:border-orange-700';
+      case 'Quản lý': return 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/50 dark:text-purple-300 dark:border-purple-700';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600';
+    }
+  };
+
+  const shiftById = useMemo(() => {
+    const m = new Map<string, typeof shifts[number]>();
+    for (const s of shifts) m.set(s.id, s as any);
+    return m;
+  }, [shifts]);
+
+  const dayUserShiftCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const a of editableAssignments.filter(x => x.selected)) {
+      const s = shiftById.get(a.shiftId);
+      if (!s) continue;
+      const dateKey = format(new Date(s.date), 'yyyy-MM-dd');
+      const key = `${a.userId}:${dateKey}`;
+      m.set(key, (m.get(key) || 0) + 1);
+    }
+    return m;
+  }, [editableAssignments, shiftById]);
+
+  const parseHM = (hm: string) => {
+    const [H, M] = hm.split(':').map(x => parseInt(x, 10));
+    return H * 60 + (M || 0);
+  };
+
+  const scheduledHoursByUser = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const a of editableAssignments.filter(x => x.selected)) {
+      const s = shiftById.get(a.shiftId);
+      if (!s) continue;
+      const start = parseHM(s.timeSlot.start);
+      const end = parseHM(s.timeSlot.end);
+      const hours = Math.max(0, (end - start) / 60);
+      totals.set(a.userId, (totals.get(a.userId) || 0) + hours);
+    }
+    return totals;
+  }, [editableAssignments, shiftById]);
+
+  const scheduleDateKeys = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of shifts) set.add(format(new Date(s.date), 'yyyy-MM-dd'));
+    return set;
+  }, [shifts]);
+
+  const availableHoursByUser = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const a of availability) {
+      const dateKey = typeof a.date === 'string' ? a.date : format(a.date.toDate(), 'yyyy-MM-dd');
+      if (!scheduleDateKeys.has(dateKey)) continue;
+      const sum = (a.availableSlots || []).reduce((acc, s) => acc + Math.max(0, (parseHM(s.end) - parseHM(s.start)) / 60), 0);
+      totals.set(a.userId, (totals.get(a.userId) || 0) + sum);
+    }
+    return totals;
+  }, [availability, scheduleDateKeys]);
+
+  const pushUndo = useCallback((prev: ScheduleCondition[]) => {
+    undoStack.current.push(prev);
+  }, []);
+
+  const handleUndo = useCallback(() => {
+    const prev = undoStack.current.pop();
+    if (prev) {
+      setEditableConstraints(prev);
+      toast.success('Đã hoàn tác thay đổi.');
+    } else {
+      toast('Không có hành động để hoàn tác.', { icon: 'ℹ️' });
+    }
+  }, []);
 
   const handleSaveConstraints = async () => {
     try {
@@ -96,16 +210,29 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
     onClose();
   };
 
+  
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-5xl">
         <DialogHeader>
-          <DialogTitle>Xếp lịch tự động</DialogTitle>
-          <DialogDescription>Thiết lập điều kiện và xem trước kết quả. Áp dụng phân công trực tiếp từ phần xem trước.</DialogDescription>
+          <DialogTitle className="tracking-tight">Xếp lịch tự động</DialogTitle>
+          <DialogDescription className="text-sm leading-relaxed">Thiết lập điều kiện và xem trước kết quả. Áp dụng phân công trực tiếp từ phần xem trước.</DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-[70vh]">
-        <div className="flex items-center justify-end pb-2">
-          <Button variant="outline" onClick={handleSaveConstraints}>Lưu tất cả điều kiện</Button>
+        <div className="flex items-center justify-between pb-3">
+          <div className="flex items-center gap-3">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" onClick={handleSaveConstraints} aria-label="Lưu điều kiện">Lưu tất cả điều kiện</Button>
+                </TooltipTrigger>
+                <TooltipContent>Lưu các điều kiện xếp lịch hiện tại</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <Button variant="ghost" onClick={handleUndo} aria-label="Hoàn tác">Hoàn tác</Button>
+          </div>
+          <div className="flex items-center gap-3" />
         </div>
         <Tabs defaultValue="workload">
           <TabsList className="grid grid-cols-6">
@@ -128,7 +255,7 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
               <CardContent className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label>Min Ca/tuần (Toàn cục)</Label>
-                  <Input type="number" min={0} autoComplete="off" onChange={(e) => {
+                  <Input type="number" min={0} autoComplete="off" value={globalWorkload?.minShiftsPerWeek ?? ''} onChange={(e) => {
                     const val = parseInt(e.target.value || '0', 10);
                     setEditableConstraints(prev => {
                       const next = [...prev];
@@ -140,7 +267,7 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
                 </div>
                 <div>
                   <Label>Max Ca/tuần (Toàn cục)</Label>
-                  <Input type="number" min={0} autoComplete="off" onChange={(e) => {
+                  <Input type="number" min={0} autoComplete="off" value={globalWorkload?.maxShiftsPerWeek ?? ''} onChange={(e) => {
                     const val = parseInt(e.target.value || '0', 10);
                     setEditableConstraints(prev => {
                       const next = [...prev];
@@ -152,7 +279,7 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
                 </div>
                 <div>
                   <Label>Min Giờ/tuần (Toàn cục)</Label>
-                  <Input type="number" min={0} autoComplete="off" onChange={(e) => {
+                  <Input type="number" min={0} autoComplete="off" value={globalWorkload?.minHoursPerWeek ?? ''} onChange={(e) => {
                     const val = parseInt(e.target.value || '0', 10);
                     setEditableConstraints(prev => {
                       const next = [...prev];
@@ -164,7 +291,7 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
                 </div>
                 <div>
                   <Label>Max Giờ/tuần (Toàn cục)</Label>
-                  <Input type="number" min={0} autoComplete="off" onChange={(e) => {
+                  <Input type="number" min={0} autoComplete="off" value={globalWorkload?.maxHoursPerWeek ?? ''} onChange={(e) => {
                     const val = parseInt(e.target.value || '0', 10);
                     setEditableConstraints(prev => {
                       const next = [...prev];
@@ -203,10 +330,12 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
                     const u = allUsers.find(x => x.uid === c.userId);
                     if (!u) return null;
                     return (
-                      <div key={`wl_edit_${u.uid}`} className="border rounded-md p-3">
+                      <motion.div key={`wl_edit_${u.uid}`} className="border rounded-md p-3" layout initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
                         <div className="flex items-center justify-between mb-2">
                           <p className="text-sm font-semibold">{u.displayName}</p>
                           <Button variant="ghost" className="text-destructive" onClick={() => {
+                            const prev = [...editableConstraints];
+                            pushUndo(prev);
                             setEditableConstraints(prev => prev.filter(x => !(x.type === 'WorkloadLimit' && (x as any).scope === 'user' && (x as any).userId === u.uid)));
                           }}>Xóa điều kiện</Button>
                         </div>
@@ -228,7 +357,7 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
                             setEditableConstraints(prev => prev.map(x => (x === c ? { ...c, maxHoursPerWeek: val } : x)));
                           }} />
                         </div>
-                      </div>
+                      </motion.div>
                     );
                   })}
                 </div>
@@ -244,7 +373,7 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
                   {shiftTemplates.map(template => {
                     const entries = editableConstraints.filter(c => c.type === 'ShiftStaffing' && (c as any).templateId === template.id) as any[];
                     return (
-                      <div key={template.id} className="border rounded-md p-3">
+                      <motion.div key={template.id} className="border rounded-md p-3" layout aria-label={`Khu vực ưu tiên cho ${template.label}`}>
                         <div className="flex items-center justify-between mb-2">
                           <p className="text-sm font-semibold">{template.label} ({template.timeSlot.start}-{template.timeSlot.end})</p>
                           <Button
@@ -259,8 +388,9 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
                           <p className="text-xs text-muted-foreground mb-2">Chưa đặt nhu cầu vai trò. Sẽ dùng số tối thiểu từ mẫu ca.</p>
                         )}
                         <div className="space-y-2">
+                          <AnimatePresence initial={false}>
                           {entries.map(entry => (
-                            <div key={entry.id} className="grid grid-cols-[1fr_120px_auto_auto] gap-2 items-center">
+                            <motion.div key={entry.id} className="grid grid-cols-[1fr_120px_auto_auto] gap-2 items-center" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}>
                               <Select value={entry.role} onValueChange={(val) => {
                                 setEditableConstraints(prev => prev.map(c => (c as any).id === entry.id ? { ...entry, role: val as UserRole | 'Bất kỳ' } : c));
                               }}>
@@ -284,12 +414,15 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
                                 <label htmlFor={`mandatory_${entry.id}`} className="text-xs">Bắt buộc</label>
                               </div>
                               <Button variant="ghost" className="justify-self-end" onClick={() => {
+                                const prev = [...editableConstraints];
+                                pushUndo(prev);
                                 setEditableConstraints(prev => prev.filter(c => (c as any).id !== entry.id));
                               }}>Xóa</Button>
-                            </div>
+                            </motion.div>
                           ))}
+                          </AnimatePresence>
                         </div>
-                      </div>
+                      </motion.div>
                     );
                   })}
                 </div>
@@ -300,6 +433,7 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
             <Card>
               <CardContent className="p-4 space-y-3">
                 <Label className="font-semibold">Ưu tiên nhân viên cho ca</Label>
+                
                 <div className="grid grid-cols-1 sm:grid-cols-[2fr_2fr_1fr_auto] gap-2 items-end">
                   <div>
                     <Label className="text-xs">Chọn mẫu ca</Label>
@@ -347,12 +481,14 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
                       if (!newPriorityTemplateId || !newPriorityUserId) return;
                       const arr = [...editableConstraints];
                       const idx = arr.findIndex(c => c.type === 'StaffPriority' && (c as any).templateId === newPriorityTemplateId && (c as any).userId === newPriorityUserId);
+                      const prev = [...editableConstraints];
                       if (idx >= 0) {
                         (arr[idx] as any).weight = newPriorityWeight;
                         (arr[idx] as any).mandatory = newPriorityMandatory;
                       } else {
                         arr.push({ id: `sp_${newPriorityTemplateId}_${newPriorityUserId}`, enabled: true, type: 'StaffPriority', templateId: newPriorityTemplateId, userId: newPriorityUserId, weight: newPriorityWeight, mandatory: newPriorityMandatory } as any);
                       }
+                      pushUndo(prev);
                       setEditableConstraints(arr);
                       setNewPriorityWeight(1);
                       setNewPriorityMandatory(false);
@@ -361,52 +497,74 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
                 </div>
                 <div className="mt-3 space-y-2">
                   <Label className="text-xs">Các ưu tiên hiện tại</Label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {editableConstraints.filter(c => c.type === 'StaffPriority').map((c: any) => {
-                      const t = shiftTemplates.find(t => t.id === c.templateId);
-                      const u = allUsers.find(u => u.uid === c.userId);
-                      return (
-                        <div key={`pr_row_${c.id}`} className="flex items-center justify-between border rounded-md p-2">
-                          <div className="text-sm">
-                            <span className="font-semibold">{u?.displayName || c.userId}</span>
-                            <span className="mx-2">→</span>
-                            <span>{t?.label || c.templateId}</span>
-                            <span className="ml-2 text-muted-foreground">w={c.weight ?? 0}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Select value={String(c.weight ?? 0)} onValueChange={(v) => {
-                              const next = editableConstraints.map(x => x === c ? { ...c, weight: parseInt(v, 10) } as any : x);
-                              setEditableConstraints(next);
-                            }}>
-                              <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="0">0</SelectItem>
-                                <SelectItem value="1">1</SelectItem>
-                                <SelectItem value="2">2</SelectItem>
-                                <SelectItem value="3">3</SelectItem>
-                                <SelectItem value="4">4</SelectItem>
-                                <SelectItem value="5">5</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <div className="flex items-center gap-2">
-                              <Checkbox id={`pr_mand_${c.id}`} checked={!!c.mandatory} onCheckedChange={(checked) => {
-                                const next = editableConstraints.map(x => x === c ? { ...c, mandatory: !!checked } as any : x);
-                                setEditableConstraints(next);
-                              }} />
-                              <label htmlFor={`pr_mand_${c.id}`} className="text-xs">Bắt buộc</label>
-                            </div>
-                            <Button variant="ghost" onClick={() => {
-                              const next = editableConstraints.filter(x => x !== c);
-                              setEditableConstraints(next);
-                            }}>Xóa</Button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {editableConstraints.filter(c => c.type === 'StaffPriority').length === 0 && (
-                      <p className="text-xs text-muted-foreground">Chưa có ưu tiên nào.</p>
-                    )}
-                  </div>
+                  <ScrollArea className="h-[240px]" onScrollCapture={(e) => setPriorityScrollTop((e.target as HTMLDivElement).scrollTop)}>
+                    <div className="grid grid-cols-1 gap-2">
+                      <AnimatePresence initial={false}>
+                        {(() => {
+                          const items = editableConstraints.filter(c => c.type === 'StaffPriority') as any[];
+                          const total = items.length;
+                          const start = Math.max(0, Math.floor(priorityScrollTop / 56) - 2);
+                          const visibleCount = Math.ceil(240 / 56) + 4;
+                          const end = Math.min(total, start + visibleCount);
+                          const topSpacer = start * 56;
+                          const bottomSpacer = Math.max(0, (total - end) * 56);
+                          const slice = items.slice(start, end);
+                          return (
+                            <>
+                              <div style={{ height: topSpacer }} />
+                              {slice.map((c: any) => {
+                                const t = shiftTemplates.find(t => t.id === c.templateId);
+                                const u = allUsers.find(u => u.uid === c.userId);
+                                return (
+                                  <motion.div key={`pr_row_${c.id}`} className="flex items-center justify-between border rounded-md p-2" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}>
+                                    <div className="text-sm">
+                                      <span className="font-semibold">{u?.displayName || c.userId}</span>
+                                      <span className="mx-2">→</span>
+                                      <span>{t?.label || c.templateId}</span>
+                                      <span className="ml-2 text-muted-foreground">w={c.weight ?? 0}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Select value={String(c.weight ?? 0)} onValueChange={(v) => {
+                                        const next = editableConstraints.map(x => x === c ? { ...c, weight: parseInt(v, 10) } as any : x);
+                                        setEditableConstraints(next);
+                                      }}>
+                                        <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="0">0</SelectItem>
+                                          <SelectItem value="1">1</SelectItem>
+                                          <SelectItem value="2">2</SelectItem>
+                                          <SelectItem value="3">3</SelectItem>
+                                          <SelectItem value="4">4</SelectItem>
+                                          <SelectItem value="5">5</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      <div className="flex items-center gap-2">
+                                        <Checkbox id={`pr_mand_${c.id}`} checked={!!c.mandatory} onCheckedChange={(checked) => {
+                                          const next = editableConstraints.map(x => x === c ? { ...c, mandatory: !!checked } as any : x);
+                                          setEditableConstraints(next);
+                                        }} />
+                                        <label htmlFor={`pr_mand_${c.id}`} className="text-xs">Bắt buộc</label>
+                                      </div>
+                                      <Button variant="ghost" onClick={() => {
+                                        const prev = [...editableConstraints];
+                                        const next = editableConstraints.filter(x => x !== c);
+                                        pushUndo(prev);
+                                        setEditableConstraints(next);
+                                      }}>Xóa</Button>
+                                    </div>
+                                  </motion.div>
+                                );
+                              })}
+                              <div style={{ height: bottomSpacer }} />
+                            </>
+                          );
+                        })()}
+                        {editableConstraints.filter(c => c.type === 'StaffPriority').length === 0 && (
+                          <p className="text-xs text-muted-foreground">Chưa có ưu tiên nào.</p>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </ScrollArea>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
@@ -418,6 +576,7 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
                     }}
                   >Xóa ưu tiên</Button>
                   <p className="text-xs text-muted-foreground">Dùng chọn Mẫu ca + Nhân viên để thêm hoặc xóa ưu tiên.</p>
+                  
                 </div>
               </CardContent>
             </Card>
@@ -426,6 +585,7 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
             <Card>
               <CardContent className="p-4 space-y-3">
                 <Label className="font-semibold">Ràng buộc nhân viên↔mẫu ca</Label>
+                
                 <div className="grid grid-cols-1 sm:grid-cols-[2fr_2fr_1fr_auto] gap-2 items-end">
                   <div>
                     <Label className="text-xs">Chọn mẫu ca</Label>
@@ -463,51 +623,76 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
                     variant="secondary"
                     onClick={() => {
                       if (!linksForm.templateId || !linksForm.userId) return;
+                      const prev = [...editableConstraints];
                       const arr = editableConstraints.filter(c => !(c.type === 'StaffShiftLink' && (c as any).templateId === linksForm.templateId && (c as any).userId === linksForm.userId));
                       arr.push({ id: `ln_${linksForm.templateId}_${linksForm.userId}`, enabled: true, type: 'StaffShiftLink', templateId: linksForm.templateId, userId: linksForm.userId, link: (linksForm.link ?? 'force') } as any);
+                      pushUndo(prev);
                       setEditableConstraints(arr);
                     }}
                   >Thêm ràng buộc</Button>
                 </div>
                 <div className="mt-3 space-y-2">
                   <Label className="text-xs">Các ràng buộc hiện tại</Label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {editableConstraints.filter(c => c.type === 'StaffShiftLink').map((c: any) => {
-                      const t = shiftTemplates.find(t => t.id === c.templateId);
-                      const u = allUsers.find(u => u.uid === c.userId);
-                      return (
-                        <div key={`ln_row_${c.id}`} className="flex items-center justify-between border rounded-md p-2">
-                          <div className="text-sm">
-                            <span className="font-semibold">{u?.displayName || c.userId}</span>
-                            <span className="mx-2">↔</span>
-                            <span>{t?.label || c.templateId}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Select value={c.link} onValueChange={(v) => {
-                              const next = editableConstraints.map(x => x === c ? { ...c, link: v as any } as any : x);
-                              setEditableConstraints(next);
-                            }}>
-                              <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="force">Bắt buộc</SelectItem>
-                                <SelectItem value="ban">Cấm</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <Button variant="ghost" onClick={() => {
-                              const next = editableConstraints.filter(x => x !== c);
-                              setEditableConstraints(next);
-                            }}>Xóa</Button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {editableConstraints.filter(c => c.type === 'StaffShiftLink').length === 0 && (
-                      <p className="text-xs text-muted-foreground">Chưa có ràng buộc nào.</p>
-                    )}
-                  </div>
+                  <ScrollArea className="h-[240px]" onScrollCapture={(e) => setLinksScrollTop((e.target as HTMLDivElement).scrollTop)}>
+                    <div className="grid grid-cols-1 gap-2">
+                      <AnimatePresence initial={false}>
+                        {(() => {
+                          const items = editableConstraints.filter(c => c.type === 'StaffShiftLink') as any[];
+                          const total = items.length;
+                          const start = Math.max(0, Math.floor(linksScrollTop / 56) - 2);
+                          const visibleCount = Math.ceil(240 / 56) + 4;
+                          const end = Math.min(total, start + visibleCount);
+                          const topSpacer = start * 56;
+                          const bottomSpacer = Math.max(0, (total - end) * 56);
+                          const slice = items.slice(start, end);
+                          return (
+                            <>
+                              <div style={{ height: topSpacer }} />
+                              {slice.map((c: any) => {
+                                const t = shiftTemplates.find(t => t.id === c.templateId);
+                                const u = allUsers.find(u => u.uid === c.userId);
+                                return (
+                                  <motion.div key={`ln_row_${c.id}`} className="flex items-center justify-between border rounded-md p-2" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}>
+                                    <div className="text-sm">
+                                      <span className="font-semibold">{u?.displayName || c.userId}</span>
+                                      <span className="mx-2">↔</span>
+                                      <span>{t?.label || c.templateId}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Select value={c.link} onValueChange={(v) => {
+                                        const next = editableConstraints.map(x => x === c ? { ...c, link: v as any } as any : x);
+                                        setEditableConstraints(next);
+                                      }}>
+                                        <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="force">Bắt buộc</SelectItem>
+                                          <SelectItem value="ban">Cấm</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      <Button variant="ghost" onClick={() => {
+                                        const prev = [...editableConstraints];
+                                        const next = editableConstraints.filter(x => x !== c);
+                                        pushUndo(prev);
+                                        setEditableConstraints(next);
+                                      }}>Xóa</Button>
+                                    </div>
+                                  </motion.div>
+                                );
+                              })}
+                              <div style={{ height: bottomSpacer }} />
+                            </>
+                          );
+                        })()}
+                        {editableConstraints.filter(c => c.type === 'StaffShiftLink').length === 0 && (
+                          <p className="text-xs text-muted-foreground">Chưa có ràng buộc nào.</p>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </ScrollArea>
                 </div>
               </CardContent>
             </Card>
+            
           </TabsContent>
           <TabsContent value="availability" className="py-4">
             <Card>
@@ -564,39 +749,91 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
                     {validationErrors.length > 0 && (
                       <div className="text-sm text-destructive">{validationErrors.join(' • ')}</div>
                     )}
+                    {/* Summary stats */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="secondary">Đề xuất: {editableAssignments.filter(a => a.selected).length}</Badge>
+                      <Badge variant="outline">Unfilled: {result.unfilled.reduce((acc, u) => acc + (u.remaining || 0), 0)}</Badge>
+                      {(() => {
+                        const counts: Record<string, number> = {};
+                        for (const a of editableAssignments.filter(x => x.selected)) {
+                          const r = roleByUserId.get(a.userId) || 'Bất kỳ';
+                          counts[r] = (counts[r] || 0) + 1;
+                        }
+                        return Object.entries(counts).map(([r, n]) => (
+                          <Badge key={`role_count_${r}`} className={getRoleClasses(r)}>{r}: {n}</Badge>
+                        ));
+                      })()}
+                    </div>
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="w-[25%]">Ngày</TableHead>
+                          <TableHead className="w-[20%] whitespace-nowrap">Ngày</TableHead>
                           <TableHead>Ca</TableHead>
                           <TableHead>Phân công đề xuất</TableHead>
                           <TableHead>Thiếu</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {shifts.map(shift => {
+                        <AnimatePresence initial={false}>
+                        {shifts.map((shift, idx) => {
                           const dayAssignments = editableAssignments.filter(a => a.shiftId === shift.id);
                           const unfilled = result.unfilled.find(u => u.shiftId === shift.id)?.remaining || 0;
+                          const dateKey = format(new Date(shift.date), 'yyyy-MM-dd');
+                          const isFirstOfDay = idx === 0 || format(new Date(shifts[idx - 1].date), 'yyyy-MM-dd') !== dateKey;
+                          const isLastOfDay = idx === shifts.length - 1 || format(new Date(shifts[idx + 1]?.date || shift.date), 'yyyy-MM-dd') !== dateKey;
                           return (
-                            <TableRow key={shift.id} className={cn(unfilled > 0 && 'bg-destructive/10')}>
-                              <TableCell className="font-semibold">{format(new Date(shift.date), 'eee, dd/MM', { locale: vi })}</TableCell>
+                            <React.Fragment key={`grp_${shift.id}`}>
+                            <motion.tr key={shift.id} className={cn(unfilled > 0 && 'bg-destructive/10')} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                              {isFirstOfDay && (
+                                <TableCell rowSpan={dateRowSpanMap[dateKey]} className="font-semibold whitespace-nowrap w-[20%] border-l-4 border-primary bg-muted/20">
+                                  {format(new Date(shift.date), 'eee, dd/MM', { locale: vi })}
+                                </TableCell>
+                              )}
                               <TableCell>{shift.label} ({shift.timeSlot.start}-{shift.timeSlot.end})</TableCell>
                               <TableCell>
                                 <div className="flex flex-wrap gap-2">
                                   {dayAssignments.length === 0 ? <span className="text-muted-foreground">—</span> : dayAssignments.map(a => {
                                     const userName = allUsers.find(u => u.uid === a.userId)?.displayName || a.userId;
+                                    const role = roleByUserId.get(a.userId);
+                                    const roleCls = getRoleClasses(role);
+                                    const availSlots = availabilityMap.get(`${a.userId}:${dateKey}`) || [];
+                                    const dayCount = dayUserShiftCounts.get(`${a.userId}:${dateKey}`) || 0;
                                     return (
-                                      <Button key={`${a.shiftId}_${a.userId}`} variant={a.selected ? 'secondary' : 'outline'} size="sm" onClick={() => handleToggleAssignment(a.shiftId, a.userId)}>
-                                        {userName}
-                                      </Button>
+                                      <TooltipProvider key={`tt_${a.shiftId}_${a.userId}`}>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <motion.button onClick={() => handleToggleAssignment(a.shiftId, a.userId)} className={cn('rounded-md px-2 py-1 text-xs font-medium border', roleCls, a.selected ? 'ring-2 ring-primary' : 'opacity-90')} initial={{ scale: 0.98 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 30 }} aria-pressed={a.selected} aria-label={`Chọn ${userName}`}>
+                                              {userName}
+                                              {dayCount >= 2 && (
+                                                <span className="ml-1 text-[10px] font-semibold text-yellow-600 dark:text-yellow-400">×{dayCount}</span>
+                                              )}
+                                            </motion.button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <div className="space-y-1">
+                                              <div className="text-xs">Vai trò: {role || 'Bất kỳ'}</div>
+                                              <div className="text-xs">Rảnh: {availSlots.length ? availSlots.join(', ') : 'Không có'}</div>
+                                            </div>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
                                     );
                                   })}
                                 </div>
                               </TableCell>
                               <TableCell>{unfilled > 0 ? unfilled : '0'}</TableCell>
-                            </TableRow>
+                            </motion.tr>
+                            {isLastOfDay && (
+                              <TableRow key={`sep_${dateKey}_${idx}`}>
+                                <TableCell colSpan={4} className="p-0">
+                                  <div className="h-[6px] bg-muted rounded-md" />
+                                </TableCell>
+                              </TableRow>
+                            )}
+                            </React.Fragment>
                           )
                         })}
+                        </AnimatePresence>
                       </TableBody>
                     </Table>
                   </div>
@@ -605,6 +842,41 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
                 )}
               </CardContent>
             </Card>
+            {result && (
+              <Card>
+                <CardContent className="p-4 space-y-3">
+                  <Label className="font-semibold">Tổng kết giờ làm theo tuần</Label>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Nhân viên</TableHead>
+                        <TableHead className="text-center">Giờ dự kiến</TableHead>
+                        <TableHead className="text-center">Giờ rảnh khai báo</TableHead>
+                        <TableHead className="text-center">Chênh lệch</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {[...scheduledHoursByUser.keys()].sort().map(uid => {
+                        const u = allUsers.find(x => x.uid === uid);
+                        const sched = scheduledHoursByUser.get(uid) || 0;
+                        const avail = availableHoursByUser.get(uid) || 0;
+                        const diff = sched - avail;
+                        const exceed = diff > 0.0001;
+                        return (
+                          <TableRow key={`sum_${uid}`} className={cn(exceed && 'bg-destructive/10')}> 
+                            <TableCell className="font-medium">{u?.displayName || uid}</TableCell>
+                            <TableCell className="text-center">{sched.toFixed(1)}h</TableCell>
+                            <TableCell className="text-center">{avail.toFixed(1)}h</TableCell>
+                            <TableCell className={cn('text-center', exceed ? 'text-destructive font-semibold' : 'text-muted-foreground')}>{(diff >= 0 ? '+' : '') + diff.toFixed(1)}h</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                  <div className="text-xs text-muted-foreground">Tô màu đỏ khi giờ dự kiến vượt quá giờ rảnh khai báo.</div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
         </ScrollArea>
