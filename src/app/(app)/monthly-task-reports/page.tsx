@@ -384,7 +384,7 @@ function MonthlyTaskReportsView() {
                                             </div>
                                             <div className="flex flex-col items-end">
                                               <div className={`text-2xl font-bold ${completionPercentage === 100 ? "text-emerald-600 dark:text-emerald-400" : completionPercentage >= 50 ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400"}`}>{completionPercentage}%</div>
-                                              <div className="w-24 h-1.5 bg-secondary rounded-full mt-2 overflow-hidden"><div className={`h-full transition-all ${completionPercentage === 100 ? "bg-emerald-500" : completionPercentage >= 50 ? "bg-amber-500" : "bg-rose-500"}`} style={{ width: `${completionPercentage}%` }} /></div>
+                                              <div className="w-24 h-1.5 bg-secondary rounded-full mt-2 overflow-hidden"><div className={`h-full transition-all w-dynamic ${completionPercentage === 100 ? "bg-emerald-500" : completionPercentage >= 50 ? "bg-amber-500" : "bg-rose-500"}`} style={{ '--dynamic-width': `${completionPercentage}%` } as React.CSSProperties} /></div>
                                             </div>
                                           </div>
                                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

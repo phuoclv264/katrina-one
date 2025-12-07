@@ -511,7 +511,7 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
                           const slice = items.slice(start, end);
                           return (
                             <>
-                              <div style={{ height: topSpacer }} />
+                              <div className="h-dynamic" style={{ '--dynamic-height': `${topSpacer}px` } as React.CSSProperties} />
                               {slice.map((c: any) => {
                                 const t = shiftTemplates.find(t => t.id === c.templateId);
                                 const u = allUsers.find(u => u.uid === c.userId);
@@ -555,7 +555,7 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
                                   </motion.div>
                                 );
                               })}
-                              <div style={{ height: bottomSpacer }} />
+                              <div className="h-dynamic" style={{ '--dynamic-height': `${bottomSpacer}px` } as React.CSSProperties} />
                             </>
                           );
                         })()}
@@ -647,7 +647,7 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
                           const slice = items.slice(start, end);
                           return (
                             <>
-                              <div style={{ height: topSpacer }} />
+                              <div className="h-dynamic" style={{ '--dynamic-height': `${topSpacer}px` } as React.CSSProperties} />
                               {slice.map((c: any) => {
                                 const t = shiftTemplates.find(t => t.id === c.templateId);
                                 const u = allUsers.find(u => u.uid === c.userId);
@@ -679,7 +679,7 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
                                   </motion.div>
                                 );
                               })}
-                              <div style={{ height: bottomSpacer }} />
+                              <div className="h-dynamic" style={{ '--dynamic-height': `${bottomSpacer}px` } as React.CSSProperties} />
                             </>
                           );
                         })()}

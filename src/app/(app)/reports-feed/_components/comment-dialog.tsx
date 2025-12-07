@@ -356,13 +356,7 @@ export default function CommentDialog({
                                 }}
                                 disabled={isSubmitting}
                                 rows={1}
-                                className="flex-1 resize-none border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm bg-transparent leading-[1.5] py-[10px] transition-all"
-                                style={{
-                                height: "auto",
-                                minHeight: "24px", // 1 dòng
-                                maxHeight: "72px",
-                                overflowY: "auto",
-                                }}
+                                className="flex-1 resize-none border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm bg-transparent leading-[1.5] py-[10px] transition-all textarea-auto-resize"
                             />
 
                             {/* Nút gửi */}

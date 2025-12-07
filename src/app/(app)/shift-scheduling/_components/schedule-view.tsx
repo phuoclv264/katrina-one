@@ -722,9 +722,9 @@ export default function ScheduleView() {
 
         const badgeContent = (
             <Badge className={cn("h-auto py-0.5 text-xs", getRoleColor(userRole))}>
-                {isBusy && <AlertTriangle className="h-3 w-3 mr-1 text-destructive-foreground"/>}
+                {isBusy && <AlertTriangle className="h-3 w-3 mr-1 text-warning"/>}
                 {hasMultipleShifts && (
-                    <span className={cn("font-bold mr-1", shiftCount > 2 ? 'text-red-500' : 'text-yellow-500')}>{shiftCount}</span>
+                    <span className={cn("font-bold mr-1", shiftCount > 2 ? 'text-destructive' : 'text-warning')}>{shiftCount}</span>
                 )}
                 {nameToShow}
             </Badge>
@@ -932,7 +932,7 @@ export default function ScheduleView() {
                                                                             variant="secondary"
                                                                             onClick={() => handleOpenAssignmentDialog(shiftObject)}
                                                                             disabled={!canEditSchedule}
-                                                                            className="bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-200 dark:hover:bg-blue-900 shrink-0 sm:size-auto sm:px-3 size-9 px-0"
+                                                                            className="btn-info-tinted shrink-0 sm:size-auto sm:px-3 size-9 px-0"
                                                                         >
                                                                             <UserPlus className="h-4 w-4 sm:mr-2" />
                                                                             <span className="sr-only sm:not-sr-only">Phân công</span>
@@ -1090,8 +1090,8 @@ export default function ScheduleView() {
                         
                         {hasUnsavedChanges && (
                             <div className="absolute -top-1 -right-1 flex h-4 w-4">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-background"></span>
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive/50 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-4 w-4 bg-destructive border-2 border-background"></span>
                             </div>
                         )}
                     </div>

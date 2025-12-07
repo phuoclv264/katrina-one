@@ -58,8 +58,7 @@ export function SantaEffect() {
           animate={{ y: 10, rotate: 0 }}
           exit={{ y: 200, rotate: 10 }}
           transition={{ duration: 0.8, type: 'spring', stiffness: 70 }}
-          className="fixed bottom-0 left-0 z-[9999] pointer-events-none"
-          style={{ width: '200px', height: '200px' }}
+          className="fixed bottom-0 left-0 z-[9999] pointer-events-none santa-container"
         >
           <div className="relative w-full h-full">
              {/* Speech Bubble */}
@@ -67,10 +66,10 @@ export function SantaEffect() {
                initial={{ opacity: 0, scale: 0.5 }}
                animate={{ opacity: 1, scale: 1 }}
                transition={{ delay: 0.8, duration: 0.5 }}
-               className="absolute -top-10 right-0 bg-white border-2 border-red-600 rounded-2xl p-2 px-4 shadow-lg z-10"
+               className="absolute -top-10 right-0 bg-card border-2 border-destructive rounded-2xl p-2 px-4 shadow-lg z-10"
              >
-               <p className="text-red-600 font-bold text-sm whitespace-nowrap">Merry Christmas!</p>
-               <div className="absolute bottom-[-6px] left-4 w-3 h-3 bg-white border-b-2 border-r-2 border-red-600 transform rotate-45"></div>
+               <p className="text-destructive font-bold text-sm whitespace-nowrap">Merry Christmas!</p>
+               <div className="absolute bottom-[-6px] left-4 w-3 h-3 bg-card border-b-2 border-r-2 border-destructive transform rotate-45"></div>
              </motion.div>
 
              {/* SVG Santa */}

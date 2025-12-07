@@ -57,7 +57,7 @@ const ExpenseList = React.memo(({ expenses, onEdit, onDelete, processingItemId, 
                                 <div className="space-y-1 pr-2">
                                     <div className="font-semibold text-sm flex items-center gap-2 flex-wrap">
                                       <p>{getSlipContentName(slip.items[0])}{slip.items.length > 1 && ` và ${slip.items.length - 1} mục khác`}</p>
-                                       {slip.isAiGenerated && <Badge className="bg-blue-100 text-blue-800">AI</Badge>}
+                                       {slip.isAiGenerated && <Badge className="badge-info">AI</Badge>}
                                        {slip.lastModifiedBy && <Badge variant="outline">Đã sửa</Badge>}
                                        {slip.associatedHandoverReportId && <Badge variant="outline">Tự động</Badge>}
                                     </div>
@@ -68,7 +68,7 @@ const ExpenseList = React.memo(({ expenses, onEdit, onDelete, processingItemId, 
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    <p className="font-bold text-base text-red-600">-{actualAmount.toLocaleString('vi-VN')}đ</p>
+                                    <p className="font-bold text-base text-destructive">-{actualAmount.toLocaleString('vi-VN')}đ</p>
                                     <div className="flex items-center justify-end gap-2 text-sm mt-1">
                                         {slip.paymentMethod === 'cash' ? <Wallet className="h-4 w-4"/> : <LandPlot className="h-4 w-4"/>}
                                         <span>{slip.paymentMethod === 'cash' ? 'Tiền mặt' : 'CK'}</span>
@@ -87,7 +87,7 @@ const ExpenseList = React.memo(({ expenses, onEdit, onDelete, processingItemId, 
                             </div>
                         </CardContent>
                         {isProcessing && (
-                                <div className="absolute inset-0 bg-dialog/80 flex items-center justify-center rounded-md z-10">
+                                <div className="processing-overlay">
                                     <Loader2 className="h-6 w-6 animate-spin text-destructive" />
                                     <span className="ml-2 text-sm font-medium text-destructive">Đang xử lý...</span>
                                 </div>
@@ -126,7 +126,7 @@ const ExpenseList = React.memo(({ expenses, onEdit, onDelete, processingItemId, 
                        <TableCell className="font-medium">
                             <div className="flex items-center gap-2 flex-wrap">
                                 <span>{getSlipContentName(slip.items[0])}{slip.items.length > 1 && ` và ${slip.items.length - 1} mục khác`}</span>
-                                {slip.isAiGenerated && <Badge className="bg-blue-100 text-blue-800">AI</Badge>}
+                                {slip.isAiGenerated && <Badge className="badge-info">AI</Badge>}
                                 {slip.lastModifiedBy && <Badge variant="outline" className="text-xs">Đã sửa</Badge>}
                                 {slip.associatedHandoverReportId && <Badge variant="outline" className="font-normal">Tự động</Badge>}
                             </div>
@@ -135,18 +135,18 @@ const ExpenseList = React.memo(({ expenses, onEdit, onDelete, processingItemId, 
                        <TableCell className="text-sm text-muted-foreground">
                          {slip.lastModifiedBy && slip.lastModified ? (
                             <div className="flex items-center gap-1">
-                                <Edit2 className="h-3 w-3 text-yellow-500" />
+                                <Edit2 className="h-3 w-3 text-warning" />
                                 {format(new Date(slip.lastModified as string), 'HH:mm')}
                             </div>
                          ) : (
                             format(new Date(slip.createdAt as string), 'HH:mm')
                          )}
                         </TableCell>
-                       <TableCell className="text-right font-bold text-lg text-red-600">
+                       <TableCell className="text-right font-bold text-lg text-destructive">
                             <div className='flex flex-col items-end'>
                                 <span>{slip.totalAmount.toLocaleString('vi-VN')}đ</span>
                                 {(slip.paymentMethod === 'cash' && typeof slip.actualPaidAmount === 'number' && slip.actualPaidAmount !== slip.totalAmount) && (
-                                     <span className='text-xs font-normal text-red-600'>(Thực trả: {(slip.actualPaidAmount).toLocaleString('vi-VN')}đ)</span>
+                                     <span className='text-xs font-normal text-destructive'>(Thực trả: {(slip.actualPaidAmount).toLocaleString('vi-VN')}đ)</span>
                                 )}
                             </div>
                        </TableCell>
@@ -169,7 +169,7 @@ const ExpenseList = React.memo(({ expenses, onEdit, onDelete, processingItemId, 
                               </AlertDialogContent>
                           </AlertDialog>
                        </TableCell>
-                        {isProcessing && (<td colSpan={6} className="absolute inset-0 bg-white/80 dark:bg-black/80 flex items-center justify-center rounded-lg"><Loader2 className="h-6 w-6 animate-spin text-destructive"/><span className="ml-2 text-sm font-medium text-destructive">Đang xóa...</span></td>)}
+                        {isProcessing && (<td colSpan={6} className="processing-overlay rounded-lg"><Loader2 className="h-6 w-6 animate-spin text-destructive"/><span className="ml-2 text-sm font-medium text-destructive">Đang xóa...</span></td>)}
                    </TableRow>
                   )
                })}

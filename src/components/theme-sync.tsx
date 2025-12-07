@@ -26,13 +26,19 @@ export function ThemeSync() {
 
   // Subscribe to user preference
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setUserPreference(undefined);
+      return;
+    }
 
     const userRef = doc(db, 'users', user.uid);
     const unsubscribe = onSnapshot(userRef, (docSnap) => {
       if (docSnap.exists()) {
         const userData = docSnap.data() as ManagedUser;
         setUserPreference(userData.themePreference);
+      } else {
+        // Document doesn't exist, no user preference
+        setUserPreference(undefined);
       }
     });
 
@@ -41,7 +47,7 @@ export function ThemeSync() {
 
   // Sync logic
   useEffect(() => {
-    let targetTheme = 'system';
+    let targetTheme = 'light'; // Default to 'light' instead of 'system'
     let intent = 'default';
 
     // 1. User Preference
@@ -58,11 +64,11 @@ export function ThemeSync() {
     } else if (intent === 'noel') {
       targetTheme = noelVariant; // Map 'noel' intent to specific variant
     } else {
-      targetTheme = 'system';
+      // When intent is 'default', use 'light' theme (not 'system')
+      targetTheme = 'light';
     }
 
     // Only update if different to avoid loops (though next-themes handles this well)
-    // Note: next-themes' 'system' means it listens to media query.
     if (theme !== targetTheme) {
       setTheme(targetTheme);
     }

@@ -148,11 +148,11 @@ const AttendanceBar = ({
             <Tooltip>
                 <TooltipTrigger asChild>
                     <div
-                        className={cn("top-1/2 -translate-y-1/2 absolute h-6 rounded-md transition-all duration-200 cursor-pointer", getRoleBarColor(user?.role))}
+                        className={cn("top-1/2 -translate-y-1/2 absolute h-6 rounded-md transition-all duration-200 cursor-pointer left-dynamic w-dynamic", getRoleBarColor(user?.role))}
                         style={{
-                            left: `${left}%`,
-                            width: `${width}%`,
-                        }}
+                            '--dynamic-left': `${left}%`,
+                            '--dynamic-width': `${width}%`,
+                        } as React.CSSProperties}
                     >
                         <span className="flex items-center text-xs text-white font-medium px-1.5 py-0.5">
                             <span className="truncate">{nameInShort ?? user?.displayName} ({format(checkInTime, 'HH:mm')} - {isInProgress ? '' : format(checkOutTime, 'HH:mm')})</span>
@@ -308,7 +308,7 @@ export default function AttendanceTimeline({
                         {/* Timeline Header */}
                         <div className="top-0 flex h-14 items-center border-b bg-card">
                             {Array.from({ length: TOTAL_HOURS_DISPLAYED }, (_, i) => i + 5).map((hour) => (
-                                <div key={hour} className="relative flex-1 shrink-0 text-center text-xs text-muted-foreground" style={{ minWidth: '20px' }}>
+                                <div key={hour} className="relative flex-1 shrink-0 text-center text-xs text-muted-foreground min-w-[20px]">
                                     <span className="absolute -left-px top-0 h-full border-l border-dashed" />
                                     <span className="inline-block pt-1">{hour.toString().padStart(2, '0')}</span>
                                 </div>
@@ -356,7 +356,7 @@ export default function AttendanceTimeline({
                                         const left = timeToPercentage(shiftStart);
                                         const width = timeToPercentage(shiftEnd) - left;
                                         return (
-                                            <div key={shift.templateId} className={cn("absolute top-0 bottom-0 -z-10", shift.color)} style={{ left: `${left}%`, width: `${width}%` }} />
+                                            <div key={shift.templateId} className={cn("absolute top-0 bottom-0 -z-10 left-dynamic w-dynamic", shift.color)} style={{ '--dynamic-left': `${left}%`, '--dynamic-width': `${width}%` } as React.CSSProperties} />
                                         );
                                     })}
                                     {/* Attendance Bars */}
@@ -399,8 +399,8 @@ export default function AttendanceTimeline({
                                                                     <Tooltip>
                                                                         <TooltipTrigger asChild>
                                                                             <div
-                                                                                className="absolute top-1/2 -translate-y-1/2 h-1 bg-orange-200 dark:bg-gray-700/50 rounded-sm"
-                                                                                style={{ left: `${startPercentage}%`, width: `${widthPercentage}%` }}
+                                                                                className="absolute top-1/2 -translate-y-1/2 h-1 bg-orange-200 dark:bg-gray-700/50 rounded-sm left-dynamic w-dynamic"
+                                                                                style={{ '--dynamic-left': `${startPercentage}%`, '--dynamic-width': `${widthPercentage}%` } as React.CSSProperties}
                                                                             />
                                                                         </TooltipTrigger>
                                                                         <TooltipContent>

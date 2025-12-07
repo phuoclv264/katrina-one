@@ -33,8 +33,8 @@ export default function RootLayout({
       <body className="font-body antialiased">
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          defaultTheme="light"
+          enableSystem={false}
           disableTransitionOnChange
           themes={['light', 'dark', 'noel-1', 'noel-2', 'noel-3']}
         >
