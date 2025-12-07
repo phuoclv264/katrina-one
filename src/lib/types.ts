@@ -19,11 +19,14 @@ export type ManagedUser = {
   secondaryRoles?: UserRole[];
   notes?: string;
   hourlyRate?: number; // Added for payroll
+  themePreference?: 'default' | 'dark' | 'noel';
 };
 
 export type AppSettings = {
   isRegistrationEnabled: boolean;
   lastIssueNoteScan?: string | Timestamp;
+  defaultTheme?: 'default' | 'dark' | 'noel';
+  noelThemeVariant?: 'noel-1' | 'noel-2';
 };
 
 export type Task = {

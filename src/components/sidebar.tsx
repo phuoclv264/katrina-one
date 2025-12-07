@@ -104,6 +104,9 @@ export function AppSidebar() {
           break;
       }
       
+      // Common items for all roles
+      primaryItems.push({ href: '/settings', label: 'Cài đặt', icon: Settings });
+
       const primaryHrefs = new Set(primaryItems.map(item => item.href));
 
         if (isOnActiveShift) { // Non-owners only see secondary roles if on shift

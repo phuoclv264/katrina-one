@@ -2,6 +2,9 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Toaster } from "react-hot-toast";
 import { DialogProvider } from '@/contexts/dialog-context';
+import { ThemeProvider } from '@/components/theme-provider';
+import { SnowEffect } from '@/components/effects/snow-effect';
+import { SantaEffect } from '@/components/effects/santa-effect';
 
 export const metadata: Metadata = {
   title: 'Katrina One',
@@ -28,10 +31,20 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="https://firebasestorage.googleapis.com/v0/b/katrinaone.firebasestorage.app/o/logo_coffee.png?alt=media&token=c4832ac1-b277-425e-9d35-8108cd2c3fe6" />
       </head>
       <body className="font-body antialiased">
-        <DialogProvider>
-          {children}
-          <Toaster />
-        </DialogProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+          themes={['light', 'dark', 'noel-1', 'noel-2']}
+        >
+          <SnowEffect />
+          <SantaEffect />
+          <DialogProvider>
+            {children}
+            <Toaster />
+          </DialogProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

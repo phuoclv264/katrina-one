@@ -11,6 +11,7 @@ import { PanelLeft } from 'lucide-react';
 import { LightboxProvider } from '@/contexts/lightbox-context';
 import { BackButtonHandler } from '@/components/back-button-handler';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ThemeSync } from '@/components/theme-sync';
 
 export default function AppLayout({
   children,
@@ -20,6 +21,7 @@ export default function AppLayout({
   return (
     <LightboxProvider>
       <SidebarProvider>
+        <ThemeSync />
         <Sidebar collapsible="icon">
           <AppSidebar />
         </Sidebar>

@@ -65,7 +65,110 @@ body {
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
   }
+  .noel-1 {
+    /* Palette 2: Anti-flash white, Brunswick green, Sea green, Engineering orange */
+    --background: 220 14% 96%; /* Anti-flash white #F3F4F6 */
+    --foreground: 163 100% 14%; /* Brunswick green #004733 */
+    --card: 0 0% 100%;
+    --card-foreground: 163 100% 14%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 163 100% 14%;
+    --primary: 0 91% 42%; /* Engineering orange #CB0B0A */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 137 24% 45%; /* Sea green #568D66 */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 137 24% 92%;
+    --muted-foreground: 137 24% 40%;
+    --accent: 0 91% 42%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 137 24% 88%;
+    --input: 137 24% 88%;
+    --ring: 0 91% 42%;
+    --chart-1: 0 91% 42%;
+    --chart-2: 163 100% 14%;
+    --chart-3: 137 24% 45%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+  }
+
+  .noel-2 {
+    --background: 0 0% 98%; /* Snow white */
+    --foreground: 142 70% 15%; /* Deep pine green */
+    --card: 0 0% 100%;
+    --card-foreground: 142 70% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 142 70% 15%;
+    --primary: 355 78% 56%; /* Christmas Red */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 145 63% 42%; /* Holly Green */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 142 30% 90%;
+    --muted-foreground: 142 40% 40%;
+    --accent: 355 78% 56%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 142 30% 85%;
+    --input: 142 30% 85%;
+    --ring: 355 78% 56%;
+    --chart-1: 355 78% 56%;
+    --chart-2: 145 63% 42%;
+    --chart-3: 45 90% 60%; /* Gold */
+    --chart-4: 200 80% 60%;
+    --chart-5: 25 80% 60%;
+  }
 }
+
+@layer utilities {
+  .text-shadow {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+  .text-shadow-md {
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* Snow Animation */
+@keyframes snowfall {
+  0% {
+    transform: translate3d(var(--left-ini), -10vh, 0);
+  }
+  100% {
+    transform: translate3d(var(--left-end), 110vh, 0);
+  }
+}
+
+.snowflake {
+  position: fixed;
+  top: -10vh;
+  z-index: 9999;
+  color: #fff;
+  font-size: 1em;
+  font-family: Arial, sans-serif;
+  text-shadow: 0 0 5px #000;
+  user-select: none;
+  pointer-events: none;
+  animation: snowfall linear infinite;
+}
+
+.snowflake:nth-child(1) { --left-ini: -8vw; --left-end: 3vw; left: 18%; animation-duration: 9s; animation-delay: -2s; }
+.snowflake:nth-child(2) { --left-ini: -5vw; --left-end: 9vw; left: 80%; animation-duration: 7s; animation-delay: -4s; }
+.snowflake:nth-child(3) { --left-ini: 6vw; --left-end: -6vw; left: 29%; animation-duration: 12s; animation-delay: -1s; }
+.snowflake:nth-child(4) { --left-ini: -9vw; --left-end: -3vw; left: 45%; animation-duration: 15s; animation-delay: -8s; }
+.snowflake:nth-child(5) { --left-ini: 7vw; --left-end: -2vw; left: 91%; animation-duration: 8s; animation-delay: -5s; }
+.snowflake:nth-child(6) { --left-ini: -1vw; --left-end: 6vw; left: 12%; animation-duration: 14s; animation-delay: -3s; }
+.snowflake:nth-child(7) { --left-ini: 4vw; --left-end: -8vw; left: 63%; animation-duration: 11s; animation-delay: -6s; }
+.snowflake:nth-child(8) { --left-ini: -3vw; --left-end: 5vw; left: 36%; animation-duration: 13s; animation-delay: -9s; }
+.snowflake:nth-child(9) { --left-ini: 8vw; --left-end: -5vw; left: 74%; animation-duration: 9s; animation-delay: -2s; }
+.snowflake:nth-child(10) { --left-ini: -6vw; --left-end: 7vw; left: 5%; animation-duration: 10s; animation-delay: -7s; }
+.snowflake:nth-child(11) { --left-ini: 5vw; --left-end: -9vw; left: 52%; animation-duration: 16s; animation-delay: -4s; }
+.snowflake:nth-child(12) { --left-ini: -8vw; --left-end: 2vw; left: 88%; animation-duration: 12s; animation-delay: -1s; }
+.snowflake:nth-child(13) { --left-ini: 2vw; --left-end: -4vw; left: 24%; animation-duration: 8s; animation-delay: -5s; }
+.snowflake:nth-child(14) { --left-ini: -5vw; --left-end: 9vw; left: 69%; animation-duration: 14s; animation-delay: -8s; }
+.snowflake:nth-child(15) { --left-ini: 9vw; --left-end: -1vw; left: 41%; animation-duration: 11s; animation-delay: -3s; }
+
 
 @layer base {
   * {
