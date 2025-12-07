@@ -1,5 +1,6 @@
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useTheme } from 'next-themes';
 import Image from 'next/image';
 import {
   Dialog,
@@ -19,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { NoelCameraIcon } from './icons/noel-camera-icon';
 
 
 type CameraDialogProps = {
@@ -38,6 +40,7 @@ export default function CameraDialog({
     captureMode = 'photo',
     isHD = false,
 }: CameraDialogProps) {
+  const { theme, resolvedTheme } = useTheme();
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -351,12 +354,22 @@ export default function CameraDialog({
         return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
     };
 
+  const isNoel = theme?.startsWith('noel') || resolvedTheme?.startsWith('noel');
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleDialogClose()}>
-      <DialogContent className="max-w-xl">
-        <DialogHeader>
-          <DialogTitle>Thêm bằng chứng</DialogTitle>
-          <DialogDescription>
+      <DialogContent className={cn("max-w-xl transition-all duration-300", isNoel ? "border-4 border-red-600/50 bg-white/95" : "bg-dialog")}>
+        <DialogHeader className={cn("relative", isNoel && "pt-6")}>
+            {isNoel && (
+                <>
+                    <div className="absolute -top-4 -left-4 text-4xl transform -rotate-12 filter drop-shadow-md">🎄</div>
+                    <div className="absolute -top-4 -right-4 text-4xl transform rotate-12 filter drop-shadow-md">🎅</div>
+                </>
+            )}
+          <DialogTitle className={cn(isNoel && "text-red-700 font-serif text-2xl text-center")}>
+              {isNoel ? "📸 Camera Giáng Sinh" : "Thêm bằng chứng"}
+          </DialogTitle>
+          <DialogDescription className={cn(isNoel && "text-center text-green-800")}>
             {singlePhotoMode && captureMode === 'photo'
                 ? 'Chụp ảnh bằng chứng cho hạng mục này.'
                 : 'Chụp ảnh hoặc quay video làm bằng chứng.'
@@ -364,7 +377,13 @@ export default function CameraDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="relative aspect-video w-full overflow-hidden rounded-md border bg-muted">
+        <div className={cn(
+            "relative aspect-video w-full overflow-hidden rounded-md border bg-muted",
+            isNoel && "border-2 border-red-500 shadow-inner ring-2 ring-green-500/30"
+        )}>
+            {isNoel && (
+                <div className="absolute top-0 left-0 w-full h-8 bg-[url('https://www.transparenttextures.com/patterns/snow.png')] opacity-30 pointer-events-none z-20"></div>
+            )}
             <video ref={videoRef} className="h-full w-full object-cover" autoPlay muted playsInline />
              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 p-4 text-center text-white transition-opacity duration-300"
                 style={{ opacity: hasPermission !== true ? 1 : 0, pointerEvents: hasPermission !== true ? 'auto' : 'none' }}
@@ -414,11 +433,17 @@ export default function CameraDialog({
                     onClick={currentMode === 'photo' ? handleCapturePhoto : handleToggleRecording} 
                     disabled={!hasPermission || isStarting} 
                     className={cn(
-                      "rounded-full h-16 w-16 shadow-lg",
-                      isRecording && "bg-red-600 hover:bg-red-700 animate-pulse"
+                      "rounded-full shadow-lg transition-all duration-300 transform flex items-center justify-center p-0",
+                      !isNoel && "h-16 w-16 bg-primary hover:bg-primary/90",
+                      isRecording && "h-16 w-16 bg-red-600 hover:bg-red-700",
+                      !isRecording && isNoel && "h-16 w-20 bg-transparent hover:scale-110 hover:rotate-3 shadow-none ring-0 border-0 p-0 [&_svg]:size-auto"
                     )}
                 >
-                    {currentMode === 'photo' ? <Camera className="h-8 w-8" /> : (isRecording ? <div className="h-6 w-6 rounded-sm bg-white" /> : <Video className="h-8 w-8"/>)}
+                    {((currentMode === 'photo' || currentMode === 'video') && !isRecording) ? (
+                        isNoel ? <NoelCameraIcon className="w-20 h-16 drop-shadow-xl" /> : <Camera className="h-8 w-8" />
+                    ) : (
+                        isRecording ? <div className="h-6 w-6 rounded-sm bg-white" /> : <Video className="h-8 w-8"/>
+                    )}
                     <span className="sr-only">{currentMode === 'photo' ? 'Chụp ảnh' : (isRecording ? 'Dừng quay' : 'Bắt đầu quay')}</span>
                 </Button>
             </div>

@@ -376,9 +376,9 @@ export default function InventoryTools({
 
     return (
         <>
-            <Card className="rounded-xl shadow-sm border bg-white dark:bg-card">
+            <Card className="mb-8 rounded-xl shadow-sm border bg-background">
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl"><Wand2 /> Công cụ Kho</CardTitle>
+                    <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl"><Wand2 /> Công cụ AI</CardTitle>
                 </CardHeader>
                 <CardContent>
                     {user?.role === 'Chủ nhà hàng' && (

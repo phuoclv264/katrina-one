@@ -12,7 +12,7 @@ export function ThemeSync() {
   const { setTheme, theme } = useTheme();
   const { user } = useAuth();
   const [globalDefault, setGlobalDefault] = useState<'default' | 'dark' | 'noel'>('default');
-  const [noelVariant, setNoelVariant] = useState<'noel-1' | 'noel-2'>('noel-1');
+  const [noelVariant, setNoelVariant] = useState<'noel-1' | 'noel-2' | 'noel-3'>('noel-1');
   const [userPreference, setUserPreference] = useState<'default' | 'dark' | 'noel' | undefined>(undefined);
 
   // Subscribe to global settings

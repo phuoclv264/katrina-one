@@ -227,7 +227,7 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 bg-white dark:bg-card rounded-xl shadow-lg">
+      <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 bg-dialog rounded-xl shadow-lg">
         <DialogHeader className="p-4 sm:p-6 pb-0 sticky top-0 bg-muted/30 dark:bg-card/50 backdrop-blur-sm z-10 rounded-t-xl">
           <DialogTitle>Công nợ Chuyển khoản</DialogTitle>
           <DialogDescription>

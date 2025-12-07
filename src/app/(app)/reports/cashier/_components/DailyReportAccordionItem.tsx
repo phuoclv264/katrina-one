@@ -62,7 +62,7 @@ const DailyReportAccordionItem = React.memo(({
   const totalIntangibleIncidentCost = (dayReports.incidents || []).filter(incident => incident.paymentMethod === 'intangible_cost').reduce((sum, i) => sum + i.cost, 0);
 
   return (
-    <AccordionItem value={date} key={date} className="border rounded-xl shadow-md bg-white dark:bg-card">
+    <AccordionItem value={date} key={date} className="border rounded-xl shadow-md bg-card">
       <AccordionTrigger className="p-4 text-base font-semibold hover:no-underline rounded-t-xl">
         <div className="w-full flex justify-between items-center gap-4">
           <div className="flex flex-col text-left">

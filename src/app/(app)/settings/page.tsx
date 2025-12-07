@@ -17,7 +17,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [userTheme, setUserTheme] = useState<'default' | 'dark' | 'noel'>('default');
   const [globalTheme, setGlobalTheme] = useState<'default' | 'dark' | 'noel'>('default');
-  const [noelVariant, setNoelVariant] = useState<'noel-1' | 'noel-2'>('noel-1');
+  const [noelVariant, setNoelVariant] = useState<'noel-1' | 'noel-2' | 'noel-3'>('noel-1');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -69,7 +69,7 @@ export default function SettingsPage() {
     }
   };
 
-  const handleNoelVariantChange = async (value: 'noel-1' | 'noel-2') => {
+  const handleNoelVariantChange = async (value: 'noel-1' | 'noel-2' | 'noel-3') => {
     setNoelVariant(value);
     try {
       await dataStore.updateAppSettings({ noelThemeVariant: value });
@@ -152,7 +152,8 @@ export default function SettingsPage() {
                     <SelectValue placeholder="Chọn biến thể Noel" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="noel-1">Noel Cổ điển (Mới)</SelectItem>
+                    <SelectItem value="noel-1">Noel Băng giá (Xanh)</SelectItem>
+                    <SelectItem value="noel-3">Noel Hiện đại (Hồng)</SelectItem>
                     <SelectItem value="noel-2">Noel Tươi sáng (Cũ)</SelectItem>
                   </SelectContent>
                 </Select>

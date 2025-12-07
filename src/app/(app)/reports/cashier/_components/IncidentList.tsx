@@ -48,7 +48,12 @@ const IncidentList = React.memo(({ incidents, onEdit, onDelete, onOpenLightbox, 
                                 </AlertDialogContent>
                             </AlertDialog>
                         </div>
-                         {isProcessing && (<div className="absolute inset-0 bg-white/80 dark:bg-black/80 flex items-center justify-center rounded-md"><Loader2 className="h-6 w-6 animate-spin text-destructive"/><span className="ml-2 text-sm font-medium text-destructive">Đang xóa...</span></div>)}
+                        {isProcessing && (
+                                <div className="absolute inset-0 bg-dialog/80 flex items-center justify-center rounded-md z-10">
+                                    <Loader2 className="h-6 w-6 animate-spin text-destructive" />
+                                    <span className="ml-2 text-sm font-medium text-destructive">Đang xử lý...</span>
+                                </div>
+                            )}
                     </div>
                 );
             })}

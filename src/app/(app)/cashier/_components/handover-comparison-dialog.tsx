@@ -59,7 +59,7 @@ export default function HandoverComparisonDialog({
             </div>
           </DialogHeader>
 
-          <div className="flex-grow overflow-y-auto bg-white dark:bg-card">
+          <div className="flex-grow overflow-y-auto bg-dialog">
               <div className="p-4 md:p-6 space-y-6">
                 {hasMismatch && comparisonResult ? (
                   <div className="space-y-4">
@@ -97,7 +97,7 @@ export default function HandoverComparisonDialog({
                     <div className="hidden md:block">
                         <ScrollArea className="max-h-[300px] w-full rounded-lg border shadow-sm">
                             <Table>
-                                <TableHeader className="sticky top-0 bg-white dark:bg-card z-10">
+                                <TableHeader className="sticky top-0 bg-dialog z-10">
                                     <TableRow>
                                         <TableHead className="font-bold px-4 py-2">Hạng mục</TableHead>
                                         <TableHead className="text-right font-bold px-4 py-2">Trên ứng dụng</TableHead>
@@ -125,7 +125,7 @@ export default function HandoverComparisonDialog({
               </div>
           </div>
 
-          <DialogFooter className="p-4 md:p-6 border-t shrink-0 bg-white dark:bg-card rounded-b-lg">
+          <DialogFooter className="p-4 md:p-6 border-t shrink-0 bg-dialog rounded-b-lg">
              {hasMismatch ? (
                 <div className="w-full flex flex-col md:flex-row md:justify-between gap-3">
                     <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto order-2 md:order-1">

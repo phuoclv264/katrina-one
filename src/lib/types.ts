@@ -26,7 +26,7 @@ export type AppSettings = {
   isRegistrationEnabled: boolean;
   lastIssueNoteScan?: string | Timestamp;
   defaultTheme?: 'default' | 'dark' | 'noel';
-  noelThemeVariant?: 'noel-1' | 'noel-2';
+  noelThemeVariant?: 'noel-1' | 'noel-2' | 'noel-3';
 };
 
 export type Task = {

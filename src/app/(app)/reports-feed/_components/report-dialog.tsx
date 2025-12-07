@@ -155,7 +155,7 @@ export default function ReportDialog({ isOpen, onClose, onSave, allUsers, report
     return (
         <>
             <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[625px] bg-white dark:bg-card p-0 h-[90vh] flex flex-col">
+            <DialogContent className="sm:max-w-[625px] bg-dialog p-0 h-[90vh] flex flex-col">
                 <DialogHeader className="p-4 sm:p-6 pb-2 shrink-0">
                     <DialogTitle>{isEditMode ? 'Chỉnh sửa bài đăng' : 'Tạo bài tố cáo mới'}</DialogTitle>
                     <DialogDescription>

@@ -107,7 +107,7 @@ export default function IssueNotesDialog({ isOpen, onOpenChange }: { isOpen: boo
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl bg-white dark:bg-card">
+      <DialogContent className="max-w-2xl bg-dialog">
         <DialogHeader>
           <DialogTitle>Báo cáo Vấn đề & Ghi chú</DialogTitle>
           <DialogDescription>

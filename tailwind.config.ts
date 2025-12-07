@@ -56,6 +56,10 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        dialog: {
+          DEFAULT: "hsl(var(--dialog-background))",
+          foreground: "hsl(var(--dialog-foreground))",
+        },
         chart: {
           '1': 'hsl(var(--chart-1))',
           '2': 'hsl(var(--chart-2))',

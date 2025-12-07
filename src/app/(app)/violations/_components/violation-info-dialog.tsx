@@ -81,8 +81,8 @@ export default function ViolationInfoDialog({ isOpen, onClose, categories, gener
   }, [generalRules]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl h-[90vh] flex flex-col bg-white dark:bg-card p-0">
+    <Dialog open={isOpen} onOpenChange={() => onClose()}>
+      <DialogContent className="max-w-2xl h-[90vh] flex flex-col bg-dialog p-0">
         <DialogHeader className="p-4 border-b">
           <DialogTitle className="text-lg">Chính sách phạt</DialogTitle>
         </DialogHeader>

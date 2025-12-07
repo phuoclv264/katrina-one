@@ -489,7 +489,7 @@ export default function PassRequestsDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl h-full md:h-[90vh] flex flex-col p-0 bg-white dark:bg-card rounded-xl shadow-lg">
+      <DialogContent className="max-w-2xl h-full md:h-[90vh] flex flex-col p-0 bg-dialog rounded-xl shadow-lg">
         <DialogHeader className="p-4 sm:p-6 pb-2 border-b">
           <DialogTitle>Quản lý Yêu cầu Pass ca</DialogTitle>
           <DialogDescription>

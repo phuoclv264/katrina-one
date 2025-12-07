@@ -13,83 +13,120 @@ body {
 
 @layer base {
   :root {
-    --background: 195 92% 96%;
-    --foreground: 224 71% 4%;
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
-    --card-foreground: 224 71% 4%;
+    --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 224 71% 4%;
-    --primary: 197 71% 53%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 120 73% 75%;
-    --accent-foreground: 222 47% 11%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 346.8 77.2% 49.8%;
+    --primary-foreground: 355.7 100% 97.3%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 197 71% 53%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 346.8 77.2% 49.8%;
+    --radius: 0.5rem;
+    --dialog-background: 0 0% 100%;
+    --dialog-foreground: 240 10% 3.9%;
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
   }
+
   .dark {
-    --background: 200 20% 7%;
-    --foreground: 210 40% 98%;
-    --card: 200 20% 10%;
-    --card-foreground: 210 40% 98%;
-    --popover: 200 20% 10%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 197 71% 53%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 200 20% 15%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 200 20% 15%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 120 50% 50%;
-    --accent-foreground: 210 40% 98%;
+    --background: 20 14.3% 4.1%;
+    --foreground: 0 0% 95%;
+    --card: 24 9.8% 10%;
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 9%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 346.8 77.2% 49.8%;
+    --primary-foreground: 355.7 100% 97.3%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 12 6.5% 15.1%;
+    --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 200 20% 15%;
-    --input: 200 20% 15%;
-    --ring: 197 71% 53%;
+    --destructive-foreground: 0 85.7% 97.3%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 346.8 77.2% 49.8%;
+    --dialog-background: 24 9.8% 10%;
+    --dialog-foreground: 0 0% 95%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
   }
-  .noel-1 {
-    /* Palette 2: Anti-flash white, Brunswick green, Sea green, Engineering orange */
-    --background: 220 14% 96%; /* Anti-flash white #F3F4F6 */
-    --foreground: 163 100% 14%; /* Brunswick green #004733 */
+
+  .light {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
-    --card-foreground: 163 100% 14%;
+    --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 163 100% 14%;
-    --primary: 0 91% 42%; /* Engineering orange #CB0B0A */
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 346.8 77.2% 49.8%;
+    --primary-foreground: 355.7 100% 97.3%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 346.8 77.2% 49.8%;
+    --radius: 0.5rem;
+    --dialog-background: 0 0% 100%;
+    --dialog-foreground: 240 10% 3.9%;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+  }
+  .noel-1 {
+    /* Palette 1: Winter Frozen (Night, Wind, Snowflake, Cloud, Sky) */
+    --background: 205 65% 8%; /* Night #071621 */
+    --foreground: 200 36% 78%; /* Sky #B1CEDC */
+    --card: 203 61% 23%; /* Wind #17435E */
+    --card-foreground: 200 36% 78%; /* Sky */
+    --popover: 203 61% 23%;
+    --popover-foreground: 200 36% 78%;
+    --primary: 201 52% 43%; /* Snowflake #357FA7 */
     --primary-foreground: 0 0% 100%;
-    --secondary: 137 24% 45%; /* Sea green #568D66 */
-    --secondary-foreground: 0 0% 100%;
-    --muted: 137 24% 92%;
-    --muted-foreground: 137 24% 40%;
-    --accent: 0 91% 42%;
+    --secondary: 200 38% 64%; /* Cloud #82B0C4 */
+    --secondary-foreground: 205 65% 8%;
+    --muted: 203 61% 30%;
+    --muted-foreground: 200 38% 64%;
+    --accent: 201 52% 43%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 137 24% 88%;
-    --input: 137 24% 88%;
-    --ring: 0 91% 42%;
-    --chart-1: 0 91% 42%;
-    --chart-2: 163 100% 14%;
-    --chart-3: 137 24% 45%;
-    --chart-4: 43 74% 66%;
+    --border: 201 52% 43%;
+    --input: 203 61% 23%;
+    --ring: 201 52% 43%;
+    --dialog-background: 203 61% 23%;
+    --dialog-foreground: 200 36% 78%;
+    --chart-1: 201 52% 43%;
+    --chart-2: 200 38% 64%;
+    --chart-3: 200 36% 78%;
+    --chart-4: 203 61% 23%;
     --chart-5: 27 87% 67%;
   }
 
@@ -113,11 +150,43 @@ body {
     --border: 142 30% 85%;
     --input: 142 30% 85%;
     --ring: 355 78% 56%;
+    --dialog-background: 0 0% 100%;
+    --dialog-foreground: 142 70% 15%;
     --chart-1: 355 78% 56%;
     --chart-2: 145 63% 42%;
     --chart-3: 45 90% 60%; /* Gold */
     --chart-4: 200 80% 60%;
     --chart-5: 25 80% 60%;
+  }
+
+  .noel-3 {
+    /* Palette 3: Modern Christmas (Cream, Salmon, Crimson, Navy) */
+    --background: 44 47% 95%; /* Cream #FFF8E7 */
+    --foreground: 222 47% 11%; /* Navy #0F172A - High contrast text */
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 348 83% 47%; /* Crimson #DC143C */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 355 100% 71%; /* Salmon/Pink #FF6B6B */
+    --secondary-foreground: 222 47% 11%;
+    --muted: 44 47% 90%;
+    --muted-foreground: 222 20% 40%;
+    --accent: 355 100% 71%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 355 100% 85%;
+    --input: 355 100% 85%;
+    --ring: 348 83% 47%;
+    --dialog-background: 0 0% 100%;
+    --dialog-foreground: 222 47% 11%;
+    --chart-1: 348 83% 47%;
+    --chart-2: 355 100% 71%;
+    --chart-3: 222 47% 20%; /* Navy */
+    --chart-4: 44 47% 95%;
+    --chart-5: 27 87% 67%;
   }
 }
 

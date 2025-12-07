@@ -109,7 +109,7 @@ export default function WorkHistoryDialog({ isOpen, onClose, user }: WorkHistory
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+      <DialogContent className="max-w-4xl h-[90vh] flex flex-col bg-dialog">
         <DialogHeader>
           <DialogTitle>Lịch sử làm việc của bạn</DialogTitle>
           <DialogDescription>

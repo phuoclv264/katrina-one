@@ -94,7 +94,7 @@ export const ViolationCard = React.forwardRef<HTMLDivElement, ViolationCardProps
     };
 
     return (
-    <Card ref={ref} className={cn("relative shadow-sm", cardBorderColor, cardBgColor)}>
+    <Card ref={ref} className={cn("relative shadow-sm hover:shadow-lg transition-shadow bg-card", cardBorderColor, cardBgColor)}>
         <CardContent className="p-4">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                 {/* Left side: Users & Category */}

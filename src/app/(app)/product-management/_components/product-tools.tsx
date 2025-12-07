@@ -169,7 +169,7 @@ export default function ProductTools({ inventoryList, existingProducts, onProduc
 
     return (
         <>
-            <Card className="mb-8 rounded-xl shadow-sm border bg-white dark:bg-card">
+            <Card className="mb-8 rounded-xl shadow-sm border bg-background">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl"><Wand2 /> Công cụ AI</CardTitle>
                     <CardDescription>Sử dụng AI để tự động nhập hoặc cập nhật hàng loạt công thức.</CardDescription>
@@ -207,7 +207,7 @@ export default function ProductTools({ inventoryList, existingProducts, onProduc
             </Card>
 
             <Dialog open={showPreview} onOpenChange={setShowPreview}>
-                <DialogContent className="max-w-4xl">
+                <DialogContent className="max-w-4xl bg-dialog">
                     <DialogHeader>
                         <DialogTitle>Xem trước Công thức đã tạo</DialogTitle>
                         <DialogDescription>AI đã phân tích và liên kết các nguyên liệu. Vui lòng kiểm tra và xác nhận.</DialogDescription>

@@ -167,7 +167,7 @@ export default function CommentDialog({
         <TooltipProvider>
             <Dialog open={isOpen} onOpenChange={onClose}>
                 <DialogContent 
-                    className="max-w-2xl h-[90vh] flex flex-col p-0 bg-white dark:bg-card rounded-xl shadow-lg"
+                    className="max-w-2xl h-[90vh] flex flex-col p-0 bg-dialog rounded-xl shadow-lg"
                      onInteractOutside={(e) => e.preventDefault()}
                 >
                      <div id="comment-lightbox-container"></div>

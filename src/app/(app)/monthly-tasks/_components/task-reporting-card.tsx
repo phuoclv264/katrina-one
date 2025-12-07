@@ -414,7 +414,7 @@ export default function TodaysTasksCard({ assignments, shiftTemplates }: TodaysT
   }
 
   return (
-    <Card>
+    <Card className="hover:shadow-lg transition-all duration-300 bg-card">
       <CardHeader>
         <CardTitle>Công việc định kỳ hôm nay</CardTitle>
         <CardDescription>Bạn có {assignments.length} công việc cần hoàn thành.</CardDescription>

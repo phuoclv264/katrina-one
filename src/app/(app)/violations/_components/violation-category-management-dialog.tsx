@@ -297,7 +297,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-xl bg-white dark:bg-card">
+      <DialogContent className="max-w-2xl bg-dialog">
         <DialogHeader>
           <DialogTitle>Quản lý Loại Vi phạm</DialogTitle>
           <DialogDescription>

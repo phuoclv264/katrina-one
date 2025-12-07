@@ -219,7 +219,7 @@ export default function UserDetailsDialog({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-4xl">
+            <DialogContent className="max-w-4xl bg-dialog max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Chi tiết: {user.displayName}</DialogTitle>
                     <DialogDescription>

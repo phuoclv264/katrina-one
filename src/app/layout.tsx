@@ -36,7 +36,7 @@ export default function RootLayout({
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
-          themes={['light', 'dark', 'noel-1', 'noel-2']}
+          themes={['light', 'dark', 'noel-1', 'noel-2', 'noel-3']}
         >
           <SnowEffect />
           <SantaEffect />
