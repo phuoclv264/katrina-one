@@ -58,8 +58,7 @@ export function SantaEffect() {
           animate={{ y: 10, rotate: 0 }}
           exit={{ y: 200, rotate: 10 }}
           transition={{ duration: 0.8, type: 'spring', stiffness: 70 }}
-          className="fixed bottom-0 left-0 z-[9999] pointer-events-none"
-          style={{ width: '200px', height: '200px' }}
+          className="fixed bottom-0 left-0 z-[9999] pointer-events-none santa-container"
         >
           <div className="relative w-full h-full">
              {/* Speech Bubble */}

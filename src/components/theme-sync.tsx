@@ -26,13 +26,19 @@ export function ThemeSync() {
 
   // Subscribe to user preference
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setUserPreference(undefined);
+      return;
+    }
 
     const userRef = doc(db, 'users', user.uid);
     const unsubscribe = onSnapshot(userRef, (docSnap) => {
       if (docSnap.exists()) {
         const userData = docSnap.data() as ManagedUser;
         setUserPreference(userData.themePreference);
+      } else {
+        // Document doesn't exist, no user preference
+        setUserPreference(undefined);
       }
     });
 
