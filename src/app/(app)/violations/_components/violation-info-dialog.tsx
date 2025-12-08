@@ -26,7 +26,7 @@ type ViolationInfoDialogProps = {
 
 const getSeverityBadgeClass = (severity: ViolationCategory['severity']) => {
     switch (severity) {
-      case 'high': return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/50 dark:text-red-300 dark:border-red-700';
+  case 'high': return 'violation-high';
       case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/50 dark:text-yellow-300 dark:border-yellow-700';
       case 'low':
       default:

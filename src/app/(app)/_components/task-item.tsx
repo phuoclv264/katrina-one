@@ -112,7 +112,7 @@ const TaskItemComponent = ({
     <div className={cn('rounded-md border p-4 transition-colors', isCompletedOnce ? 'bg-accent/20' : '')}>
       <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
         <p className="font-semibold flex-1 flex items-center gap-2">
-            {task.isCritical && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
+            {task.isCritical && <Star className="h-4 w-4 status-warning shrink-0" />}
             {task.text}
         </p>
         <div className="flex items-center gap-2 w-full sm:w-auto flex-shrink-0">

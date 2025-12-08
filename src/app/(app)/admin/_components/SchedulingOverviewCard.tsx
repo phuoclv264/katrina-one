@@ -32,10 +32,10 @@ export function SchedulingOverviewCard({ upcomingShifts }: SchedulingOverviewCar
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
       <Card className="flex flex-col h-full">
         <CardHeader>
-          <CardTitle className="flex items-center gap-3 text-lg">
+        <CardTitle className="flex items-center gap-3 text-lg">
             <CalendarCheck className="text-purple-500" />
             Lịch làm việc
-          </CardTitle>
+        </CardTitle>
           <CardDescription>Các ca làm việc tiếp theo</CardDescription>
         </CardHeader>
         <CardContent className="flex-grow overflow-hidden">

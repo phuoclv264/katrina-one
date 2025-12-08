@@ -179,7 +179,7 @@ export default function WorkHistoryDialog({ isOpen, onClose, user }: WorkHistory
                 <p className="text-xs font-medium text-muted-foreground">Thanh toán tháng này</p>
 
                 {monthlyPayInfo?.status === 'paid' ? (
-                  <p className="text-sm font-semibold text-green-600 mt-1">
+                  <p className="text-sm font-semibold status-success mt-1">
                     {(monthlyPayInfo.actualPaidAmount || 0).toLocaleString('vi-VN')}đ
                   </p>
                 ) : (

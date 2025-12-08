@@ -52,10 +52,10 @@ export function findShiftForRecord(record: AttendanceRecord, schedules: Record<s
 export function getStatusInfo(record: AttendanceRecord, shifts: AssignedShift[]): { text: string; icon: React.ReactNode; color: string } {
     // Handle special statuses first
     if (record.status === 'auto-completed') {
-        return { text: 'Tự động kết thúc', icon: React.createElement(Clock), color: 'text-amber-600' };
+    return { text: 'Tự động kết thúc', icon: React.createElement(Clock), color: 'status-warning' };
     }
     if (record.status === 'pending_late') {
-        return { text: 'Chờ chấm công', icon: React.createElement(Clock), color: 'text-blue-600' };
+    return { text: 'Chờ chấm công', icon: React.createElement(Clock), color: 'status-info' };
     }
 
     // If no check-in time, we can't determine the status.
@@ -66,9 +66,9 @@ export function getStatusInfo(record: AttendanceRecord, shifts: AssignedShift[])
     // If there are no associated shifts, it's an off-shift record.
     if (shifts.length === 0) {
         if (record.status === 'in-progress') {
-            return { text: 'Đang làm ngoài giờ', icon: React.createElement(Clock), color: 'text-blue-600' };
+            return { text: 'Đang làm ngoài giờ', icon: React.createElement(Clock), color: 'status-info' };
         }
-        return { text: 'Đã hoàn thành', icon: React.createElement(CheckCircle), color: 'text-green-600' };
+    return { text: 'Đã hoàn thành', icon: React.createElement(CheckCircle), color: 'status-success' };
     }
 
     // For records with shifts, find the earliest start and latest end time if multiple shifts are covered.
@@ -96,7 +96,7 @@ export function getStatusInfo(record: AttendanceRecord, shifts: AssignedShift[])
 
     // --- Check-out status ---
     if (!checkOutTime) {
-        return { text: 'Đang làm việc', icon: React.createElement(Clock), color: 'text-blue-600' };
+    return { text: 'Đang làm việc', icon: React.createElement(Clock), color: 'status-info' };
     }
 
     const checkOutDiff = differenceInMinutes(checkOutTime, latestShiftEnd);
@@ -114,6 +114,6 @@ export function getStatusInfo(record: AttendanceRecord, shifts: AssignedShift[])
     return {
         text: `${checkInStatus} - ${checkOutStatus}`,
         icon: isPerfect ? React.createElement(CheckCircle) : React.createElement(Clock),
-        color: isPerfect ? 'text-green-600' : (checkInDiff > 5 || checkOutDiff < -5 ? 'text-destructive' : 'text-amber-600'),
+    color: isPerfect ? 'status-success' : (checkInDiff > 5 || checkOutDiff < -5 ? 'status-error' : 'status-warning'),
     };
 }

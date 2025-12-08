@@ -3,27 +3,27 @@ import type { Violation, ManagedUser } from '@/lib/types';
 
 export const getSeverityBadgeClass = (severity: Violation['severity']) => {
     switch (severity) {
-      case 'high': return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/50 dark:text-red-300 dark:border-red-700';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/50 dark:text-yellow-300 dark:border-yellow-700';
+    case 'high': return 'violation-high';
+    case 'medium': return 'violation-medium';
       case 'low':
       default:
-        return 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700';
+    return 'violation-low';
     }
 };
 
 export const getSeverityCardClass = (severity: Violation['severity']) => {
     switch (severity) {
-    case 'high': return 'bg-red-500/5';
-    case 'medium': return 'bg-yellow-500/5';
+    case 'high': return 'violation-high-bg';
+    case 'medium': return 'violation-medium-bg';
     default: return 'bg-card';
     }
 };
 
 export const getSeverityBorderClass = (severity: Violation['severity']) => {
     switch (severity) {
-    case 'high': return 'border-red-500/50';
-    case 'medium': return 'border-yellow-500/50';
-    default: return 'border-blue-500/50';
+    case 'high': return 'violation-high-border';
+    case 'medium': return 'violation-medium-border';
+    default: return 'violation-low-border';
     }
 };
 

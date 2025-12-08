@@ -237,7 +237,7 @@ export default function NotificationSheet({
                                             <Icon className={cn("h-5 w-5", isRead ? "text-muted-foreground" : "text-primary")} />
                                         </div>
                                         {!isRead && (
-                                            <div className="absolute top-0 right-0 h-2 w-2 rounded-full bg-blue-500" />
+                                            <div className="absolute top-0 right-0 h-2 w-2 rounded-full status-info" />
                                         )}
                                     </div>
                                     <div className="flex-1">

@@ -62,14 +62,14 @@ function RuleEditor({ rule, onUpdate, onDelete, isEditing, onMove, canMoveUp, ca
         }
 
         return (
-            <div className="p-3 border rounded-md bg-blue-500/5 text-sm flex justify-between items-center">
+            <div className="p-3 border rounded-md violation-low-bg text-sm flex justify-between items-center">
                 <span><span className="font-semibold">Nếu một vi phạm</span> {conditionText} <span className="font-semibold">thì</span> {actionText}{severityActionText}</span>
             </div>
         );
     }
     
     return (
-        <div className="p-3 border rounded-md space-y-3 bg-blue-500/5">
+  <div className="p-3 border rounded-md space-y-3 violation-low-bg">
             <div className="flex justify-between items-start">
                  <div className="flex items-center gap-1">
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onMove('up')} disabled={!canMoveUp}><ArrowUp className="h-4 w-4"/></Button>
@@ -286,11 +286,11 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
 
   const getSeverityBadgeClass = (severity: ViolationCategory['severity']) => {
     switch (severity) {
-      case 'high': return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/50 dark:text-red-300 dark:border-red-700';
-      case 'medium': return 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/50 dark:text-amber-300 dark:border-amber-700';
+  case 'high': return 'violation-high';
+  case 'medium': return 'violation-medium';
       case 'low':
       default:
-        return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700';
+  return 'violation-low';
     }
   };
   

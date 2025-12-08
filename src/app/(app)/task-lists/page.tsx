@@ -164,7 +164,7 @@ function AiAssistant({
     const renderDiff = (oldText: string, newText: string) => {
         const differences = diffChars(oldText, newText);
         return differences.map((part, index) => {
-            const color = part.added ? 'bg-green-200/50' : part.removed ? 'bg-red-200/50' : 'bg-transparent';
+            const color = part.added ? 'status-success-bg' : part.removed ? 'status-error-bg' : 'bg-transparent';
             return <span key={index} className={color}>{part.value}</span>;
         });
     };
@@ -268,7 +268,7 @@ function AiAssistant({
                    <ul className="space-y-2">
                         {addPreviewTasks.map((task, index) => (
                             <li key={index} className="flex items-center gap-3 p-2 rounded-md bg-muted/50 text-sm">
-                                {task.isCritical ? <Star className="h-4 w-4 text-yellow-500"/> : <Plus className="h-4 w-4 text-green-500"/>}
+                                {task.isCritical ? <Star className="h-4 w-4 status-warning"/> : <Plus className="h-4 w-4 status-success"/>}
                                 <span className="flex-1">{task.text}</span>
                                 <Badge variant="outline">{task.type}</Badge>
                             </li>
@@ -309,7 +309,7 @@ function AiAssistant({
                                 const oldIndex = sortPreview.oldOrder.findIndex(t => t === task);
                                 const oldTaskText = oldIndex !== -1 ? sortPreview.oldOrder[oldIndex] : '';
                                 return (
-                                   <li key={index} className="p-2 rounded-md bg-green-100/50">
+                                   <li key={index} className="p-2 rounded-md status-success-bg">
                                        {index + 1}. {renderDiff(oldTaskText, task)}
                                    </li>
                                 )
@@ -572,9 +572,9 @@ export default function TaskListsPage() {
 
   const getTaskTypeIcon = (type: Task['type']) => {
       switch(type) {
-          case 'photo': return <ImageIcon className="h-4 w-4 text-green-500 shrink-0" />;
-          case 'boolean': return <CheckSquare className="h-4 w-4 text-sky-500 shrink-0" />;
-          case 'opinion': return <MessageSquare className="h-4 w-4 text-orange-500 shrink-0" />;
+          case 'photo': return <ImageIcon className="h-4 w-4 status-success shrink-0" />;
+          case 'boolean': return <CheckSquare className="h-4 w-4 status-info shrink-0" />;
+          case 'opinion': return <MessageSquare className="h-4 w-4 status-warning shrink-0" />;
           default: return null;
       }
   }
@@ -671,12 +671,12 @@ export default function TaskListsPage() {
                                           </SelectContent>
                                       </Select>
                                       <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground" onClick={handleUpdateTask}>
-                                        <Check className="h-4 w-4 text-green-500" />
+                                        <Check className="h-4 w-4 status-success" />
                                       </Button>
                                     </div>
                                 ) : (
                                    <p className="flex-1 text-sm flex items-center gap-2">
-                                     {task.isCritical && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
+                                     {task.isCritical && <Star className="h-4 w-4 status-warning shrink-0" />}
                                      {getTaskTypeIcon(task.type)}
                                      {task.text}
                                    </p>
@@ -694,7 +694,7 @@ export default function TaskListsPage() {
                                 ) : (
                                     <div className="flex items-center gap-0">
                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleToggleCritical(shiftKey, section.title, task.id)}>
-                                            <Star className={`h-4 w-4 ${task.isCritical ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground'}`} />
+                                            <Star className={`h-4 w-4 ${task.isCritical ? 'status-warning fill-warning' : 'text-muted-foreground'}`} />
                                         </Button>
                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingTask({ shiftKey, sectionTitle: section.title, taskId: task.id, newText: task.text, newType: task.type })}>
                                             <Pencil className="h-4 w-4" />

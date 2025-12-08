@@ -67,10 +67,10 @@ export function SantaEffect() {
                initial={{ opacity: 0, scale: 0.5 }}
                animate={{ opacity: 1, scale: 1 }}
                transition={{ delay: 0.8, duration: 0.5 }}
-               className="absolute -top-10 right-0 bg-white border-2 border-red-600 rounded-2xl p-2 px-4 shadow-lg z-10"
+               className="absolute -top-10 right-0 bg-white border-2 status-error rounded-2xl p-2 px-4 shadow-lg z-10"
              >
-               <p className="text-red-600 font-bold text-sm whitespace-nowrap">Merry Christmas!</p>
-               <div className="absolute bottom-[-6px] left-4 w-3 h-3 bg-white border-b-2 border-r-2 border-red-600 transform rotate-45"></div>
+               <p className="status-error font-bold text-sm whitespace-nowrap">Merry Christmas!</p>
+               <div className="absolute bottom-[-6px] left-4 w-3 h-3 bg-white border-b-2 border-r-2 status-error transform rotate-45"></div>
              </motion.div>
 
              {/* SVG Santa */}

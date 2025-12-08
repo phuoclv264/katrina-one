@@ -358,7 +358,7 @@ export default function CameraDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleDialogClose()}>
-      <DialogContent className={cn("max-w-xl transition-all duration-300", isNoel ? "border-4 border-red-600/50 bg-white/95" : "bg-dialog")}>
+  <DialogContent className={cn("max-w-xl transition-all duration-300", isNoel ? "dialog-noel" : "bg-dialog")}> 
         <DialogHeader className={cn("relative", isNoel && "pt-6")}>
             {isNoel && (
                 <>
@@ -366,10 +366,10 @@ export default function CameraDialog({
                     <div className="absolute -top-4 -right-4 text-4xl transform rotate-12 filter drop-shadow-md">🎅</div>
                 </>
             )}
-          <DialogTitle className={cn(isNoel && "text-red-700 font-serif text-2xl text-center")}>
+      <DialogTitle className={cn(isNoel && "dialog-noel-title")}> 
               {isNoel ? "📸 Camera Giáng Sinh" : "Thêm bằng chứng"}
           </DialogTitle>
-          <DialogDescription className={cn(isNoel && "text-center text-green-800")}>
+      <DialogDescription className={cn(isNoel && "dialog-noel-desc")}> 
             {singlePhotoMode && captureMode === 'photo'
                 ? 'Chụp ảnh bằng chứng cho hạng mục này.'
                 : 'Chụp ảnh hoặc quay video làm bằng chứng.'
@@ -379,7 +379,7 @@ export default function CameraDialog({
 
         <div className={cn(
             "relative aspect-video w-full overflow-hidden rounded-md border bg-muted",
-            isNoel && "border-2 border-red-500 shadow-inner ring-2 ring-green-500/30"
+            isNoel && "dialog-noel-img"
         )}>
             {isNoel && (
                 <div className="absolute top-0 left-0 w-full h-8 bg-[url('https://www.transparenttextures.com/patterns/snow.png')] opacity-30 pointer-events-none z-20"></div>
@@ -406,7 +406,7 @@ export default function CameraDialog({
             </div>
 
             {isRecording && (
-                <div className="absolute top-2 left-2 z-10 flex items-center gap-2 rounded-full bg-red-600 px-3 py-1 text-white text-sm font-medium">
+                <div className="absolute top-2 left-2 z-10 flex items-center gap-2 rounded-full dialog-noel-alert text-white text-sm font-medium">
                     <Disc className="h-4 w-4 animate-pulse" />
                     <span>{formatDuration(recordingDuration)}</span>
                 </div>
@@ -435,7 +435,7 @@ export default function CameraDialog({
                     className={cn(
                       "rounded-full shadow-lg transition-all duration-300 transform flex items-center justify-center p-0",
                       !isNoel && "h-16 w-16 bg-primary hover:bg-primary/90",
-                      isRecording && "h-16 w-16 bg-red-600 hover:bg-red-700",
+                      isRecording && "h-16 w-16 dialog-noel-recording",
                       !isRecording && isNoel && "h-16 w-20 bg-transparent hover:scale-110 hover:rotate-3 shadow-none ring-0 border-0 p-0 [&_svg]:size-auto"
                     )}
                 >

@@ -383,15 +383,15 @@ function MonthlyTaskReportsView() {
                                               <p className="text-sm text-muted-foreground mt-1">{totalCompletions}/{assignedUsers.length} nhân viên đã báo cáo</p>
                                             </div>
                                             <div className="flex flex-col items-end">
-                                              <div className={`text-2xl font-bold ${completionPercentage === 100 ? "text-emerald-600 dark:text-emerald-400" : completionPercentage >= 50 ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400"}`}>{completionPercentage}%</div>
-                                              <div className="w-24 h-1.5 bg-secondary rounded-full mt-2 overflow-hidden"><div className={`h-full transition-all ${completionPercentage === 100 ? "bg-emerald-500" : completionPercentage >= 50 ? "bg-amber-500" : "bg-rose-500"}`} style={{ width: `${completionPercentage}%` }} /></div>
+                                              <div className={`${completionPercentage === 100 ? "completion-text-success" : completionPercentage >= 50 ? "completion-text-warning" : "completion-text-error"}`}>{completionPercentage}%</div>
+                                              <div className="progress-bar-track mt-2"><div className={`progress-bar-fill ${completionPercentage === 100 ? "bg-status-success" : completionPercentage >= 50 ? "bg-status-warning" : "bg-status-error"}`} style={{ width: `${completionPercentage}%` }} /></div>
                                             </div>
                                           </div>
                                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                             {reportedUsersWithRecords.map(({ user: reportedUser, record }) => {
                                               const shiftInfo = assignment.assignedUsersByShift.find((s) => s.users.some((u) => u.userId === reportedUser.userId))
                                               return (
-                                                <Card key={reportedUser.userId} className="relative group/card overflow-hidden border transition-all hover:shadow-md bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-200/50 dark:border-emerald-900/50" ref={(el) => {
+                                                <Card key={reportedUser.userId} className="relative group/card overflow-hidden border transition-all hover:shadow-md bg-status-success-light/30 border-status-success/30" ref={(el) => {
                                                   if (!el) return
                                                   if (record.completionId) {
                                                     setReportCardRef(record.completionId, el)
@@ -401,17 +401,17 @@ function MonthlyTaskReportsView() {
                                                   <CardContent className="p-5 space-y-4">
                                                     <div className="flex items-start justify-between gap-2">
                                                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                                                        <div className="p-2 rounded-lg flex-shrink-0 bg-emerald-100 dark:bg-emerald-900"><User className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /></div>
+                                                        <div className="p-2 rounded-lg flex-shrink-0 bg-status-success-light"><User className="h-4 w-4 icon-success" /></div>
                                                         <div className="min-w-0 flex-1">
                                                           <p className="font-semibold text-sm truncate text-foreground">{reportedUser.userName}</p>
                                                           {record.completedAt && (<p className="text-xs text-muted-foreground flex items-center gap-1 mt-1"><Clock className="h-3 w-3" />{format(record.completedAt.toDate(), "HH:mm")}</p>)}
                                                         </div>
                                                       </div>
-                                                      <div className="flex-shrink-0"><CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" /></div>
+                                                      <div className="flex-shrink-0"><CheckCircle2 className="h-5 w-5 icon-success" /></div>
                                                     </div>
                                                     {shiftInfo && (<div className="flex items-center gap-2 p-2 bg-secondary/50 dark:bg-primary/10 rounded-lg text-xs"><span className="font-medium text-foreground">{shiftInfo.shiftLabel}</span><span className="text-muted-foreground">{shiftInfo.timeSlot.start} - {shiftInfo.timeSlot.end}</span></div>)}
                                                     <>
-                                                      {record.note && (<Alert variant="default" className="border-0 bg-amber-100/30 dark:bg-amber-900/20 p-3"><div className="flex items-start gap-2"><MessageSquareText className="h-4 w-4 mt-0.5 text-amber-700 dark:text-amber-400 flex-shrink-0" /><AlertDescription className="text-amber-800 dark:text-amber-300 text-xs">{record.note}</AlertDescription></div></Alert>)}
+                                                      {record.note && (<Alert variant="default" className="alert-warning"><div className="flex items-start gap-2"><MessageSquareText className="h-4 w-4 mt-0.5 icon-warning flex-shrink-0" /><AlertDescription className="text-alert-warning text-xs">{record.note}</AlertDescription></div></Alert>)}
                                                       {record.media && record.media.length > 0 && (
                                                         <div>
                                                           <h4 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5"><ImageIcon className="h-3.5 w-3.5" /> BẰNG CHỨNG ({record.media.length})</h4>
@@ -517,7 +517,7 @@ function MonthlyTaskReportsView() {
                                           <CardContent className="p-5 space-y-4">
                                             <div className="flex items-start justify-between gap-2">
                                               <div className="flex items-center gap-3 flex-1 min-w-0">
-                                                <div className="p-2 rounded-lg flex-shrink-0 bg-emerald-100 dark:bg-emerald-900"><CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /></div>
+                                                <div className="p-2 rounded-lg flex-shrink-0 bg-status-success-light"><CheckCircle2 className="h-4 w-4 icon-success" /></div>
                                                 <div className="min-w-0 flex-1">
                                                   <p className="font-semibold text-sm truncate text-foreground">{record.taskName}</p>
                                                   <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1"><Clock className="h-3 w-3" />{format(new Date(record.assignedDate), "dd/MM/yyyy")}{record.completedAt && ` · ${format(record.completedAt.toDate(), "HH:mm")}`}</p>
@@ -525,10 +525,10 @@ function MonthlyTaskReportsView() {
                                               </div>
                                             </div>
                                             {record.note && (
-                                              <Alert variant="default" className="border-0 bg-amber-100/30 dark:bg-amber-900/20 p-3">
+                                              <Alert variant="default" className="alert-warning">
                                                 <div className="flex items-start gap-2">
-                                                  <MessageSquareText className="h-4 w-4 mt-0.5 text-amber-700 dark:text-amber-400 flex-shrink-0" />
-                                                  <AlertDescription className="text-amber-800 dark:text-amber-300 text-xs">{record.note}</AlertDescription>
+                                                  <MessageSquareText className="h-4 w-4 mt-0.5 icon-warning flex-shrink-0" />
+                                                  <AlertDescription className="text-alert-warning text-xs">{record.note}</AlertDescription>
                                                 </div>
                                               </Alert>
                                             )}

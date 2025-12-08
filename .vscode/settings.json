@@ -1,2 +1,7 @@
 {
+	// Ignore unknown at-rules for Tailwind/PostCSS in the editor to avoid
+	// false-positive linting warnings for directives like @tailwind, @apply, @layer.
+	"css.lint.unknownAtRules": "ignore",
+	"scss.lint.unknownAtRules": "ignore",
+	"less.lint.unknownAtRules": "ignore"
 }

@@ -42,15 +42,15 @@ export function CashierOverviewCard({ profit, totalRevenue, totalExpense, revenu
       <Card className="flex flex-col h-full">
         <CardHeader>
           <CardTitle className="flex items-center gap-3 text-lg">
-            <Banknote className="text-green-500" /> Báo cáo Thu ngân
+            <Banknote className="status-success" /> Báo cáo Thu ngân
           </CardTitle>
           <CardDescription>{description}</CardDescription>
         </CardHeader>
         <CardContent className="flex-grow">
           <p className={cn(
             "text-4xl font-bold",
-            profit > 0 && "text-green-600",
-            profit < 0 && "text-red-600"
+            profit > 0 && "status-success",
+            profit < 0 && "status-error"
           )}>{formattedProfit}</p>
           {hasDetails && (
             <Accordion type="single" collapsible className="w-full mt-4">
@@ -59,7 +59,7 @@ export function CashierOverviewCard({ profit, totalRevenue, totalExpense, revenu
                 <AccordionContent className="pt-2 text-sm">
                   <div className="space-y-2">
                     <div>
-                      <h4 className="font-semibold text-green-600">Doanh thu theo PTTT:</h4>
+                      <h4 className="font-semibold status-success">Doanh thu theo PTTT:</h4>
                       {Object.entries(revenueByMethod).filter(([, amount]) => amount > 0).map(([method, amount]) => (
                         <div key={method} className="flex justify-between text-muted-foreground">
                           <span>{paymentMethodLabels[method] || method}</span>
@@ -68,7 +68,7 @@ export function CashierOverviewCard({ profit, totalRevenue, totalExpense, revenu
                       ))}
                     </div>
                     <div>
-                      <h4 className="font-semibold text-red-600">Chi phí theo PTTT:</h4>
+                      <h4 className="font-semibold status-error">Chi phí theo PTTT:</h4>
                       {Object.entries(expenseByMethod).filter(([, amount]) => amount > 0).map(([method, amount]) => (
                         <div key={method} className="flex justify-between text-muted-foreground">
                           <span>{paymentMethodLabels[method] || method}</span>

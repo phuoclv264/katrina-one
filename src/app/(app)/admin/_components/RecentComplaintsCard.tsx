@@ -26,7 +26,7 @@ export function RecentComplaintsCard({ complaints, allUsers }: RecentComplaintsC
   };
 
   return (
-    <ListCard title="Tố cáo mới nhất" icon={<MessageSquareWarning className="text-red-500" />} link="/reports-feed" linkText="Xem tất cả Tố cáo">
+  <ListCard title="Tố cáo mới nhất" icon={<MessageSquareWarning className="status-error" />} link="/reports-feed" linkText="Xem tất cả Tố cáo">
       {complaints.length > 0 ? complaints.slice(0, 4).map(item => (
         <div key={item.id} className="text-sm p-3 rounded-md border bg-muted/50 space-y-1">
           <div>

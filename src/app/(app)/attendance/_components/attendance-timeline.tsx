@@ -14,10 +14,11 @@ import { Clock, Users } from 'lucide-react';
 import Image from 'next/image';
 import { ScrollAreaViewport } from '@radix-ui/react-scroll-area';
 
+// Using CSS variables via data attributes instead of hardcoded Tailwind colors
 const SHIFT_BG_COLORS = [
-    'bg-blue-100/50 dark:bg-blue-900/20', 'bg-cyan-100/50 dark:bg-cyan-900/20',
-    'bg-yellow-100/50 dark:bg-yellow-900/20', 'bg-indigo-100/50 dark:bg-indigo-900/20',
-    'bg-purple-100/50 dark:bg-purple-900/20', 'bg-pink-100/50 dark:bg-pink-900/20'
+    'shift-bg-1', 'shift-bg-2',
+    'shift-bg-3', 'shift-bg-4',
+    'shift-bg-5', 'shift-bg-6'
 ];
 
 // Helper function to abbreviate names
@@ -86,12 +87,12 @@ const timeToPercentage = (time: Date) => {
 
 const getRoleBarColor = (role?: string): string => {
     switch (role) {
-        case 'Phục vụ': return 'bg-blue-500/70 hover:bg-blue-500 border-blue-600/50';
-        case 'Pha chế': return 'bg-green-500/70 hover:bg-green-500 border-green-600/50';
-        case 'Thu ngân': return 'bg-orange-500/70 hover:bg-orange-500 border-orange-600/50';
-        case 'Quản lý': return 'bg-purple-500/70 hover:bg-purple-500 border-purple-600/50';
-        case 'Chủ nhà hàng': return 'bg-rose-500/70 hover:bg-rose-500 border-rose-600/50';
-        default: return 'bg-gray-500/70 hover:bg-gray-500 border-gray-600/50';
+        case 'Phục vụ': return 'role-phuc-vu'; // Blue
+        case 'Pha chế': return 'role-pha-che'; // Green
+        case 'Thu ngân': return 'role-thu-ngan'; // Orange
+        case 'Quản lý': return 'role-quan-ly'; // Purple
+        case 'Chủ nhà hàng': return 'role-chu-nha-hang'; // Rose
+        default: return 'role-default'; // Gray
     }
 };
 
@@ -399,7 +400,7 @@ export default function AttendanceTimeline({
                                                                     <Tooltip>
                                                                         <TooltipTrigger asChild>
                                                                             <div
-                                                                                className="absolute top-1/2 -translate-y-1/2 h-1 bg-orange-200 dark:bg-gray-700/50 rounded-sm"
+                                                                                className="absolute top-1/2 -translate-y-1/2 h-1 bg-status-warning-light rounded-sm"
                                                                                 style={{ left: `${startPercentage}%`, width: `${widthPercentage}%` }}
                                                                             />
                                                                         </TooltipTrigger>

@@ -219,9 +219,9 @@ export default function CheckInCard() {
         if (todaysShifts.length === 0) return null;
         if (hasPendingLateRequest) {
             return (
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm">
-                    <p className="text-blue-800 font-semibold text-base mb-2">Đã ghi nhận yêu cầu đi trễ:</p>
-                    <div className="space-y-2 text-left text-blue-900/80">
+                <div className="p-4 status-info-bg status-info-border rounded-lg text-sm">
+                    <p className="status-info font-semibold text-base mb-2">Đã ghi nhận yêu cầu đi trễ:</p>
+                    <div className="space-y-2 text-left status-info-dark">
                         <p><strong>Lý do:</strong> {attendanceRecords[0].lateReason}</p>
                         <p><strong>Dự kiến trễ:</strong> {attendanceRecords[0].estimatedLateMinutes} phút</p>
                         {attendanceRecords[0].lateReasonPhotoUrl && (
@@ -233,7 +233,7 @@ export default function CheckInCard() {
                             </div>
                         )}
                     </div>
-                    <p className="text-center text-blue-800 font-semibold mt-3 pt-3 border-t border-blue-200">Vui lòng chấm công khi bạn đến nơi.</p>
+                    <p className="text-center status-info font-semibold mt-3 pt-3 border-t status-info-border">Vui lòng chấm công khi bạn đến nơi.</p>
                 </div>
             )
         } else {
@@ -260,7 +260,7 @@ export default function CheckInCard() {
                     <p className="text-4xl font-bold font-mono mb-4">{format(checkInTime, 'HH:mm')}</p>
 
                     {latestInProgressRecord.onBreak ? (
-                        <p className="text-lg font-semibold text-blue-600">Đang trong giờ nghỉ...</p>
+                        <p className="text-lg font-semibold status-info">Đang trong giờ nghỉ...</p>
                     ) : (
                         <Button onClick={handleCheckInOrOut} disabled={isProcessing} className="w-full h-12 text-base">
                             {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Camera className="mr-2 h-5 w-5" />}
@@ -270,7 +270,7 @@ export default function CheckInCard() {
 
                     {(user?.role === 'Quản lý') && (
                         <Button onClick={handleToggleBreak} disabled={isProcessing} variant="outline" className="w-full mt-2">
-                            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (latestInProgressRecord.onBreak ? <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> : <Info className="mr-2 h-4 w-4 text-blue-500" />)}
+                            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (latestInProgressRecord.onBreak ? <CheckCircle className="mr-2 h-4 w-4 status-success" /> : <Info className="mr-2 h-4 w-4 status-info" />)}
                             {latestInProgressRecord.onBreak ? 'Tiếp tục vào làm việc' : 'Tạm nghỉ'}
                         </Button>
                     )}

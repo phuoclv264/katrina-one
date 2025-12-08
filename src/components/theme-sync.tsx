@@ -41,7 +41,7 @@ export function ThemeSync() {
 
   // Sync logic
   useEffect(() => {
-    let targetTheme = 'system';
+    let targetTheme = 'light';
     let intent = 'default';
 
     // 1. User Preference
@@ -58,11 +58,11 @@ export function ThemeSync() {
     } else if (intent === 'noel') {
       targetTheme = noelVariant; // Map 'noel' intent to specific variant
     } else {
-      targetTheme = 'system';
+      // 'default' theme means light theme (not system preference)
+      targetTheme = 'light';
     }
 
     // Only update if different to avoid loops (though next-themes handles this well)
-    // Note: next-themes' 'system' means it listens to media query.
     if (theme !== targetTheme) {
       setTheme(targetTheme);
     }
