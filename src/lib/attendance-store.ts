@@ -22,7 +22,8 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { ref } from 'firebase/storage';
 import type { AssignedShift, AttendanceRecord, AuthUser, Schedule } from './types';
-import { getISOWeek, startOfMonth, endOfMonth, format, startOfToday, endOfToday, differenceInMinutes } from 'date-fns';
+import { getISOWeek, startOfMonth, endOfMonth, format, startOfToday, endOfToday, differenceInMinutes, parse } from 'date-fns';
+import * as violationsService from './violations-service';
 import { getActiveShifts } from './schedule-utils';
 import { photoStore } from './photo-store';
 import { getSchedule } from './schedule-store';
@@ -164,6 +165,7 @@ export async function createAttendanceRecord(user: AuthUser, photoId: string, is
     const pendingRecords = await getDocs(q);
 
     let recordToUpdate = null;
+    let estimatedLateMinutes: number | undefined = undefined;
 
     if (!pendingRecords.empty) {
         //Check if any pendingRecords is not from today, then remove them from server
@@ -181,6 +183,10 @@ export async function createAttendanceRecord(user: AuthUser, photoId: string, is
         // Ensure the pending record is from today
         if (pendingData.createdAt && (pendingData.createdAt as Timestamp).toDate() >= todayStart) {
             recordToUpdate = pendingDoc.ref;
+            // Capture any estimated late minutes the user provided when requesting late check-in
+            if (typeof pendingData.estimatedLateMinutes === 'number') {
+                estimatedLateMinutes = pendingData.estimatedLateMinutes;
+            }
         }
     }
 
@@ -209,6 +215,85 @@ export async function createAttendanceRecord(user: AuthUser, photoId: string, is
             ...(isOffShift && offShiftReason && { offShiftReason: offShiftReason }),
         };
         await addDoc(attendanceCollection, newRecord);
+    }
+
+    // After creating/updating the attendance record, check for automatic "late" violation.
+    // We use the local time for the check-in moment (approximate) and the user's scheduled shift start.
+    try {
+        const activeShift = await getActiveShiftForUser(user.uid);
+        if (activeShift) {
+            // Parse the scheduled shift start time into a Date
+            const shiftStart = parse(`${activeShift.date} ${activeShift.timeSlot.start}`, 'yyyy-MM-dd HH:mm', new Date());
+            const now = new Date();
+            const lateMinutes = differenceInMinutes(now, shiftStart);
+            const effectiveLate = lateMinutes - (estimatedLateMinutes || 0);
+
+            if (effectiveLate > 5) {
+                // Create a minimal automatic violation record
+                const userDisplayName = userDoc.exists() ? (userDoc.data().displayName || '') : '';
+
+                // Try to find a configured category named "Đi trễ" so we can snapshot calculation rules
+                let categoryId = 'auto-late';
+                let categoryName = 'Đi trễ (tự động)';
+                let severity: 'low' | 'medium' | 'high' = 'low';
+                let cost = 0;
+                let unitCount: number | undefined = undefined;
+
+                try {
+                    const catDoc = await getDoc(doc(db, 'app-data', 'violationCategories'));
+                    if (catDoc.exists()) {
+                        const list = (catDoc.data() as any).list || [];
+                        const lateCat = list.find((c: any) => c.name === 'Đi trễ');
+                        if (lateCat) {
+                            categoryId = lateCat.id || categoryId;
+                            categoryName = lateCat.name || categoryName;
+                            severity = lateCat.severity || severity;
+
+                            // unitCount represents minutes late by default
+                            unitCount = Math.max(0, Math.round(effectiveLate));
+
+                            if (lateCat.calculationType === 'perUnit') {
+                                const finePerUnit = lateCat.finePerUnit || 0;
+                                cost = finePerUnit * (unitCount || 0);
+                            } else {
+                                cost = lateCat.fineAmount || 0;
+                            }
+                        } else {
+                            // No configured "Đi trễ" category: record minutes in unitCount
+                            unitCount = Math.max(0, Math.round(effectiveLate));
+                            cost = 0;
+                        }
+                    }
+                } catch (err) {
+                    console.error('[Auto Violation] Failed to read violation categories:', err);
+                    unitCount = Math.max(0, Math.round(effectiveLate));
+                    cost = 0;
+                }
+
+                const violation = {
+                    content: `Đi trễ ${effectiveLate} phút (tự động)`,
+                    users: [{ id: user.uid, name: userDisplayName }],
+                    reporterId: user.uid,
+                    reporterName: userDisplayName || 'Hệ thống',
+                    photos: [],
+                    createdAt: serverTimestamp() as Timestamp,
+                    categoryId: categoryId,
+                    categoryName: categoryName,
+                    severity: severity,
+                    cost: cost,
+                    unitCount: unitCount,
+                } as any;
+
+                try {
+                    // Use the centralized violations service so cost/severity recalculation runs
+                    await violationsService.addOrUpdateViolation({ ...violation, photosToUpload: [] } as any);
+                } catch (err) {
+                    console.error('[Auto Violation] Failed to create violation document via service:', err);
+                }
+            }
+        }
+    } catch (err) {
+        console.error('[Auto Violation] Error while checking/creating automatic violation:', err);
     }
 
     await photoStore.deletePhoto(photoId);
