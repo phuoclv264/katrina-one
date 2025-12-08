@@ -24,6 +24,7 @@ import { generateSmartAbbreviations } from '@/lib/violations-utils';
 import { UserMultiSelect } from '@/components/user-multi-select';
 import { useRouter } from 'nextjs-toploader/app';
 import { useSearchParams } from 'next/navigation';
+import { SubmitAllDialog } from './_components/submit-all-dialog';
 
 /**
  * Type guard to check if an item is a MediaAttachment.
@@ -58,6 +59,8 @@ function ViolationsView() {
   const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
   const [isSelfConfessMode, setIsSelfConfessMode] = useState(false);
   const [violationToEdit, setViolationToEdit] = useState<Violation | null>(null);
+  // Submit all dialog state
+  const [isSubmitAllOpen, setIsSubmitAllOpen] = useState(false);
 
   const [filterUsers, setFilterUsers] = useState<ManagedUser[]>([]);
   const [filterCategoryName, setFilterCategoryName] = useState<string>('');
@@ -70,7 +73,7 @@ function ViolationsView() {
 
   const [openCommentSectionIds, setOpenCommentSectionIds] = useState<Set<string>>(new Set());
 
-
+  // All hooks MUST be called unconditionally and in the same order every render
   useEffect(() => {
     if (!authLoading && !user) {
       router.replace('/');
@@ -83,6 +86,8 @@ function ViolationsView() {
 
   useEffect(() => {
     if (!user) return;
+    // Wire up retry logic for pending penalty submissions on app startup
+    dataStore.retryPendingPenaltySubmissions();
     const unsubViolations = dataStore.subscribeToViolations(setViolations);
     const unsubUsers = dataStore.subscribeToUsers(setUsers);
     const unsubCategories = dataStore.subscribeToViolationCategories(setCategoryData);
@@ -135,8 +140,6 @@ function ViolationsView() {
     }, 100);
   }, [searchParams, violations]);
 
-  useDataRefresher(handleDataRefresh);
-
   useEffect(() => {
     if (user && user.role !== 'Chủ nhà hàng' && violations.length > 0) {
       const newOpenIds = new Set<string>();
@@ -149,6 +152,10 @@ function ViolationsView() {
     }
   }, [violations, user]);
 
+  // Call custom hook unconditionally
+  useDataRefresher(handleDataRefresh);
+
+  // Memoized values - these are not hooks, so they can come after effects
   const displayUsers = useMemo(() => {
     if (!user || !users) return [];
     if (user.role === 'Chủ nhà hàng' || user.displayName.includes("Không chọn")) {
@@ -319,12 +326,24 @@ function ViolationsView() {
     }, {} as { [key: string]: Violation[] });
   }, [filteredViolations]);
 
+  const userAbbreviations = useMemo(() => generateSmartAbbreviations(users), [users]);
+
+  const staffPendingViolations = useMemo(() => {
+    if (!user || user.role === 'Chủ nhà hàng') return [];
+    return violations.filter(v => v.users.some(u => u.id === user.uid) && !(v.penaltySubmissions || []).some(s => s.userId === user.uid));
+  }, [violations, user]);
+
+  // Early return check - AFTER all hooks are called
+  if (isLoading || authLoading || !user) {
+    return <LoadingPage />;
+  }
+
+  // Derived values (not hooks)
   const canManage = user?.role === 'Quản lý' || user?.role === 'Chủ nhà hàng';
   const isOwner = user?.role === 'Chủ nhà hàng';
   const pageTitle = canManage ? 'Ghi nhận Vi phạm' : 'Danh sách Vi phạm';
 
-  const userAbbreviations = useMemo(() => generateSmartAbbreviations(users), [users]);
-
+  // Event handlers (not hooks)
   const openAddDialog = (isSelfConfess: boolean) => {
     setViolationToEdit(null);
     setIsSelfConfessMode(isSelfConfess);
@@ -343,10 +362,6 @@ function ViolationsView() {
     });
   };
 
-  if (isLoading || authLoading || !user) {
-    return <LoadingPage />;
-  }
-
   return (
     <>
       <div className="container mx-auto p-4 sm:p-6 md:p-8">
@@ -357,8 +372,13 @@ function ViolationsView() {
           <p className="text-muted-foreground mt-2">
             Theo dõi và quản lý các vấn đề liên quan đến nhân viên.
           </p>
+          {/* Staff-only submit all button */}
+          {user.role !== 'Chủ nhà hàng' && staffPendingViolations.length > 0 && (
+            <Button variant="default" className="mt-4" onClick={() => setIsSubmitAllOpen(true)}>
+              Gửi bằng chứng nộp phạt cho tất cả ({staffPendingViolations.length})
+            </Button>
+          )}
         </header>
-
         <Card>
           <CardHeader>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -462,6 +482,17 @@ function ViolationsView() {
         </Card>
       </div>
 
+      {/* SubmitAllDialog for staff bulk penalty evidence */}
+      {isSubmitAllOpen && (
+        <Suspense fallback={<LoadingPage />}>
+          <SubmitAllDialog
+            open={isSubmitAllOpen}
+            onClose={() => setIsSubmitAllOpen(false)}
+            violations={staffPendingViolations}
+            user={{ id: user.uid, name: user.displayName }}
+          />
+        </Suspense>
+      )}
       {user && (
         <ViolationDialog
           open={isDialogOpen}
