@@ -32,11 +32,8 @@ const getDb = (): Promise<IDBPDatabase<KeyValDB>> => {
 };
 
 export async function set(key: IDBValidKey, value: any): Promise<void> {
-  const start = Date.now();
   try {
-    console.log('[idb-keyval] set start', { key, value });
     await (await getDb()).put(STORE_NAME, value, key);
-    console.log('[idb-keyval] set success', { key, durationMs: Date.now() - start });
   } catch (error) {
     console.error('[idb-keyval] set error', { key, error });
     throw error;

@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShieldX, Plus, FilterX, BadgeInfo, Settings, UserSearch } from 'lucide-react';
+import { ShieldX, Plus, FilterX, BadgeInfo, Settings, UserSearch, Camera } from 'lucide-react';
 import type { ManagedUser, Violation, ViolationCategory, ViolationUser, ViolationCategoryData, MediaAttachment } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
@@ -61,6 +61,8 @@ function ViolationsView() {
   const [violationToEdit, setViolationToEdit] = useState<Violation | null>(null);
   // Submit all dialog state
   const [isSubmitAllOpen, setIsSubmitAllOpen] = useState(false);
+  const [isBulkCameraOpen, setIsBulkCameraOpen] = useState(false);
+  const [violationsToSubmit, setViolationsToSubmit] = useState<string[]>([]);
 
   const [filterUsers, setFilterUsers] = useState<ManagedUser[]>([]);
   const [filterCategoryName, setFilterCategoryName] = useState<string>('');
@@ -69,6 +71,7 @@ function ViolationsView() {
   const [activeViolationForPenalty, setActiveViolationForPenalty] = useState<Violation | null>(null);
   const [activeUserForPenalty, setActiveUserForPenalty] = useState<ViolationUser | null>(null);
   const [penaltyCaptureMode, setPenaltyCaptureMode] = useState<'photo' | 'video' | 'both'>('photo');
+  const [bulkPenaltyCaptureMode, setBulkPenaltyCaptureMode] = useState<'photo' | 'video' | 'both'>('video');
 
 
   const [openCommentSectionIds, setOpenCommentSectionIds] = useState<Set<string>>(new Set());
@@ -271,8 +274,8 @@ function ViolationsView() {
   };
 
   const handlePenaltySubmit = async (media: { id: string; type: 'photo' | 'video' }[]) => {
-    setIsPenaltyCameraOpen(false);
     if (!activeViolationForPenalty || !activeUserForPenalty || media.length === 0) {
+      setIsPenaltyCameraOpen(false);
       return;
     }
 
@@ -300,6 +303,44 @@ function ViolationsView() {
       setProcessingViolationId(null);
       setActiveViolationForPenalty(null);
       setActiveUserForPenalty(null);
+      setIsPenaltyCameraOpen(false);
+    }
+  };
+
+  const handleOpenBulkSubmit = (violationIds: string[]) => {
+    if (violationIds.length > 0) {
+      setViolationsToSubmit(violationIds);
+      setIsSubmitAllOpen(false); // Close selection dialog
+      setBulkPenaltyCaptureMode('video');
+      setIsBulkCameraOpen(true); // Open camera
+    }
+  };
+
+  const handleBulkPenaltySubmit = async (media: { id: string; type: 'photo' | 'video' }[]) => {
+    if (!user) return;
+    if (violationsToSubmit.length === 0 || media.length === 0) {
+      // If user closes camera without submitting, reopen the selection dialog
+      setIsBulkCameraOpen(false);
+      setIsSubmitAllOpen(true);
+      return;
+    }
+
+    setIsProcessing(true);
+    toast.loading(`Đang nộp bằng chứng cho ${violationsToSubmit.length} vi phạm...`);
+
+    try {
+      await dataStore.submitBulkPenaltyProof(violationsToSubmit, media, { userId: user.uid, userName: user.displayName });
+      toast.dismiss();
+      toast.success(`Đã nộp thành công bằng chứng cho ${violationsToSubmit.length} vi phạm.`);
+    } catch (error) {
+      console.error("Failed to submit bulk penalty proof:", error);
+      toast.dismiss();
+      toast.error('Có lỗi xảy ra khi nộp bằng chứng.');
+    } finally {
+      setIsProcessing(false);
+      setViolationsToSubmit([]);
+      setIsBulkCameraOpen(false);
+      setIsSubmitAllOpen(true); // Reopen the dialog
     }
   };
 
@@ -372,12 +413,6 @@ function ViolationsView() {
           <p className="text-muted-foreground mt-2">
             Theo dõi và quản lý các vấn đề liên quan đến nhân viên.
           </p>
-          {/* Staff-only submit all button */}
-          {user.role !== 'Chủ nhà hàng' && staffPendingViolations.length > 0 && (
-            <Button variant="default" className="mt-4" onClick={() => setIsSubmitAllOpen(true)}>
-              Gửi bằng chứng nộp phạt cho tất cả ({staffPendingViolations.length})
-            </Button>
-          )}
         </header>
         <Card>
           <CardHeader>
@@ -389,6 +424,13 @@ function ViolationsView() {
                 </CardDescription>
               </div>
               <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                {/* Staff-only submit all button */}
+                {user.role !== 'Chủ nhà hàng' && staffPendingViolations.length > 0 && (
+                  <Button variant="default" className="w-full sm:w-auto" onClick={() => setIsSubmitAllOpen(true)}>
+                    <Camera className="mr-2 h-4 w-4" />
+                    Nộp phạt ({staffPendingViolations.length})
+                  </Button>
+                )}
                 {!canManage && (
                   <Button variant="secondary" onClick={() => openAddDialog(true)} className="w-full sm:w-auto">
                     <BadgeInfo className="mr-2 h-4 w-4" /> Tự thú
@@ -458,11 +500,26 @@ function ViolationsView() {
                           onToggleWaivePenalty={handleToggleWaivePenalty}
                           onEdit={(violation) => { setViolationToEdit(violation); setIsSelfConfessMode(false); setIsDialogOpen(true); }}
                           onDelete={handleDeleteViolation}
-                          onPenaltySubmit={(violation, user, mode) => {
-                            setActiveViolationForPenalty(violation);
-                            setActiveUserForPenalty(user);
-                            setPenaltyCaptureMode(mode);
-                            setIsPenaltyCameraOpen(true);
+                          onPenaltySubmit={async (violation, user, mode) => {
+                            if (mode === 'manual') {
+                                if (confirm(`Xác nhận ${user.name} đã nộp phạt?`)) {
+                                    setProcessingViolationId(violation.id);
+                                    try {
+                                        await dataStore.markPenaltyAsSubmitted(violation.id, { userId: user.id, userName: user.name });
+                                        toast.success(`Đã xác nhận ${user.name} nộp phạt.`);
+                                    } catch (error) {
+                                        console.error("Failed to mark penalty as submitted:", error);
+                                        toast.error('Không thể xác nhận nộp phạt.');
+                                    } finally {
+                                        setProcessingViolationId(null);
+                                    }
+                                }
+                            } else {
+                                setActiveViolationForPenalty(violation);
+                                setActiveUserForPenalty(user);
+                                setPenaltyCaptureMode(mode);
+                                setIsPenaltyCameraOpen(true);
+                            }
                           }}
                           onCommentSubmit={handleCommentSubmit}
                           onCommentEdit={handleCommentEdit}
@@ -490,6 +547,8 @@ function ViolationsView() {
             onClose={() => setIsSubmitAllOpen(false)}
             violations={staffPendingViolations}
             user={{ id: user.uid, name: user.displayName }}
+            onSubmit={handleOpenBulkSubmit}
+            isProcessing={isProcessing}
           />
         </Suspense>
       )}
@@ -528,6 +587,17 @@ function ViolationsView() {
         onClose={() => setIsPenaltyCameraOpen(false)}
         onSubmit={handlePenaltySubmit}
         captureMode={penaltyCaptureMode}
+      />
+
+      {/* Camera for bulk submission */}
+      <CameraDialog
+        isOpen={isBulkCameraOpen}
+        onClose={() => {
+          setIsBulkCameraOpen(false);
+          setIsSubmitAllOpen(true); // Reopen dialog if camera is closed manually
+        }}
+        onSubmit={handleBulkPenaltySubmit}
+        captureMode={bulkPenaltyCaptureMode}
       />
 
     </>
