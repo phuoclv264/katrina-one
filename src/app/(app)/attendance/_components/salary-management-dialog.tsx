@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -14,14 +13,12 @@ import type { MonthlySalarySheet, SalaryRecord, ManagedUser, Schedule, Attendanc
 import { format, startOfMonth, endOfMonth, getISOWeek, getYear, parseISO, differenceInMinutes, addMonths } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { toast } from 'react-hot-toast';
-import { Loader2, Download, Calculator, AlertTriangle, CheckCircle, User, Clock, FileX, ChevronsDownUp, Search } from 'lucide-react';
+import { Loader2, Download, Calculator, AlertTriangle, CheckCircle, User, Clock, FileX, ChevronsDownUp } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
-import { findShiftForRecord, getStatusInfo } from '@/lib/attendance-utils';
-import { cn } from '@/lib/utils';
 import SalaryRecordAccordionItem from './salary-record-accordion-item';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { UserMultiSelect } from '@/components/user-multi-select';
 
 type SalaryManagementDialogProps = {
     isOpen: boolean;
@@ -151,7 +148,7 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers }: Sa
     const [isLoading, setIsLoading] = useState(false);
     const [advanceAmounts, setAdvanceAmounts] = useState<Record<string, string>>({});
     const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
-    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedUsers, setSelectedUsers] = useState<ManagedUser[]>([]);
     const [nextMonthSalaryByUser, setNextMonthSalaryByUser] = useState<Record<string, number>>({});
     const eligibleThreshold = 500000;
 
@@ -165,23 +162,56 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers }: Sa
         return Array.from(months);
     }, []);
 
-    const fetchSheet = async (monthId: string) => {
-        setIsLoading(true);
-        const sheet = await dataStore.getMonthlySalarySheet(monthId);
-        setSalarySheet(sheet);
-        setOpenAccordionItems([]); // Reset open items when fetching new sheet
-        setIsLoading(false);
-    };
-
     useEffect(() => {
-        if (isOpen) {
-            if (!salarySheet) {
-                handleRecalculate();
-                return;
-            }
-            fetchSheet(selectedMonth);
+        if (!isOpen) {
+            return;
         }
-    }, [isOpen, selectedMonth]);
+
+        let isActive = true;
+        const loadSalaryData = async () => {
+            setIsLoading(true);
+            setSalarySheet(null); // Clear previous data
+            try {
+                // Try fetching existing sheet first
+                let sheet = await dataStore.getMonthlySalarySheet(selectedMonth);
+
+                // If no sheet, calculate a new one
+                if (!sheet) {
+                    if (!currentUser) {
+                        if (isActive) setIsLoading(false);
+                        return;
+                    }
+                    toast.loading('Đang tính toán bảng lương...', { id: 'recalc' });
+                    const monthDate = parseISO(`${selectedMonth}-01`);
+                    const newSheet = await calculateSalarySheet(monthDate, allUsers, { userId: currentUser.uid, userName: currentUser.displayName });
+                    await dataStore.saveMonthlySalarySheet(selectedMonth, newSheet);
+                    sheet = newSheet;
+                    toast.success('Bảng lương đã được tính toán và lưu lại.', { id: 'recalc' });
+                }
+
+                if (isActive) {
+                    setSalarySheet(sheet);
+                    setOpenAccordionItems([]);
+                }
+            } catch (error) {
+                console.error("Salary data handling failed:", error);
+                toast.error('Lỗi khi xử lý dữ liệu lương.');
+                if (isActive) {
+                    setSalarySheet(null);
+                }
+            } finally {
+                if (isActive) {
+                    setIsLoading(false);
+                }
+            }
+        };
+
+        loadSalaryData();
+
+        return () => {
+            isActive = false;
+        };
+    }, [isOpen, selectedMonth, allUsers, currentUser]);
 
     const sortedSalaryRecords = useMemo(() => {
         if (!salarySheet) return [];
@@ -195,11 +225,10 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers }: Sa
     }, [salarySheet]);
 
     const filteredRecords = useMemo(() => {
-        const q = searchTerm.trim().toLowerCase();
-        const src = sortedSalaryRecords;
-        if (!q) return src;
-        return src.filter(r => r.userName.toLowerCase().includes(q));
-    }, [sortedSalaryRecords, searchTerm]);
+        if (selectedUsers.length === 0) return sortedSalaryRecords;
+        const selectedIds = new Set(selectedUsers.map(u => u.uid));
+        return sortedSalaryRecords.filter(r => selectedIds.has(r.userId));
+    }, [sortedSalaryRecords, selectedUsers]);
 
     const paidRecords = useMemo(() => {
         return filteredRecords.filter(r => r.paymentStatus === 'paid');
@@ -212,19 +241,25 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers }: Sa
         return filteredRecords.filter(r => r.paymentStatus !== 'paid' && (nextMonthSalaryByUser[r.userId] || 0) < eligibleThreshold);
     }, [filteredRecords, nextMonthSalaryByUser]);
 
+    const totalEligibleAmount = useMemo(() => {
+        return eligibleRecords.reduce((sum, record) => {
+            return sum + (record.totalSalary - (record.salaryAdvance || 0) + (record.bonus || 0));
+        }, 0);
+    }, [eligibleRecords]);
+
     useEffect(() => {
         const computeNextMonthExpectedSalaries = async () => {
             if (!salarySheet) return;
             const nextMonthDate = addMonths(parseISO(`${selectedMonth}-01`), 1);
             const nextStart = startOfMonth(nextMonthDate);
             const nextEnd = endOfMonth(nextMonthDate);
-            const schedules = await dataStore.getSchedulesForDateRange({ from: nextStart, to: nextEnd });
-            const publishedShifts = schedules.filter(s => s.status === 'published').flatMap(s => s.shifts);
+
+            // Fetch all attendance for the next month once
+            const nextMonthAttendance = await dataStore.getAttendanceRecordsForDateRange({ from: nextStart, to: nextEnd });
+
             const map: Record<string, number> = {};
             for (const record of Object.values(salarySheet.salaryRecords)) {
                 const userId = record.userId;
-                // Use attendance records instead of scheduled shifts
-                const nextMonthAttendance = await dataStore.getAttendanceRecordsForDateRange({ from: nextStart, to: nextEnd });
                 const userAttendance = nextMonthAttendance.filter(r => r.userId === userId && r.checkInTime && r.checkOutTime);
                 const hours = userAttendance.reduce((sum, r) => sum + (r.totalHours || 0), 0);
                 const user = allUsers.find(u => u.uid === userId);
@@ -232,7 +267,6 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers }: Sa
                 map[userId] = Math.round(hours * rate);
             }
             setNextMonthSalaryByUser(map);
-            console.log(map);
         };
         computeNextMonthExpectedSalaries();
     }, [salarySheet, selectedMonth, allUsers]);
@@ -305,13 +339,12 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers }: Sa
                             </Select>
                         </div>
                         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                            <div className="relative w-full sm:w-[240px]">
-                                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    value={searchTerm}
-                                    onChange={e => setSearchTerm(e.target.value)}
-                                    placeholder="Tìm nhân viên"
-                                    className="pl-8"
+                            <div className="w-full sm:w-[300px]">
+                                <UserMultiSelect
+                                    users={allUsers}
+                                    selectedUsers={selectedUsers}
+                                    onChange={setSelectedUsers}
+                                    className="w-full"
                                 />
                             </div>
                             <Button variant="outline" onClick={handleToggleAll} disabled={!salarySheet || (eligibleRecords.length + ineligibleRecords.length + paidRecords.length) === 0}>
@@ -348,10 +381,15 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers }: Sa
                             <div className="space-y-4">
                                 <Card className="border-l-4 border-green-500">
                                     <CardHeader className="pb-2">
-                                        <CardTitle className="flex items-center gap-2">
-                                            <CheckCircle className="h-5 w-5 text-green-600" />
-                                            <span>Đủ điều kiện trả lương</span>
-                                            <Badge variant="secondary">{eligibleRecords.length}</Badge>
+                                        <CardTitle className="flex items-center gap-2 justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <CheckCircle className="h-5 w-5 text-green-600" />
+                                                <span>Đủ điều kiện trả lương</span>
+                                                <Badge variant="secondary">{eligibleRecords.length}</Badge>
+                                            </div>
+                                            <span className="text-lg font-bold text-green-700">
+                                                {totalEligibleAmount.toLocaleString('vi-VN')}đ
+                                            </span>
                                         </CardTitle>
                                     </CardHeader>
                                     <CardContent>

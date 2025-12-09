@@ -20,6 +20,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { motion, AnimatePresence } from 'framer-motion';
+import { UserMultiSelect } from '@/components/user-multi-select';
 
 type Props = {
   isOpen: boolean;
@@ -308,21 +309,20 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
               <CardContent className="p-4 space-y-3">
                 <Label className="font-semibold">Giới hạn theo nhân viên (Ưu tiên hơn toàn cục)</Label>
                 <div className="flex items-center gap-2">
-                  <Select onValueChange={(uid) => {
-                    if (!uid) return;
-                    setEditableConstraints(prev => {
-                      const exists = prev.some(c => c.type === 'WorkloadLimit' && (c as any).scope === 'user' && (c as any).userId === uid);
-                      if (exists) return prev;
-                      return [...prev, { id: `wl_${uid}`, enabled: true, type: 'WorkloadLimit', scope: 'user', userId: uid } as any];
-                    });
-                  }}>
-                    <SelectTrigger className="w-64"><SelectValue placeholder="Chọn nhân viên để thêm" /></SelectTrigger>
-                    <SelectContent>
-                      {allUsers.filter(u => !editableConstraints.some(c => c.type === 'WorkloadLimit' && (c as any).scope === 'user' && (c as any).userId === u.uid)).map(u => (
-                        <SelectItem key={`add_wl_${u.uid}`} value={u.uid}>{u.displayName}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <UserMultiSelect
+                    selectionMode="single"
+                    users={allUsers.filter(u => !editableConstraints.some(c => c.type === 'WorkloadLimit' && (c as any).scope === 'user' && (c as any).userId === u.uid))}
+                    selectedUsers={[]}
+                    onChange={(users) => {
+                      if (users.length === 0) return;
+                      const uid = users[0].uid;
+                      setEditableConstraints(prev => {
+                        const exists = prev.some(c => c.type === 'WorkloadLimit' && (c as any).scope === 'user' && (c as any).userId === uid);
+                        if (exists) return prev;
+                        return [...prev, { id: `wl_${uid}`, enabled: true, type: 'WorkloadLimit', scope: 'user', userId: uid } as any];
+                      });
+                    }}
+                  />
                   <Button variant="secondary">Thêm điều kiện</Button>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -448,14 +448,18 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
                   </div>
                   <div>
                     <Label className="text-xs">Chọn nhân viên</Label>
-                    <Select value={newPriorityUserId} onValueChange={setNewPriorityUserId}>
-                      <SelectTrigger><SelectValue placeholder="Chọn nhân viên" /></SelectTrigger>
-                      <SelectContent>
-                        {allUsers.map(u => (
-                          <SelectItem key={`pr_user_${u.uid}`} value={u.uid}>{u.displayName}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <UserMultiSelect
+                      selectionMode="single"
+                      users={allUsers}
+                      selectedUsers={newPriorityUserId ? allUsers.filter(u => u.uid === newPriorityUserId) : []}
+                      onChange={(users) => {
+                        if (users.length > 0) {
+                          setNewPriorityUserId(users[0].uid);
+                        } else {
+                          setNewPriorityUserId('');
+                        }
+                      }}
+                    />
                   </div>
                   <div>
                     <Label className="text-xs">Trọng số</Label>
@@ -600,14 +604,18 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
                   </div>
                   <div>
                     <Label className="text-xs">Chọn nhân viên</Label>
-                    <Select value={(linksForm.userId ?? '') as string} onValueChange={(v) => setLinksForm(prev => ({ ...prev, userId: v }))}>
-                      <SelectTrigger><SelectValue placeholder="Chọn nhân viên" /></SelectTrigger>
-                      <SelectContent>
-                        {allUsers.map(u => (
-                          <SelectItem key={`ln_u_${u.uid}`} value={u.uid}>{u.displayName}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <UserMultiSelect
+                      selectionMode="single"
+                      users={allUsers}
+                      selectedUsers={linksForm.userId ? allUsers.filter(u => u.uid === linksForm.userId) : []}
+                      onChange={(users) => {
+                        if (users.length > 0) {
+                          setLinksForm(prev => ({ ...prev, userId: users[0].uid }));
+                        } else {
+                          setLinksForm(prev => ({ ...prev, userId: undefined }));
+                        }
+                      }}
+                    />
                   </div>
                   <div>
                     <Label className="text-xs">Loại ràng buộc</Label>
