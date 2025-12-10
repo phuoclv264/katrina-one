@@ -57,7 +57,7 @@ export default function NotificationSheet({
 
         // Mark as read immediately
         if (!notification.isRead || !notification.isRead[user.uid]) {
-            await dataStore.markNotificationAsRead(notification.id, user.uid);
+            dataStore.markNotificationAsRead(notification.id, user.uid); // Mark as read in background
         }
 
         // Close the sheet
