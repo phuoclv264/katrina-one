@@ -127,6 +127,7 @@ export const dataStore = {
     const notificationsQuery = query(
       collection(db, 'notifications'),
       where('recipientUids', 'array-contains', userId),
+      orderBy('createdAt', 'desc'),
       limit(50)
     );
 
