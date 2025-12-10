@@ -49,7 +49,7 @@ const getNotificationDetails = (notification: Notification, currentUserId: strin
                         icon: MailQuestion,
                         title: isMyRequest ? 'Đang tìm người nhận ca...' : 'Có ca cần người nhận',
                         description: isMyRequest ? `Yêu cầu pass ca của bạn đang được hiển thị cho mọi người.` : `${payload.requestingUser.userName} muốn pass ca ${payload.shiftLabel}.`,
-                        href: currentUserRole !== 'Chủ nhà hàng' ? `/schedule?openPassRequest=true` : `/shift-scheduling?openPassRequest=true`,
+                        href: currentUserRole === 'Chủ nhà hàng' ? `/shift-scheduling?openPassRequest=true` : `/schedule?openPassRequest=true`,
                     };
                 case 'pending_approval':
                     return {

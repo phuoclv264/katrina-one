@@ -202,7 +202,7 @@ export default function ScheduleView() {
 
     const weekId = useMemo(() => `${currentDate.getFullYear()}-W${getISOWeek(currentDate)}`, [currentDate]);
 
-    const canManage = useMemo(() => user?.role === 'Quản lý' || user?.role === 'Chủ nhà hàng', [user]);
+    const canManage = useMemo(() => user?.role === 'Chủ nhà hàng', [user]);
     
     const [showPublishConfirm, setShowPublishConfirm] = useState(false);
     const [showRevertConfirm, setShowRevertConfirm] = useState(false);

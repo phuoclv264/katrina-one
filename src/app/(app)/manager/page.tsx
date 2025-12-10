@@ -98,10 +98,7 @@ export default function ManagerDashboardPage() {
               <CalendarDays className="mr-2" />
               Lịch làm việc
             </Button>
-            <Button size="lg" variant="outline" onClick={() => router.push('/shift-scheduling')}>
-              <CalendarDays className="mr-2" />
-              Xếp lịch
-            </Button>
+            
             <Button size="lg" variant="outline" onClick={() => router.push('/violations')}>
               <ShieldX className="mr-2" />
               Ghi nhận Vi phạm
