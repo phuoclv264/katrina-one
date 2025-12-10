@@ -70,6 +70,7 @@ const addPushNotificationListeners = async (
         if (!notificationData) return;
         const fullNotification = JSON.parse(notificationData) as Notification;
         const href = getNavigationHrefForNotification(fullNotification);
+        dataStore.markNotificationAsRead(fullNotification.id, userId);
         onNotificationAction(href);
     });
 }
