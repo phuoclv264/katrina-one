@@ -27,6 +27,7 @@ type UserMultiSelectProps = {
   onChange: (users: ManagedUser[]) => void
   disabled?: boolean
   className?: string
+  selectionMode?: 'single' | 'multiple'
 }
 
 const roleOrder: Record<UserRole, number> = {
@@ -44,10 +45,17 @@ export function UserMultiSelect({
   onChange,
   disabled,
   className,
+  selectionMode = 'multiple',
 }: UserMultiSelectProps) {
   const [open, setOpen] = React.useState(false)
 
   const handleSelect = (user: ManagedUser) => {
+    if (selectionMode === 'single') {
+      onChange([user])
+      setOpen(false)
+      return
+    }
+
     const isSelected = selectedUsers.some((selected) => selected.uid === user.uid)
     if (isSelected) {
       onChange(selectedUsers.filter((selected) => selected.uid !== user.uid))

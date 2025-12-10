@@ -405,6 +405,64 @@ export async function updateShiftTemplates(templates: ShiftTemplate[]): Promise<
     await setDoc(docRef, { templates });
 }
 
+// --- Schedule Constraints (Owner) ---
+export function subscribeToScheduleConstraints(callback: (text: string) => void): () => void {
+    const docRef = doc(db, 'app-data', 'scheduleConstraints');
+    const unsubscribe = onSnapshot(docRef, async (docSnap) => {
+        if (docSnap.exists()) {
+            callback((docSnap.data().constraintsText as string) || '');
+        } else {
+            try {
+                await setDoc(docRef, { constraintsText: '' });
+                callback('');
+            } catch (e) {
+                console.error("Permission denied to create default schedule constraints.", e);
+                callback('');
+            }
+        }
+    }, (error) => {
+        console.warn(`[Firestore Read Error] Could not read schedule constraints: ${error.code}`);
+        callback('');
+    });
+    return unsubscribe;
+}
+
+export async function updateScheduleConstraints(text: string): Promise<void> {
+    const docRef = doc(db, 'app-data', 'scheduleConstraints');
+    await setDoc(docRef, { constraintsText: text, updatedAt: serverTimestamp() }, { merge: true });
+}
+
+// --- Structured Schedule Constraints (Owner) ---
+import type { ScheduleCondition } from './types';
+
+export function subscribeToStructuredConstraints(callback: (constraints: ScheduleCondition[]) => void): () => void {
+    const docRef = doc(db, 'app-data', 'scheduleConstraints');
+    const unsubscribe = onSnapshot(docRef, async (docSnap) => {
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            const raw = (data.constraints || []) as ScheduleCondition[];
+            callback(Array.isArray(raw) ? raw : []);
+        } else {
+            try {
+                await setDoc(docRef, { constraints: [] });
+                callback([]);
+            } catch (e) {
+                console.error("Permission denied to create default structured schedule constraints.", e);
+                callback([]);
+            }
+        }
+    }, (error) => {
+        console.warn(`[Firestore Read Error] Could not read structured schedule constraints: ${error.code}`);
+        callback([]);
+    });
+    return unsubscribe;
+}
+
+export async function updateStructuredConstraints(constraints: ScheduleCondition[]): Promise<void> {
+    const docRef = doc(db, 'app-data', 'scheduleConstraints');
+    await setDoc(docRef, { constraints, updatedAt: serverTimestamp() }, { merge: true });
+}
+
 export async function requestPassShift(shiftToPass: AssignedShift, requestingUser: { uid: string, displayName: string }): Promise<Notification | null> {
     // Server-side check: Fetch the latest schedule to verify the user is still in the shift
     const weekId = `${new Date(shiftToPass.date).getFullYear()}-W${getISOWeek(new Date(shiftToPass.date))}`;

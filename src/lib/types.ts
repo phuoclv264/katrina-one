@@ -369,6 +369,86 @@ export type Availability = {
   availableSlots: TimeSlot[];
 };
 
+// --- Auto Scheduling Constraint Types ---
+export type BaseConstraint = {
+  id: string;
+  enabled: boolean;
+  notes?: string;
+  mandatory?: boolean;
+};
+
+export type StaffPriority = BaseConstraint & {
+  type: 'StaffPriority';
+  userId: string;
+  templateId?: string;
+  weight: number;
+};
+
+export type ShiftStaffing = BaseConstraint & {
+  type: 'ShiftStaffing';
+  templateId?: string;
+  role: UserRole | 'Bất kỳ';
+  count: number;
+};
+
+export type DailyShiftLimit = BaseConstraint & {
+  type: 'DailyShiftLimit';
+  userId?: string; // global if omitted
+  maxPerDay: number;
+};
+
+export type StaffShiftLink = BaseConstraint & {
+  type: 'StaffShiftLink';
+  userId: string;
+  templateId: string;
+  link: 'force' | 'ban';
+};
+
+export type WorkloadLimit = BaseConstraint & {
+  type: 'WorkloadLimit';
+  scope: 'global' | 'user';
+  userId?: string; // required when scope==='user'
+  minShiftsPerWeek?: number;
+  maxShiftsPerWeek?: number;
+  minHoursPerWeek?: number;
+  maxHoursPerWeek?: number;
+};
+
+export type ScheduleCondition =
+  | StaffPriority
+  | ShiftStaffing
+  | DailyShiftLimit
+  | StaffShiftLink
+  | WorkloadLimit;
+
+export type Assignment = {
+  shiftId: string;
+  role: UserRole | 'Bất kỳ';
+  userId: string;
+};
+
+export type ScheduleRunResult = {
+  assignments: Assignment[];
+  unfilled: { shiftId: string; role: UserRole | 'Bất kỳ'; remaining: number }[];
+  warnings: string[];
+};
+
+// --- AI Shift Scheduling Types ---
+export type GenerateShiftScheduleInput = {
+  weekId: string;
+  constraintsText: string;
+  users: ManagedUser[];
+  availability: Availability[];
+  shiftTemplates: ShiftTemplate[];
+  existingSchedule?: Schedule | null;
+};
+
+export type GenerateShiftScheduleOutput = {
+  schedule: Schedule;
+  explanation: string;
+  warnings?: string[];
+};
+
 
 // --- Notification System Types ---
 

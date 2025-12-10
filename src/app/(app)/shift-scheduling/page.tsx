@@ -12,7 +12,7 @@ import { ArrowLeft } from 'lucide-react';
 export default function ShiftSchedulingPage() {
     const { user, loading: authLoading } = useAuth();
     const router = useRouter();
-    const canManage = user?.role === 'Quản lý' || user?.role === 'Chủ nhà hàng';
+    const canManage = user?.role === 'Chủ nhà hàng';
 
     useEffect(() => {
         if (!authLoading && !canManage) {

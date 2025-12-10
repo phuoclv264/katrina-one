@@ -37,6 +37,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
 import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, addDays, parseISO, isPast, isWithinInterval, isSameMonth } from 'date-fns';
 import { hasTimeConflict, getActiveShifts } from './schedule-utils';
+import * as violationsService from './violations-service';
 import isEqual from 'lodash.isequal';
 import * as scheduleStore from './schedule-store';
 import * as attendanceStore from './attendance-store';
@@ -168,7 +169,8 @@ export const dataStore = {
     const notificationsQuery = query(
       collection(db, 'notifications'),
       where('recipientUids', 'array-contains', userId),
-      limit(50),
+      orderBy('createdAt', 'desc'),
+      limit(50)
     );
 
     const snapshot = await getDocs(notificationsQuery);
@@ -1387,7 +1389,7 @@ export const dataStore = {
       }));
 
       violationsInMonth.forEach(violation => {
-        const { cost: newCost, severity: newSeverity, userCosts: newUserCosts } = this.calculateViolationCost(violation, cachedCategories!, violationsInMonth);
+        const { cost: newCost, severity: newSeverity, userCosts: newUserCosts } = violationsService.calculateViolationCost(violation, cachedCategories!, violationsInMonth);
         const currentViolationState = updatedViolationsMap.get(violation.id)!;
 
         if (currentViolationState.cost !== newCost || currentViolationState.severity !== newSeverity || !isEqual(currentViolationState.userCosts, newUserCosts)) {
@@ -1447,51 +1449,7 @@ export const dataStore = {
   },
 
   async recalculateViolationsForCurrentMonth(): Promise<void> {
-    const categoryData = await this.getViolationCategories();
-
-    const now = new Date();
-    const monthStart = startOfMonth(now);
-    const monthEnd = endOfMonth(now);
-
-    const violationsQuery = query(
-      collection(db, 'violations'),
-      where('createdAt', '>=', monthStart),
-      where('createdAt', '<=', monthEnd)
-    );
-
-    const violationsSnapshot = await getDocs(violationsQuery);
-    if (violationsSnapshot.empty) return;
-
-    const allViolationsInMonth = violationsSnapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        createdAt: (data.createdAt as Timestamp)?.toDate()?.toISOString() || new Date(0).toISOString(),
-      } as Violation;
-    }).sort((a, b) => new Date(a.createdAt as string).getTime() - new Date(b.createdAt as string).getTime());
-
-    const batch = writeBatch(db);
-    let hasUpdates = false;
-
-    allViolationsInMonth.forEach(violation => {
-      const { cost: newCost, severity: newSeverity, userCosts: newUserCosts } = this.calculateViolationCost(violation, categoryData, allViolationsInMonth);
-      const hasChanged = violation.cost !== newCost || violation.severity !== newSeverity || !isEqual(violation.userCosts, newUserCosts);
-
-      if (hasChanged) {
-        const docRef = doc(db, 'violations', violation.id);
-        batch.update(docRef, { cost: newCost, severity: newSeverity, userCosts: newUserCosts });
-        hasUpdates = true;
-      }
-    });
-
-    if (hasUpdates) {
-      try {
-        await batch.commit();
-      } catch (err) {
-        console.error("Error recalculating and batch updating violation costs:", err);
-      }
-    }
+    return violationsService.recalculateViolationsForCurrentMonth();
   },
 
   subscribeToViolationCategories(callback: (data: ViolationCategoryData) => void): () => void {
@@ -1569,113 +1527,14 @@ export const dataStore = {
     categoryData: ViolationCategoryData,
     allHistoricViolationsInMonth: Violation[]
   ): { cost: number; severity: Violation['severity']; userCosts: ViolationUserCost[] } {
-    const category = categoryData.list.find(c => c.id === violation.categoryId);
-    if (!category) {
-      return { cost: violation.cost || 0, severity: violation.severity || 'low', userCosts: violation.userCosts || [] };
-    }
-
-    const baseCost = category.calculationType === 'perUnit'
-      ? (category.finePerUnit || 0) * (violation.unitCount || 0)
-      : (category.fineAmount || 0);
-
-    let totalCost = 0;
-    const userCosts: ViolationUserCost[] = [];
-
-    violation.users.forEach(user => {
-      let userFine = baseCost;
-      let userSeverity = category.severity;
-
-      const violationCreatedAt = violation.createdAt ? parseISO(violation.createdAt as string) : new Date(0);
-      if (violationCreatedAt.getTime() === 0) {
-        userCosts.push({ userId: user.id, cost: userFine, severity: userSeverity });
-        totalCost += userFine;
-        return;
-      };
-
-      const sortedRules = (categoryData.generalRules || []).sort((a, b) => (a.threshold || 0) - (b.threshold || 0));
-
-      for (const rule of sortedRules) {
-        let ruleApplies = false;
-        if (rule.condition === 'is_flagged' && violation.isFlagged) {
-          ruleApplies = true;
-        } else if (rule.condition === 'repeat_in_month') {
-          const repeatCount = allHistoricViolationsInMonth.filter(v =>
-            v.id !== violation.id && // Exclude the current violation from the count
-            v.users.some(vu => vu.id === user.id) &&
-            v.categoryId === violation.categoryId &&
-            isWithinInterval(parseISO(v.createdAt as string), { start: startOfMonth(violationCreatedAt), end: endOfMonth(violationCreatedAt) }) &&
-            new Date(v.createdAt as string) < violationCreatedAt
-          ).length + 1; // +1 to count the current one
-
-          if (repeatCount >= rule.threshold) {
-            ruleApplies = true;
-          }
-        }
-
-        if (ruleApplies) {
-          if (rule.action === 'multiply') {
-            userFine *= rule.value;
-          } else if (rule.action === 'add') {
-            userFine += rule.value;
-          }
-
-          if (rule.severityAction === 'increase') {
-            if (userSeverity === 'low') userSeverity = 'medium';
-            else if (userSeverity === 'medium') userSeverity = 'high';
-          } else if (rule.severityAction === 'set_to_high') {
-            userSeverity = 'high';
-          }
-        }
-      }
-
-      userCosts.push({ userId: user.id, cost: userFine, severity: userSeverity });
-      totalCost += userFine;
-    });
-
-    const finalSeverity = userCosts.reduce((maxSeverity, userCost) => {
-      return severityOrder[userCost.severity] > severityOrder[maxSeverity] ? userCost.severity : maxSeverity;
-    }, category.severity);
-
-    return { cost: totalCost, severity: finalSeverity, userCosts };
+    return violationsService.calculateViolationCost(violation, categoryData, allHistoricViolationsInMonth);
   },
 
   async addOrUpdateViolation(
     data: Omit<Violation, 'id' | 'createdAt' | 'photos' | 'penaltySubmissions' | 'cost' | 'severity'> & { photosToUpload: string[] },
     id?: string
   ): Promise<void> {
-    const { photosToUpload, ...violationData } = data;
-
-    const uploadPromises = photosToUpload.map(async (photoId) => {
-      const photoBlob = await photoStore.getPhoto(photoId);
-      if (!photoBlob) return null;
-      const storageRef = ref(storage, `violations/${data.reporterId}/${uuidv4()}.jpg`);
-      const metadata = {
-        cacheControl: 'public,max-age=31536000,immutable',
-      };
-      await uploadBytes(storageRef, photoBlob, metadata);
-      return getDownloadURL(storageRef);
-    });
-    const photoUrls = (await Promise.all(uploadPromises)).filter((url): url is string => !!url);
-
-    const finalData: Partial<Violation> = { ...violationData };
-
-    if (id) {
-      const docRef = doc(db, 'violations', id);
-      const currentDoc = await getDoc(docRef);
-      if (currentDoc.exists()) {
-        const existingPhotos = currentDoc.data().photos || [];
-        finalData.photos = [...existingPhotos, ...photoUrls];
-        finalData.lastModified = serverTimestamp() as Timestamp;
-        await updateDoc(docRef, finalData);
-      }
-    } else {
-      finalData.createdAt = serverTimestamp() as Timestamp;
-      finalData.photos = photoUrls;
-      await addDoc(collection(db, 'violations'), finalData);
-    }
-
-    await photoStore.deletePhotos(photosToUpload);
-    await this.recalculateViolationsForCurrentMonth();
+    return violationsService.addOrUpdateViolation(data as any, id);
   },
 
   async deleteViolation(violation: Violation): Promise<void> {
@@ -1707,6 +1566,27 @@ export const dataStore = {
 
     const violationRef = doc(db, 'violations', violation.id);
     await deleteDoc(violationRef);
+
+    // Clean up any pending penalty records for this violation
+    try {
+      const keys = await idbKeyvalStore.keys();
+      const pendingKeys = keys.filter(k => typeof k === 'string' && (k as string).startsWith('pending-penalty-')) as string[];
+      for (const key of pendingKeys) {
+        const record = await idbKeyvalStore.get<any>(key);
+        if (!record) continue;
+        const isBulk = record.isBulk === true;
+        const violationIds = isBulk ? record.violationIds : [record.violationId];
+        if (violationIds.includes(violation.id)) {
+          await idbKeyvalStore.del(key);
+          // Also clean up any photos if they exist
+          if (record.mediaIds && record.mediaIds.length > 0) {
+            await photoStore.deletePhotos(record.mediaIds);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to clean up pending penalty records for deleted violation:', err);
+    }
   },
 
   async toggleViolationFlag(violationId: string, currentState: boolean): Promise<void> {
@@ -1799,63 +1679,354 @@ export const dataStore = {
   },
 
   async submitPenaltyProof(violationId: string, media: { id: string; type: 'photo' | 'video' }[], user: { userId: string; userName: string; }): Promise<void> {
-    const uploadPromises = media.map(async (m) => {
-      const blob = await photoStore.getPhoto(m.id);
-      if (!blob) return null;
-      const fileExtension = m.type === 'photo' ? 'jpg' : 'webm';
-      const storageRef = ref(storage, `penalties/${violationId}/${user.userId}/${uuidv4()}.${fileExtension}`);
-      const metadata = {
-        cacheControl: 'public,max-age=31536000,immutable',
-      };
-      await uploadBytes(storageRef, blob, metadata);
-      const url = await getDownloadURL(storageRef);
-      return { url, type: m.type };
-    });
+    // Durable submit: create a pending entry in IndexedDB so we can retry commit
+    const pendingId = uuidv4();
+    const pendingKey = `pending-penalty-${pendingId}`;
 
-    const newMediaAttachments = (await Promise.all(uploadPromises)).filter((item): item is MediaAttachment => !!item);
+    const pendingRecord: any = {
+      id: pendingId,
+      violationId,
+      user,
+      mediaIds: [] as string[], // Will be populated with only found media IDs
+      createdAt: new Date().toISOString(),
+      status: 'pending', // pending -> uploading -> uploaded -> committing -> done | failed
+      uploaded: [] as MediaAttachment[],
+    };
 
-    if (newMediaAttachments.length === 0) {
-      throw new Error("Failed to upload penalty proof media.");
+    // Persist the pending record so it survives reloads
+    await idbKeyvalStore.set(pendingKey, pendingRecord);
+
+    try {
+      // Upload each media and update the pending record incrementally
+      for (const m of media) {
+        const blob = await photoStore.getPhoto(m.id);
+        if (!blob) {
+          console.warn(`Media ${m.id} not found in store during initial upload`);
+          continue; // skip missing
+        }
+
+        // Only add to mediaIds if the photo exists
+        pendingRecord.mediaIds.push(m.id);
+
+        const fileExtension = m.type === 'photo' ? 'jpg' : 'webm';
+        const storageRef = ref(storage, `penalties/${violationId}/${user.userId}/${uuidv4()}.${fileExtension}`);
+        const metadata = { cacheControl: 'public,max-age=31536000,immutable' };
+        await uploadBytes(storageRef, blob, metadata);
+        const url = await getDownloadURL(storageRef);
+
+        const attachment: MediaAttachment = { url, type: m.type } as MediaAttachment;
+        pendingRecord.uploaded.push(attachment);
+        pendingRecord.status = 'uploading';
+        await idbKeyvalStore.set(pendingKey, pendingRecord);
+      }
+
+      if (!pendingRecord.uploaded || pendingRecord.uploaded.length === 0) {
+        throw new Error('Failed to upload penalty proof media.');
+      }
+
+      pendingRecord.status = 'uploaded';
+      await idbKeyvalStore.set(pendingKey, pendingRecord);
+
+      // Attempt Firestore transaction to append submission
+      const violationRef = doc(db, 'violations', violationId);
+      pendingRecord.status = 'committing';
+      await idbKeyvalStore.set(pendingKey, pendingRecord);
+
+      await runTransaction(db, async (transaction) => {
+        const violationDoc = await transaction.get(violationRef);
+        if (!violationDoc.exists()) {
+          throw new Error('Violation not found.');
+        }
+
+        const violationData = violationDoc.data() as Violation;
+        let submissions = violationData.penaltySubmissions || [];
+
+        const existingSubmissionIndex = submissions.findIndex(s => s.userId === user.userId);
+
+        if (existingSubmissionIndex > -1) {
+          const existingSubmission = submissions[existingSubmissionIndex];
+          const existingMedia = existingSubmission.media || (existingSubmission.photos || []).map((p: string) => ({ url: p, type: 'photo' as const }));
+          const updatedSubmission: PenaltySubmission = {
+            ...existingSubmission,
+            media: [...existingMedia, ...pendingRecord.uploaded],
+            submittedAt: new Date().toISOString(),
+          };
+          delete (updatedSubmission as any).photos;
+          submissions[existingSubmissionIndex] = updatedSubmission;
+        } else {
+          const newSubmission: PenaltySubmission = {
+            userId: user.userId,
+            userName: user.userName,
+            media: pendingRecord.uploaded,
+            submittedAt: new Date().toISOString(),
+          };
+          submissions.push(newSubmission);
+        }
+
+        transaction.update(violationRef, { penaltySubmissions: submissions });
+      });
+
+      // On success, delete the pending record and remove local copies
+      await idbKeyvalStore.del(pendingKey);
+      await photoStore.deletePhotos(pendingRecord.mediaIds);
+    } catch (err) {
+      // Leave the pending record in IndexedDB with status 'failed' so UI or background retry can pick it up
+      try {
+        pendingRecord.status = pendingRecord.status === 'committing' ? 'commit_failed' : 'failed';
+        pendingRecord.error = (err as any)?.message || String(err);
+        await idbKeyvalStore.set(pendingKey, pendingRecord);
+      } catch (innerErr) {
+        console.error('Failed to update pending penalty record after error:', innerErr);
+      }
+      throw err;
     }
+  },
 
+  // Retry any pending penalty submissions stored in IndexedDB. Call this on app start or when network resumes.
+  async retryPendingPenaltySubmissions(): Promise<void> {
+    try {
+      const keys = await idbKeyvalStore.keys();
+      const pendingKeys = keys.filter(k => typeof k === 'string' && (k as string).startsWith('pending-penalty-')) as string[];
+
+      for (const key of pendingKeys) {
+        const record = await idbKeyvalStore.get<any>(key);
+        if (!record) {
+          console.warn(`[retryPendingPenaltySubmissions] No record found for key: ${key}`);
+          continue;
+        }
+
+        if (record.status === 'done') {
+          await idbKeyvalStore.del(key);
+          continue;
+        }
+
+        const isBulk = record.isBulk === true;
+        const violationIds = isBulk ? record.violationIds : [record.violationId];
+
+        // Clean up records with no media (corrupted/incomplete records)
+        if (!record.mediaIds || record.mediaIds.length === 0) {
+          console.warn(`[retryPendingPenaltySubmissions] No media IDs in record, cleaning up: ${key}`, record);
+          await idbKeyvalStore.del(key);
+          continue;
+        }
+
+        // Check if violations still exist before proceeding
+        let allViolationsExist = true;
+        for (const violationId of violationIds) {
+          const violationRef = doc(db, 'violations', violationId);
+          const violationDoc = await getDoc(violationRef);
+          if (!violationDoc.exists()) {
+            console.warn(`[retryPendingPenaltySubmissions] Violation ${violationId} was deleted, cleaning up pending record: ${key}`);
+            allViolationsExist = false;
+            break;
+          }
+        }
+
+        if (!allViolationsExist) {
+          // Clean up the pending record and photos since violation(s) no longer exist
+          await idbKeyvalStore.del(key);
+          if (record.mediaIds && record.mediaIds.length > 0) {
+            await photoStore.deletePhotos(record.mediaIds);
+          }
+          continue;
+        }
+
+        // If NOT fully uploaded yet, attempt to upload any remaining media
+        if (record.status !== 'uploaded' && record.status !== 'committing' && record.status !== 'done') {
+          try {
+            // Determine which media IDs still need to be uploaded
+            const uploadedCount = (record.uploaded || []).length;
+            const totalMediaCount = record.mediaIds.length;
+
+            // Re-attempt uploading remaining media starting from where we left off
+            for (let i = uploadedCount; i < totalMediaCount; i++) {
+              const mediaId = record.mediaIds[i];
+              const blob = await photoStore.getPhoto(mediaId);
+              if (!blob) {
+                console.warn(`[retryPendingPenaltySubmissions] Photo ${mediaId} not found in store during retry`);
+                continue;
+              }
+
+              const fileExtension = mediaId.includes('video') || mediaId.includes('.webm') ? 'webm' : 'jpg';
+              const storagePath = isBulk
+                ? `penalties/bulk-${record.user.userId}/${uuidv4()}.${fileExtension}`
+                : `penalties/${violationIds[0]}/${record.user.userId}/${uuidv4()}.${fileExtension}`;
+              const storageRef = ref(storage, storagePath);
+              const metadata = { cacheControl: 'public,max-age=31536000,immutable' };
+              await uploadBytes(storageRef, blob, metadata);
+              const url = await getDownloadURL(storageRef);
+
+              const attachment: MediaAttachment = { url, type: fileExtension === 'webm' ? 'video' : 'photo' } as MediaAttachment;
+              record.uploaded.push(attachment);
+              record.status = 'uploading';
+              await idbKeyvalStore.set(key, record);
+            }
+
+            if (record.uploaded && record.uploaded.length > 0) {
+              record.status = 'uploaded';
+              await idbKeyvalStore.set(key, record);
+            }
+          } catch (uploadErr) {
+            // Leave for next retry attempt
+            record.status = 'failed';
+            record.error = (uploadErr as any)?.message || String(uploadErr);
+            await idbKeyvalStore.set(key, record);
+            continue;
+          }
+        }
+
+        // If uploaded but not committed, attempt the transaction commit
+        // Handle: 'uploaded', 'committing', 'commit_failed', and 'pending' (if uploads are done)
+        if (record.uploaded && record.uploaded.length > 0 &&
+          (record.status === 'uploaded' || record.status === 'committing' || record.status === 'commit_failed' || record.status === 'pending')) {
+          try {
+            // Handle both single and bulk submissions
+            for (const violationId of violationIds) {
+              const violationRef = doc(db, 'violations', violationId);
+              await runTransaction(db, async (transaction) => {
+                const violationDoc = await transaction.get(violationRef);
+                if (!violationDoc.exists()) {
+                  console.warn(`[retryPendingPenaltySubmissions] Violation ${violationId} not found during retry`);
+                  return;
+                }
+                const violationData = violationDoc.data() as Violation;
+                let submissions = violationData.penaltySubmissions || [];
+                const existingIndex = submissions.findIndex((s: any) => s.userId === record.user.userId);
+                if (existingIndex > -1) {
+                  console.log(`[retryPendingPenaltySubmissions] Updating existing submission for user: ${record.user.userId}`);
+                  const existing = submissions[existingIndex];
+                  const existingMedia = existing.media || (existing.photos || []).map((p: string) => ({ url: p, type: 'photo' as const }));
+                  submissions[existingIndex] = { ...existing, media: [...existingMedia, ...record.uploaded], submittedAt: new Date().toISOString() };
+                } else {
+                  submissions.push({ userId: record.user.userId, userName: record.user.userName, media: record.uploaded, submittedAt: new Date().toISOString() });
+                }
+                transaction.update(violationRef, { penaltySubmissions: submissions });
+              });
+            }
+            // success
+            await idbKeyvalStore.del(key);
+            // Optionally delete local photos
+            if (record.mediaIds && record.mediaIds.length > 0) {
+              await photoStore.deletePhotos(record.mediaIds);
+            }
+          } catch (txErr) {
+            console.error('[retryPendingPenaltySubmissions] Retry commit failed for pending penalty record', key, txErr);
+            // leave for next retry
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[retryPendingPenaltySubmissions] Failed to retry pending penalty submissions:', err);
+    }
+  },
+
+  async submitBulkPenaltyProof(violationIds: string[], media: { id: string; type: 'photo' | 'video' }[], user: { userId: string; userName: string; }): Promise<void> {
+    // For bulk submissions, upload media once and reuse URLs for all violations
+    // Use durable pending record for retry capability
+    const pendingId = uuidv4();
+    const pendingKey = `pending-penalty-${pendingId}`;
+
+    const pendingRecord: any = {
+      id: pendingId,
+      violationIds, // Array for bulk submissions
+      user,
+      mediaIds: [] as string[], // Will be populated with only found media IDs
+      createdAt: new Date().toISOString(),
+      status: 'pending', // pending -> uploading -> uploaded -> committing -> done | failed
+      uploaded: [] as MediaAttachment[],
+      isBulk: true, // Flag to identify bulk submissions
+    };
+
+    // Persist the pending record so it survives reloads
+    await idbKeyvalStore.set(pendingKey, pendingRecord);
+
+    try {
+      // Step 1: Upload all media once (shared for all violations)
+      for (const m of media) {
+        const blob = await photoStore.getPhoto(m.id);
+        if (!blob) {
+          console.warn(`Media ${m.id} not found in store during initial upload`);
+          continue;
+        }
+
+        // Only add to mediaIds if the photo exists
+        pendingRecord.mediaIds.push(m.id);
+
+        const fileExtension = m.type === 'photo' ? 'jpg' : 'webm';
+        const storageRef = ref(storage, `penalties/bulk-${user.userId}/${uuidv4()}.${fileExtension}`);
+        const metadata = { cacheControl: 'public,max-age=31536000,immutable' };
+        await uploadBytes(storageRef, blob, metadata);
+        const url = await getDownloadURL(storageRef);
+
+        const attachment: MediaAttachment = { url, type: m.type } as MediaAttachment;
+        pendingRecord.uploaded.push(attachment);
+        pendingRecord.status = 'uploading';
+        await idbKeyvalStore.set(pendingKey, pendingRecord);
+      }
+
+      if (pendingRecord.uploaded.length === 0) {
+        throw new Error('Failed to upload penalty proof media.');
+      }
+
+      pendingRecord.status = 'uploaded';
+      await idbKeyvalStore.set(pendingKey, pendingRecord);
+
+      // Step 2: Submit to all violations with the same uploaded media
+      pendingRecord.status = 'committing';
+      await idbKeyvalStore.set(pendingKey, pendingRecord);
+
+      for (const violationId of violationIds) {
+        const violationRef = doc(db, 'violations', violationId);
+
+        await runTransaction(db, async (transaction) => {
+          const violationDoc = await transaction.get(violationRef);
+          if (!violationDoc.exists()) {
+            console.warn(`Violation ${violationId} not found`);
+            return;
+          }
+
+          const violationData = violationDoc.data() as Violation;
+          const currentSubmissions = violationData.penaltySubmissions || [];
+
+          const newSubmission: PenaltySubmission = {
+            userId: user.userId,
+            userName: user.userName,
+            media: pendingRecord.uploaded,
+            submittedAt: new Date().toISOString(),
+          };
+          currentSubmissions.push(newSubmission);
+
+          transaction.update(violationRef, { penaltySubmissions: currentSubmissions });
+        });
+      }
+
+      // Step 3: Only delete photos after all violations have been updated
+      await photoStore.deletePhotos(pendingRecord.mediaIds);
+      await idbKeyvalStore.del(pendingKey);
+    } catch (err) {
+      // Leave the pending record in IndexedDB with status 'failed' so UI or background retry can pick it up
+      try {
+        pendingRecord.status = pendingRecord.status === 'committing' ? 'commit_failed' : 'failed';
+        pendingRecord.error = (err as any)?.message || String(err);
+        await idbKeyvalStore.set(pendingKey, pendingRecord);
+      } catch (innerErr) {
+        console.error('Failed to update pending penalty record after error:', innerErr);
+      }
+      throw err;
+    }
+  },
+
+  // Owner can mark a violation penalty as submitted without media (manual confirmation)
+  async markPenaltyAsSubmitted(violationId: string, byUser: { userId: string; userName: string; }, note?: string): Promise<void> {
     const violationRef = doc(db, 'violations', violationId);
-
     await runTransaction(db, async (transaction) => {
       const violationDoc = await transaction.get(violationRef);
-      if (!violationDoc.exists()) {
-        throw new Error("Violation not found.");
-      }
-
+      if (!violationDoc.exists()) throw new Error('Violation not found');
       const violationData = violationDoc.data() as Violation;
-      let submissions = violationData.penaltySubmissions || [];
-
-      const existingSubmissionIndex = submissions.findIndex(s => s.userId === user.userId);
-
-      if (existingSubmissionIndex > -1) {
-        const existingSubmission = submissions[existingSubmissionIndex];
-        const existingMedia = existingSubmission.media || (existingSubmission.photos || []).map(p => ({ url: p, type: 'photo' as const }));
-
-        const updatedSubmission: PenaltySubmission = {
-          ...existingSubmission,
-          media: [...existingMedia, ...newMediaAttachments],
-          submittedAt: new Date().toISOString(),
-        };
-        delete updatedSubmission.photos; // Remove the old field
-        submissions[existingSubmissionIndex] = updatedSubmission;
-      } else {
-        const newSubmission: PenaltySubmission = {
-          userId: user.userId,
-          userName: user.userName,
-          media: newMediaAttachments,
-          submittedAt: new Date().toISOString(),
-        };
-        submissions.push(newSubmission);
-      }
-
+      const submissions = violationData.penaltySubmissions || [];
+      submissions.push({ userId: byUser.userId, userName: byUser.userName, media: [], submittedAt: new Date().toISOString() });
       transaction.update(violationRef, { penaltySubmissions: submissions });
     });
-
-    await photoStore.deletePhotos(media.map(m => m.id));
   },
 
   subscribeToReportsForDay(date: string, callback: (reports: ShiftReport[]) => void): () => void {

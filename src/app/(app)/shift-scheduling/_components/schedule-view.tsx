@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -64,6 +63,8 @@ import UserDetailsDialog from './user-details-dialog';
 import { isUserAvailable, hasTimeConflict } from '@/lib/schedule-utils';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'nextjs-toploader/app';
+import { Label } from '@/components/ui/label';
+import AutoScheduleDialog from './auto-schedule-dialog';
 
 
 // Helper function to abbreviate names
@@ -178,6 +179,14 @@ export default function ScheduleView() {
     const [isHandlingConflict, setIsHandlingConflict] = useState(false);
     const [conflictDialog, setConflictDialog] = useState<{ isOpen: boolean; oldRequest: Notification | null; newRequestFn: () => void }>({ isOpen: false, oldRequest: null, newRequestFn: () => {} });
 
+    const [structuredConstraints, setStructuredConstraints] = useState<any[]>([]);
+    const [isAutoDialogOpen, setIsAutoDialogOpen] = useState(false);
+
+    useEffect(() => {
+        const unsub = dataStore.subscribeToStructuredConstraints((list) => setStructuredConstraints(list || []));
+        return () => unsub();
+    }, []);
+
     const weekInterval = useMemo(() => {
         const start = startOfWeek(currentDate, { weekStartsOn: 1 });
         const end = endOfWeek(currentDate, { weekStartsOn: 1 });
@@ -193,7 +202,7 @@ export default function ScheduleView() {
 
     const weekId = useMemo(() => `${currentDate.getFullYear()}-W${getISOWeek(currentDate)}`, [currentDate]);
 
-    const canManage = useMemo(() => user?.role === 'Quản lý' || user?.role === 'Chủ nhà hàng', [user]);
+    const canManage = useMemo(() => user?.role === 'Chủ nhà hàng', [user]);
     
     const [showPublishConfirm, setShowPublishConfirm] = useState(false);
     const [showRevertConfirm, setShowRevertConfirm] = useState(false);
@@ -760,6 +769,17 @@ export default function ScheduleView() {
                             </div>
                         </CardHeader>
                         <CardContent>
+                             <div className="mb-4 p-4 border rounded-md bg-muted/30">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div>
+                                        <Label className="font-semibold">Xếp lịch tự động</Label>
+                                        <p className="text-xs text-muted-foreground">Dựa vào đăng ký rảnh, vai trò, định mức và ràng buộc trong ứng dụng.</p>
+                                    </div>
+                                    <Button variant="secondary" onClick={() => setIsAutoDialogOpen(true)} disabled={!canEditSchedule} aria-label="Xếp lịch tự động">
+                                        <Settings className="mr-2 h-4 w-4" /> Xếp lịch tự động
+                                    </Button>
+                                </div>
+                            </div>
                              {/* Desktop View */}
                             <div className="overflow-x-auto hidden md:block">
                                 <Table className="table-fixed w-full border">
@@ -1137,6 +1157,43 @@ export default function ScheduleView() {
                     />
                 </>
             )}
+
+            <AutoScheduleDialog
+                isOpen={isAutoDialogOpen}
+                onClose={() => setIsAutoDialogOpen(false)}
+                schedule={localSchedule ?? { weekId, status: 'draft', shifts: [] }}
+                allUsers={allUsers}
+                availability={availability}
+                constraints={structuredConstraints as any}
+                shiftTemplates={shiftTemplates}
+                onApplyAssignments={(assignments, strategy) => {
+                    setLocalSchedule(prev => {
+                        const base = prev ?? { weekId, status: 'draft' as const, shifts: [] };
+                        const updatedShifts = base.shifts.map(s => {
+                            const adds = assignments.filter(a => a.shiftId === s.id);
+                            if (adds.length === 0) return s;
+                            if (strategy === 'replace') {
+                                const newUsers = Array.from(new Set(adds.map(a => a.userId))).map(uid => ({ userId: uid, userName: allUsers.find(u => u.uid === uid)?.displayName || uid }));
+                                return { ...s, assignedUsers: newUsers };
+                            } else {
+                                const currentIds = new Set(s.assignedUsers.map(u => u.userId));
+                                const merged = [...s.assignedUsers];
+                                for (const a of adds) {
+                                    if (!currentIds.has(a.userId)) {
+                                        merged.push({ userId: a.userId, userName: allUsers.find(u => u.uid === a.userId)?.displayName || a.userId });
+                                        currentIds.add(a.userId);
+                                    }
+                                }
+                                return { ...s, assignedUsers: merged };
+                            }
+                        });
+                        const newSchedule = { ...base, shifts: updatedShifts };
+                        setHasUnsavedChanges(!isEqual(newSchedule.shifts, serverSchedule?.shifts || []));
+                        return newSchedule;
+                    });
+                    toast.success('Đã áp dụng phân công từ xem trước. Hãy lưu hoặc công bố.');
+                }}
+            />
         </TooltipProvider>
     )
 }

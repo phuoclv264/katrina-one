@@ -14,21 +14,21 @@ import { cn } from '@/lib/utils';
 import AvailabilityDialog from './availability-dialog';
 import PassRequestsDialog from './pass-requests-dialog';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -40,6 +40,7 @@ import { useSearchParams } from 'next/navigation';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { hasTimeConflict } from '@/lib/schedule-utils';
 import ShiftInfoDialog from './shift-info-dialog';
+import WeekScheduleDialog from './week-schedule-dialog';
 
 
 function ScheduleViewComponent() {
@@ -57,18 +58,36 @@ function ScheduleViewComponent() {
     const [isLoading, setIsLoading] = useState(true);
     const [processingNotificationId, setProcessingNotificationId] = useState<string | null>(null);
 
+    const weekId = useMemo(() => `${currentDate.getFullYear()}-W${getISOWeek(currentDate)}`, [currentDate]);
 
     const [isAvailabilityDialogOpen, setIsAvailabilityDialogOpen] = useState(false);
     const [isPassRequestsDialogOpen, setIsPassRequestsDialogOpen] = useState(false);
+    const [isWeekScheduleDialogOpen, setIsWeekScheduleDialogOpen] = useState(false);
+    const [dialogWeekId, setDialogWeekId] = useState<string>("");
+    const [dialogSchedule, setDialogSchedule] = useState<Schedule | null>(null);
+
+    useEffect(() => {
+        if (isWeekScheduleDialogOpen) {
+            setDialogWeekId(weekId);
+        }
+    }, [isWeekScheduleDialogOpen, weekId]);
+
+    useEffect(() => {
+        if (!isWeekScheduleDialogOpen || !dialogWeekId) return;
+
+        const unsubscribe = dataStore.subscribeToSchedule(dialogWeekId, (newSchedule) => {
+            setDialogSchedule(newSchedule);
+        });
+        return () => unsubscribe();
+    }, [dialogWeekId, isWeekScheduleDialogOpen]);
+
     const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
     const [activeShiftForInfo, setActiveShiftForInfo] = useState<AssignedShift | null>(null);
     const [selectedDateForAvailability, setSelectedDateForAvailability] = useState<Date | null>(null);
-    
-    const [isHandlingConflict, setIsHandlingConflict] = useState(false);
-    const [conflictDialog, setConflictDialog] = useState<{ isOpen: boolean; oldRequest: Notification | null; newRequestFn: () => void }>({ isOpen: false, oldRequest: null, newRequestFn: () => {} });
 
-    const weekId = useMemo(() => `${currentDate.getFullYear()}-W${getISOWeek(currentDate)}`, [currentDate]);
-    
+    const [isHandlingConflict, setIsHandlingConflict] = useState(false);
+    const [conflictDialog, setConflictDialog] = useState<{ isOpen: boolean; oldRequest: Notification | null; newRequestFn: () => void }>({ isOpen: false, oldRequest: null, newRequestFn: () => { } });
+
     const daysOfWeek = useMemo(() => {
         const start = startOfWeek(currentDate, { weekStartsOn: 1 });
         const end = endOfWeek(currentDate, { weekStartsOn: 1 });
@@ -79,7 +98,7 @@ function ScheduleViewComponent() {
 
     useEffect(() => {
         routerRef.current = router;
-    }, [router]); 
+    }, [router]);
 
     useEffect(() => {
         if (authLoading) return;
@@ -116,20 +135,20 @@ function ScheduleViewComponent() {
             availabilitySubscribed = true;
             checkLoadingDone();
         });
-        
+
         const unsubTemplates = dataStore.subscribeToShiftTemplates((templates) => {
             const sortedTemplates = templates.sort((a, b) => a.timeSlot.start.localeCompare(b.timeSlot.start));
             setShiftTemplates(sortedTemplates);
             templatesSubscribed = true;
             checkLoadingDone();
         });
-        
+
         const unsubUsers = dataStore.subscribeToUsers((userList) => {
             setAllUsers(userList);
             usersSubscribed = true;
             checkLoadingDone();
         });
-        
+
         let unsubNotifications: () => void;
         if (canManage) {
             unsubNotifications = dataStore.subscribeToAllPassRequestNotifications((notifs) => {
@@ -138,7 +157,7 @@ function ScheduleViewComponent() {
                 checkLoadingDone();
             });
         } else if (user) {
-             unsubNotifications = dataStore.subscribeToRelevantPassRequestNotifications(user.uid, user.role, (notifs) => {
+            unsubNotifications = dataStore.subscribeToRelevantPassRequestNotifications(user.uid, user.role, (notifs) => {
                 setNotifications(notifs);
                 notificationsSubscribed = true;
                 checkLoadingDone();
@@ -202,15 +221,15 @@ function ScheduleViewComponent() {
             toast.error(error.message || "Không thể gửi yêu cầu pass ca.");
         }
     }
-    
+
     const handlePassShiftAfterConflict = async (shift: AssignedShift) => {
         if (!user) return;
         await dataStore.requestPassShift(shift, user);
     }
-    
+
     const handleDirectPassRequest = async (shift: AssignedShift, targetUser: ManagedUser, isSwap: boolean, targetUserShift: AssignedShift | null) => {
         if (!user) return;
-        
+
         try {
             const conflictingRequest = await dataStore.requestDirectPassShift(shift, user, targetUser, isSwap, targetUserShift);
             if (conflictingRequest) {
@@ -225,23 +244,23 @@ function ScheduleViewComponent() {
             const actionText = isSwap ? 'đổi ca' : 'nhờ nhận ca';
             toast.success(`Yêu cầu ${actionText} đã được gửi trực tiếp đến ${targetUser.displayName}.`);
         } catch (error: any) {
-             toast.error(error.message || "Không thể gửi yêu cầu.");
+            toast.error(error.message || "Không thể gửi yêu cầu.");
         }
     }
-    
+
     const handleDirectPassRequestAfterConflict = async (shift: AssignedShift, targetUser: ManagedUser, isSwap: boolean, targetUserShift: AssignedShift | null) => {
-         if (!user) return;
-         await dataStore.requestDirectPassShift(shift, user, targetUser, isSwap, targetUserShift);
+        if (!user) return;
+        await dataStore.requestDirectPassShift(shift, user, targetUser, isSwap, targetUserShift);
     }
 
     const handleTakeShift = async (notification: Notification) => {
         if (!user || !schedule) return;
-        
+
         setProcessingNotificationId(notification.id);
-        
+
         try {
             const acceptingUser: AssignedUser = { userId: user.uid, userName: user.displayName || 'N/A' };
-            
+
             await dataStore.acceptPassShift(notification.id, notification.payload, acceptingUser, schedule);
 
             // Optimistic update UI
@@ -285,15 +304,15 @@ function ScheduleViewComponent() {
         if (!user) return;
         try {
             await dataStore.updatePassRequestNotificationStatus(notificationId, 'cancelled', user);
-             toast.success('Đã hủy yêu cầu pass ca của bạn.');
+            toast.success('Đã hủy yêu cầu pass ca của bạn.');
         } catch (error: any) {
-             toast.error('Không thể hủy yêu cầu.');
+            toast.error('Không thể hủy yêu cầu.');
         }
     }
 
     const handleRevertRequest = async (notification: Notification) => {
         if (!user) return;
-         try {
+        try {
             await dataStore.revertPassRequest(notification, user);
             toast.success('Đã hoàn tác yêu cầu pass ca thành công.');
         } catch (error) {
@@ -302,14 +321,13 @@ function ScheduleViewComponent() {
         }
     }
 
-     const handleApproveRequest = async (notification: Notification) => {
+    const handleApproveRequest = async (notification: Notification) => {
         if (!user) return;
         setProcessingNotificationId(notification.id);
         try {
             await dataStore.approvePassRequest(notification, user);
             toast.success('Đã phê duyệt yêu cầu đổi ca.');
-        } catch (error: any)
-{
+        } catch (error: any) {
             console.error(error);
             let errorMessage = 'Không thể phê duyệt yêu cầu.';
             if (error instanceof Error) {
@@ -326,9 +344,9 @@ function ScheduleViewComponent() {
             setProcessingNotificationId(null);
         }
     }
-    
+
     const handleRejectApproval = async (notificationId: string) => {
-         if (!user) return;
+        if (!user) return;
         setProcessingNotificationId(notificationId);
         try {
             await dataStore.rejectPassRequestApproval(notificationId, user);
@@ -340,10 +358,10 @@ function ScheduleViewComponent() {
             setProcessingNotificationId(null);
         }
     }
-    
+
     const userAvailability = useMemo(() => {
         if (!user || !availability) {
-          return new Map<string, TimeSlot[]>();
+            return new Map<string, TimeSlot[]>();
         }
         const map = new Map<string, TimeSlot[]>();
         availability
@@ -357,12 +375,12 @@ function ScheduleViewComponent() {
         const end = endOfWeek(currentDate, { weekStartsOn: 1 });
         return { start, end };
     }, [currentDate]);
-    
+
     const isCurrentWeek = isSameWeek(currentDate, new Date(), { weekStartsOn: 1 });
 
     const pendingRequestCount = useMemo(() => {
         if (!notifications || !user) return 0;
-        
+
         const weekFilteredNotifications = notifications.filter(notification => {
             if (notification.type !== 'pass_request') return false;
             const shiftDate = parseISO(notification.payload.shiftDate);
@@ -383,11 +401,11 @@ function ScheduleViewComponent() {
                 if (notification.status === 'pending_approval' && payload.takenBy?.userId === user.uid) {
                     return true;
                 }
-                
+
                 if (notification.status === 'pending') {
                     const isTargetedToMe = payload.targetUserId === user.uid;
                     const isPublicRequest = !payload.targetUserId;
-                    
+
                     if (isTargetedToMe || isPublicRequest) {
                         const isDifferentRole = payload.shiftRole !== 'Bất kỳ' && user.role !== payload.shiftRole && !(user.secondaryRoles || []).includes(payload.shiftRole as UserRole);
                         const hasDeclined = (payload.declinedBy || []).includes(user.uid);
@@ -400,7 +418,7 @@ function ScheduleViewComponent() {
             return false;
         }).length;
     }, [notifications, user, weekInterval, canManage]);
-    
+
     const hasPendingRequest = (shiftId: string): boolean => {
         return notifications.some(n => n.payload.shiftId === shiftId && (n.status === 'pending' || n.status === 'pending_approval'));
     }
@@ -408,50 +426,66 @@ function ScheduleViewComponent() {
     if (authLoading || isLoading || !user) {
         return <LoadingPage />;
     }
-    
+
     const today = startOfToday();
     const canRegisterAvailability = isBefore(today, endOfWeek(currentDate, { weekStartsOn: 1 }));
     const isSchedulePublished = schedule?.status === 'published';
 
     return (
         <TooltipProvider>
-             <div className="flex flex-col sm:flex-row flex-wrap justify-center sm:justify-between items-center gap-4 mb-8">
+            <div className="flex flex-col sm:flex-row flex-wrap justify-center sm:justify-between items-center gap-4 mb-8">
                 <div className="flex items-center gap-2">
                     <Button variant="outline" size="icon" onClick={() => handleDateChange('prev')}>
                         <ChevronLeft className="h-4 w-4" />
                     </Button>
-                        <div className="text-center">
+                    <div className="text-center">
                         <span className="text-lg font-medium whitespace-nowrap">
                             {format(weekInterval.start, 'dd/MM')} - {format(weekInterval.end, 'dd/MM/yyyy')}
                         </span>
-                            <Button variant={isCurrentWeek ? "secondary" : "outline"} size="sm" className="w-full mt-1" onClick={() => setCurrentDate(new Date())}>
+                        <Button variant={isCurrentWeek ? "secondary" : "outline"} size="sm" className="w-full mt-1" onClick={() => setCurrentDate(new Date())}>
                             {isCurrentWeek ? 'Tuần này' : 'Quay về tuần hiện tại'}
                         </Button>
-                        </div>
+                    </div>
                     <Button variant="outline" size="icon" onClick={() => handleDateChange('next')}>
                         <ChevronRight className="h-4 w-4" />
                     </Button>
                 </div>
 
-                <div className="relative w-full sm:w-auto">
-                    <Button variant="secondary" onClick={() => setIsPassRequestsDialogOpen(true)} className="w-full">
-                        <MailQuestion className="mr-2 h-4 w-4"/>
-                        Yêu cầu Pass ca
-                        {pendingRequestCount > 0 && (
-                            <Badge variant="destructive" className="ml-2">
-                                {pendingRequestCount}
-                            </Badge>
-                        )}
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={() => setIsWeekScheduleDialogOpen(true)} className="w-full bg-white dark:bg-slate-800">
+                        <Users className="mr-2 h-4 w-4" />
+                        Xem lịch tuần
                     </Button>
+                    <div className="relative w-full sm:w-auto">
+                        <Button variant="outline" onClick={() => setIsPassRequestsDialogOpen(true)} className="w-full bg-white dark:bg-slate-800">
+                            <MailQuestion className="mr-2 h-4 w-4" />
+                            Yêu cầu Pass ca
+                            {pendingRequestCount > 0 && (
+                                <Badge variant="destructive" className="ml-2">
+                                    {pendingRequestCount}
+                                </Badge>
+                            )}
+                        </Button>
+                    </div>
                 </div>
             </div>
+
+            <WeekScheduleDialog
+                open={isWeekScheduleDialogOpen}
+                onOpenChange={setIsWeekScheduleDialogOpen}
+                schedule={dialogSchedule}
+                allUsers={allUsers}
+                shiftTemplates={shiftTemplates}
+                initialWeekInterval={weekInterval}
+                onWeekChange={setDialogWeekId}
+            />
 
             {!isSchedulePublished && (
                 <Card className="mb-6 bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-700/50">
                     <CardHeader className="flex-row items-center gap-4">
                         <Info className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                         <div>
-                             <CardTitle className="text-blue-800 dark:text-blue-300 text-lg">
+                            <CardTitle className="text-blue-800 dark:text-blue-300 text-lg">
                                 {schedule?.status === 'draft' && 'Lịch tuần này đang được soạn thảo.'}
                                 {schedule?.status === 'proposed' && 'Lịch đã được đề xuất và đang chờ duyệt.'}
                                 {!schedule && canRegisterAvailability && 'Chưa có lịch cho tuần này. Vui lòng đăng ký giờ rảnh.'}
@@ -464,7 +498,7 @@ function ScheduleViewComponent() {
                     </CardHeader>
                 </Card>
             )}
-            
+
             <div className="border rounded-lg bg-card">
                 <Table>
                     <TableHeader>
@@ -481,18 +515,18 @@ function ScheduleViewComponent() {
                     <TableBody>
                         {daysOfWeek.map(day => {
                             const dateKey = format(day, 'yyyy-MM-dd');
-                            
+
                             // For unpublished view
                             const availabilityForDay = userAvailability.get(dateKey) || [];
 
                             // For published view
-                            const shiftsForDay = schedule?.shifts.filter(s => 
+                            const shiftsForDay = schedule?.shifts.filter(s =>
                                 s.date === dateKey && s.assignedUsers.some(u => u.userId === user?.uid)
-                            ).sort((a,b) => a.timeSlot.start.localeCompare(b.timeSlot.start));
-                                                        
+                            ).sort((a, b) => a.timeSlot.start.localeCompare(b.timeSlot.start));
+
                             return (
-                                <TableRow 
-                                    key={dateKey} 
+                                <TableRow
+                                    key={dateKey}
                                     className={cn(
                                         "border-t",
                                         isSameDay(day, today) && "bg-primary/10",
@@ -505,7 +539,7 @@ function ScheduleViewComponent() {
                                     </TableCell>
                                     <TableCell className="align-middle text-center p-2 sm:p-4">
                                         {!isSchedulePublished ? (
-                                             canRegisterAvailability && (
+                                            canRegisterAvailability && (
                                                 <Card className="bg-background transition-colors max-w-sm mx-auto hover:bg-accent/50">
                                                     <CardContent className="p-2">
                                                         {availabilityForDay.length > 0 ? (
@@ -530,11 +564,11 @@ function ScheduleViewComponent() {
                                                         const shiftEndTime = new Date(`${shift.date}T${shift.timeSlot.end}`);
                                                         const isPastShift = isBefore(shiftEndTime, new Date());
                                                         return (
-                                                            <Card 
-                                                                key={shift.id} 
+                                                            <Card
+                                                                key={shift.id}
                                                                 className={cn(
                                                                     "text-left shadow-md",
-                                                                    isPastShift 
+                                                                    isPastShift
                                                                         ? "bg-muted text-muted-foreground"
                                                                         : "bg-primary text-primary-foreground"
                                                                 )}
@@ -558,7 +592,7 @@ function ScheduleViewComponent() {
                                                                                 <AlertDialog>
                                                                                     <AlertDialogTrigger asChild>
                                                                                         <DropdownMenuItem onSelect={(e) => e.preventDefault()} disabled={hasPendingRequest(shift.id)}>
-                                                                                            <Send className="mr-2 h-4 w-4 text-green-500"/> Xin pass ca
+                                                                                            <Send className="mr-2 h-4 w-4 text-green-500" /> Xin pass ca
                                                                                         </DropdownMenuItem>
                                                                                     </AlertDialogTrigger>
                                                                                     <AlertDialogContent>
@@ -595,7 +629,7 @@ function ScheduleViewComponent() {
             </div>
 
 
-             <AvailabilityDialog 
+            <AvailabilityDialog
                 isOpen={isAvailabilityDialogOpen}
                 onClose={() => setIsAvailabilityDialogOpen(false)}
                 onSave={handleSaveAvailability}
@@ -604,7 +638,7 @@ function ScheduleViewComponent() {
                 shiftTemplates={shiftTemplates}
             />
 
-            <PassRequestsDialog 
+            <PassRequestsDialog
                 isOpen={isPassRequestsDialogOpen}
                 onClose={() => setIsPassRequestsDialogOpen(false)}
                 notifications={notifications}
@@ -620,7 +654,7 @@ function ScheduleViewComponent() {
                 processingNotificationId={processingNotificationId}
                 schedule={schedule}
             />
-            
+
             {activeShiftForInfo && schedule && (
                 <ShiftInfoDialog
                     isOpen={isInfoDialogOpen}
@@ -634,20 +668,20 @@ function ScheduleViewComponent() {
                 />
             )}
 
-            <AlertDialog open={conflictDialog.isOpen} onOpenChange={(open) => {if(!open) setConflictDialog({ isOpen: false, oldRequest: null, newRequestFn: () => {} })}}>
+            <AlertDialog open={conflictDialog.isOpen} onOpenChange={(open) => { if (!open) setConflictDialog({ isOpen: false, oldRequest: null, newRequestFn: () => { } }) }}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Yêu cầu bị trùng lặp</AlertDialogTitle>
                         <AlertDialogDescription asChild>
-                           <div>
+                            <div>
                                 <div>Bạn đã có một yêu cầu pass ca khác loại đang chờ xử lý cho ca làm việc này.</div>
                                 {conflictDialog.oldRequest?.payload && (
                                     <Card className="mt-4 bg-muted">
                                         <CardContent className="p-3 text-sm">
                                             <div><span className="font-semibold">Loại Yêu cầu:</span> {
                                                 conflictDialog.oldRequest.payload.isSwapRequest ? 'Đổi ca'
-                                                : conflictDialog.oldRequest.payload.targetUserId ? 'Nhờ nhận ca'
-                                                : 'Pass công khai'
+                                                    : conflictDialog.oldRequest.payload.targetUserId ? 'Nhờ nhận ca'
+                                                        : 'Pass công khai'
                                             }</div>
                                             {conflictDialog.oldRequest.payload.targetUserId && (
                                                 <div><span className="font-semibold">Người nhận:</span> {allUsers.find(u => u.uid === conflictDialog.oldRequest!.payload.targetUserId)?.displayName || 'Không rõ'}</div>
@@ -657,18 +691,18 @@ function ScheduleViewComponent() {
                                     </Card>
                                 )}
                                 <div className="mt-2">
-                                    {conflictDialog.oldRequest?.status === 'pending_approval' 
+                                    {conflictDialog.oldRequest?.status === 'pending_approval'
                                         ? "Yêu cầu này đã có người nhận và đang chờ duyệt nên không thể hủy."
                                         : "Bạn có muốn hủy yêu cầu cũ và tạo yêu cầu mới này không?"
                                     }
                                 </div>
-                           </div>
+                            </div>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel disabled={isHandlingConflict}>Đóng</AlertDialogCancel>
                         {conflictDialog.oldRequest?.status === 'pending' && (
-                            <AlertDialogAction 
+                            <AlertDialogAction
                                 disabled={isHandlingConflict}
                                 onClick={async () => {
                                     setIsHandlingConflict(true);
@@ -680,10 +714,10 @@ function ScheduleViewComponent() {
                                         await conflictDialog.newRequestFn();
                                     } finally {
                                         setIsHandlingConflict(false);
-                                        setConflictDialog({ isOpen: false, oldRequest: null, newRequestFn: () => {} });
+                                        setConflictDialog({ isOpen: false, oldRequest: null, newRequestFn: () => { } });
                                     }
-                            }}>
-                                {isHandlingConflict ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                                }}>
+                                {isHandlingConflict ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                                 Hủy yêu cầu cũ & Tạo yêu cầu mới
                             </AlertDialogAction>
                         )}

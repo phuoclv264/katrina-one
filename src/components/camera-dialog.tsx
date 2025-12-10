@@ -147,7 +147,7 @@ export default function CameraDialog({
     } finally {
         setIsStarting(false);
     }
-  }, [isStarting, hardwareError, stopCameraStream, isHD, currentMode, videoRef]);
+  }, [isStarting, hardwareError, stopCameraStream, isHD, currentMode, videoRef, hardwareError]);
 
   useEffect(() => {
     if (isOpen) {

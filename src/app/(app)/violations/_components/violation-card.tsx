@@ -26,7 +26,7 @@ interface ViolationCardProps {
   onToggleWaivePenalty: (violation: Violation) => void;
   onEdit: (violation: Violation) => void;
   onDelete: (violation: Violation) => void;
-  onPenaltySubmit: (violation: Violation, user: ViolationUser, mode: 'photo' | 'video' | 'both') => void;
+  onPenaltySubmit: (violation: Violation, user: ViolationUser, mode: 'photo' | 'video' | 'both' | 'manual') => void;
   onCommentSubmit: (violationId: string, commentText: string, photoIds: string[]) => void;
   onCommentEdit: (violationId: string, commentId: string, newText: string) => void;
   onCommentDelete: (violationId: string, commentId: string) => void;
@@ -209,6 +209,11 @@ export const ViolationCard = React.forwardRef<HTMLDivElement, ViolationCardProps
                                 <Button size="sm" onClick={() => onPenaltySubmit(v, violatedUser, 'video')} className="w-full sm:w-auto">
                                     Xác nhận đã nộp phạt
                                 </Button>
+                                {isOwner && (
+                                    <Button size="sm" variant="outline" onClick={() => onPenaltySubmit(v, violatedUser, 'manual')} className="w-full sm:w-auto">
+                                        Đã nộp (Không cần ảnh)
+                                    </Button>
+                                )}
                             </div>
                         );
                     }

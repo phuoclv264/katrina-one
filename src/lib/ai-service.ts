@@ -27,6 +27,8 @@ import type {
     GenerateBartenderTasksOutput,
     GenerateComprehensiveTasksInput,
     GenerateComprehensiveTasksOutput,
+    GenerateShiftScheduleInput,
+    GenerateShiftScheduleOutput,
 } from './types';
 
 // Memoize the functions instance
@@ -68,3 +70,4 @@ export const callGenerateServerTasks = createApiCaller<GenerateServerTasksInput,
 export const callGenerateBartenderTasks = createApiCaller<GenerateBartenderTasksInput, GenerateBartenderTasksOutput>('callGenerateBartenderTasks');
 export const callGenerateComprehensiveTasks = createApiCaller<GenerateComprehensiveTasksInput, GenerateComprehensiveTasksOutput>('callGenerateComprehensiveTasks');
 export const callRefineText = createApiCaller<{ title: string; content: string; }, { refinedTitle: string; refinedContent: string; }>('callRefineText');
+export const callGenerateShiftSchedule = createApiCaller<GenerateShiftScheduleInput, GenerateShiftScheduleOutput>('callGenerateShiftSchedule');

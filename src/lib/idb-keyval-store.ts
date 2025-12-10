@@ -32,7 +32,12 @@ const getDb = (): Promise<IDBPDatabase<KeyValDB>> => {
 };
 
 export async function set(key: IDBValidKey, value: any): Promise<void> {
-  (await getDb()).put(STORE_NAME, value, key);
+  try {
+    await (await getDb()).put(STORE_NAME, value, key);
+  } catch (error) {
+    console.error('[idb-keyval] set error', { key, error });
+    throw error;
+  }
 }
 
 export async function get<T = any>(key: IDBValidKey): Promise<T | undefined> {

@@ -78,7 +78,7 @@ export function AppSidebar() {
             { href: '/manager', label: 'Bảng điều khiển', icon: UserCog },
             { href: '/reports', label: 'Xem báo cáo', icon: FileText },
             commonScheduleMenu,
-            { href: '/shift-scheduling', label: 'Xếp lịch', icon: CalendarDays },
+            
             commonViolationMenu,
             commonReportsFeedMenu
           );
