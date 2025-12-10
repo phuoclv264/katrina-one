@@ -222,8 +222,13 @@ export async function createAttendanceRecord(user: AuthUser, photoId: string, is
     try {
         const activeShift = await getActiveShiftForUser(user.uid);
         if (activeShift) {
+            // Check if user role is "Quản lý" and the start time is 6:00 AM then set the start time to 7:00 AM
+            let shiftStartTime = activeShift.timeSlot.start;
+            if (user.role === 'Quản lý' && shiftStartTime === '06:00') {
+                    shiftStartTime = '07:00';
+            }
             // Parse the scheduled shift start time into a Date
-            const shiftStart = parse(`${activeShift.date} ${activeShift.timeSlot.start}`, 'yyyy-MM-dd HH:mm', new Date());
+            const shiftStart = parse(`${activeShift.date} ${shiftStartTime}`, 'yyyy-MM-dd HH:mm', new Date());
             const now = new Date();
             const lateMinutes = differenceInMinutes(now, shiftStart);
             const effectiveLate = lateMinutes - (estimatedLateMinutes || 0);
