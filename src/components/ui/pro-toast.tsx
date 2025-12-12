@@ -34,7 +34,7 @@ const DRAG_DISMISS_THRESHOLD = -60;
 const VELOCITY_DISMISS_THRESHOLD = -400;
 const DRAG_CLICK_THRESHOLD = 6;
 const EXIT_ANIMATION_DURATION = 280;
-const MAX_VISIBLE_TOASTS = 5;
+const MAX_VISIBLE_TOASTS = 10;
 
 // ============================================================================
 // TOAST STATE MANAGER
@@ -149,12 +149,14 @@ function SingleToast({ toast, index, onDismiss }: SingleToastProps) {
     const iconBgClass = getTypeStyles(type);
 
     const triggerDismiss = useCallback(() => {
-        if (isExiting) return;
-        setIsExiting(true);
-        exitTimeout.current = setTimeout(() => {
-            onDismiss(toast.id);
-        }, EXIT_ANIMATION_DURATION);
-    }, [isExiting, onDismiss, toast.id]);
+        setIsExiting((prev) => {
+            if (prev) return prev;
+            exitTimeout.current = setTimeout(() => {
+                onDismiss(toast.id);
+            }, EXIT_ANIMATION_DURATION);
+            return true;
+        });
+    }, [onDismiss, toast.id]);
 
     const handleTap = useCallback(() => {
         if (hasDragged) return;
@@ -188,16 +190,7 @@ function SingleToast({ toast, index, onDismiss }: SingleToastProps) {
 
     const handleDragEnd = useCallback(
         (_: unknown, info: PanInfo) => {
-            const shouldDismiss =
-                info.offset.y < DRAG_DISMISS_THRESHOLD ||
-                info.velocity.y < VELOCITY_DISMISS_THRESHOLD;
-
-            if (shouldDismiss) {
-                triggerDismiss();
-            } else {
-                // Reset drag state after a short delay
-                setTimeout(() => setHasDragged(false), 100);
-            }
+            triggerDismiss();
         },
         [triggerDismiss]
     );
@@ -214,16 +207,22 @@ function SingleToast({ toast, index, onDismiss }: SingleToastProps) {
             if (dismissTimeout.current) {
                 clearTimeout(dismissTimeout.current);
             }
+        };
+    }, [toast.duration, triggerDismiss]);
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
             if (exitTimeout.current) {
                 clearTimeout(exitTimeout.current);
             }
         };
-    }, [toast.duration, triggerDismiss]);
+    }, []);
 
     // Stacking offset calculations
-    const stackOffset = index * 8;
-    const stackScale = 1 - index * 0.02;
-    const stackOpacity = 1 - index * 0.15;
+    const stackOffset = index * 5;
+    const stackScale = 1 - index * 0.01;
+    const stackOpacity = 1 - index * 0.07;
 
     return (
         <motion.div
@@ -232,31 +231,31 @@ function SingleToast({ toast, index, onDismiss }: SingleToastProps) {
             animate={
                 isExiting
                     ? {
-                          y: -80,
-                          opacity: 0,
-                          scale: 0.9,
-                          transition: {
-                              type: 'spring',
-                              stiffness: 500,
-                              damping: 30,
-                          },
-                      }
+                        y: -150,
+                        opacity: 0,
+                        scale: 0.8,
+                        transition: {
+                            type: 'spring',
+                            stiffness: 500,
+                            damping: 30,
+                        },
+                    }
                     : {
-                          y: stackOffset,
-                          opacity: stackOpacity,
-                          scale: stackScale,
-                          transition: {
-                              type: 'spring',
-                              stiffness: 400,
-                              damping: 30,
-                              mass: 0.8,
-                          },
-                      }
+                        y: stackOffset,
+                        opacity: stackOpacity,
+                        scale: stackScale,
+                        transition: {
+                            type: 'spring',
+                            stiffness: 400,
+                            damping: 30,
+                            mass: 0.8,
+                        },
+                    }
             }
             exit={{
-                y: -80,
+                y: -150,
                 opacity: 0,
-                scale: 0.9,
+                scale: 0.8,
                 transition: {
                     type: 'spring',
                     stiffness: 500,
@@ -325,9 +324,6 @@ function SingleToast({ toast, index, onDismiss }: SingleToastProps) {
                 >
                     <X className="h-4 w-4" />
                 </button>
-
-                {/* Drag indicator */}
-                <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-8 h-1 bg-muted-foreground/20 rounded-full" />
             </div>
         </motion.div>
     );

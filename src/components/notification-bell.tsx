@@ -26,7 +26,7 @@ export function NotificationBell() {
             return;
         }
 
-        const unreadNotifications = notifications.filter(n => !n.isRead?.[user.uid]);
+        const unreadNotifications = notifications.filter(n => !n.isRead?.[user.uid]).reverse();
 
         unreadNotifications.forEach(notification => {
             if (processedNotifications.current.has(notification.id)) return;
