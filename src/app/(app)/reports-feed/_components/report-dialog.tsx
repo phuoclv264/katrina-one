@@ -10,7 +10,7 @@ import { UserMultiSelect } from '@/components/user-multi-select';
 import { Loader2, Wand2, Paperclip, Camera, X, File as FileIcon } from 'lucide-react';
 import type { ManagedUser, WhistleblowingReport, Attachment } from '@/lib/types';
 import { callRefineText } from '@/lib/ai-service';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 import { photoStore } from '@/lib/photo-store';
 import { v4 as uuidv4 } from 'uuid';
 import Image from 'next/image';

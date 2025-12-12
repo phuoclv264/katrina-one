@@ -14,7 +14,7 @@ import { Accordion } from '@/components/ui/accordion';
 import { ArrowLeft, Banknote, Settings, ChevronLeft, ChevronRight, PlusCircle, Calendar as CalendarIcon, FilePlus, ChevronsUpDown } from 'lucide-react';
 import { format, isSameMonth, parseISO, addMonths, subMonths, eachDayOfInterval, startOfMonth, endOfMonth, isBefore } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { toast } from 'react-hot-toast'; 
+import { toast } from '@/components/ui/pro-toast'; 
 
 import UnpaidSlipsDialog from './_components/unpaid-slips-dialog';
 import OwnerCashierDialogs from './_components/owner-cashier-dialogs';
@@ -464,7 +464,7 @@ function CashierReportsView() {
         await dataStore.addOrUpdateIncident({ ...data, date: incidentDate }, id, user);
         toast.success(id ? "Đã cập nhật sự cố." : "Đã ghi nhận sự cố.");
         if (data.cost > 0 && data.paymentMethod !== 'intangible_cost') {
-          toast("Một phiếu chi tương ứng đã được tạo/cập nhật tự động.", { icon: 'ℹ️' });
+          toast.info("Một phiếu chi tương ứng đã được tạo/cập nhật tự động.", { icon: 'ℹ️' });
         }
         setIsIncidentDialogOpen(false);
     } catch (error) { toast.error('Không thể lưu báo cáo sự cố.'); }

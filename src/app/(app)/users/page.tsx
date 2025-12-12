@@ -7,7 +7,7 @@ import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useRouter } from 'nextjs-toploader/app';
 import { dataStore } from '@/lib/data-store';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 import type { ManagedUser, UserRole, AppSettings } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';

@@ -11,7 +11,7 @@ import { Edit2, Trash2, MoreVertical } from 'lucide-react';
 import Image from 'next/image';
 import HourlyRateDialog from './hourly-rate-dialog';
 import { dataStore } from '@/lib/data-store';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 import { Button } from '@/components/ui/button';
 import { Timestamp } from 'firebase/firestore';
 import {

@@ -3,7 +3,7 @@
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, PanInfo, useMotionValue, useTransform } from 'framer-motion';
 import { createPortal } from 'react-dom';
-import { X, CheckCircle2, AlertCircle, AlertTriangle, Info, Bell } from 'lucide-react';
+import { X, CheckCircle2, AlertCircle, AlertTriangle, Info, Bell, Loader2 } from 'lucide-react';
 
 // ============================================================================
 // TYPES
@@ -12,6 +12,7 @@ import { X, CheckCircle2, AlertCircle, AlertTriangle, Info, Bell } from 'lucide-
 export type ToastType = 'info' | 'success' | 'warning' | 'error' | 'notification';
 
 export interface ToastOptions {
+    id?: string;
     title: string;
     message?: string;
     icon?: ReactNode;
@@ -60,7 +61,7 @@ class ToastManager {
     }
 
     show(options: ToastOptions): string {
-        const id = `toast-${Date.now()}-${++this.idCounter}`;
+        const id = options.id ?? `toast-${Date.now()}-${++this.idCounter}`;
         const toast: ToastItem = {
             ...options,
             id,
@@ -290,7 +291,7 @@ function SingleToast({ toast, index, onDismiss }: SingleToastProps) {
                 {/* Icon */}
                 <div
                     className={`
-                        flex-shrink-0 p-2 rounded-xl ring-1
+                        flex-shrink-0 p-2 rounded-xl ring-1 self-center
                         ${iconBgClass}
                     `}
                 >
@@ -298,7 +299,7 @@ function SingleToast({ toast, index, onDismiss }: SingleToastProps) {
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 min-w-0 pt-0.5">
+                <div className={`flex-1 min-w-0 ${!toast.message ? 'self-center pt-0' : 'pt-0.5'}`}>
                     <p className="text-sm font-semibold text-foreground leading-tight">
                         {toast.title}
                     </p>
@@ -312,14 +313,15 @@ function SingleToast({ toast, index, onDismiss }: SingleToastProps) {
                 {/* Close button */}
                 <button
                     onClick={handleCloseClick}
-                    className="
-                        flex-shrink-0 p-1.5 -mr-1 -mt-0.5
+                    className={`
+                        flex-shrink-0 p-1.5 -mr-1
+                        ${!toast.message ? 'self-center -mt-0' : '-mt-0.5'}
                         rounded-lg
                         text-muted-foreground/60 hover:text-muted-foreground
                         hover:bg-muted/80
                         transition-colors duration-150
                         focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50
-                    "
+                    `}
                     aria-label="Đóng thông báo"
                 >
                     <X className="h-4 w-4" />
@@ -409,7 +411,11 @@ export function showToast(options: ToastOptions): string {
     return toastManager.show(options);
 }
 
-export function dismissToast(id: string): void {
+export function dismissToast(id?: string): void {
+    if (!id) {
+        toastManager.dismissAll();
+        return;
+    }
     toastManager.dismiss(id);
 }
 
@@ -417,21 +423,43 @@ export function dismissAllToasts(): void {
     toastManager.dismissAll();
 }
 
-// Convenience methods
+// Extended showToast to support updating by toastId
+function showOrUpdateToast(options: ToastOptions): string {
+    if (options.id) {
+        // Update existing toast if found, else create new
+        toastManager.dismiss(options.id);
+        return toastManager.show({ ...options });
+    }
+    return toastManager.show(options);
+}
+
+// Loading toast
+function loadingToast(title: string, options?: Omit<ToastOptions, 'title' | 'type'>): string {
+    return showOrUpdateToast({
+        title,
+        type: 'info',
+        ...options,
+        // Optionally, you can add a spinner icon here
+        icon: <Loader2 className="h-5 w-5 text-primary animate-spin" />,
+        duration: 100000, // Long duration for loading
+    });
+}
+
 export const toast = {
-    show: showToast,
+    show: showOrUpdateToast,
     dismiss: dismissToast,
     dismissAll: dismissAllToasts,
+    loading: loadingToast,
     success: (title: string, options?: Omit<ToastOptions, 'title' | 'type'>) =>
-        showToast({ title, type: 'success', ...options }),
+        showOrUpdateToast({ title, type: 'success', ...options }),
     error: (title: string, options?: Omit<ToastOptions, 'title' | 'type'>) =>
-        showToast({ title, type: 'error', ...options }),
+        showOrUpdateToast({ title, type: 'error', ...options }),
     warning: (title: string, options?: Omit<ToastOptions, 'title' | 'type'>) =>
-        showToast({ title, type: 'warning', ...options }),
+        showOrUpdateToast({ title, type: 'warning', ...options }),
     info: (title: string, options?: Omit<ToastOptions, 'title' | 'type'>) =>
-        showToast({ title, type: 'info', ...options }),
+        showOrUpdateToast({ title, type: 'info', ...options }),
     notification: (title: string, options?: Omit<ToastOptions, 'title' | 'type'>) =>
-        showToast({ title, type: 'notification', ...options }),
+        showOrUpdateToast({ title, type: 'notification', ...options }),
 };
 
 // ============================================================================

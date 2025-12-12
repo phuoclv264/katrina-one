@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc, getDocFromCache } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 import { dataStore } from '@/lib/data-store';
 import { useDataRefresher } from './useDataRefresher';
 import { isUserOnActiveShift, getActiveShifts } from '@/lib/schedule-utils';

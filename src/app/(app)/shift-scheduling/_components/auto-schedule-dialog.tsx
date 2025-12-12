@@ -13,7 +13,7 @@ import type { Availability, ManagedUser, Schedule, ScheduleCondition, ScheduleRu
 import { schedule as runSchedule } from '@/lib/scheduler';
 import { format, getDay } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 import { cn } from '@/lib/utils';
 import { updateStructuredConstraints } from '@/lib/schedule-store';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -167,7 +167,7 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
       setEditableConstraints(prev);
       toast.success('Đã hoàn tác thay đổi.');
     } else {
-      toast('Không có hành động để hoàn tác.', { icon: 'ℹ️' });
+      toast.info('Không có hành động để hoàn tác.', { icon: 'ℹ️' });
     }
   }, []);
 
@@ -193,7 +193,7 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
     setResult(r);
     setEditableAssignments(r.assignments.map(a => ({ shiftId: a.shiftId, userId: a.userId, selected: true })));
     if (r.warnings.length) {
-      toast('Có cảnh báo trong kết quả xếp lịch.', { icon: '⚠️' });
+      toast.info('Có cảnh báo trong kết quả xếp lịch.', { icon: '⚠️' });
     }
   };
 

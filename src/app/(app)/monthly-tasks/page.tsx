@@ -12,7 +12,7 @@ import { CalendarClock, Plus, Edit, Trash2, Loader2 } from 'lucide-react';
 import { dataStore } from '@/lib/data-store';
 import type { MonthlyTask, UserRole, ManagedUser } from '@/lib/types';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';

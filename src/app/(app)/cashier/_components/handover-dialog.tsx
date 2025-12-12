@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { ExtractHandoverDataOutput, AuthUser, FinalHandoverDetails, MediaItem } from '@/lib/types';
 import { Loader2, Upload, AlertCircle, RefreshCw, ServerCrash, FileText, ArrowRight, Edit, Clock, X, Camera } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 import { callExtractHandoverData } from '@/lib/ai-service';
 import { photoStore } from '@/lib/photo-store';
 import Image from 'next/image';

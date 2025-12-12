@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Trash2, Plus, Edit, Loader2, Check, Save, ShieldCheck, Repeat, ArrowUp, ArrowDown } from 'lucide-react';
 import type { ViolationCategory, ViolationCategoryData, FineRule } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   AlertDialog,

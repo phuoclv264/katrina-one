@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sun, Moon, Sunset } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'nextjs-toploader/app';
@@ -123,7 +123,7 @@ function AiAssistant({
 
         const sectionToSort = tasksByShift?.[targetShift]?.sections.find(s => s.title === targetSection);
         if (!sectionToSort || sectionToSort.tasks.length < 2) {
-            toast("Mục này có ít hơn 2 công việc.", { icon: 'ℹ️' });
+            toast.info("Mục này có ít hơn 2 công việc.", { icon: 'ℹ️' });
             return;
         }
         

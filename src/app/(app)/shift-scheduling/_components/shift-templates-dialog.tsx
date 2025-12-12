@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Trash2, Plus, Edit, Loader2, Check, Users } from 'lucide-react';
 import type { ShiftTemplate, UserRole } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Badge } from '@/components/ui/badge';

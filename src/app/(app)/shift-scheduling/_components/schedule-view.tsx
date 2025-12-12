@@ -46,7 +46,7 @@ import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 import ShiftAssignmentDialog from './shift-assignment-popover'; // Renaming this import for clarity, but it's the right file
 import ShiftTemplatesDialog from './shift-templates-dialog';
 import TotalHoursTracker from './total-hours-tracker';

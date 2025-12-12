@@ -4,7 +4,7 @@
 import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging';
 import { app } from './firebase';
 import { dataStore } from './data-store';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 
 // This function requests permission and gets the device token.
 export const requestNotificationPermission = async (userId: string) => {
