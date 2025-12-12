@@ -4,7 +4,7 @@
 
 **Katrina One** is an internal management application for Katrina Coffee (Vietnamese: "Ứng dụng dành riêng cho nội bộ hệ thống Katrina Coffee"). This is a Next.js-based web application with mobile capabilities via Capacitor, designed for managing staff shifts, task checklists, inventory, and reports across multiple roles (Server/Phục vụ, Bartender/Pha chế, Manager/Quản lý, Owner/Chủ nhà hàng, Cashier/Thu ngân).
 
-**Repository Size:** ~10,400 lines of TypeScript/TSX code across 58+ component files  
+**Repository Size:** ~10,400 lines of TypeScript/TSX code across 200+ source files  
 **Framework:** Next.js 15.3.6 (App Router)  
 **Runtime:** Node.js v20.x, npm 10.x  
 **Languages:** TypeScript, React (TSX)  
@@ -140,8 +140,8 @@ src/
 │   │   └── violations/            # Violation tracking
 │   └── api/
 │       └── image-proxy/           # Image proxy endpoint
-├── components/            # Shared React components
-│   ├── ui/               # shadcn/ui base components (54+ components)
+├── components/            # Shared React components (58 component files)
+│   ├── ui/               # shadcn/ui base components
 │   ├── sidebar.tsx       # Main navigation sidebar
 │   └── [other shared components]
 ├── contexts/             # React Context providers
@@ -152,10 +152,10 @@ src/
 ├── lib/                 # Core business logic and utilities
 │   ├── firebase.ts      # Firebase initialization (client-side only)
 │   ├── types.ts         # TypeScript type definitions
-│   ├── data-store.ts    # Main Firestore data operations (~79k lines)
-│   ├── schedule-store.ts # Scheduling logic (~54k lines)
-│   ├── cashier-store.ts  # Cashier operations (~28k lines)
-│   ├── attendance-store.ts # Attendance tracking (~22k lines)
+│   ├── data-store.ts    # Main Firestore data operations (~2k lines)
+│   ├── schedule-store.ts # Scheduling logic (~1.3k lines)
+│   ├── cashier-store.ts  # Cashier operations (~680 lines)
+│   ├── attendance-store.ts # Attendance tracking (~550 lines)
 │   ├── reports-store.ts  # Report operations
 │   ├── photo-store.ts    # Photo upload/management
 │   ├── ai-service.ts     # AI integration (Genkit)
