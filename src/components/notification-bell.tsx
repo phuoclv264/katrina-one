@@ -6,78 +6,54 @@ import { Bell } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import type { Notification } from '@/lib/types';
 import NotificationSheet from './notification-sheet';
-import { toast } from 'react-hot-toast';
-import { useRouter } from 'next/navigation';
+import { showToast } from './ui/pro-toast';
 import { getNotificationDetails } from '@/lib/notification-utils';
 import { dataStore } from '@/lib/data-store';
+import { useRouter } from 'nextjs-toploader/app';
 
 export function NotificationBell() {
     const { user, notifications, unreadNotificationCount } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
-    const router = useRouter();
     const processedNotifications = useRef(new Set());
+
+    const router = useRouter();
 
     useEffect(() => {
         if (!user || !notifications) return;
 
         if (processedNotifications.current.size === 0) {
             notifications.forEach(n => processedNotifications.current.add(n.id));
-        } else {
-            const unreadNotifications = notifications.filter(n => !n.isRead?.[user.uid]);
-
-            unreadNotifications.forEach(notification => {
-                if (processedNotifications.current.has(notification.id)) return;
-
-                const details = getNotificationDetails(notification, user.uid, user.role);
-                const Icon = details.icon;
-
-                toast.custom((t) => (
-                    <div
-                        className={`${t.visible ? 'animate-enter' : 'animate-leave'
-                            } max-w-md w-full bg-background shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5`}
-                    >
-                        <button
-                            onClick={async () => {
-                                toast.dismiss(t.id);
-                                if (!notification.isRead || !notification.isRead[user.uid]) {
-                                    await dataStore.markNotificationAsRead(notification.id, user.uid);
-                                }
-                                router.push(details.href);
-                            }}
-                            className="flex-1 w-0 p-4 text-left"
-                        >
-                            <div className="flex items-start">
-                                <div className="flex-shrink-0 pt-0.5">
-                                    <Icon className="h-6 w-6 text-primary" />
-                                </div>
-                                <div className="ml-3 flex-1">
-                                    <p className="text-sm font-medium text-foreground">
-                                        {details.title}
-                                    </p>
-                                    <p className="mt-1 text-sm text-muted-foreground">
-                                        {details.description}
-                                    </p>
-                                </div>
-                            </div>
-                        </button>
-                        <div className="flex border-l border-border">
-                            <button
-                                onClick={() => toast.dismiss(t.id)}
-                                className="w-full border border-transparent rounded-none rounded-r-lg p-4 flex items-center justify-center text-sm font-medium text-primary hover:text-primary-focus focus:outline-none focus:ring-2 focus:ring-primary"
-                            >
-                                Đóng
-                            </button>
-                        </div>
-                    </div>
-                ), {
-                    id: notification.id,
-                    duration: 4000,
-                });
-
-                processedNotifications.current.add(notification.id);
-            });
+            return;
         }
-    }, [notifications, user, router]);
+
+        const unreadNotifications = notifications.filter(n => !n.isRead?.[user.uid]);
+
+        unreadNotifications.forEach(notification => {
+            if (processedNotifications.current.has(notification.id)) return;
+
+            const details = getNotificationDetails(notification, user.uid, user.role);
+            const Icon = details.icon;
+
+            showToast({
+                title: details.title ?? 'Thông báo',
+                message: details.description ?? '',
+                icon: <Icon className="h-5 w-5 text-primary" />,
+                type: 'notification',
+                duration: 5000,
+                onPress: async () => {
+                    // Mark as read and navigate to the notification target
+                    if (!notification.isRead || !notification.isRead[user.uid]) {
+                        await dataStore.markNotificationAsRead(notification.id, user.uid);
+                    }
+                    if (details.href) {
+                        router.push(details.href);
+                    }
+                },
+            });
+
+            processedNotifications.current.add(notification.id);
+        });
+    }, [notifications, user]);
 
 
     if (!user) return null;
