@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useRouter } from 'nextjs-toploader/app';
 import { dataStore } from '@/lib/data-store';
-import type { RevenueStats, AttendanceRecord, Schedule, ShiftReport, WhistleblowingReport, ManagedUser, ExpenseSlip } from '@/lib/types';
+import type { RevenueStats, AttendanceRecord, Schedule, ShiftReport, WhistleblowingReport, ManagedUser, ExpenseSlip, MonthlyTaskAssignment, MonthlyTask } from '@/lib/types';
 import { format, startOfToday, endOfToday, getISOWeek, getYear, isAfter, startOfDay, parse, differenceInMinutes, isWithinInterval, addDays } from 'date-fns';
 import { ActiveShiftWithAttendance, AttendanceOverviewCard, AttendanceOverviewCardProps } from './_components/AttendanceOverviewCard';
 import { RecentReportsCard } from './_components/RecentReportsCard';
@@ -14,6 +14,7 @@ import { CashierOverviewCard, CashierOverviewCardProps } from './_components/Cas
 import { ManagementLinksCard } from './_components/ManagementLinksCard';
 import { SchedulingOverviewCard } from './_components/SchedulingOverviewCard';
 import { LoadingPage } from '@/components/loading/LoadingPage';
+import TodaysAdminTasksCard from './_components/TodaysAdminTasksCard';
 
 export default function AdminDashboardPage() {
     const { user, loading: authLoading } = useAuth();
@@ -26,6 +27,8 @@ export default function AdminDashboardPage() {
     const [complaints, setComplaints] = useState<WhistleblowingReport[]>([]);
     const [dailySlips, setDailySlips] = useState<ExpenseSlip[]>([]);
     const [allUsers, setAllUsers] = useState<ManagedUser[]>([]);
+    const [monthlyTasks, setMonthlyTasks] = useState<MonthlyTask[]>([]);
+    const [taskAssignments, setTaskAssignments] = useState<MonthlyTaskAssignment[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [todaysSchedule, setTodaysSchedule] = useState<Schedule | null>(null);
 
@@ -52,6 +55,8 @@ export default function AdminDashboardPage() {
             dataStore.subscribeToReportFeed(setComplaints),
             dataStore.subscribeToDailyExpenseSlips(todayStr, setDailySlips),
             dataStore.subscribeToUsers(setAllUsers),
+            dataStore.subscribeToMonthlyTasks(setMonthlyTasks),
+            dataStore.subscribeToMonthlyTasksForDate(new Date(todayStr), setTaskAssignments),
         ];
 
         return () => {
@@ -60,10 +65,10 @@ export default function AdminDashboardPage() {
     }, [user, refreshTrigger]);
 
     useEffect(() => {
-        if (isLoading && (revenueStats.length > 0 || attendanceRecords.length > 0 || todaysSchedule || shiftReports.length > 0 || complaints.length > 0 || dailySlips.length > 0 || allUsers.length > 0)) {
+        if (isLoading && (revenueStats.length > 0 || attendanceRecords.length > 0 || todaysSchedule || shiftReports.length > 0 || complaints.length > 0 || dailySlips.length > 0 || allUsers.length > 0 || monthlyTasks.length > 0 || taskAssignments.length > 0)) {
             setIsLoading(false);
         }
-    }, [revenueStats, attendanceRecords, todaysSchedule, shiftReports, complaints, dailySlips, allUsers]);
+    }, [revenueStats, attendanceRecords, todaysSchedule, shiftReports, complaints, dailySlips, allUsers, monthlyTasks, taskAssignments]);
 
     useDataRefresher(handleReconnect);
 
@@ -196,6 +201,7 @@ export default function AdminDashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
                 <RecentReportsCard shiftReports={shiftReports} />
                 <RecentComplaintsCard complaints={complaints} allUsers={allUsers} />
+                <TodaysAdminTasksCard monthlyTasks={monthlyTasks} taskAssignments={taskAssignments} staffDirectory={allUsers} />
                 <ManagementLinksCard />
             </div>
         </div>
