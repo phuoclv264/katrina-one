@@ -16,6 +16,7 @@ import { vi } from 'date-fns/locale';
 import { toast } from '@/components/ui/pro-toast';
 import { cn } from '@/lib/utils';
 import { updateStructuredConstraints } from '@/lib/schedule-store';
+import { useAuth } from '@/hooks/use-auth';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -39,7 +40,6 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
   const [editableConstraints, setEditableConstraints] = useState<ScheduleCondition[]>(constraints || []);
   const [result, setResult] = useState<ScheduleRunResult | null>(null);
   const [editableAssignments, setEditableAssignments] = useState<EditableAssignment[]>([]);
-  const [strategy, setStrategy] = useState<'merge' | 'replace'>('merge');
   const [newPriorityTemplateId, setNewPriorityTemplateId] = useState<string>('');
   const [newPriorityUserId, setNewPriorityUserId] = useState<string>('');
   const [newPriorityWeight, setNewPriorityWeight] = useState<number>(1);
@@ -54,7 +54,6 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
       setEditableConstraints(constraints || []);
       setResult(null);
       setEditableAssignments([]);
-      setStrategy('merge');
     }
   }, [isOpen, constraints]);
 
@@ -67,10 +66,18 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
     return c || null;
   }, [editableConstraints]);
 
+  const globalDailyLimit = useMemo(() => {
+    const c = editableConstraints.find(c => c.type === 'DailyShiftLimit' && !(c as any).userId) as any;
+    return c || null;
+  }, [editableConstraints]);
+
   const strictAvailabilityConstraint = useMemo(() => {
     const c = editableConstraints.find(c => c.type === 'AvailabilityStrictness') as any;
     return c || null;
   }, [editableConstraints]);
+
+  const { user } = useAuth();
+  const canSaveStructuredConstraints = user?.role === 'Chủ nhà hàng';
 
   const roleByUserId = useMemo(() => {
     const m = new Map<string, string | undefined>();
@@ -194,7 +201,7 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
       toast.error(validationErrors[0]);
       return;
     }
-    const r = runSchedule(shifts, allUsers, availability, editableConstraints, strategy === 'replace' ? 'replace' : 'merge');
+    const r = runSchedule(shifts, allUsers, availability, editableConstraints);
     setResult(r);
     setEditableAssignments(r.assignments.map(a => ({ shiftId: a.shiftId, userId: a.userId, selected: true })));
     if (r.warnings.length) {
@@ -212,7 +219,7 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
       toast.error('Không có phân công nào được chọn để áp dụng.');
       return;
     }
-    onApplyAssignments(selected, strategy);
+    onApplyAssignments(selected, 'replace');
     onClose();
   };
 
@@ -231,9 +238,9 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="outline" onClick={handleSaveConstraints} aria-label="Lưu điều kiện">Lưu tất cả điều kiện</Button>
+                  <Button variant="outline" onClick={handleSaveConstraints} aria-label="Lưu điều kiện" disabled={!canSaveStructuredConstraints}>Lưu tất cả điều kiện</Button>
                 </TooltipTrigger>
-                <TooltipContent>Lưu các điều kiện xếp lịch hiện tại</TooltipContent>
+                <TooltipContent>{canSaveStructuredConstraints ? 'Lưu các điều kiện xếp lịch hiện tại' : 'Chỉ Chủ nhà hàng có thể lưu các điều kiện cấu trúc'}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
             <Button variant="ghost" onClick={handleUndo} aria-label="Hoàn tác">Hoàn tác</Button>
@@ -258,7 +265,7 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
             </Card>
             {/* Global Workload */}
             <Card>
-              <CardContent className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <CardContent className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <Label>Min Ca/tuần (Toàn cục)</Label>
                   <Input type="number" min={0} autoComplete="off" value={globalWorkload?.minShiftsPerWeek ?? ''} onChange={(e) => {
@@ -303,6 +310,23 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
                       const next = [...prev];
                       const idx = next.findIndex(c => c.type === 'WorkloadLimit' && (c as any).scope === 'global');
                       if (idx >= 0) (next[idx] as any).maxHoursPerWeek = val; else next.push({ id: 'wl_global', enabled: true, type: 'WorkloadLimit', scope: 'global', maxHoursPerWeek: val } as any);
+                      return next;
+                    });
+                  }} />
+                </div>
+                <div>
+                  <Label>Max Ca/Ngày (Toàn cục)</Label>
+                  <Input type="number" min={0} autoComplete="off" value={globalDailyLimit?.maxPerDay ?? ''} onChange={(e) => {
+                    const raw = e.target.value;
+                    const val = raw === '' ? undefined : parseInt(raw || '0', 10);
+                    setEditableConstraints(prev => {
+                      const next = [...prev];
+                      const idx = next.findIndex(c => c.type === 'DailyShiftLimit' && !(c as any).userId);
+                      if (val === undefined) {
+                        if (idx >= 0) next.splice(idx, 1);
+                        return next;
+                      }
+                      if (idx >= 0) (next[idx] as any).maxPerDay = val; else next.push({ id: 'dl_global', enabled: true, type: 'DailyShiftLimit', maxPerDay: val } as any);
                       return next;
                     });
                   }} />
@@ -354,44 +378,85 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
                     }}
                   />
                   <Button variant="secondary">Thêm điều kiện</Button>
+                  <UserMultiSelect
+                    selectionMode="single"
+                    users={allUsers.filter(u => !editableConstraints.some(c => c.type === 'DailyShiftLimit' && (c as any).userId === u.uid))}
+                    selectedUsers={[]}
+                    onChange={(users) => {
+                      if (users.length === 0) return;
+                      const uid = users[0].uid;
+                      setEditableConstraints(prev => {
+                        const exists = prev.some(c => c.type === 'DailyShiftLimit' && (c as any).userId === uid);
+                        if (exists) return prev;
+                        return [...prev, { id: `dl_${uid}`, enabled: true, type: 'DailyShiftLimit', userId: uid, maxPerDay: 1 } as any];
+                      });
+                    }}
+                  />
+                  <Button variant="secondary">Thêm Max Ca/Ngày</Button>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {editableConstraints.filter(c => c.type === 'WorkloadLimit' && (c as any).scope === 'user').map((c: any) => {
-                    const u = allUsers.find(x => x.uid === c.userId);
-                    if (!u) return null;
-                    return (
-                      <motion.div key={`wl_edit_${u.uid}`} className="border rounded-md p-3" layout initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-sm font-semibold">{u.displayName}</p>
-                          <Button variant="ghost" className="text-destructive" onClick={() => {
-                            const prev = [...editableConstraints];
-                            pushUndo(prev);
-                            setEditableConstraints(prev => prev.filter(x => !(x.type === 'WorkloadLimit' && (x as any).scope === 'user' && (x as any).userId === u.uid)));
-                          }}>Xóa điều kiện</Button>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <Input placeholder="Min Ca" type="number" min={0} autoComplete="off" value={c.minShiftsPerWeek ?? ''} onChange={(e) => {
-                            const val = parseInt(e.target.value || '0', 10);
-                            setEditableConstraints(prev => prev.map(x => (x === c ? { ...c, minShiftsPerWeek: val } : x)));
-                          }} />
-                          <Input placeholder="Max Ca" type="number" min={0} autoComplete="off" value={c.maxShiftsPerWeek ?? ''} onChange={(e) => {
-                            const val = parseInt(e.target.value || '0', 10);
-                            setEditableConstraints(prev => prev.map(x => (x === c ? { ...c, maxShiftsPerWeek: val } : x)));
-                          }} />
-                          <Input placeholder="Min Giờ" type="number" min={0} autoComplete="off" value={c.minHoursPerWeek ?? ''} onChange={(e) => {
-                            const val = parseInt(e.target.value || '0', 10);
-                            setEditableConstraints(prev => prev.map(x => (x === c ? { ...c, minHoursPerWeek: val } : x)));
-                          }} />
-                          <Input placeholder="Max Giờ" type="number" min={0} autoComplete="off" value={c.maxHoursPerWeek ?? ''} onChange={(e) => {
-                            const val = parseInt(e.target.value || '0', 10);
-                            setEditableConstraints(prev => prev.map(x => (x === c ? { ...c, maxHoursPerWeek: val } : x)));
-                          }} />
-                        </div>
-                      </motion.div>
-                    );
-                  })}
+                  {
+                    (() => {
+                      const workloadConstraints = editableConstraints.filter(c => c.type === 'WorkloadLimit' && (c as any).scope === 'user') as any[];
+                      const dailyConstraints = editableConstraints.filter(c => c.type === 'DailyShiftLimit' && (c as any).userId) as any[];
+                      const ids = new Set<string>();
+                      for (const w of workloadConstraints) ids.add(w.userId);
+                      for (const d of dailyConstraints) ids.add(d.userId);
+                      return Array.from(ids).map(uid => {
+                        const wl = workloadConstraints.find(x => x.userId === uid);
+                        const dl = dailyConstraints.find(x => x.userId === uid);
+                        const u = allUsers.find(x => x.uid === uid);
+                        if (!u) return null;
+                        return (
+                          <motion.div key={`wl_edit_${u.uid}`} className="border rounded-md p-3" layout initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-sm font-semibold">{u.displayName}</p>
+                              <Button variant="ghost" className="text-destructive" onClick={() => {
+                                const prev = [...editableConstraints];
+                                pushUndo(prev);
+                                setEditableConstraints(prev => prev.filter(x => !(x.type === 'WorkloadLimit' && (x as any).scope === 'user' && (x as any).userId === u.uid) && !(x.type === 'DailyShiftLimit' && (x as any).userId === u.uid)));
+                              }}>Xóa điều kiện</Button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <Input placeholder="Min Ca" type="number" min={0} autoComplete="off" value={wl?.minShiftsPerWeek ?? ''} onChange={(e) => {
+                                const val = parseInt(e.target.value || '0', 10);
+                                setEditableConstraints(prev => prev.map(x => (x === wl ? { ...wl, minShiftsPerWeek: val } : x)));
+                              }} />
+                              <Input placeholder="Max Ca" type="number" min={0} autoComplete="off" value={wl?.maxShiftsPerWeek ?? ''} onChange={(e) => {
+                                const val = parseInt(e.target.value || '0', 10);
+                                if (wl) setEditableConstraints(prev => prev.map(x => (x === wl ? { ...wl, maxShiftsPerWeek: val } : x)));
+                                else setEditableConstraints(prev => ([...prev, { id: `wl_${u.uid}`, enabled: true, type: 'WorkloadLimit', scope: 'user', userId: u.uid, maxShiftsPerWeek: val } as any]));
+                              }} />
+                              <Input placeholder="Min Giờ" type="number" min={0} autoComplete="off" value={wl?.minHoursPerWeek ?? ''} onChange={(e) => {
+                                const val = parseInt(e.target.value || '0', 10);
+                                if (wl) setEditableConstraints(prev => prev.map(x => (x === wl ? { ...wl, minHoursPerWeek: val } : x))); else setEditableConstraints(prev => ([...prev, { id: `wl_${u.uid}`, enabled: true, type: 'WorkloadLimit', scope: 'user', userId: u.uid, minHoursPerWeek: val } as any]));
+                              }} />
+                              <Input placeholder="Max Giờ" type="number" min={0} autoComplete="off" value={wl?.maxHoursPerWeek ?? ''} onChange={(e) => {
+                                const val = parseInt(e.target.value || '0', 10);
+                                if (wl) setEditableConstraints(prev => prev.map(x => (x === wl ? { ...wl, maxHoursPerWeek: val } : x))); else setEditableConstraints(prev => ([...prev, { id: `wl_${u.uid}`, enabled: true, type: 'WorkloadLimit', scope: 'user', userId: u.uid, maxHoursPerWeek: val } as any]));
+                              }} />
+                              <Input placeholder="Max Ca/Ngày" type="number" min={0} autoComplete="off" value={dl?.maxPerDay ?? ''} onChange={(e) => {
+                                const raw = e.target.value;
+                                const val = raw === '' ? undefined : parseInt(raw || '0', 10);
+                                setEditableConstraints(prev => {
+                                  const next = [...prev];
+                                  const idx = next.findIndex(x => x.type === 'DailyShiftLimit' && (x as any).userId === u.uid);
+                                  if (val === undefined) {
+                                    if (idx >= 0) next.splice(idx, 1);
+                                    return next;
+                                  }
+                                  if (idx >= 0) (next[idx] as any).maxPerDay = val; else next.push({ id: `dl_${u.uid}`, enabled: true, type: 'DailyShiftLimit', userId: u.uid, maxPerDay: val } as any);
+                                  return next;
+                                });
+                              }} />
+                            </div>
+                          </motion.div>
+                        );
+                      });
+                    })()
+                  }
                 </div>
-                <p className="text-xs text-muted-foreground">Nếu không đặt điều kiện riêng cho một nhân viên, nhân viên đó chỉ áp dụng điều kiện toàn cục.</p>
+                <p className="text-xs text-muted-foreground">Nếu không đặt điều kiện riêng cho một nhân viên, nhân viên đó chỉ áp dụng điều kiện toàn cục. "Max Ca/Ngày" ghi đè giới hạn toàn cục nếu có.</p>
               </CardContent>
             </Card>
           </TabsContent>
@@ -768,15 +833,8 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
                   <div className="flex items-center gap-2">
                     <Button variant="secondary" onClick={handleRun}>Run Auto Schedule</Button>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Label>Chiến lược áp dụng</Label>
-                    <Select value={strategy} onValueChange={(v) => setStrategy(v as 'merge' | 'replace')}>
-                      <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="merge">Merge</SelectItem>
-                        <SelectItem value="replace">Replace All</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="text-sm text-muted-foreground">
+                    Chiến lược: Replace All (Tạo lịch mới hoàn toàn)
                   </div>
                 </div>
                 {result ? (
@@ -959,6 +1017,14 @@ function validateConstraints(constraints: ScheduleCondition[]): string[] {
       errors.push(`Xung đột ràng buộc cho nhân viên ${ln.userId} và mẫu ca ${ln.templateId}.`);
     } else {
       seen.set(key, ln.link);
+    }
+  }
+  // daily shift limits validation
+  const dailyLimits = constraints.filter(c => c.type === 'DailyShiftLimit') as any[];
+  for (const dl of dailyLimits) {
+    const max = dl.maxPerDay;
+    if (max != null && (typeof max !== 'number' || isNaN(max) || max < 0)) {
+      errors.push(`Giới hạn ca mỗi ngày không hợp lệ: Max(${max}).`);
     }
   }
   return errors;

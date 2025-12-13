@@ -7,8 +7,7 @@ export function schedule(
   users: ManagedUser[],
   availability: Availability[],
   constraints: ScheduleCondition[],
-  mode: 'merge' | 'replace' = 'merge',
 ): ScheduleRunResult {
   const ctx = normalizeConstraints(constraints, shifts, users);
-  return allocate(shifts, users, availability, ctx, mode);
+  return allocate(shifts, users, availability, ctx);
 }
