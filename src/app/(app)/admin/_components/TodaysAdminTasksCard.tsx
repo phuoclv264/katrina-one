@@ -220,51 +220,43 @@ export default function TodaysAdminTasksCard({
     openLightbox(buildSlides(media), 0);
   };
 
-  // --- Responsive expand/collapse state ---
-  const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});
-  const [isLargeScreen, setIsLargeScreen] = useState(false);
+  // --- Accordion state: only one task expanded at a time ---
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const check = () => setIsLargeScreen(window?.innerWidth >= 1024);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
-
-  useEffect(() => {
-    // Default expanded on large screens, collapsed on small
-    if (isLargeScreen) {
-      const next: Record<string, boolean> = {};
-      tasksForToday.forEach((t) => (next[t.task.id] = true));
-      setExpandedTasks(next);
+  const toggleTask = useCallback((taskId: string) => {
+    const element = document.getElementById(`task-${taskId}`);
+    const wasExpanded = expandedTaskId === taskId;
+    
+    if (element && !wasExpanded) {
+      // Store the current position before expanding
+      const elementTop = element.getBoundingClientRect().top + window.scrollY;
+      const currentScroll = window.scrollY;
+      
+      setExpandedTaskId((prev) => (prev === taskId ? null : taskId));
+      
+      // After state update, restore scroll position
+      requestAnimationFrame(() => {
+        // If we're expanding below the fold, maintain scroll position
+        if (elementTop < currentScroll) {
+          window.scrollTo({ top: currentScroll, behavior: 'instant' });
+        }
+      });
     } else {
-      setExpandedTasks({});
+      setExpandedTaskId((prev) => (prev === taskId ? null : taskId));
     }
-  }, [isLargeScreen, tasksForToday]);
-
-  const toggleExpanded = useCallback((taskId: string) => {
-    setExpandedTasks((prev) => ({ ...prev, [taskId]: !prev[taskId] }));
-  }, []);
-
-  const expandAll = () => {
-    const next: Record<string, boolean> = {};
-    tasksForToday.forEach((t) => (next[t.task.id] = true));
-    setExpandedTasks(next);
-  };
-
-  const collapseAll = () => setExpandedTasks({});
-
-  const allExpanded = useMemo(() => {
-    if (tasksForToday.length === 0) return false;
-    return tasksForToday.every((t) => !!expandedTasks[t.task.id]);
-  }, [tasksForToday, expandedTasks]);
+  }, [expandedTaskId]);
 
   if (tasksForToday.length === 0) {
     // Nothing to render, but hooks have already been declared above.
     return null;
   }
 
-  const renderStaffList = (label: string, staff: StaffStatus[], status: StaffStatus["status"], taskId?: string) => (
+  const renderStaffList = (
+    label: string,
+    staff: StaffStatus[],
+    status: StaffStatus["status"],
+    isExpanded: boolean = false,
+  ) => (
     <div>
       <div className={`flex items-center gap-2 text-xs font-semibold uppercase ${statusStyles[status].className}`}>
         {statusStyles[status].icon}
@@ -274,20 +266,19 @@ export default function TodaysAdminTasksCard({
         <p className="text-xs text-muted-foreground mt-1">Không có ghi nhận.</p>
       ) : (
         <div className="mt-2 space-y-2">
-          {staff.map((item, idx) => {
-            // if we are on small screens and the task is not expanded, show only a few items
-            const shouldHide = taskId && !expandedTasks[taskId] && idx >= 3 && !isLargeScreen;
-            if (shouldHide) return null;
-            return (
+          {staff.map((item) => (
             <div key={item.userId} className="flex items-start justify-between rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
                 <div>
-                <p className="text-sm font-medium truncate max-w-[12rem]" title={item.userName}>
+                <p
+                  className={`text-sm font-medium ${isExpanded ? 'whitespace-normal break-words' : 'truncate max-w-[12rem]'}`}
+                  title={item.userName}
+                >
                   {item.userName}
                   {item.roleLabel ? (
-                    <span className="ml-1 text-xs text-muted-foreground">({item.roleLabel})</span>
+                    <span className="text-xs text-muted-foreground">({item.roleLabel})</span>
                   ) : null}
                 </p>
-                <p className="text-xs text-muted-foreground truncate max-w-[12rem]">{item.shiftLabels.join(", ")}</p>
+                <p className={`text-xs text-muted-foreground ${isExpanded ? 'whitespace-normal' : 'truncate max-w-[12rem]'}`}>{item.shiftLabels.join(", ")}</p>
                 {item.status === "reported" && item.completion?.note ? (
                   <p className="text-xs text-amber-600 mt-1">“{item.completion.note}”</p>
                 ) : null}
@@ -299,34 +290,20 @@ export default function TodaysAdminTasksCard({
                 {item.completion?.media && item.completion.media.length > 0 ? (
                   <button
                     type="button"
-                    onClick={() => handleLightboxOpen(item.completion?.media)}
-                    className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleLightboxOpen(item.completion?.media);
+                    }}
+                    className="self-end text-right text-xs text-primary hover:underline inline-flex items-center gap-1"
                     aria-label={`Xem bằng chứng cho ${item.userName}`}
                   >
                     <Eye className="h-3.5 w-3.5" />
-                    Xem bằng chứng
+                    Xem
                   </button>
                 ) : null}
               </div>
             </div>
-            );
-          })}
-          {/* if collapsed, show 'See more' button */}
-          {taskId && !expandedTasks[taskId] && staff.length > 3 && (
-            <div className="text-center mt-2">
-              <button
-                type="button"
-                onClick={() => toggleExpanded(taskId)}
-                className="text-xs text-primary hover:underline"
-                aria-expanded={!!expandedTasks[taskId]}
-              >
-                <span className="inline-flex items-center gap-1">
-                  Xem {staff.length - 3} người khác
-                  <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-150 ${expandedTasks[taskId] ? 'rotate-180' : 'rotate-0'}`} aria-hidden />
-                </span>
-              </button>
-            </div>
-          )}
+          ))}
         </div>
       )}
     </div>
@@ -338,89 +315,125 @@ export default function TodaysAdminTasksCard({
         <CardTitle>Công việc định kỳ hôm nay</CardTitle>
         <CardDescription>Theo dõi tiến độ báo cáo của toàn bộ ca làm.</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6 flex-1 overflow-hidden">
-        <div className="flex items-center justify-end">
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={collapseAll}
-              className="text-xs text-muted-foreground hover:text-foreground"
-              aria-label="Collapse all tasks"
-            >
-              Thu gọn
-            </button>
-            <button
-              type="button"
-              onClick={expandAll}
-              className="text-xs text-primary hover:underline"
-              aria-label="Expand all tasks"
-            >
-              <span className="inline-flex items-center gap-1">
-                Mở rộng
-                <ChevronDown
-                  className={`h-3.5 w-3.5 transition-transform duration-150 ${allExpanded ? 'rotate-180' : 'rotate-0'}`}
-                  aria-hidden
-                />
-              </span>
-            </button>
-          </div>
-        </div>
+      <CardContent className="space-y-3 flex-1 overflow-hidden">
         {tasksForToday.map((taskEntry) => {
           const completed = taskEntry.staffStatuses.filter((item) => item.status === "completed");
           const reported = taskEntry.staffStatuses.filter((item) => item.status === "reported");
           const pending = taskEntry.staffStatuses.filter((item) => item.status === "pending");
-          const expanded = !!expandedTasks[taskEntry.task.id];
+          const isExpanded = expandedTaskId === taskEntry.task.id;
 
           return (
-            <section id={`task-${taskEntry.task.id}`} key={taskEntry.task.id} role="region" aria-labelledby={`task-title-${taskEntry.task.id}`} className="rounded-2xl border bg-card shadow-sm">
-              <div className="border-b px-5 py-4">
+            <section 
+              id={`task-${taskEntry.task.id}`} 
+              key={taskEntry.task.id} 
+              className="rounded-2xl border bg-card shadow-sm overflow-hidden"
+            >
+              {/* Accordion Header - Clickable */}
+              <button
+                type="button"
+                onClick={() => toggleTask(taskEntry.task.id)}
+                className="w-full px-5 py-4 text-left hover:bg-muted/30 transition-colors cursor-pointer"
+                aria-expanded={isExpanded}
+                aria-controls={`task-content-${taskEntry.task.id}`}
+              >
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                    <p id={`task-title-${taskEntry.task.id}`} className="text-base font-semibold truncate max-w-[24rem]">{taskEntry.task.name}</p>
-                    <p className="text-sm text-muted-foreground line-clamp-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p id={`task-title-${taskEntry.task.id}`} className={`text-base font-semibold`}>
+                        {taskEntry.task.name}
+                      </p>
+                      <ChevronDown 
+                        className={`h-4 w-4 text-muted-foreground transition-transform duration-300 ease-in-out flex-shrink-0 ${isExpanded ? 'rotate-180' : 'rotate-0'}`}
+                        aria-hidden
+                      />
+                    </div>
+                    {!isExpanded && (
+                      <div className="flex flex-wrap items-center gap-3 mt-2 text-xs animate-in fade-in duration-300">
+                        <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          {taskEntry.summary.completed} hoàn thành
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-amber-600 font-semibold">
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                          {taskEntry.summary.reported} báo cáo
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-muted-foreground">
+                          <Circle className="h-3.5 w-3.5" />
+                          {taskEntry.summary.pending} chưa gửi
+                        </span>
+                        <span className="text-muted-foreground">• {taskEntry.summary.totalAssigned} nhân sự</span>
+                      </div>
+                    )}
+                  </div>
+                  {isExpanded && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {taskEntry.rolesImpacted.map((role) => (
+                        <Badge key={`${taskEntry.task.id}-${role}`} variant="outline">
+                          {role}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </button>
+
+              {/* Accordion Content - Collapsible */}
+              <div 
+                id={`task-content-${taskEntry.task.id}`}
+                className={`border-t overflow-hidden transition-all duration-300 ease-in-out ${
+                  isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+                }`}
+              >
+                <div className="px-5 py-4 border-b bg-muted/20">
+                    <p className="text-sm text-muted-foreground">
                       {taskEntry.task.description || "Không có mô tả."}
                     </p>
+                    <div className="mt-3">
+                      <div className="rounded-lg border border-muted px-3 py-2 bg-muted/40">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-2">
+                              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                              <div className="text-sm">
+                                <div className="text-xs text-muted-foreground">Hoàn thành</div>
+                                <div className="text-lg font-semibold text-emerald-700">{taskEntry.summary.completed}</div>
+                              </div>
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-2">
+                              <AlertTriangle className="h-4 w-4 text-amber-600" />
+                              <div className="text-sm">
+                                <div className="text-xs text-muted-foreground">Báo cáo</div>
+                                <div className="text-lg font-semibold text-amber-700">{taskEntry.summary.reported}</div>
+                              </div>
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-2">
+                              <Circle className="h-4 w-4 text-slate-500" />
+                              <div className="text-sm">
+                                <div className="text-xs text-muted-foreground">Chưa thực hiện</div>
+                                <div className="text-lg font-semibold text-slate-600">{taskEntry.summary.pending}</div>
+                              </div>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="secondary" className="flex items-center gap-1">
-                      <UsersRound className="h-3.5 w-3.5" />
-                      {taskEntry.summary.totalAssigned} nhân sự
-                    </Badge>
-                    {taskEntry.rolesImpacted.map((role) => (
-                      <Badge key={`${taskEntry.task.id}-${role}`} variant="outline">
-                        {role}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
 
-                <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
-                    <p className="text-xs font-semibold uppercase text-emerald-600">Hoàn thành</p>
-                    <p className="text-2xl font-bold text-emerald-700">{taskEntry.summary.completed}</p>
+                  <div className="grid gap-5 px-5 py-4 lg:grid-cols-3">
+                    <div className={`space-y-1 transition-all duration-200 ${completed.length > 3 ? 'max-h-56 overflow-y-auto' : ''}`}> 
+                      {renderStaffList("Đã hoàn thành", completed, "completed", isExpanded)}
+                    </div>
+                    <div className={`space-y-1 transition-all duration-200 ${reported.length > 3 ? 'max-h-56 overflow-y-auto' : ''}`}> 
+                      {renderStaffList("Đã báo cáo", reported, "reported", isExpanded)}
+                    </div>
+                    <div className={`space-y-1 transition-all duration-200 ${pending.length > 3 ? 'max-h-56 overflow-y-auto' : ''}`}> 
+                      {renderStaffList("Chưa gửi", pending, "pending", isExpanded)}
+                    </div>
                   </div>
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-                    <p className="text-xs font-semibold uppercase text-amber-600">Báo cáo</p>
-                    <p className="text-2xl font-bold text-amber-700">{taskEntry.summary.reported}</p>
-                  </div>
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                    <p className="text-xs font-semibold uppercase text-slate-500">Chưa thực hiện</p>
-                    <p className="text-2xl font-bold text-slate-600">{taskEntry.summary.pending}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid gap-5 px-5 py-4 lg:grid-cols-3">
-                <div className={`space-y-1 transition-all duration-200 ${completed.length > 3 ? 'max-h-56 overflow-y-auto' : ''}`}> 
-                  {renderStaffList("Đã hoàn thành", completed, "completed", taskEntry.task.id)}
-                </div>
-                <div className={`space-y-1 transition-all duration-200 ${reported.length > 3 ? 'max-h-56 overflow-y-auto' : ''}`}> 
-                  {renderStaffList("Đã báo cáo", reported, "reported", taskEntry.task.id)}
-                </div>
-                <div className={`space-y-1 transition-all duration-200 ${pending.length > 3 ? 'max-h-56 overflow-y-auto' : ''}`}> 
-                  {renderStaffList("Chưa gửi", pending, "pending", taskEntry.task.id)}
-                </div>
-              </div>
 
               {taskEntry.additionalReports.length > 0 && (
                 <div className="border-t bg-muted/30 px-5 py-4">
@@ -442,7 +455,10 @@ export default function TodaysAdminTasksCard({
                           {report.media && report.media.length > 0 ? (
                             <button
                               type="button"
-                              onClick={() => handleLightboxOpen(report.media)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleLightboxOpen(report.media);
+                              }}
                               className="text-xs text-primary hover:underline inline-flex items-center gap-1"
                               aria-label={`Xem bằng chứng cho ${report.completedBy?.userName ?? 'báo cáo'}`}
                             >
@@ -456,34 +472,8 @@ export default function TodaysAdminTasksCard({
                   </div>
                 </div>
               )}
-              {/* Collapse/expand toggle for the entire task */}
-              <div className="border-t px-5 py-3 flex items-center justify-between">
-                <div className="flex gap-2 items-center text-xs text-muted-foreground">
-                  <span>{taskEntry.summary.totalAssigned} nhân sự</span>
-                  <span>•</span>
-                  <span>{taskEntry.summary.completed} hoàn thành</span>
-                  <span>•</span>
-                  <span>{taskEntry.summary.reported} báo cáo</span>
-                </div>
-                <div>
-                  <button
-                    type="button"
-                    onClick={() => toggleExpanded(taskEntry.task.id)}
-                    className="text-xs text-primary hover:underline"
-                    aria-expanded={!!expandedTasks[taskEntry.task.id]}
-                    aria-controls={`task-${taskEntry.task.id}`}
-                  >
-                              <span className="inline-flex items-center gap-2">
-                                {expanded ? 'Thu gọn' : 'Xem chi tiết'}
-                                <ChevronDown
-                                  className={`h-4 w-4 transition-transform duration-150 ${expanded ? 'rotate-180' : 'rotate-0'}`}
-                                  aria-hidden
-                                />
-                              </span>
-                  </button>
-                </div>
-              </div>
-            </section>
+            </div>
+        </section>
           );
         })}
       </CardContent>
