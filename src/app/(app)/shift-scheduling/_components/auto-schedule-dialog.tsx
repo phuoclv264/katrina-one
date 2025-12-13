@@ -67,6 +67,11 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
     return c || null;
   }, [editableConstraints]);
 
+  const strictAvailabilityConstraint = useMemo(() => {
+    const c = editableConstraints.find(c => c.type === 'AvailabilityStrictness') as any;
+    return c || null;
+  }, [editableConstraints]);
+
   const roleByUserId = useMemo(() => {
     const m = new Map<string, string | undefined>();
     for (const u of allUsers) m.set(u.uid, (u as any).role);
@@ -302,6 +307,31 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
                     });
                   }} />
                 </div>
+              </CardContent>
+            </Card>
+            {/* Strict Availability */}
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="strict-availability"
+                    checked={strictAvailabilityConstraint?.strict ?? false}
+                    onCheckedChange={(checked) => {
+                      setEditableConstraints(prev => {
+                        const next = [...prev];
+                        const idx = next.findIndex(c => c.type === 'AvailabilityStrictness');
+                        if (idx >= 0) {
+                          (next[idx] as any).strict = !!checked;
+                        } else {
+                          next.push({ id: 'availability_strict', enabled: true, type: 'AvailabilityStrictness', strict: !!checked } as any);
+                        }
+                        return next;
+                      });
+                    }}
+                  />
+                  <Label htmlFor="strict-availability">Buộc tuân thủ thời gian rảnh cho phân công bắt buộc</Label>
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">Nếu bật, phân công bắt buộc sẽ bị bỏ qua nếu nhân viên không rảnh, thay vì chỉ cảnh báo.</p>
               </CardContent>
             </Card>
             {/* Specific Workload per user */}

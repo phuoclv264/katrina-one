@@ -414,12 +414,18 @@ export type WorkloadLimit = BaseConstraint & {
   maxHoursPerWeek?: number;
 };
 
+export type AvailabilityStrictness = BaseConstraint & {
+  type: 'AvailabilityStrictness';
+  strict: boolean;
+};
+
 export type ScheduleCondition =
   | StaffPriority
   | ShiftStaffing
   | DailyShiftLimit
   | StaffShiftLink
-  | WorkloadLimit;
+  | WorkloadLimit
+  | AvailabilityStrictness;
 
 export type Assignment = {
   shiftId: string;

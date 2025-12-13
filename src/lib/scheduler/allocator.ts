@@ -72,6 +72,10 @@ export function allocate(
     const dailyMap = counters.dailyShifts.get(shift.date) || new Map<string, number>();
     dailyMap.set(userId, (dailyMap.get(userId) || 0) + 1);
     counters.dailyShifts.set(shift.date, dailyMap);
+
+    // Keep workingShifts in sync so conflict checks see newly added assignments
+    const userName = users.find(u => u.uid === userId)?.displayName || userId;
+    shift.assignedUsers = [...shift.assignedUsers, { userId, userName }];
   };
 
   // Apply forced assignments first
@@ -88,8 +92,18 @@ export function allocate(
     const dailyAvailability = availability.filter(a => a.date === shift.date);
     const isAvail = isUserAvailable(f.userId, shift.timeSlot, dailyAvailability);
     const conflict = hasTimeConflict(f.userId, shift, workingShifts.filter(s => s.date === shift.date));
-    if (!isAvail) warnings.push(`FORCE_NOT_AVAILABLE: user ${f.userId} for ${shift.id}`);
-    if (conflict) warnings.push(`FORCE_CONFLICT: user ${f.userId} conflicts with ${conflict.label}`);
+    if (!isAvail) {
+      if (ctx.strictAvailability) {
+        warnings.push(`FORCE_SKIPPED_UNAVAILABLE: user ${f.userId} not available for ${shift.id}`);
+        continue; // Skip assignment
+      } else {
+        warnings.push(`FORCE_NOT_AVAILABLE: user ${f.userId} for ${shift.id}`);
+      }
+    }
+    if (conflict) {
+      warnings.push(`FORCE_CONFLICT: user ${f.userId} conflicts with ${conflict.label}`);
+      continue; // Do not allow overlapping forced assignments
+    }
 
     // Role-based max cap check
     const userObj = users.find(u => u.uid === f.userId);
