@@ -35,9 +35,10 @@ export function allocate(
 ): ScheduleRunResult {
   const unfilled: { shiftId: string; role: UserRole | 'Bất kỳ'; remaining: number }[] = [];
   const warnings: string[] = [];
+  const usersByUid = new Map(users.map(u => [u.uid, u]));
 
   // Always create new schedule (replace mode)
-  const workingShifts: AssignedShift[] = shifts.map(s => ({ ...s, assignedUsers: [] }));
+  const workingShifts: AssignedShift[] = shifts.map(s => ({ ...s, assignedUsers: [], assignedUsersWithRole: [] }));
 
   const counters = initCounters();
 
@@ -56,7 +57,7 @@ export function allocate(
     return true;
   };
 
-  const addAssignment = (shift: AssignedShift, userId: string) => {
+  const addAssignment = (shift: AssignedShift, userId: string, assignedRole: UserRole | 'Bất kỳ') => {
     const duration = calculateTotalHours([shift.timeSlot]);
     counters.weekShifts.set(userId, (counters.weekShifts.get(userId) || 0) + 1);
     counters.weekHours.set(userId, (counters.weekHours.get(userId) || 0) + duration);
@@ -66,7 +67,9 @@ export function allocate(
 
     // Keep workingShifts in sync so conflict checks see newly added assignments
     const userName = users.find(u => u.uid === userId)?.displayName || userId;
-    shift.assignedUsers = [...shift.assignedUsers, { userId, userName }];
+    shift.assignedUsersWithRole = [...(shift.assignedUsersWithRole || []), { userId, userName, assignedRole }];
+    // Maintain assignedUsers for downstream consumers but do not rely on it for allocation logic
+    shift.assignedUsers = (shift.assignedUsersWithRole || []).map(u => ({ userId: u.userId, userName: u.userName || u.userId }));
   };
 
   // Apply forced assignments first
@@ -76,7 +79,7 @@ export function allocate(
       warnings.push(`FORCE_MISSING_SHIFT: ${f.shiftId}`);
       continue;
     }
-    const alreadyInShift = shift.assignedUsers.some(u => u.userId === f.userId);
+    const alreadyInShift = (shift.assignedUsersWithRole || []).some(u => u.userId === f.userId);
     if (alreadyInShift) continue;
 
     // Availability and conflict checks
@@ -92,11 +95,9 @@ export function allocate(
       continue; // Do not allow overlapping forced assignments
     }
 
-    addAssignment(shift, f.userId);
+    addAssignment(shift, f.userId, usersByUid.get(f.userId)?.role || 'Bất kỳ');
   }
-
-  const usersByUid = new Map(users.map(u => [u.uid, u]));
-
+  
   // Allocate demand
   for (const shift of workingShifts) {
     const maxRoleMap = ctx.maxByShiftRole.get(shift.id) || new Map<UserRole | 'Bất kỳ', number>();
@@ -113,10 +114,7 @@ export function allocate(
         matcher: (u: ManagedUser, r: UserRole | 'Bất kỳ') => boolean,
         phaseLabel: 'primary' | 'secondary'
       ) => {
-        const assignedFromShift = shift.assignedUsers.filter(u => {
-          const user = usersByUid.get(u.userId);
-          return user && matcher(user, role);
-        }).length;
+        const assignedFromShift = (shift.assignedUsersWithRole || []).filter(u => u.assignedRole === role).length;
 
         const currentAssignedCount = assignedFromShift;
         let remaining = Math.max(0, Math.min(count, roleMax) - currentAssignedCount);
@@ -132,7 +130,7 @@ export function allocate(
         const candidateScores = candidates.map(u => {
           const key = `${u.uid}:${shift.id}`;
           const banned = ctx.bannedPairs.has(key);
-          const alreadyAssignedHere = shift.assignedUsers.some(x => x.userId === u.uid);
+          const alreadyAssignedHere = (shift.assignedUsersWithRole || []).some(x => x.userId === u.uid);
           const avail = isUserAvailable(u.uid, shift.timeSlot, dailyAvailability);
           const okCaps = canAssign(u.uid, shift.date, duration);
           const conflict = hasTimeConflict(u.uid, shift, allShiftsOnDay);
@@ -154,17 +152,14 @@ export function allocate(
         for (const cs of candidateScores) {
           if (remaining <= 0) break;
           if (cs.score === Number.NEGATIVE_INFINITY) continue;
-          const assignedFromShiftForCandidateRole = shift.assignedUsers.filter(u => {
-            const user = usersByUid.get(u.userId);
-            return user && user.role === cs.user.role;
-          }).length;
+          const assignedFromShiftForCandidateRole = (shift.assignedUsersWithRole || []).filter(u => u.assignedRole === cs.user.role).length;
 
           const currentRoleAssigned = assignedFromShiftForCandidateRole;
           const candidateRoleMax = maxRoleMap.get(cs.user.role) ?? Number.POSITIVE_INFINITY;
           if (currentRoleAssigned >= candidateRoleMax) {
             continue;
           }
-          addAssignment(shift, cs.user.uid);
+          addAssignment(shift, cs.user.uid, role);
           remaining -= 1;
         }
 
@@ -198,7 +193,7 @@ export function allocate(
 
   // Build assignments array from the authoritative shift.assignedUsers list
   const assignments: Assignment[] = workingShifts.flatMap(shift =>
-    shift.assignedUsers.map(u => ({ shiftId: shift.id, role: shift.role, userId: u.userId }))
+    (shift.assignedUsersWithRole || []).map(u => ({ shiftId: shift.id, role: u.assignedRole, userId: u.userId }))
   );
 
   return { assignments, unfilled, warnings };
