@@ -9,51 +9,37 @@ import { PushNotifications } from '@capacitor/push-notifications';
 import type { Notification } from './types';
 import { Device } from '@capacitor/device';
 import { getHomePathForRole } from './navigation';
+import { getNotificationDetails } from './notification-utils';
 
 /**
  * This is a simplified version of the logic in `notification-sheet.tsx`.
  * It determines the correct navigation href based on the notification payload.
  * It doesn't need to generate user-facing titles or descriptions.
  */
-const getNavigationHrefForNotification = (notification: Notification): string => {
-    const { type, payload, status } = notification;
-
-    switch (type) {
-        case 'pass_request':
-            // For any pass request, the destination is the schedule page with the dialog open.
-            // The specific view (employee/manager) is handled by the app's routing.
-            return `/schedule?openPassRequest=true`;
-        case 'new_schedule':
-        case 'schedule_changed':
-        case 'schedule_proposal':
-            return `/schedule`;
-        case 'new_violation':
-            return `/violations?highlight=${payload.violationId}`;
-        case 'attendance_update':
-            return '/attendance';
-        case 'new_task_report':
-        case 'new_monthly_task_report':
-            return payload.url || '/reports';
-        case 'new_whistleblowing_report':
-            return '/reports-feed';
-        case 'new_expense_slip':
-            return `/reports/cashier?highlight=expense-${payload.slipId}`;
-        case 'new_revenue_stats':
-            return `/reports/cashier?highlight=revenue-${payload.statsId}`;
-        case 'new_incident_report':
-            return `/reports/cashier?highlight=incident-${payload.incidentId}`;
-        case 'new_cash_handover_report':
-            return `/reports/cashier?highlight=handover-${payload.reportId}`;
-        default:
-            // Fallback to a sensible default, like the user's home page.
-            return getHomePathForRole(payload?.userRole);
+/**
+ * Returns the navigation href for a notification using the centralized
+ * `getNotificationDetails` helper which also accounts for the current user
+ * context (id + role). Falls back to the user's home path when necessary.
+ */
+const getNavigationHrefForNotification = (
+    notification: Notification,
+    currentUserId?: string,
+    currentUserRole?: string
+): string => {
+    try {
+        const details = getNotificationDetails(notification, currentUserId || '', currentUserRole || '');
+        return details.href || getHomePathForRole(notification.payload?.userRole);
+    } catch (err) {
+        console.error('Error computing notification href', err);
+        return getHomePathForRole(notification.payload?.userRole);
     }
 };
 
 const addPushNotificationListeners = async (
     userId: string,
     onNotificationReceived: (notification: Notification) => void,
-    onNotificationAction: (href: string) => void
+    onNotificationAction: (href: string) => void,
+    userRole?: string
 ) => {
     await PushNotifications.addListener('registration', async token => {
         const deviceId = await Device.getId();
@@ -69,7 +55,7 @@ const addPushNotificationListeners = async (
         const notificationData = action.notification.data?.payload;
         if (!notificationData) return;
         const fullNotification = JSON.parse(notificationData) as Notification;
-        const href = getNavigationHrefForNotification(fullNotification);
+        const href = getNavigationHrefForNotification(fullNotification, userId, userRole);
         dataStore.markNotificationAsRead(fullNotification.id, userId);
         onNotificationAction(href);
     });
@@ -105,14 +91,15 @@ const registerPushNotifications = async () => {
 export const requestNotificationPermission = async (
     userId: string,
     onNotificationReceived: (notification: Notification) => void,
-    onNotificationAction: (href: string) => void
+    onNotificationAction: (href: string) => void,
+    userRole?: string
 ) => {
     if (!Capacitor.isNativePlatform()) return;
 
     try {
         await PushNotifications.removeAllListeners();
         await registerPushNotifications();
-        await addPushNotificationListeners(userId, onNotificationReceived, onNotificationAction);
+        await addPushNotificationListeners(userId, onNotificationReceived, onNotificationAction, userRole);
     } catch (error) {
         toast.error("Không thể đăng ký nhận thông báo.");
     }

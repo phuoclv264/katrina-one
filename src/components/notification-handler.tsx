@@ -29,7 +29,7 @@ export default function NotificationHandler() {
 
       // We only request permission if it hasn't been granted yet.
       // We can also ask later, e.g. after user clicks a button.
-      requestNotificationPermission(user.uid, handleNewNotification, handleNotificationAction);
+  requestNotificationPermission(user.uid, handleNewNotification, handleNotificationAction, user.role);
     } else if (!user && lastUserObject.current) {
       lastUserObject.current = null;
     }

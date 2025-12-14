@@ -21,7 +21,7 @@ export function NotificationBell() {
     useEffect(() => {
         if (!user || !notifications) return;
 
-        if (processedNotifications.current.size !== 0) {
+        if (processedNotifications.current.size === 0) {
             notifications.forEach(n => processedNotifications.current.add(n.id));
             return;
         }
