@@ -29,7 +29,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Card, CardContent } from '@/components/ui/card';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 
 type ShiftAssignmentDialogProps = {
   shift: AssignedShift;

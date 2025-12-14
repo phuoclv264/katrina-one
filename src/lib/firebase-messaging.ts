@@ -3,7 +3,7 @@
 import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging';
 import { app } from './firebase';
 import { dataStore } from './data-store';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 import type { Notification } from './types';

@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, AlertTriangle, FileX } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 import { dataStore } from '@/lib/data-store';
 import type { SalaryRecord, AssignedUser, Schedule } from '@/lib/types';
 import { findShiftForRecord, getStatusInfo } from '@/lib/attendance-utils';

@@ -6,7 +6,7 @@ import { callGenerateStartingTaskList } from '@/lib/ai-service';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Textarea } from './ui/textarea';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 import { Sparkles, Wand2 } from 'lucide-react';
 import type { Task } from '@/lib/types';
 import { Skeleton } from './ui/skeleton';

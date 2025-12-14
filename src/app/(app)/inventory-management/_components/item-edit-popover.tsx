@@ -30,7 +30,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SupplierCombobox } from '@/components/supplier-combobox';
 import { UnitCombobox } from '@/components/unit-combobox';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 import isEqual from 'lodash.isequal';
 import type { InventoryItem, UnitDefinition, GlobalUnit } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
@@ -319,7 +319,7 @@ export default function ItemEditPopover({
             }
              toast.success(`Đã cập nhật mặt hàng "${item.name}".`);
         } else {
-            toast('Không có thay đổi nào để lưu.');
+            toast.info('Không có thay đổi nào để lưu.');
         }
         setIsOpen(false);
     };

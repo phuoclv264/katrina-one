@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { AttendanceRecord, ManagedUser } from '@/lib/types';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 
 export default function HourlyRateDialog({
   isOpen,

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Trash2, Plus, Package, ArrowUp, ArrowDown, Wand2, Loader2, FileText, Image as ImageIcon, CheckCircle, AlertTriangle, ChevronsDownUp, Shuffle, Check, Sparkles, FileEdit, Download, Pencil, History, Search, Contact } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -201,7 +201,7 @@ export default function InventoryTools({
             setUpdatePreview({ oldList: inventoryList, newList: updatedList });
             setShowUpdatePreview(true);
         } else {
-            toast('Không tìm thấy mặt hàng nào khớp hoặc không có thay đổi nào.');
+            toast.info('Không tìm thấy mặt hàng nào khớp hoặc không có thay đổi nào.');
         }
     };
 
@@ -228,7 +228,7 @@ export default function InventoryTools({
             onItemsUpdated(updatedList);
             toast.success(`Đã cập nhật ${changesCount} mặt hàng.`);
         } else {
-            toast('Không có thay đổi nào được ghi nhận.');
+            toast.info('Không có thay đổi nào được ghi nhận.');
         }
         setParsedManualItems(null);
         setBulkEditText('');
@@ -272,7 +272,7 @@ export default function InventoryTools({
         if (!sortInstruction.trim()) { toast.error("Vui lòng nhập yêu cầu sắp xếp."); return; }
         
         const itemsToSort = inventoryList.filter(item => item.category === sortTargetCategory);
-        if (itemsToSort.length < 2) { toast("Nhóm này có ít hơn 2 mặt hàng.", { icon: 'ℹ️' }); return; }
+        if (itemsToSort.length < 2) { toast.info("Nhóm này có ít hơn 2 mặt hàng.", { icon: 'ℹ️' }); return; }
 
         setIsGenerating(true);
         toast.loading("AI đang sắp xếp...");

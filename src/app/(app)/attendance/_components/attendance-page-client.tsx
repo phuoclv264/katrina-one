@@ -15,7 +15,7 @@ import AttendanceCards from './attendance-cards';
 import EditAttendanceDialog from './edit-attendance-dialog';
 import ManualAttendanceDialog from './manual-attendance-dialog';
 import BulkSalaryDialog from './bulk-salary-dialog';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 import Lightbox from "yet-another-react-lightbox";
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DateRange } from 'react-day-picker';

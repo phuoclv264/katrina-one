@@ -21,7 +21,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 
 import isEqual from 'lodash.isequal';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 import { cn, normalizeSearchString } from '@/lib/utils';
 import { UnitCombobox } from '@/components/unit-combobox';
 

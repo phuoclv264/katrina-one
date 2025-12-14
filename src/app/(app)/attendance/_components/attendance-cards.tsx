@@ -11,7 +11,7 @@ import { getStatusInfo, findShiftForRecord } from '@/lib/attendance-utils';
 import { Edit2, MoreVertical, Trash2 } from 'lucide-react';
 import HourlyRateDialog from './hourly-rate-dialog';
 import { dataStore } from '@/lib/data-store'; 
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 import { Timestamp } from '@google-cloud/firestore';
 import { Button } from '@/components/ui/button';
 import {

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Trash2, Plus, Pencil, Droplets, UtensilsCrossed, Wind, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon, Check, Shuffle, Sparkles, AlertCircle, CheckSquare, MessageSquare, Download, Badge } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { showToast, toast } from '@/components/ui/pro-toast';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'nextjs-toploader/app';
@@ -125,7 +125,7 @@ function AiAssistant({
 
         const sectionToSort = sections.find(s => s.title === targetSection);
         if (!sectionToSort || sectionToSort.tasks.length < 2) {
-            toast("Khu vực này có ít hơn 2 công việc.", { icon: 'ℹ️' });
+            toast.info("Khu vực này có ít hơn 2 công việc.", { icon: 'ℹ️' });
             return;
         }
         

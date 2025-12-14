@@ -28,7 +28,7 @@ import { cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowRight, Loader2, Trash2 } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 
 
 function MonthlyUserReport({ userId, allUsers }: { userId: string, allUsers: ManagedUser[]}) {

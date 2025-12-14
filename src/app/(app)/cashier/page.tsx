@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import type { ExpenseSlip, IncidentReport, RevenueStats, ManagedUser, InventoryItem, OtherCostCategory, ExtractHandoverDataOutput, ExpenseItem, IncidentCategory } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { format, parseISO } from 'date-fns';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import ExpenseSlipDialog from './_components/expense-slip-dialog';
 import IncidentReportDialog from './_components/incident-report-dialog';
@@ -354,7 +354,7 @@ function CashierDashboardPageComponent() {
       await dataStore.addOrUpdateIncident(dataToSave, id, user);
       toast.success(`Đã ${id ? 'cập nhật' : 'ghi nhận'} sự cố.`);
       if (data.cost > 0 && data.paymentMethod !== 'intangible_cost') {
-        toast("Một phiếu chi tương ứng đã được tạo/cập nhật tự động.", { icon: 'ℹ️' });
+        toast.info("Một phiếu chi tương ứng đã được tạo/cập nhật tự động.", { icon: 'ℹ️' });
       }
       setIsIncidentDialogOpen(false);
       setIncidentToEdit(null);

@@ -6,12 +6,17 @@ import { Bell } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import type { Notification } from '@/lib/types';
 import NotificationSheet from './notification-sheet';
-import { showNotificationToast } from './notification/notification-toast-motion';
+import { showToast } from './ui/pro-toast';
+import { getNotificationDetails } from '@/lib/notification-utils';
+import { dataStore } from '@/lib/data-store';
+import { useRouter } from 'nextjs-toploader/app';
 
 export function NotificationBell() {
     const { user, notifications, unreadNotificationCount } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
     const processedNotifications = useRef(new Set());
+
+    const router = useRouter();
 
     useEffect(() => {
         if (!user || !notifications) return;
@@ -21,12 +26,30 @@ export function NotificationBell() {
             return;
         }
 
-        const unreadNotifications = notifications.filter(n => !n.isRead?.[user.uid]);
+        const unreadNotifications = notifications.filter(n => !n.isRead?.[user.uid]).reverse();
 
         unreadNotifications.forEach(notification => {
             if (processedNotifications.current.has(notification.id)) return;
 
-            showNotificationToast(notification, user.uid);
+            const details = getNotificationDetails(notification, user.uid, user.role);
+            const Icon = details.icon;
+
+            showToast({
+                title: details.title ?? 'Thông báo',
+                message: details.description ?? '',
+                icon: <Icon className="h-5 w-5 text-primary" />,
+                type: 'notification',
+                duration: 5000,
+                onPress: async () => {
+                    // Mark as read and navigate to the notification target
+                    if (!notification.isRead || !notification.isRead[user.uid]) {
+                        await dataStore.markNotificationAsRead(notification.id, user.uid);
+                    }
+                    if (details.href) {
+                        router.push(details.href);
+                    }
+                },
+            });
 
             processedNotifications.current.add(notification.id);
         });

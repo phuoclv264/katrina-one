@@ -11,7 +11,7 @@ import CameraDialog from '@/components/camera-dialog';
 import { photoStore } from '@/lib/photo-store';
 import Image from 'next/image';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 import type { RevenueStats, ExpenseSlip } from '@/lib/types'; // Import types
 import { useLightbox } from '@/contexts/lightbox-context';
 import { v4 as uuidv4 } from 'uuid';

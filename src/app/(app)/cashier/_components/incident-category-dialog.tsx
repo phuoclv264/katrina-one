@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Trash2, Plus, Edit, Loader2 } from 'lucide-react';
 import type { IncidentCategory } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   AlertDialog,

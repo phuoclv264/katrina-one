@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
-import { Toaster } from "react-hot-toast";
+import { ProToastProvider } from '@/components/ui/pro-toast';
 import { DialogProvider } from '@/contexts/dialog-context';
 
 export const metadata: Metadata = {
@@ -30,7 +30,7 @@ export default function RootLayout({
       <body className="font-body antialiased">
         <DialogProvider>
           {children}
-          <Toaster />
+          <ProToastProvider />
         </DialogProvider>
       </body>
     </html>

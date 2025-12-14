@@ -1,4 +1,4 @@
-import type { ScheduleCondition, WorkloadLimit, DailyShiftLimit, StaffShiftLink, ShiftStaffing, StaffPriority } from '@/lib/types';
+import type { ScheduleCondition, WorkloadLimit, DailyShiftLimit, StaffShiftLink, ShiftStaffing, StaffPriority, AvailabilityStrictness } from '@/lib/types';
 import type { AssignedShift, ManagedUser, UserRole } from '@/lib/types';
 
 export type UserCaps = {
@@ -16,6 +16,7 @@ export type NormalizedContext = {
   bannedPairs: Set<string>; // `${userId}:${shiftId}`
   capsByUser: Map<string, UserCaps>;
   mandatoryDemand: Set<string>;
+  strictAvailability: boolean;
 };
 
 const defaultCaps: UserCaps = {
@@ -41,6 +42,7 @@ export function normalizeConstraints(
   // Global workload defaults
   let globalWorkload: WorkloadLimit | null = null;
   let globalDailyLimit: DailyShiftLimit | null = null;
+  let availabilityStrictness: AvailabilityStrictness | null = null;
 
   // Gather globals first
   for (const c of constraints) {
@@ -49,6 +51,8 @@ export function normalizeConstraints(
       globalWorkload = c as WorkloadLimit;
     } else if (c.type === 'DailyShiftLimit' && !c.userId) {
       globalDailyLimit = c as DailyShiftLimit;
+    } else if (c.type === 'AvailabilityStrictness') {
+      availabilityStrictness = c as AvailabilityStrictness;
     }
   }
 
@@ -125,5 +129,5 @@ export function normalizeConstraints(
     }
   }
 
-  return { maxByShiftRole, prioritiesByShift, forcedAssignments, bannedPairs, capsByUser, mandatoryDemand };
+  return { maxByShiftRole, prioritiesByShift, forcedAssignments, bannedPairs, capsByUser, mandatoryDemand, strictAvailability: availabilityStrictness?.strict ?? false };
 }

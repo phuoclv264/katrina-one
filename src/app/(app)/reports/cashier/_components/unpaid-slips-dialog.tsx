@@ -15,7 +15,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import type { ExpenseSlip, InventoryItem, ExpenseItem } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Loader2, Check, Undo, History, X } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';

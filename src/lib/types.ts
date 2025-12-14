@@ -260,7 +260,7 @@ export type CommentMedia = {
 export type PenaltySubmission = {
   userId: string;
   userName: string;
-  /** @deprecated Use media instead */
+  assignedRole: UserRole | 'Bất kỳ';
   photos?: string[];
   media?: MediaAttachment[];
   submittedAt: string | Timestamp;
@@ -345,6 +345,12 @@ export type AssignedUser = {
   userName: string;
 };
 
+export type AssignedUserWithRole = {
+  userId: string;
+  userName?: string;
+  assignedRole: UserRole | 'Bất kỳ';
+};
+
 export type AssignedShift = {
   id: string; // Unique ID for this specific shift instance in the schedule
   templateId: string;
@@ -353,6 +359,7 @@ export type AssignedShift = {
   role: UserRole | 'Bất kỳ';
   timeSlot: TimeSlot;
   assignedUsers: AssignedUser[];
+  assignedUsersWithRole?: AssignedUserWithRole[]; // Optional array of user-role pairs
   minUsers: number;
 };
 
@@ -414,12 +421,18 @@ export type WorkloadLimit = BaseConstraint & {
   maxHoursPerWeek?: number;
 };
 
+export type AvailabilityStrictness = BaseConstraint & {
+  type: 'AvailabilityStrictness';
+  strict: boolean;
+};
+
 export type ScheduleCondition =
   | StaffPriority
   | ShiftStaffing
   | DailyShiftLimit
   | StaffShiftLink
-  | WorkloadLimit;
+  | WorkloadLimit
+  | AvailabilityStrictness;
 
 export type Assignment = {
   shiftId: string;

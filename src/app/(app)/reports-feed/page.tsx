@@ -9,7 +9,7 @@ import type { WhistleblowingReport, ManagedUser, AssignedUser, CommentMedia } fr
 import { Button } from '@/components/ui/button';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { Plus, FileSignature, FileWarning } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 
 import ReportCard from './_components/report-card';
 import ReportDialog from './_components/report-dialog';

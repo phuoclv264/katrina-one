@@ -19,7 +19,7 @@ import { isUserAvailable } from '@/lib/schedule-utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/hooks/use-auth';
 import { hasTimeConflict } from '@/lib/schedule-utils';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/ui/pro-toast';
 
 type ShiftInfoDialogProps = {
   isOpen: boolean;
