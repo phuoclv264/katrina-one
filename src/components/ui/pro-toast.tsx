@@ -4,6 +4,7 @@ import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, PanInfo, useMotionValue, useTransform } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import { X, CheckCircle2, AlertCircle, AlertTriangle, Info, Bell, Loader2 } from 'lucide-react';
+import PrimerToast, { PrimerToastContainer } from '@/components/primer/Toast';
 
 // ============================================================================
 // TYPES
@@ -274,59 +275,61 @@ function SingleToast({ toast, index, onDismiss }: SingleToastProps) {
             style={{ y, opacity, scale, zIndex: 100 - index }}
             className="absolute top-0 left-0 right-0 mx-auto w-[calc(100%-2rem)] max-w-md cursor-pointer touch-none"
         >
-            <div
-                className="
-                    relative flex items-start gap-3 p-4
-                    bg-background/95 dark:bg-card/95
-                    backdrop-blur-xl backdrop-saturate-150
-                    shadow-[0_8px_32px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)]
-                    dark:shadow-[0_8px_32px_rgba(0,0,0,0.4),0_2px_8px_rgba(0,0,0,0.2)]
-                    rounded-2xl
-                    ring-1 ring-black/[0.04] dark:ring-white/[0.06]
-                    overflow-hidden
-                    select-none
-                    active:scale-[0.98] transition-transform duration-100
-                "
-            >
-                {/* Icon */}
+            <PrimerToast>
                 <div
-                    className={`
-                        flex-shrink-0 p-2 rounded-xl ring-1 self-center
-                        ${iconBgClass}
-                    `}
+                    className="
+                        relative flex items-start gap-3 p-4
+                        bg-background/95 dark:bg-card/95
+                        backdrop-blur-xl backdrop-saturate-150
+                        shadow-[0_8px_32px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)]
+                        dark:shadow-[0_8px_32px_rgba(0,0,0,0.4),0_2px_8px_rgba(0,0,0,0.2)]
+                        rounded-2xl
+                        ring-1 ring-black/[0.04] dark:ring-white/[0.06]
+                        overflow-hidden
+                        select-none
+                        active:scale-[0.98] transition-transform duration-100
+                    "
                 >
-                    {icon}
-                </div>
+                    {/* Icon */}
+                    <div
+                        className={`
+                            flex-shrink-0 p-2 rounded-xl ring-1 self-center
+                            ${iconBgClass}
+                        `}
+                    >
+                        {icon}
+                    </div>
 
-                {/* Content */}
-                <div className={`flex-1 min-w-0 ${!toast.message ? 'self-center pt-0' : 'pt-0.5'}`}>
-                    <p className="text-sm font-semibold text-foreground leading-tight">
-                        {toast.title}
-                    </p>
-                    {toast.message && (
-                        <p className="mt-1 text-sm text-muted-foreground leading-snug line-clamp-2">
-                            {toast.message}
+                    {/* Content */}
+                    <div className={`flex-1 min-w-0 ${!toast.message ? 'self-center pt-0' : 'pt-0.5'}`}>
+                        <p className="text-sm font-semibold text-foreground leading-tight">
+                            {toast.title}
                         </p>
-                    )}
-                </div>
+                        {toast.message && (
+                            <p className="mt-1 text-sm text-muted-foreground leading-snug line-clamp-2">
+                                {toast.message}
+                            </p>
+                        )}
+                    </div>
 
-                {/* Close button */}
-                <button
-                    onClick={handleCloseClick}
-                    className={`
-                        flex-shrink-0 p-1.5 -mr-1
-                        ${!toast.message ? 'self-center -mt-0' : '-mt-0.5'}
-                        rounded-lg
-                        text-muted-foreground/60 hover:text-muted-foreground
-                        hover:bg-muted/80
-                        transition-colors duration-150
-                        focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50
-                    `}
-                    aria-label="Đóng thông báo"
-                >
-                    <X className="h-4 w-4" />
-                </button>
-            </div>
+                    {/* Close button */}
+                    <button
+                        onClick={handleCloseClick}
+                        className={`
+                            flex-shrink-0 p-1.5 -mr-1
+                            ${!toast.message ? 'self-center -mt-0' : '-mt-0.5'}
+                            rounded-lg
+                            text-muted-foreground/60 hover:text-muted-foreground
+                            hover:bg-muted/80
+                            transition-colors duration-150
+                            focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50
+                        `}
+                        aria-label="Đóng thông báo"
+                    >
+                        <X className="h-4 w-4" />
+                    </button>
+                </div>
+            </PrimerToast>
         </motion.div>
     );
 }
@@ -354,14 +357,7 @@ function ToastContainer() {
     if (!mounted) return null;
 
     const containerContent = (
-        <div
-            className="
-                fixed top-0 left-0 right-0 z-[9999]
-                pointer-events-none
-                pt-[calc(env(safe-area-inset-top)+0.75rem)]
-                px-4
-            "
-        >
+        <PrimerToastContainer className="fixed top-0 left-0 right-0 z-[9999] pointer-events-none pt-[calc(env(safe-area-inset-top)+0.75rem)] px-4">
             <div className="relative w-full max-w-md mx-auto pointer-events-auto">
                 <AnimatePresence mode="popLayout">
                     {toasts.map((toast, index) => (
@@ -374,7 +370,7 @@ function ToastContainer() {
                     ))}
                 </AnimatePresence>
             </div>
-        </div>
+        </PrimerToastContainer>
     );
 
     return createPortal(containerContent, document.body);
