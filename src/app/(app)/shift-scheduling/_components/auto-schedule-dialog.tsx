@@ -90,7 +90,7 @@ export default function AutoScheduleDialog({
   // Keyboard shortcuts
   useEffect(() => {
     if (!isOpen) return;
-    
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey) {
         if (e.key === 'z') {
@@ -306,35 +306,63 @@ export default function AutoScheduleDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b">
+      <DialogContent className="max-w-6xl h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogHeader className="px-4 pt-4 pb-4 border-b">
           <DialogTitle className="tracking-tight">Xếp lịch tự động</DialogTitle>
-          <DialogDescription className="text-sm leading-relaxed">
-            Thiết lập điều kiện và xem trước kết quả. Áp dụng phân công trực tiếp từ phần xem trước.
-          </DialogDescription>
-          
+
           {/* Status bar */}
-          <div className="flex items-center justify-between mt-3 pt-3 border-t">
-            <div className="flex items-center gap-4 text-xs">
-              {hasUnsavedChanges && (
-                <div className="flex items-center gap-1 text-yellow-600 dark:text-yellow-500">
-                  <div className="w-2 h-2 rounded-full bg-yellow-600 dark:bg-yellow-500" />
-                  <span>Có thay đổi chưa gửi</span>
-                </div>
-              )}
-              {lastSaveTime && (
-                <div className="text-muted-foreground">
-                  Lần lưu cuối: {lastSaveTime}
-                </div>
-              )}
-            </div>
-            {validationErrors.length > 0 && (
-              <div className="flex items-center gap-1 text-destructive text-xs">
-                <span>⚠️</span>
-                <span>{validationErrors.length} lỗi</span>
+          {hasUnsavedChanges || lastSaveTime || validationErrors.length > 0 || undoStack.current.length > 0 || redoStack.current.length > 0 ? (
+            <div className="flex items-center justify-between mt-3 pt-3 border-t">
+              <div className="flex items-center gap-4 text-xs">
+                {hasUnsavedChanges && (
+                  <div className="flex items-center gap-1 text-yellow-600 dark:text-yellow-500">
+                    <div className="w-2 h-2 rounded-full bg-yellow-600 dark:bg-yellow-500" />
+                    <span>Có thay đổi chưa gửi</span>
+                  </div>
+                )}
+                {lastSaveTime && (
+                  <div className="text-muted-foreground">
+                    Lần lưu cuối: {lastSaveTime}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+
+              <div className="flex items-center gap-2">
+                {undoStack.current.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleUndo}
+                    aria-label="Hoàn tác (Ctrl+Z)"
+                    title="Ctrl+Z"
+                  >
+                    <Undo2 className="h-4 w-4 mr-1" />
+                    Hoàn tác
+                  </Button>
+                )}
+
+                {redoStack.current.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleRedo}
+                    aria-label="Làm lại (Ctrl+Y)"
+                    title="Ctrl+Y"
+                  >
+                    <Redo2 className="h-4 w-4 mr-1" />
+                    Làm lại
+                  </Button>
+                )}
+
+                {validationErrors.length > 0 && (
+                  <div className="flex items-center gap-1 text-destructive text-xs">
+                    <span>⚠️</span>
+                    <span>{validationErrors.length} lỗi</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden">
@@ -447,46 +475,26 @@ export default function AutoScheduleDialog({
         </div>
 
         {/* Footer: Action buttons */}
-        <div className="border-t px-6 py-4 bg-muted/30 flex flex-wrap items-center justify-between gap-2 text-xs">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleUndo}
-              disabled={undoStack.current.length === 0}
-              aria-label="Hoàn tác (Ctrl+Z)"
-              title="Ctrl+Z"
-            >
-              <Undo2 className="h-4 w-4 mr-1" />
-              Hoàn tác
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleRedo}
-              disabled={redoStack.current.length === 0}
-              aria-label="Làm lại (Ctrl+Y)"
-              title="Ctrl+Y"
-            >
-              <Redo2 className="h-4 w-4 mr-1" />
-              Làm lại
-            </Button>
-            <div className="w-px h-5 bg-border" />
+        <div className="border-t px-4 py-3 bg-muted/30 flex flex-col sm:flex-row gap-2 text-xs">
+          <div className="flex flex-wrap items-stretch gap-2 w-full sm:w-auto">
+            <div className="w-px h-5 bg-border hidden sm:block" />
             <Button
               variant="secondary"
               size="sm"
               onClick={() => setShowAddCondition(true)}
+              className="w-full sm:w-auto"
             >
               <Plus className="h-4 w-4 mr-1" />
               Thêm điều kiện
             </Button>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto items-stretch mt-2 sm:mt-0">
             <Button
               variant="outline"
               size="sm"
               onClick={onClose}
+              className="w-full sm:w-auto"
             >
               Đóng
             </Button>
@@ -499,6 +507,7 @@ export default function AutoScheduleDialog({
                     size="sm"
                     onClick={handleSaveConstraints}
                     disabled={!canSaveStructuredConstraints || !hasUnsavedChanges}
+                    className="w-full sm:w-auto"
                   >
                     Lưu
                   </Button>
@@ -513,6 +522,7 @@ export default function AutoScheduleDialog({
               onClick={handleApply}
               disabled={!result || validationErrors.length > 0}
               size="sm"
+              className="w-full sm:w-auto"
             >
               Áp dụng phân công
             </Button>
@@ -537,150 +547,147 @@ function WorkloadTab({ constraints, setConstraints, pushUndo, allUsers, shiftTem
   const strictAvailability = constraints.find((c: ScheduleCondition) => c.type === 'AvailabilityStrictness') as any;
 
   return (
-    <div className="space-y-3 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:space-y-0">
+    <div className="space-y-3 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:space-y-0 min-h-0">
       <div className="space-y-3">
-      <Card>
-        <CardContent className="p-3 space-y-2">
-          <Label className="text-xs font-semibold">Giải thích chiến lược</Label>
-          <p className="text-xs text-muted-foreground">Phân bổ tỉ lệ thuận với thời gian rảnh. Giới hạn Min/Max Ca và Giờ. Ưu tiên giới hạn riêng của nhân viên hơn giới hạn toàn cục.</p>
-        </CardContent>
-      </Card>
+        <Card>
+          <CardContent className="p-3 space-y-2">
+            <Label className="text-xs font-semibold">Giải thích chiến lược</Label>
+            <p className="text-xs text-muted-foreground">Phân bổ tỉ lệ thuận với thời gian rảnh. Giới hạn Min/Max Ca và Giờ. Ưu tiên giới hạn riêng của nhân viên hơn giới hạn toàn cục.</p>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardContent className="p-3 space-y-2">
-          <Label className="text-xs font-semibold">Giới hạn toàn cục</Label>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-xs">Min Ca</Label>
+        <Card>
+          <CardContent className="p-3 space-y-2">
+            <Label className="text-xs font-semibold">Giới hạn toàn cục</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">Min Ca</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={globalWorkload?.minShiftsPerWeek ?? ''}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value || '0', 10);
+                    setConstraints((prev: any) => {
+                      const next = [...prev];
+                      const idx = next.findIndex(c => c.type === 'WorkloadLimit' && c.scope === 'global');
+                      if (idx >= 0) next[idx] = { ...next[idx], minShiftsPerWeek: val };
+                      else next.push({ id: `wl_global_${Date.now()}`, enabled: true, type: 'WorkloadLimit', scope: 'global', minShiftsPerWeek: val });
+                      return next;
+                    });
+                  }}
+                  className="h-8 text-xs"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Max Ca</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={globalWorkload?.maxShiftsPerWeek ?? ''}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value || '0', 10);
+                    setConstraints((prev: any) => {
+                      const next = [...prev];
+                      const idx = next.findIndex(c => c.type === 'WorkloadLimit' && c.scope === 'global');
+                      if (idx >= 0) next[idx] = { ...next[idx], maxShiftsPerWeek: val };
+                      else next.push({ id: `wl_global_${Date.now()}`, enabled: true, type: 'WorkloadLimit', scope: 'global', maxShiftsPerWeek: val });
+                      return next;
+                    });
+                  }}
+                  className="h-8 text-xs"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Min Giờ</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={globalWorkload?.minHoursPerWeek ?? ''}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value || '0', 10);
+                    setConstraints((prev: any) => {
+                      const next = [...prev];
+                      const idx = next.findIndex(c => c.type === 'WorkloadLimit' && c.scope === 'global');
+                      if (idx >= 0) next[idx] = { ...next[idx], minHoursPerWeek: val };
+                      else next.push({ id: `wl_global_${Date.now()}`, enabled: true, type: 'WorkloadLimit', scope: 'global', minHoursPerWeek: val });
+                      return next;
+                    });
+                  }}
+                  className="h-8 text-xs"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Max Giờ</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={globalWorkload?.maxHoursPerWeek ?? ''}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value || '0', 10);
+                    setConstraints((prev: any) => {
+                      const next = [...prev];
+                      const idx = next.findIndex(c => c.type === 'WorkloadLimit' && c.scope === 'global');
+                      if (idx >= 0) next[idx] = { ...next[idx], maxHoursPerWeek: val };
+                      else next.push({ id: `wl_global_${Date.now()}`, enabled: true, type: 'WorkloadLimit', scope: 'global', maxHoursPerWeek: val });
+                      return next;
+                    });
+                  }}
+                  className="h-8 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="pt-2 border-t">
+              <Label className="text-xs">Max Ca/Ngày (Toàn cục)</Label>
               <Input
                 type="number"
-                min={0}
-                value={globalWorkload?.minShiftsPerWeek ?? ''}
+                min={1}
+                value={globalDailyLimit?.maxPerDay ?? ''}
                 onChange={(e) => {
-                  const val = parseInt(e.target.value || '0', 10);
+                  const val = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
                   setConstraints((prev: any) => {
                     const next = [...prev];
-                    const idx = next.findIndex(c => c.type === 'WorkloadLimit' && c.scope === 'global');
-                    if (idx >= 0) next[idx] = { ...next[idx], minShiftsPerWeek: val };
-                    else next.push({ id: `wl_global_${Date.now()}`, enabled: true, type: 'WorkloadLimit', scope: 'global', minShiftsPerWeek: val });
+                    const idx = next.findIndex(c => c.type === 'DailyShiftLimit' && !c.userId);
+                    if (val === undefined) {
+                      if (idx >= 0) next.splice(idx, 1);
+                    } else {
+                      if (idx >= 0) next[idx] = { ...next[idx], maxPerDay: val };
+                      else next.push({ id: `dl_global_${Date.now()}`, enabled: true, type: 'DailyShiftLimit', maxPerDay: val });
+                    }
                     return next;
                   });
                 }}
                 className="h-8 text-xs"
               />
             </div>
-            <div>
-              <Label className="text-xs">Max Ca</Label>
-              <Input
-                type="number"
-                min={0}
-                value={globalWorkload?.maxShiftsPerWeek ?? ''}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value || '0', 10);
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="strict-availability"
+                checked={strictAvailability?.strict ?? false}
+                onCheckedChange={(checked) => {
                   setConstraints((prev: any) => {
                     const next = [...prev];
-                    const idx = next.findIndex(c => c.type === 'WorkloadLimit' && c.scope === 'global');
-                    if (idx >= 0) next[idx] = { ...next[idx], maxShiftsPerWeek: val };
-                    else next.push({ id: `wl_global_${Date.now()}`, enabled: true, type: 'WorkloadLimit', scope: 'global', maxShiftsPerWeek: val });
+                    const idx = next.findIndex(c => c.type === 'AvailabilityStrictness');
+                    if (idx >= 0) next[idx] = { ...next[idx], strict: checked };
+                    else next.push({ id: `as_${Date.now()}`, enabled: true, type: 'AvailabilityStrictness', strict: checked });
                     return next;
                   });
                 }}
-                className="h-8 text-xs"
+                className="h-3 w-3"
               />
+              <Label htmlFor="strict-availability" className="text-xs font-medium">Buộc tuân thủ thời gian rảnh</Label>
             </div>
-            <div>
-              <Label className="text-xs">Min Giờ</Label>
-              <Input
-                type="number"
-                min={0}
-                value={globalWorkload?.minHoursPerWeek ?? ''}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value || '0', 10);
-                  setConstraints((prev: any) => {
-                    const next = [...prev];
-                    const idx = next.findIndex(c => c.type === 'WorkloadLimit' && c.scope === 'global');
-                    if (idx >= 0) next[idx] = { ...next[idx], minHoursPerWeek: val };
-                    else next.push({ id: `wl_global_${Date.now()}`, enabled: true, type: 'WorkloadLimit', scope: 'global', minHoursPerWeek: val });
-                    return next;
-                  });
-                }}
-                className="h-8 text-xs"
-              />
-            </div>
-            <div>
-              <Label className="text-xs">Max Giờ</Label>
-              <Input
-                type="number"
-                min={0}
-                value={globalWorkload?.maxHoursPerWeek ?? ''}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value || '0', 10);
-                  setConstraints((prev: any) => {
-                    const next = [...prev];
-                    const idx = next.findIndex(c => c.type === 'WorkloadLimit' && c.scope === 'global');
-                    if (idx >= 0) next[idx] = { ...next[idx], maxHoursPerWeek: val };
-                    else next.push({ id: `wl_global_${Date.now()}`, enabled: true, type: 'WorkloadLimit', scope: 'global', maxHoursPerWeek: val });
-                    return next;
-                  });
-                }}
-                className="h-8 text-xs"
-              />
-            </div>
-          </div>
+            <p className="text-[11px] text-muted-foreground">Nếu bật, phân công bắt buộc sẽ bị bỏ qua nếu nhân viên không rảnh.</p>
+          </CardContent>
+        </Card>
 
-          <div className="pt-2 border-t">
-            <Label className="text-xs">Max Ca/Ngày (Toàn cục)</Label>
-            <Input
-              type="number"
-              min={1}
-              value={globalDailyLimit?.maxPerDay ?? ''}
-              onChange={(e) => {
-                const val = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
-                setConstraints((prev: any) => {
-                  const next = [...prev];
-                  const idx = next.findIndex(c => c.type === 'DailyShiftLimit' && !c.userId);
-                  if (val === undefined) {
-                    if (idx >= 0) next.splice(idx, 1);
-                  } else {
-                    if (idx >= 0) next[idx] = { ...next[idx], maxPerDay: val };
-                    else next.push({ id: `dl_global_${Date.now()}`, enabled: true, type: 'DailyShiftLimit', maxPerDay: val });
-                  }
-                  return next;
-                });
-              }}
-              className="h-8 text-xs"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="p-3 space-y-2">
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="strict-availability"
-              checked={strictAvailability?.strict ?? false}
-              onCheckedChange={(checked) => {
-                setConstraints((prev: any) => {
-                  const next = [...prev];
-                  const idx = next.findIndex(c => c.type === 'AvailabilityStrictness');
-                  if (idx >= 0) next[idx] = { ...next[idx], strict: checked };
-                  else next.push({ id: `as_${Date.now()}`, enabled: true, type: 'AvailabilityStrictness', strict: checked });
-                  return next;
-                });
-              }}
-              className="h-3 w-3"
-            />
-            <Label htmlFor="strict-availability" className="text-xs font-medium">Buộc tuân thủ thời gian rảnh</Label>
-          </div>
-          <p className="text-[11px] text-muted-foreground">Nếu bật, phân công bắt buộc sẽ bị bỏ qua nếu nhân viên không rảnh.</p>
-        </CardContent>
-      </Card>
-      </div>
-
-      {/* Condition Summary Column */}
-      <div className="lg:sticky lg:top-0 max-h-[400px] lg:max-h-[600px]">
-        <Card className="h-full">
+        <Card>
           <CardContent className="p-3 h-full overflow-hidden">
             <ConditionSummary
               constraints={constraints}
@@ -718,7 +725,7 @@ function StaffingTab({ constraints, setConstraints, shiftTemplates, pushUndo, al
       </div>
 
       {/* Condition Summary Column */}
-      <div className="lg:sticky lg:top-0 max-h-[400px] lg:max-h-[600px]">
+      <div className="lg:sticky lg:top-0">
         <Card className="h-full">
           <CardContent className="p-3 h-full overflow-hidden">
             <ConditionSummary
@@ -761,7 +768,7 @@ function PriorityTab({
       </div>
 
       {/* Condition Summary Column */}
-      <div className="lg:sticky lg:top-0 max-h-[400px] lg:max-h-[600px]">
+      <div className="lg:sticky lg:top-0">
         <Card className="h-full">
           <CardContent className="p-3 h-full overflow-hidden">
             <ConditionSummary
@@ -804,7 +811,7 @@ function LinksTab({
       </div>
 
       {/* Condition Summary Column */}
-      <div className="lg:sticky lg:top-0 max-h-[400px] lg:max-h-[600px]">
+      <div className="lg:sticky lg:top-0">
         <Card className="h-full">
           <CardContent className="p-3 h-full overflow-hidden">
             <ConditionSummary
@@ -849,7 +856,7 @@ function AvailabilityTab({
       </div>
 
       {/* Condition Summary Column */}
-      <div className="lg:sticky lg:top-0 max-h-[400px] lg:max-h-[600px]">
+      <div className="lg:sticky lg:top-0">
         <Card className="h-full">
           <CardContent className="p-3 h-full overflow-hidden">
             <ConditionSummary

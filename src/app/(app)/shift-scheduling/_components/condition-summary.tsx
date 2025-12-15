@@ -4,7 +4,7 @@ import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
+
 import { Checkbox } from '@/components/ui/checkbox';
 import { Trash2, Edit2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -60,14 +60,14 @@ export default function ConditionSummary({
   }, [filtered]);
 
   return (
-    <div className="flex flex-col h-full gap-3">
+    <div className="flex flex-col gap-3">
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-sm">Tổng hợp điều kiện ({filtered.length})</h3>
         </div>
       </div>
 
-      <ScrollArea className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0">
         <div className="space-y-3 pr-4 pb-4">
           <AnimatePresence initial={false}>
             {Object.entries(groupedByType).length === 0 ? (
@@ -94,50 +94,56 @@ export default function ConditionSummary({
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.96 }}
                       className={cn(
-                        'border rounded-md p-2.5 text-xs space-y-1.5',
+                        'border rounded-md p-2.5 text-xs overflow-hidden',
                         !c.enabled && 'opacity-50 bg-muted'
                       )}
                     >
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          checked={c.enabled}
-                          onCheckedChange={() => onToggleEnabled(c.id)}
-                          className="h-3 w-3"
-                          aria-label={`Enable condition ${c.id}`}
-                        />
-                        <span className="font-medium text-[11px] flex-1">
-                          {getConditionLabel(c, shiftTemplates, allUsers)}
-                        </span>
-                        {c.mandatory && (
-                          <Badge variant="secondary" className="text-[10px] h-5">
-                            Bắt buộc
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="text-[11px] text-muted-foreground pl-5 space-y-0.5">
-                        {getConditionDetails(c, shiftTemplates, allUsers)}
-                      </div>
-                      <div className="flex items-center justify-end gap-1 pt-1">
-                        {onEdit && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0"
-                            onClick={() => onEdit(c)}
-                            aria-label="Edit condition"
-                          >
-                            <Edit2 className="h-3 w-3" />
-                          </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                          onClick={() => onDelete(c.id)}
-                          aria-label="Delete condition"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            checked={c.enabled}
+                            onCheckedChange={() => onToggleEnabled(c.id)}
+                            className="h-3 w-3"
+                            aria-label={`Enable condition ${c.id}`}
+                          />
+
+                          <span className="font-medium text-[11px] min-w-0 truncate">
+                            {getConditionLabel(c, shiftTemplates, allUsers)}
+                          </span>
+
+                          {c.mandatory && (
+                            <Badge variant="secondary" className="text-[10px] h-5">
+                              Bắt buộc
+                            </Badge>
+                          )}
+
+                          <div className="ml-auto flex items-center gap-1">
+                            {onEdit && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0"
+                                onClick={() => onEdit(c)}
+                                aria-label="Edit condition"
+                              >
+                                <Edit2 className="h-3 w-3" />
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                              onClick={() => onDelete(c.id)}
+                              aria-label="Delete condition"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="text-[11px] text-muted-foreground pl-5 min-w-0 truncate mt-0.5">
+                          {getConditionDetails(c, shiftTemplates, allUsers)}
+                        </div>
                       </div>
                     </motion.div>
                   ))}
@@ -146,7 +152,7 @@ export default function ConditionSummary({
             )}
           </AnimatePresence>
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }
