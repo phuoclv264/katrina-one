@@ -7,6 +7,9 @@ What I changed in this PR (initial incremental migration):
 - Wrapped the app with Primer's `BaseStyles` in `src/app/layout.tsx`.
 - Added a minimal `PrimerButtonAdapter` in `src/components/primer/Button.tsx`.
 - Switched the shared `Button` implementation (`src/components/ui/button.tsx`) to render via the Primer adapter while preserving existing `variant`/`size` API and classes.
+ - Added a minimal `PrimerButtonAdapter` in `src/components/primer/Button.tsx`.
+ - Switched the shared `Button` implementation (`src/components/ui/button.tsx`) to render via the Primer adapter while preserving existing `variant`/`size` API and classes.
+ - Added `PrimerCard` and `PrimerDialogWrapper` adapters and updated `src/components/ui/card.tsx` and `src/components/ui/dialog.tsx` to use them.
 
 How to test locally:
 
