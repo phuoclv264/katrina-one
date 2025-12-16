@@ -105,10 +105,10 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
                 setIsPayDialogOpen(true);
                 return;
             }
-            setIsUpdatingPaymentStatus(true);
+                setIsUpdatingPaymentStatus(true);
             const toastId = toast.loading('Đang cập nhật trạng thái...');
             try {
-                await dataStore.updateSalaryPaymentStatus(monthId, record.userId, newStatus);
+                await dataStore.updateSalaryPayment(monthId, record.userId, newStatus);
                 onRecordUpdated(record.userId, { paymentStatus: newStatus, paidAt: undefined });
                 toast.success(`Đã cập nhật lương cho ${record.userName} thành Chưa trả.`, { id: toastId });
             } catch (error) {
@@ -373,8 +373,7 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
                                     setIsUpdatingPaymentStatus(true);
                                     const toastId = toast.loading('Đang cập nhật thanh toán...');
                                     try {
-                                        await dataStore.updateSalaryPaymentStatus(monthId!, record.userId, 'paid');
-                                        await dataStore.updateSalaryActualPaidAmount(monthId!, record.userId, amount);
+                                        await dataStore.updateSalaryPayment(monthId!, record.userId, 'paid', amount);
                                         onRecordUpdated(record.userId, { paymentStatus: 'paid', paidAt: Timestamp.now(), actualPaidAmount: amount });
                                         toast.success(`Đã đánh dấu trả lương cho ${record.userName}.`, { id: toastId });
                                         setIsPayDialogOpen(false);

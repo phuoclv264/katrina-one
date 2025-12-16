@@ -260,7 +260,6 @@ export type CommentMedia = {
 export type PenaltySubmission = {
   userId: string;
   userName: string;
-  assignedRole: UserRole | 'Bất kỳ';
   photos?: string[];
   media?: MediaAttachment[];
   submittedAt: string | Timestamp;

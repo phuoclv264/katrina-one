@@ -1,6 +1,7 @@
 'use client';
+
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +22,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Undo2, Redo2, Plus } from 'lucide-react';
+import ConditionSummary from './condition-summary';
+import AddConditionSheet from './add-condition-sheet';
 import { UserMultiSelect } from '@/components/user-multi-select';
 
 type Props = {
@@ -35,46 +39,79 @@ type Props = {
 };
 
 type EditableAssignment = { shiftId: string; userId: string; selected: boolean };
+type UndoRedoEntry = {
+  constraints: ScheduleCondition[];
+  timestamp: number;
+};
 
-export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers, availability, constraints, onApplyAssignments, shiftTemplates }: Props) {
+const TABS = [
+  { value: 'workload', label: 'Định mức', type: 'WorkloadLimit' },
+  { value: 'staffing', label: 'Nhu cầu ca', type: 'ShiftStaffing' },
+  { value: 'priority', label: 'Ưu tiên', type: 'StaffPriority' },
+  { value: 'links', label: 'Ràng buộc', type: 'StaffShiftLink' },
+  { value: 'availability', label: 'Thời gian rảnh', type: 'AvailabilityStrictness' },
+  { value: 'preview', label: 'Xem trước', type: null },
+];
+
+export default function AutoScheduleDialog({
+  isOpen,
+  onClose,
+  schedule,
+  allUsers,
+  availability,
+  constraints,
+  onApplyAssignments,
+  shiftTemplates,
+}: Props) {
   const [editableConstraints, setEditableConstraints] = useState<ScheduleCondition[]>(constraints || []);
   const [result, setResult] = useState<ScheduleRunResult | null>(null);
   const [editableAssignments, setEditableAssignments] = useState<EditableAssignment[]>([]);
-  const [newPriorityTemplateId, setNewPriorityTemplateId] = useState<string>('');
-  const [newPriorityUserId, setNewPriorityUserId] = useState<string>('');
-  const [newPriorityWeight, setNewPriorityWeight] = useState<number>(1);
-  const [newPriorityMandatory, setNewPriorityMandatory] = useState<boolean>(false);
-  const [linksForm, setLinksForm] = useState<{ templateId?: string; userId?: string; link?: 'force' | 'ban' }>({ link: 'force' });
-  const undoStack = useRef<ScheduleCondition[][]>([]);
-  const [priorityScrollTop, setPriorityScrollTop] = useState(0);
-  const [linksScrollTop, setLinksScrollTop] = useState(0);
+  const [activeTab, setActiveTab] = useState('preview');
+  const [filterTab, setFilterTab] = useState('');
+  const [showAddCondition, setShowAddCondition] = useState(false);
+  const [savedTimestamp, setSavedTimestamp] = useState<number | null>(null);
+  const [lastSaveTime, setLastSaveTime] = useState<string>('');
+
+  const undoStack = useRef<UndoRedoEntry[]>([]);
+  const redoStack = useRef<UndoRedoEntry[]>([]);
 
   useEffect(() => {
     if (isOpen) {
       setEditableConstraints(constraints || []);
       setResult(null);
       setEditableAssignments([]);
+      undoStack.current = [];
+      redoStack.current = [];
+      setFilterTab('');
+      setLastSaveTime('');
     }
   }, [isOpen, constraints]);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'z') {
+          e.preventDefault();
+          handleUndo();
+        } else if (e.key === 'y') {
+          e.preventDefault();
+          handleRedo();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
+
   const shifts = useMemo(() => schedule?.shifts || [], [schedule]);
-
   const validationErrors = useMemo(() => validateConstraints(editableConstraints), [editableConstraints]);
-
-  const globalWorkload = useMemo(() => {
-    const c = editableConstraints.find(c => c.type === 'WorkloadLimit' && (c as any).scope === 'global') as any;
-    return c || null;
-  }, [editableConstraints]);
-
-  const globalDailyLimit = useMemo(() => {
-    const c = editableConstraints.find(c => c.type === 'DailyShiftLimit' && !(c as any).userId) as any;
-    return c || null;
-  }, [editableConstraints]);
-
-  const strictAvailabilityConstraint = useMemo(() => {
-    const c = editableConstraints.find(c => c.type === 'AvailabilityStrictness') as any;
-    return c || null;
-  }, [editableConstraints]);
+  const hasUnsavedChanges = useMemo(() => {
+    return JSON.stringify(editableConstraints) !== JSON.stringify(constraints);
+  }, [editableConstraints, constraints]);
 
   const { user } = useAuth();
   const canSaveStructuredConstraints = user?.role === 'Chủ nhà hàng';
@@ -105,16 +142,13 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
     return counts;
   }, [shifts]);
 
-
-  const getRoleClasses = (role?: string) => {
-    switch (role as any) {
-      case 'Phục vụ': return 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700';
-      case 'Pha chế': return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700';
-      case 'Thu ngân': return 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/50 dark:text-orange-300 dark:border-orange-700';
-      case 'Quản lý': return 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/50 dark:text-purple-300 dark:border-purple-700';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600';
+  const conditionCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const c of editableConstraints) {
+      counts[c.type] = (counts[c.type] || 0) + 1;
     }
-  };
+    return counts;
+  }, [editableConstraints]);
 
   const shiftById = useMemo(() => {
     const m = new Map<string, typeof shifts[number]>();
@@ -170,22 +204,59 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
   }, [availability, scheduleDateKeys]);
 
   const pushUndo = useCallback((prev: ScheduleCondition[]) => {
-    undoStack.current.push(prev);
+    undoStack.current.push({ constraints: prev, timestamp: Date.now() });
+    redoStack.current = [];
   }, []);
 
   const handleUndo = useCallback(() => {
-    const prev = undoStack.current.pop();
-    if (prev) {
-      setEditableConstraints(prev);
+    const entry = undoStack.current.pop();
+    if (entry) {
+      redoStack.current.push({ constraints: editableConstraints, timestamp: Date.now() });
+      setEditableConstraints(entry.constraints);
       toast.success('Đã hoàn tác thay đổi.');
     } else {
       toast.info('Không có hành động để hoàn tác.', { icon: 'ℹ️' });
     }
-  }, []);
+  }, [editableConstraints]);
+
+  const handleRedo = useCallback(() => {
+    const entry = redoStack.current.pop();
+    if (entry) {
+      undoStack.current.push({ constraints: editableConstraints, timestamp: Date.now() });
+      setEditableConstraints(entry.constraints);
+      toast.success('Đã làm lại thay đổi.');
+    } else {
+      toast.info('Không có hành động để làm lại.', { icon: 'ℹ️' });
+    }
+  }, [editableConstraints]);
+
+  const handleAddCondition = (condition: ScheduleCondition) => {
+    const prev = [...editableConstraints];
+    pushUndo(prev);
+    setEditableConstraints([...editableConstraints, condition]);
+    toast.success('Đã thêm điều kiện mới.');
+  };
+
+  const handleDeleteCondition = (id: string) => {
+    const prev = [...editableConstraints];
+    pushUndo(prev);
+    setEditableConstraints(prev.filter(c => c.id !== id));
+    toast.success('Đã xóa điều kiện.');
+  };
+
+  const handleToggleCondition = (id: string) => {
+    const prev = [...editableConstraints];
+    pushUndo(prev);
+    setEditableConstraints(prev.map(c => c.id === id ? { ...c, enabled: !c.enabled } : c));
+  };
 
   const handleSaveConstraints = async () => {
     try {
       await updateStructuredConstraints(editableConstraints);
+      setSavedTimestamp(Date.now());
+      setLastSaveTime(format(new Date(), 'HH:mm'));
+      undoStack.current = [];
+      redoStack.current = [];
       toast.success('Đã lưu điều kiện xếp lịch có cấu trúc.');
     } catch (e: any) {
       toast.error(e?.message || 'Không thể lưu điều kiện.');
@@ -198,7 +269,7 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
       return;
     }
     if (validationErrors.length > 0) {
-      toast.error(validationErrors[0]);
+      toast.error(`Không thể chạy do lỗi: ${validationErrors[0]}`);
       return;
     }
     const r = runSchedule(shifts, allUsers, availability, editableConstraints);
@@ -223,781 +294,771 @@ export default function AutoScheduleDialog({ isOpen, onClose, schedule, allUsers
     onClose();
   };
 
-  
+  const getRoleClasses = (role?: string) => {
+    switch (role as any) {
+      case 'Phục vụ': return 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700';
+      case 'Pha chế': return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700';
+      case 'Thu ngân': return 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/50 dark:text-orange-300 dark:border-orange-700';
+      case 'Quản lý': return 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/50 dark:text-purple-300 dark:border-purple-700';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600';
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl">
-        <DialogHeader>
+      <DialogContent className="max-w-6xl h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogHeader className="px-4 pt-4 pb-4 border-b">
           <DialogTitle className="tracking-tight">Xếp lịch tự động</DialogTitle>
-          <DialogDescription className="text-sm leading-relaxed">Thiết lập điều kiện và xem trước kết quả. Áp dụng phân công trực tiếp từ phần xem trước.</DialogDescription>
+
+          {/* Status bar */}
+          {hasUnsavedChanges || lastSaveTime || validationErrors.length > 0 || undoStack.current.length > 0 || redoStack.current.length > 0 ? (
+            <div className="flex items-center justify-between mt-3 pt-3 border-t">
+              <div className="flex items-center gap-4 text-xs">
+                {hasUnsavedChanges && (
+                  <div className="flex items-center gap-1 text-yellow-600 dark:text-yellow-500">
+                    <div className="w-2 h-2 rounded-full bg-yellow-600 dark:bg-yellow-500" />
+                    <span>Có thay đổi chưa gửi</span>
+                  </div>
+                )}
+                {lastSaveTime && (
+                  <div className="text-muted-foreground">
+                    Lần lưu cuối: {lastSaveTime}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                {undoStack.current.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleUndo}
+                    aria-label="Hoàn tác (Ctrl+Z)"
+                    title="Ctrl+Z"
+                  >
+                    <Undo2 className="h-4 w-4 mr-1" />
+                    Hoàn tác
+                  </Button>
+                )}
+
+                {redoStack.current.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleRedo}
+                    aria-label="Làm lại (Ctrl+Y)"
+                    title="Ctrl+Y"
+                  >
+                    <Redo2 className="h-4 w-4 mr-1" />
+                    Làm lại
+                  </Button>
+                )}
+
+                {validationErrors.length > 0 && (
+                  <div className="flex items-center gap-1 text-destructive text-xs">
+                    <span>⚠️</span>
+                    <span>{validationErrors.length} lỗi</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
         </DialogHeader>
-        <ScrollArea className="max-h-[70vh]">
-        <div className="flex items-center justify-between pb-3">
-          <div className="flex items-center gap-3">
+
+        <div className="flex-1 overflow-hidden">
+          {/* Single column: Tabs and controls with inline condition summary */}
+          <div className="flex flex-col overflow-hidden h-full">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+              <TabsList className="grid grid-cols-3 lg:grid-cols-6 m-4 mb-0 justify-start gap-1 h-auto bg-transparent p-0">
+                {TABS.map(tab => (
+                  <TabsTrigger
+                    key={tab.value}
+                    value={tab.value}
+                    className="relative text-xs px-3 py-1.5 data-[state=active]:bg-muted"
+                  >
+                    {tab.label}
+                    {tab.type && conditionCounts[tab.type] > 0 && (
+                      <Badge
+                        variant="secondary"
+                        className="ml-1 h-5 px-1.5 text-[10px] cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFilterTab(filterTab === tab.type ? '' : tab.type);
+                        }}
+                      >
+                        {conditionCounts[tab.type]}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+
+              <ScrollArea className="flex-1 min-h-0">
+                <div className="p-4 space-y-4">
+                  <TabsContent value="workload" className="m-0 space-y-4">
+                    <WorkloadTab
+                      constraints={editableConstraints}
+                      setConstraints={setEditableConstraints}
+                      pushUndo={pushUndo}
+                      allUsers={allUsers}
+                      shiftTemplates={shiftTemplates}
+                      onToggleEnabled={handleToggleCondition}
+                      onDelete={handleDeleteCondition}
+                    />
+                  </TabsContent>
+
+                  <TabsContent value="staffing" className="m-0 space-y-4">
+                    <StaffingTab
+                      constraints={editableConstraints}
+                      setConstraints={setEditableConstraints}
+                      shiftTemplates={shiftTemplates}
+                      pushUndo={pushUndo}
+                      allUsers={allUsers}
+                      onToggleEnabled={handleToggleCondition}
+                      onDelete={handleDeleteCondition}
+                    />
+                  </TabsContent>
+
+                  <TabsContent value="priority" className="m-0 space-y-4">
+                    <PriorityTab
+                      constraints={editableConstraints}
+                      shiftTemplates={shiftTemplates}
+                      allUsers={allUsers}
+                      onToggleEnabled={handleToggleCondition}
+                      onDelete={handleDeleteCondition}
+                    />
+                  </TabsContent>
+
+                  <TabsContent value="links" className="m-0 space-y-4">
+                    <LinksTab
+                      constraints={editableConstraints}
+                      shiftTemplates={shiftTemplates}
+                      allUsers={allUsers}
+                      onToggleEnabled={handleToggleCondition}
+                      onDelete={handleDeleteCondition}
+                    />
+                  </TabsContent>
+
+                  <TabsContent value="availability" className="m-0 space-y-4">
+                    <AvailabilityTab
+                      constraints={editableConstraints}
+                      setConstraints={setEditableConstraints}
+                      shiftTemplates={shiftTemplates}
+                      allUsers={allUsers}
+                      onToggleEnabled={handleToggleCondition}
+                      onDelete={handleDeleteCondition}
+                    />
+                  </TabsContent>
+
+                  <TabsContent value="preview" className="m-0 space-y-4">
+                    <PreviewTab
+                      result={result}
+                      editableAssignments={editableAssignments}
+                      handleToggleAssignment={handleToggleAssignment}
+                      handleRun={handleRun}
+                      validationErrors={validationErrors}
+                      shifts={shifts}
+                      allUsers={allUsers}
+                      roleByUserId={roleByUserId}
+                      getRoleClasses={getRoleClasses}
+                      dateRowSpanMap={dateRowSpanMap}
+                      availabilityMap={availabilityMap}
+                      dayUserShiftCounts={dayUserShiftCounts}
+                      scheduledHoursByUser={scheduledHoursByUser}
+                      availableHoursByUser={availableHoursByUser}
+                    />
+                  </TabsContent>
+                </div>
+              </ScrollArea>
+            </Tabs>
+          </div>
+        </div>
+
+        {/* Footer: Action buttons */}
+        <div className="border-t px-4 py-3 bg-muted/30 flex flex-col sm:flex-row gap-2 text-xs">
+          <div className="flex flex-wrap items-stretch gap-2 w-full sm:w-auto">
+            <div className="w-px h-5 bg-border hidden sm:block" />
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowAddCondition(true)}
+              className="w-full sm:w-auto"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Thêm điều kiện
+            </Button>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto items-stretch mt-2 sm:mt-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onClose}
+              className="w-full sm:w-auto"
+            >
+              Đóng
+            </Button>
+
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="outline" onClick={handleSaveConstraints} aria-label="Lưu điều kiện" disabled={!canSaveStructuredConstraints}>Lưu tất cả điều kiện</Button>
-                </TooltipTrigger>
-                <TooltipContent>{canSaveStructuredConstraints ? 'Lưu các điều kiện xếp lịch hiện tại' : 'Chỉ Chủ nhà hàng có thể lưu các điều kiện cấu trúc'}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <Button variant="ghost" onClick={handleUndo} aria-label="Hoàn tác">Hoàn tác</Button>
-          </div>
-          <div className="flex items-center gap-3" />
-        </div>
-        <Tabs defaultValue="workload">
-          <TabsList className="grid grid-cols-6">
-            <TabsTrigger value="workload">Định mức</TabsTrigger>
-            <TabsTrigger value="staffing">Nhu cầu ca</TabsTrigger>
-            <TabsTrigger value="priority">Ưu tiên</TabsTrigger>
-            <TabsTrigger value="links">Ràng buộc</TabsTrigger>
-            <TabsTrigger value="availability">Thời gian rảnh</TabsTrigger>
-            <TabsTrigger value="preview">Xem trước</TabsTrigger>
-          </TabsList>
-          <TabsContent value="workload" className="py-4 space-y-4">
-            <Card>
-              <CardContent className="p-4 space-y-3">
-                <Label className="font-semibold">Giải thích chiến lược</Label>
-                <p className="text-sm text-muted-foreground">Phân bổ tỉ lệ thuận với thời gian rảnh. Giới hạn Min/Max Ca và Giờ. Ưu tiên giới hạn riêng của nhân viên hơn giới hạn toàn cục.</p>
-              </CardContent>
-            </Card>
-            {/* Global Workload */}
-            <Card>
-              <CardContent className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <Label>Min Ca/tuần (Toàn cục)</Label>
-                  <Input type="number" min={0} autoComplete="off" value={globalWorkload?.minShiftsPerWeek ?? ''} onChange={(e) => {
-                    const val = parseInt(e.target.value || '0', 10);
-                    setEditableConstraints(prev => {
-                      const next = [...prev];
-                      const idx = next.findIndex(c => c.type === 'WorkloadLimit' && (c as any).scope === 'global');
-                      if (idx >= 0) (next[idx] as any).minShiftsPerWeek = val; else next.push({ id: 'wl_global', enabled: true, type: 'WorkloadLimit', scope: 'global', minShiftsPerWeek: val } as any);
-                      return next;
-                    });
-                  }} />
-                </div>
-                <div>
-                  <Label>Max Ca/tuần (Toàn cục)</Label>
-                  <Input type="number" min={0} autoComplete="off" value={globalWorkload?.maxShiftsPerWeek ?? ''} onChange={(e) => {
-                    const val = parseInt(e.target.value || '0', 10);
-                    setEditableConstraints(prev => {
-                      const next = [...prev];
-                      const idx = next.findIndex(c => c.type === 'WorkloadLimit' && (c as any).scope === 'global');
-                      if (idx >= 0) (next[idx] as any).maxShiftsPerWeek = val; else next.push({ id: 'wl_global', enabled: true, type: 'WorkloadLimit', scope: 'global', maxShiftsPerWeek: val } as any);
-                      return next;
-                    });
-                  }} />
-                </div>
-                <div>
-                  <Label>Min Giờ/tuần (Toàn cục)</Label>
-                  <Input type="number" min={0} autoComplete="off" value={globalWorkload?.minHoursPerWeek ?? ''} onChange={(e) => {
-                    const val = parseInt(e.target.value || '0', 10);
-                    setEditableConstraints(prev => {
-                      const next = [...prev];
-                      const idx = next.findIndex(c => c.type === 'WorkloadLimit' && (c as any).scope === 'global');
-                      if (idx >= 0) (next[idx] as any).minHoursPerWeek = val; else next.push({ id: 'wl_global', enabled: true, type: 'WorkloadLimit', scope: 'global', minHoursPerWeek: val } as any);
-                      return next;
-                    });
-                  }} />
-                </div>
-                <div>
-                  <Label>Max Giờ/tuần (Toàn cục)</Label>
-                  <Input type="number" min={0} autoComplete="off" value={globalWorkload?.maxHoursPerWeek ?? ''} onChange={(e) => {
-                    const val = parseInt(e.target.value || '0', 10);
-                    setEditableConstraints(prev => {
-                      const next = [...prev];
-                      const idx = next.findIndex(c => c.type === 'WorkloadLimit' && (c as any).scope === 'global');
-                      if (idx >= 0) (next[idx] as any).maxHoursPerWeek = val; else next.push({ id: 'wl_global', enabled: true, type: 'WorkloadLimit', scope: 'global', maxHoursPerWeek: val } as any);
-                      return next;
-                    });
-                  }} />
-                </div>
-                <div>
-                  <Label>Max Ca/Ngày (Toàn cục)</Label>
-                  <Input type="number" min={0} autoComplete="off" value={globalDailyLimit?.maxPerDay ?? ''} onChange={(e) => {
-                    const raw = e.target.value;
-                    const val = raw === '' ? undefined : parseInt(raw || '0', 10);
-                    setEditableConstraints(prev => {
-                      const next = [...prev];
-                      const idx = next.findIndex(c => c.type === 'DailyShiftLimit' && !(c as any).userId);
-                      if (val === undefined) {
-                        if (idx >= 0) next.splice(idx, 1);
-                        return next;
-                      }
-                      if (idx >= 0) (next[idx] as any).maxPerDay = val; else next.push({ id: 'dl_global', enabled: true, type: 'DailyShiftLimit', maxPerDay: val } as any);
-                      return next;
-                    });
-                  }} />
-                </div>
-              </CardContent>
-            </Card>
-            {/* Strict Availability */}
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="strict-availability"
-                    checked={strictAvailabilityConstraint?.strict ?? false}
-                    onCheckedChange={(checked) => {
-                      setEditableConstraints(prev => {
-                        const next = [...prev];
-                        const idx = next.findIndex(c => c.type === 'AvailabilityStrictness');
-                        if (idx >= 0) {
-                          (next[idx] as any).strict = !!checked;
-                        } else {
-                          next.push({ id: 'availability_strict', enabled: true, type: 'AvailabilityStrictness', strict: !!checked } as any);
-                        }
-                        return next;
-                      });
-                    }}
-                  />
-                  <Label htmlFor="strict-availability">Buộc tuân thủ thời gian rảnh cho phân công bắt buộc</Label>
-                </div>
-                <p className="text-sm text-muted-foreground mt-1">Nếu bật, phân công bắt buộc sẽ bị bỏ qua nếu nhân viên không rảnh, thay vì chỉ cảnh báo.</p>
-              </CardContent>
-            </Card>
-            {/* Specific Workload per user */}
-            <Card>
-              <CardContent className="p-4 space-y-3">
-                <Label className="font-semibold">Giới hạn theo nhân viên (Ưu tiên hơn toàn cục)</Label>
-                <div className="flex items-center gap-2">
-                  <UserMultiSelect
-                    selectionMode="single"
-                    users={allUsers.filter(u => !editableConstraints.some(c => c.type === 'WorkloadLimit' && (c as any).scope === 'user' && (c as any).userId === u.uid))}
-                    selectedUsers={[]}
-                    onChange={(users) => {
-                      if (users.length === 0) return;
-                      const uid = users[0].uid;
-                      setEditableConstraints(prev => {
-                        const exists = prev.some(c => c.type === 'WorkloadLimit' && (c as any).scope === 'user' && (c as any).userId === uid);
-                        if (exists) return prev;
-                        return [...prev, { id: `wl_${uid}`, enabled: true, type: 'WorkloadLimit', scope: 'user', userId: uid } as any];
-                      });
-                    }}
-                  />
-                  <Button variant="secondary">Thêm điều kiện</Button>
-                  <UserMultiSelect
-                    selectionMode="single"
-                    users={allUsers.filter(u => !editableConstraints.some(c => c.type === 'DailyShiftLimit' && (c as any).userId === u.uid))}
-                    selectedUsers={[]}
-                    onChange={(users) => {
-                      if (users.length === 0) return;
-                      const uid = users[0].uid;
-                      setEditableConstraints(prev => {
-                        const exists = prev.some(c => c.type === 'DailyShiftLimit' && (c as any).userId === uid);
-                        if (exists) return prev;
-                        return [...prev, { id: `dl_${uid}`, enabled: true, type: 'DailyShiftLimit', userId: uid, maxPerDay: 1 } as any];
-                      });
-                    }}
-                  />
-                  <Button variant="secondary">Thêm Max Ca/Ngày</Button>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {
-                    (() => {
-                      const workloadConstraints = editableConstraints.filter(c => c.type === 'WorkloadLimit' && (c as any).scope === 'user') as any[];
-                      const dailyConstraints = editableConstraints.filter(c => c.type === 'DailyShiftLimit' && (c as any).userId) as any[];
-                      const ids = new Set<string>();
-                      for (const w of workloadConstraints) ids.add(w.userId);
-                      for (const d of dailyConstraints) ids.add(d.userId);
-                      return Array.from(ids).map(uid => {
-                        const wl = workloadConstraints.find(x => x.userId === uid);
-                        const dl = dailyConstraints.find(x => x.userId === uid);
-                        const u = allUsers.find(x => x.uid === uid);
-                        if (!u) return null;
-                        return (
-                          <motion.div key={`wl_edit_${u.uid}`} className="border rounded-md p-3" layout initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
-                            <div className="flex items-center justify-between mb-2">
-                              <p className="text-sm font-semibold">{u.displayName}</p>
-                              <Button variant="ghost" className="text-destructive" onClick={() => {
-                                const prev = [...editableConstraints];
-                                pushUndo(prev);
-                                setEditableConstraints(prev => prev.filter(x => !(x.type === 'WorkloadLimit' && (x as any).scope === 'user' && (x as any).userId === u.uid) && !(x.type === 'DailyShiftLimit' && (x as any).userId === u.uid)));
-                              }}>Xóa điều kiện</Button>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                              <Input placeholder="Min Ca" type="number" min={0} autoComplete="off" value={wl?.minShiftsPerWeek ?? ''} onChange={(e) => {
-                                const val = parseInt(e.target.value || '0', 10);
-                                setEditableConstraints(prev => prev.map(x => (x === wl ? { ...wl, minShiftsPerWeek: val } : x)));
-                              }} />
-                              <Input placeholder="Max Ca" type="number" min={0} autoComplete="off" value={wl?.maxShiftsPerWeek ?? ''} onChange={(e) => {
-                                const val = parseInt(e.target.value || '0', 10);
-                                if (wl) setEditableConstraints(prev => prev.map(x => (x === wl ? { ...wl, maxShiftsPerWeek: val } : x)));
-                                else setEditableConstraints(prev => ([...prev, { id: `wl_${u.uid}`, enabled: true, type: 'WorkloadLimit', scope: 'user', userId: u.uid, maxShiftsPerWeek: val } as any]));
-                              }} />
-                              <Input placeholder="Min Giờ" type="number" min={0} autoComplete="off" value={wl?.minHoursPerWeek ?? ''} onChange={(e) => {
-                                const val = parseInt(e.target.value || '0', 10);
-                                if (wl) setEditableConstraints(prev => prev.map(x => (x === wl ? { ...wl, minHoursPerWeek: val } : x))); else setEditableConstraints(prev => ([...prev, { id: `wl_${u.uid}`, enabled: true, type: 'WorkloadLimit', scope: 'user', userId: u.uid, minHoursPerWeek: val } as any]));
-                              }} />
-                              <Input placeholder="Max Giờ" type="number" min={0} autoComplete="off" value={wl?.maxHoursPerWeek ?? ''} onChange={(e) => {
-                                const val = parseInt(e.target.value || '0', 10);
-                                if (wl) setEditableConstraints(prev => prev.map(x => (x === wl ? { ...wl, maxHoursPerWeek: val } : x))); else setEditableConstraints(prev => ([...prev, { id: `wl_${u.uid}`, enabled: true, type: 'WorkloadLimit', scope: 'user', userId: u.uid, maxHoursPerWeek: val } as any]));
-                              }} />
-                              <Input placeholder="Max Ca/Ngày" type="number" min={0} autoComplete="off" value={dl?.maxPerDay ?? ''} onChange={(e) => {
-                                const raw = e.target.value;
-                                const val = raw === '' ? undefined : parseInt(raw || '0', 10);
-                                setEditableConstraints(prev => {
-                                  const next = [...prev];
-                                  const idx = next.findIndex(x => x.type === 'DailyShiftLimit' && (x as any).userId === u.uid);
-                                  if (val === undefined) {
-                                    if (idx >= 0) next.splice(idx, 1);
-                                    return next;
-                                  }
-                                  if (idx >= 0) (next[idx] as any).maxPerDay = val; else next.push({ id: `dl_${u.uid}`, enabled: true, type: 'DailyShiftLimit', userId: u.uid, maxPerDay: val } as any);
-                                  return next;
-                                });
-                              }} />
-                            </div>
-                          </motion.div>
-                        );
-                      });
-                    })()
-                  }
-                </div>
-                <p className="text-xs text-muted-foreground">Nếu không đặt điều kiện riêng cho một nhân viên, nhân viên đó chỉ áp dụng điều kiện toàn cục. "Max Ca/Ngày" ghi đè giới hạn toàn cục nếu có.</p>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          <TabsContent value="staffing" className="py-4 space-y-4">
-            <Card>
-              <CardContent className="p-4 space-y-3">
-                <Label className="font-semibold">Nhu cầu theo ca</Label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {shiftTemplates.map(template => {
-                    const entries = editableConstraints.filter(c => c.type === 'ShiftStaffing' && (c as any).templateId === template.id) as any[];
-                    return (
-                      <motion.div key={template.id} className="border rounded-md p-3" layout aria-label={`Khu vực ưu tiên cho ${template.label}`}>
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-sm font-semibold">{template.label} ({template.timeSlot.start}-{template.timeSlot.end})</p>
-                          <Button
-                            variant="secondary"
-                            onClick={() => {
-                              const newId = `ss_${template.id}_${Date.now()}`;
-                              setEditableConstraints(prev => ([...prev, { id: newId, enabled: true, type: 'ShiftStaffing', templateId: template.id, role: 'Bất kỳ', count: 1 } as any]));
-                            }}
-                          >Thêm vai trò</Button>
-                        </div>
-                        {entries.length === 0 && (
-                          <p className="text-xs text-muted-foreground mb-2">Chưa đặt nhu cầu vai trò. Sẽ dùng số tối thiểu từ mẫu ca.</p>
-                        )}
-                        <div className="space-y-2">
-                          <AnimatePresence initial={false}>
-                          {entries.map(entry => (
-                            <motion.div key={entry.id} className="grid grid-cols-[1fr_120px_auto_auto] gap-2 items-center" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}>
-                              <Select value={entry.role} onValueChange={(val) => {
-                                setEditableConstraints(prev => prev.map(c => (c as any).id === entry.id ? { ...entry, role: val as UserRole | 'Bất kỳ' } : c));
-                              }}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="Bất kỳ">Bất kỳ</SelectItem>
-                                  <SelectItem value="Phục vụ">Phục vụ</SelectItem>
-                                  <SelectItem value="Pha chế">Pha chế</SelectItem>
-                                  <SelectItem value="Thu ngân">Thu ngân</SelectItem>
-                                  <SelectItem value="Quản lý">Quản lý</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <Input type="number" min={0} autoComplete="off" value={entry.count ?? 0} onChange={(e) => {
-                                const val = parseInt(e.target.value || '0', 10);
-                                setEditableConstraints(prev => prev.map(c => (c as any).id === entry.id ? { ...entry, count: val } : c));
-                              }} />
-                              <div className="flex items-center gap-2">
-                                <Checkbox id={`mandatory_${entry.id}`} checked={!!entry.mandatory} onCheckedChange={(checked) => {
-                                  setEditableConstraints(prev => prev.map(c => (c as any).id === entry.id ? { ...entry, mandatory: !!checked } : c));
-                                }} />
-                                <label htmlFor={`mandatory_${entry.id}`} className="text-xs">Bắt buộc</label>
-                              </div>
-                              <Button variant="ghost" className="justify-self-end" onClick={() => {
-                                const prev = [...editableConstraints];
-                                pushUndo(prev);
-                                setEditableConstraints(prev => prev.filter(c => (c as any).id !== entry.id));
-                              }}>Xóa</Button>
-                            </motion.div>
-                          ))}
-                          </AnimatePresence>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          <TabsContent value="priority" className="py-4 space-y-4">
-            <Card>
-              <CardContent className="p-4 space-y-3">
-                <Label className="font-semibold">Ưu tiên nhân viên cho ca</Label>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-[2fr_2fr_1fr_auto] gap-2 items-end">
-                  <div>
-                    <Label className="text-xs">Chọn mẫu ca</Label>
-                    <Select value={newPriorityTemplateId} onValueChange={setNewPriorityTemplateId}>
-                      <SelectTrigger><SelectValue placeholder="Chọn mẫu ca" /></SelectTrigger>
-                      <SelectContent>
-                        {shiftTemplates.map(t => (
-                          <SelectItem key={`pr_t_${t.id}`} value={t.id}>{t.label} ({t.timeSlot.start}-{t.timeSlot.end})</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs">Chọn nhân viên</Label>
-                    <UserMultiSelect
-                      selectionMode="single"
-                      users={allUsers}
-                      selectedUsers={newPriorityUserId ? allUsers.filter(u => u.uid === newPriorityUserId) : []}
-                      onChange={(users) => {
-                        if (users.length > 0) {
-                          setNewPriorityUserId(users[0].uid);
-                        } else {
-                          setNewPriorityUserId('');
-                        }
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Trọng số</Label>
-                    <Select value={String(newPriorityWeight)} onValueChange={(v) => setNewPriorityWeight(parseInt(v, 10))}>
-                      <SelectTrigger><SelectValue placeholder="Chọn trọng số" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="0">0</SelectItem>
-                        <SelectItem value="1">1</SelectItem>
-                        <SelectItem value="2">2</SelectItem>
-                        <SelectItem value="3">3</SelectItem>
-                        <SelectItem value="4">4</SelectItem>
-                        <SelectItem value="5">5</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Checkbox id="priorityMandatory" checked={newPriorityMandatory} onCheckedChange={(checked) => setNewPriorityMandatory(!!checked)} />
-                    <label htmlFor="priorityMandatory" className="text-xs">Bắt buộc</label>
-                  </div>
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      if (!newPriorityTemplateId || !newPriorityUserId) return;
-                      const arr = [...editableConstraints];
-                      const idx = arr.findIndex(c => c.type === 'StaffPriority' && (c as any).templateId === newPriorityTemplateId && (c as any).userId === newPriorityUserId);
-                      const prev = [...editableConstraints];
-                      if (idx >= 0) {
-                        (arr[idx] as any).weight = newPriorityWeight;
-                        (arr[idx] as any).mandatory = newPriorityMandatory;
-                      } else {
-                        arr.push({ id: `sp_${newPriorityTemplateId}_${newPriorityUserId}`, enabled: true, type: 'StaffPriority', templateId: newPriorityTemplateId, userId: newPriorityUserId, weight: newPriorityWeight, mandatory: newPriorityMandatory } as any);
-                      }
-                      pushUndo(prev);
-                      setEditableConstraints(arr);
-                      setNewPriorityWeight(1);
-                      setNewPriorityMandatory(false);
-                    }}
-                  >Thêm ưu tiên</Button>
-                </div>
-                <div className="mt-3 space-y-2">
-                  <Label className="text-xs">Các ưu tiên hiện tại</Label>
-                  <ScrollArea className="h-[240px]" onScrollCapture={(e) => setPriorityScrollTop((e.target as HTMLDivElement).scrollTop)}>
-                    <div className="grid grid-cols-1 gap-2">
-                      <AnimatePresence initial={false}>
-                        {(() => {
-                          const items = editableConstraints.filter(c => c.type === 'StaffPriority') as any[];
-                          const total = items.length;
-                          const start = Math.max(0, Math.floor(priorityScrollTop / 56) - 2);
-                          const visibleCount = Math.ceil(240 / 56) + 4;
-                          const end = Math.min(total, start + visibleCount);
-                          const topSpacer = start * 56;
-                          const bottomSpacer = Math.max(0, (total - end) * 56);
-                          const slice = items.slice(start, end);
-                          return (
-                            <>
-                              <div style={{ height: topSpacer }} />
-                              {slice.map((c: any) => {
-                                const t = shiftTemplates.find(t => t.id === c.templateId);
-                                const u = allUsers.find(u => u.uid === c.userId);
-                                return (
-                                  <motion.div key={`pr_row_${c.id}`} className="flex items-center justify-between border rounded-md p-2" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}>
-                                    <div className="text-sm">
-                                      <span className="font-semibold">{u?.displayName || c.userId}</span>
-                                      <span className="mx-2">→</span>
-                                      <span>{t?.label || c.templateId}</span>
-                                      <span className="ml-2 text-muted-foreground">w={c.weight ?? 0}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <Select value={String(c.weight ?? 0)} onValueChange={(v) => {
-                                        const next = editableConstraints.map(x => x === c ? { ...c, weight: parseInt(v, 10) } as any : x);
-                                        setEditableConstraints(next);
-                                      }}>
-                                        <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="0">0</SelectItem>
-                                          <SelectItem value="1">1</SelectItem>
-                                          <SelectItem value="2">2</SelectItem>
-                                          <SelectItem value="3">3</SelectItem>
-                                          <SelectItem value="4">4</SelectItem>
-                                          <SelectItem value="5">5</SelectItem>
-                                        </SelectContent>
-                                      </Select>
-                                      <div className="flex items-center gap-2">
-                                        <Checkbox id={`pr_mand_${c.id}`} checked={!!c.mandatory} onCheckedChange={(checked) => {
-                                          const next = editableConstraints.map(x => x === c ? { ...c, mandatory: !!checked } as any : x);
-                                          setEditableConstraints(next);
-                                        }} />
-                                        <label htmlFor={`pr_mand_${c.id}`} className="text-xs">Bắt buộc</label>
-                                      </div>
-                                      <Button variant="ghost" onClick={() => {
-                                        const prev = [...editableConstraints];
-                                        const next = editableConstraints.filter(x => x !== c);
-                                        pushUndo(prev);
-                                        setEditableConstraints(next);
-                                      }}>Xóa</Button>
-                                    </div>
-                                  </motion.div>
-                                );
-                              })}
-                              <div style={{ height: bottomSpacer }} />
-                            </>
-                          );
-                        })()}
-                        {editableConstraints.filter(c => c.type === 'StaffPriority').length === 0 && (
-                          <p className="text-xs text-muted-foreground">Chưa có ưu tiên nào.</p>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  </ScrollArea>
-                </div>
-                <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
-                    onClick={() => {
-                      if (!newPriorityTemplateId || !newPriorityUserId) return;
-                      const next = editableConstraints.filter(c => !(c.type === 'StaffPriority' && (c as any).templateId === newPriorityTemplateId && (c as any).userId === newPriorityUserId));
-                      setEditableConstraints(next);
-                    }}
-                  >Xóa ưu tiên</Button>
-                  <p className="text-xs text-muted-foreground">Dùng chọn Mẫu ca + Nhân viên để thêm hoặc xóa ưu tiên.</p>
-                  
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          <TabsContent value="links" className="py-4 space-y-4">
-            <Card>
-              <CardContent className="p-4 space-y-3">
-                <Label className="font-semibold">Ràng buộc nhân viên↔mẫu ca</Label>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-[2fr_2fr_1fr_auto] gap-2 items-end">
-                  <div>
-                    <Label className="text-xs">Chọn mẫu ca</Label>
-                    <Select value={(linksForm.templateId ?? '') as string} onValueChange={(v) => setLinksForm(prev => ({ ...prev, templateId: v }))}>
-                      <SelectTrigger><SelectValue placeholder="Chọn mẫu ca" /></SelectTrigger>
-                      <SelectContent>
-                        {shiftTemplates.map(t => (
-                          <SelectItem key={`ln_t_${t.id}`} value={t.id}>{t.label} ({t.timeSlot.start}-{t.timeSlot.end})</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs">Chọn nhân viên</Label>
-                    <UserMultiSelect
-                      selectionMode="single"
-                      users={allUsers}
-                      selectedUsers={linksForm.userId ? allUsers.filter(u => u.uid === linksForm.userId) : []}
-                      onChange={(users) => {
-                        if (users.length > 0) {
-                          setLinksForm(prev => ({ ...prev, userId: users[0].uid }));
-                        } else {
-                          setLinksForm(prev => ({ ...prev, userId: undefined }));
-                        }
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Loại ràng buộc</Label>
-                    <Select value={(linksForm.link ?? 'force') as string} onValueChange={(v) => setLinksForm(prev => ({ ...prev, link: v as any }))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="force">Bắt buộc</SelectItem>
-                        <SelectItem value="ban">Cấm</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      if (!linksForm.templateId || !linksForm.userId) return;
-                      const prev = [...editableConstraints];
-                      const arr = editableConstraints.filter(c => !(c.type === 'StaffShiftLink' && (c as any).templateId === linksForm.templateId && (c as any).userId === linksForm.userId));
-                      arr.push({ id: `ln_${linksForm.templateId}_${linksForm.userId}`, enabled: true, type: 'StaffShiftLink', templateId: linksForm.templateId, userId: linksForm.userId, link: (linksForm.link ?? 'force') } as any);
-                      pushUndo(prev);
-                      setEditableConstraints(arr);
-                    }}
-                  >Thêm ràng buộc</Button>
-                </div>
-                <div className="mt-3 space-y-2">
-                  <Label className="text-xs">Các ràng buộc hiện tại</Label>
-                  <ScrollArea className="h-[240px]" onScrollCapture={(e) => setLinksScrollTop((e.target as HTMLDivElement).scrollTop)}>
-                    <div className="grid grid-cols-1 gap-2">
-                      <AnimatePresence initial={false}>
-                        {(() => {
-                          const items = editableConstraints.filter(c => c.type === 'StaffShiftLink') as any[];
-                          const total = items.length;
-                          const start = Math.max(0, Math.floor(linksScrollTop / 56) - 2);
-                          const visibleCount = Math.ceil(240 / 56) + 4;
-                          const end = Math.min(total, start + visibleCount);
-                          const topSpacer = start * 56;
-                          const bottomSpacer = Math.max(0, (total - end) * 56);
-                          const slice = items.slice(start, end);
-                          return (
-                            <>
-                              <div style={{ height: topSpacer }} />
-                              {slice.map((c: any) => {
-                                const t = shiftTemplates.find(t => t.id === c.templateId);
-                                const u = allUsers.find(u => u.uid === c.userId);
-                                return (
-                                  <motion.div key={`ln_row_${c.id}`} className="flex items-center justify-between border rounded-md p-2" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}>
-                                    <div className="text-sm">
-                                      <span className="font-semibold">{u?.displayName || c.userId}</span>
-                                      <span className="mx-2">↔</span>
-                                      <span>{t?.label || c.templateId}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <Select value={c.link} onValueChange={(v) => {
-                                        const next = editableConstraints.map(x => x === c ? { ...c, link: v as any } as any : x);
-                                        setEditableConstraints(next);
-                                      }}>
-                                        <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="force">Bắt buộc</SelectItem>
-                                          <SelectItem value="ban">Cấm</SelectItem>
-                                        </SelectContent>
-                                      </Select>
-                                      <Button variant="ghost" onClick={() => {
-                                        const prev = [...editableConstraints];
-                                        const next = editableConstraints.filter(x => x !== c);
-                                        pushUndo(prev);
-                                        setEditableConstraints(next);
-                                      }}>Xóa</Button>
-                                    </div>
-                                  </motion.div>
-                                );
-                              })}
-                              <div style={{ height: bottomSpacer }} />
-                            </>
-                          );
-                        })()}
-                        {editableConstraints.filter(c => c.type === 'StaffShiftLink').length === 0 && (
-                          <p className="text-xs text-muted-foreground">Chưa có ràng buộc nào.</p>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  </ScrollArea>
-                </div>
-              </CardContent>
-            </Card>
-            
-          </TabsContent>
-          <TabsContent value="availability" className="py-4">
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-sm text-muted-foreground mb-2">Đọc từ đăng ký của nhân viên (chỉ xem).</p>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[35%] text-center">Ngày</TableHead>
-                      <TableHead className="text-center">Khung giờ rảnh</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {Object.entries(groupAvailabilityByDate(availability)).map(([dateKey, list]) => (
-                      <TableRow key={dateKey}>
-                        <TableCell className="font-semibold text-center">{format(new Date(dateKey), 'eeee, dd/MM', { locale: vi })}</TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex flex-wrap gap-2 justify-center">
-                            {list.map(rec => (
-                              <Badge key={rec.userId} variant="outline">{rec.userName}: {rec.availableSlots.map(s => `${s.start}-${s.end}`).join(', ') || '—'}</Badge>
-                            ))}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          <TabsContent value="preview" className="py-4 space-y-4">
-            <Card>
-              <CardContent className="p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Button variant="secondary" onClick={handleRun}>Run Auto Schedule</Button>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Chiến lược: Replace All (Tạo lịch mới hoàn toàn)
-                  </div>
-                </div>
-                {result ? (
-                  <div className="space-y-3">
-                    {result.warnings.length > 0 && (
-                      <div className="text-sm text-yellow-600 dark:text-yellow-400">{result.warnings.join(' • ')}</div>
-                    )}
-                    {validationErrors.length > 0 && (
-                      <div className="text-sm text-destructive">{validationErrors.join(' • ')}</div>
-                    )}
-                    {/* Summary stats */}
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="secondary">Đề xuất: {editableAssignments.filter(a => a.selected).length}</Badge>
-                      <Badge variant="outline">Unfilled: {result.unfilled.reduce((acc, u) => acc + (u.remaining || 0), 0)}</Badge>
-                      {(() => {
-                        const counts: Record<string, number> = {};
-                        for (const a of editableAssignments.filter(x => x.selected)) {
-                          const r = roleByUserId.get(a.userId) || 'Bất kỳ';
-                          counts[r] = (counts[r] || 0) + 1;
-                        }
-                        return Object.entries(counts).map(([r, n]) => (
-                          <Badge key={`role_count_${r}`} className={getRoleClasses(r)}>{r}: {n}</Badge>
-                        ));
-                      })()}
-                    </div>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[20%] whitespace-nowrap">Ngày</TableHead>
-                          <TableHead>Ca</TableHead>
-                          <TableHead>Phân công đề xuất</TableHead>
-                          <TableHead>Thiếu</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        <AnimatePresence initial={false}>
-                        {shifts.map((shift, idx) => {
-                          const dayAssignments = editableAssignments.filter(a => a.shiftId === shift.id);
-                          const unfilled = result.unfilled.find(u => u.shiftId === shift.id)?.remaining || 0;
-                          const dateKey = format(new Date(shift.date), 'yyyy-MM-dd');
-                          const isFirstOfDay = idx === 0 || format(new Date(shifts[idx - 1].date), 'yyyy-MM-dd') !== dateKey;
-                          const isLastOfDay = idx === shifts.length - 1 || format(new Date(shifts[idx + 1]?.date || shift.date), 'yyyy-MM-dd') !== dateKey;
-                          return (
-                            <React.Fragment key={`grp_${shift.id}`}>
-                            <motion.tr key={shift.id} className={cn(unfilled > 0 && 'bg-destructive/10')} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                              {isFirstOfDay && (
-                                <TableCell rowSpan={dateRowSpanMap[dateKey]} className="font-semibold whitespace-nowrap w-[20%] border-l-4 border-primary bg-muted/20">
-                                  {format(new Date(shift.date), 'eee, dd/MM', { locale: vi })}
-                                </TableCell>
-                              )}
-                              <TableCell>{shift.label} ({shift.timeSlot.start}-{shift.timeSlot.end})</TableCell>
-                              <TableCell>
-                                <div className="flex flex-wrap gap-2">
-                                  {dayAssignments.length === 0 ? <span className="text-muted-foreground">—</span> : dayAssignments.map(a => {
-                                    const userName = allUsers.find(u => u.uid === a.userId)?.displayName || a.userId;
-                                    const role = roleByUserId.get(a.userId);
-                                    const roleCls = getRoleClasses(role);
-                                    const availSlots = availabilityMap.get(`${a.userId}:${dateKey}`) || [];
-                                    const dayCount = dayUserShiftCounts.get(`${a.userId}:${dateKey}`) || 0;
-                                    return (
-                                      <TooltipProvider key={`tt_${a.shiftId}_${a.userId}`}>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <motion.button onClick={() => handleToggleAssignment(a.shiftId, a.userId)} className={cn('rounded-md px-2 py-1 text-xs font-medium border', roleCls, a.selected ? 'ring-2 ring-primary' : 'opacity-90')} initial={{ scale: 0.98 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 30 }} aria-pressed={a.selected} aria-label={`Chọn ${userName}`}>
-                                              {userName}
-                                              {dayCount >= 2 && (
-                                                <span className="ml-1 text-[10px] font-semibold text-yellow-600 dark:text-yellow-400">×{dayCount}</span>
-                                              )}
-                                            </motion.button>
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            <div className="space-y-1">
-                                              <div className="text-xs">Vai trò: {role || 'Bất kỳ'}</div>
-                                              <div className="text-xs">Rảnh: {availSlots.length ? availSlots.join(', ') : 'Không có'}</div>
-                                            </div>
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
-                                    );
-                                  })}
-                                </div>
-                              </TableCell>
-                              <TableCell>{unfilled > 0 ? unfilled : '0'}</TableCell>
-                            </motion.tr>
-                            {isLastOfDay && (
-                              <TableRow key={`sep_${dateKey}_${idx}`}>
-                                <TableCell colSpan={4} className="p-0">
-                                  <div className="h-[6px] bg-muted rounded-md" />
-                                </TableCell>
-                              </TableRow>
-                            )}
-                            </React.Fragment>
-                          )
-                        })}
-                        </AnimatePresence>
-                      </TableBody>
-                    </Table>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Chạy xếp lịch để xem đề xuất.</p>
-                )}
-              </CardContent>
-            </Card>
-            {result && (
-              <Card>
-                <CardContent className="p-4 space-y-3">
-                  <Label className="font-semibold">Tổng kết giờ làm theo tuần</Label>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Nhân viên</TableHead>
-                        <TableHead className="text-center">Giờ dự kiến</TableHead>
-                        <TableHead className="text-center">Giờ rảnh khai báo</TableHead>
-                        <TableHead className="text-center">Chênh lệch</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {[...scheduledHoursByUser.keys()].sort().map(uid => {
-                        const u = allUsers.find(x => x.uid === uid);
-                        const sched = scheduledHoursByUser.get(uid) || 0;
-                        const avail = availableHoursByUser.get(uid) || 0;
-                        const diff = sched - avail;
-                        const exceed = diff > 0.0001;
-                        return (
-                          <TableRow key={`sum_${uid}`} className={cn(exceed && 'bg-destructive/10')}> 
-                            <TableCell className="font-medium">{u?.displayName || uid}</TableCell>
-                            <TableCell className="text-center">{sched.toFixed(1)}h</TableCell>
-                            <TableCell className="text-center">{avail.toFixed(1)}h</TableCell>
-                            <TableCell className={cn('text-center', exceed ? 'text-destructive font-semibold' : 'text-muted-foreground')}>{(diff >= 0 ? '+' : '') + diff.toFixed(1)}h</TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                  <div className="text-xs text-muted-foreground">Tô màu đỏ khi giờ dự kiến vượt quá giờ rảnh khai báo.</div>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-        </Tabs>
-        </ScrollArea>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Đóng</Button>
-          <Button onClick={handleApply} disabled={!result}>Apply Assignments</Button>
-        </DialogFooter>
+                    size="sm"
+                    onClick={handleSaveConstraints}
+                    disabled={!canSaveStructuredConstraints || !hasUnsavedChanges}
+                    className="w-full sm:w-auto"
+                  >
+                    Lưu
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {canSaveStructuredConstraints ? 'Lưu các điều kiện xếp lịch' : 'Chỉ Chủ nhà hàng có thể lưu các điều kiện cấu trúc'}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <Button
+              onClick={handleApply}
+              disabled={!result || validationErrors.length > 0}
+              size="sm"
+              className="w-full sm:w-auto"
+            >
+              Áp dụng phân công
+            </Button>
+          </div>
+        </div>
       </DialogContent>
+
+      <AddConditionSheet
+        isOpen={showAddCondition}
+        onClose={() => setShowAddCondition(false)}
+        shiftTemplates={shiftTemplates}
+        allUsers={allUsers}
+        onAddCondition={handleAddCondition}
+      />
     </Dialog>
   );
 }
 
-function groupAvailabilityByDate(availability: Availability[]): Record<string, Availability[]> {
-  const grouped: Record<string, Availability[]> = {};
-  for (const a of availability) {
-    const dateKey = typeof a.date === 'string' ? a.date : format(a.date.toDate(), 'yyyy-MM-dd');
-    if (!grouped[dateKey]) grouped[dateKey] = [];
-    grouped[dateKey].push(a);
-  }
-  return grouped;
+function WorkloadTab({ constraints, setConstraints, pushUndo, allUsers, shiftTemplates, onToggleEnabled, onDelete }: any) {
+  const globalWorkload = constraints.find((c: ScheduleCondition) => c.type === 'WorkloadLimit' && (c as any).scope === 'global') as any;
+  const globalDailyLimit = constraints.find((c: ScheduleCondition) => c.type === 'DailyShiftLimit' && !(c as any).userId) as any;
+  const strictAvailability = constraints.find((c: ScheduleCondition) => c.type === 'AvailabilityStrictness') as any;
+
+  return (
+    <div className="space-y-3 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:space-y-0 min-h-0">
+      <div className="space-y-3">
+        <Card>
+          <CardContent className="p-3 space-y-2">
+            <Label className="text-xs font-semibold">Giải thích chiến lược</Label>
+            <p className="text-xs text-muted-foreground">Phân bổ tỉ lệ thuận với thời gian rảnh. Giới hạn Min/Max Ca và Giờ. Ưu tiên giới hạn riêng của nhân viên hơn giới hạn toàn cục.</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-3 space-y-2">
+            <Label className="text-xs font-semibold">Giới hạn toàn cục</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">Min Ca</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={globalWorkload?.minShiftsPerWeek ?? ''}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value || '0', 10);
+                    setConstraints((prev: any) => {
+                      const next = [...prev];
+                      const idx = next.findIndex(c => c.type === 'WorkloadLimit' && c.scope === 'global');
+                      if (idx >= 0) next[idx] = { ...next[idx], minShiftsPerWeek: val };
+                      else next.push({ id: `wl_global_${Date.now()}`, enabled: true, type: 'WorkloadLimit', scope: 'global', minShiftsPerWeek: val });
+                      return next;
+                    });
+                  }}
+                  className="h-8 text-xs"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Max Ca</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={globalWorkload?.maxShiftsPerWeek ?? ''}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value || '0', 10);
+                    setConstraints((prev: any) => {
+                      const next = [...prev];
+                      const idx = next.findIndex(c => c.type === 'WorkloadLimit' && c.scope === 'global');
+                      if (idx >= 0) next[idx] = { ...next[idx], maxShiftsPerWeek: val };
+                      else next.push({ id: `wl_global_${Date.now()}`, enabled: true, type: 'WorkloadLimit', scope: 'global', maxShiftsPerWeek: val });
+                      return next;
+                    });
+                  }}
+                  className="h-8 text-xs"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Min Giờ</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={globalWorkload?.minHoursPerWeek ?? ''}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value || '0', 10);
+                    setConstraints((prev: any) => {
+                      const next = [...prev];
+                      const idx = next.findIndex(c => c.type === 'WorkloadLimit' && c.scope === 'global');
+                      if (idx >= 0) next[idx] = { ...next[idx], minHoursPerWeek: val };
+                      else next.push({ id: `wl_global_${Date.now()}`, enabled: true, type: 'WorkloadLimit', scope: 'global', minHoursPerWeek: val });
+                      return next;
+                    });
+                  }}
+                  className="h-8 text-xs"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Max Giờ</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={globalWorkload?.maxHoursPerWeek ?? ''}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value || '0', 10);
+                    setConstraints((prev: any) => {
+                      const next = [...prev];
+                      const idx = next.findIndex(c => c.type === 'WorkloadLimit' && c.scope === 'global');
+                      if (idx >= 0) next[idx] = { ...next[idx], maxHoursPerWeek: val };
+                      else next.push({ id: `wl_global_${Date.now()}`, enabled: true, type: 'WorkloadLimit', scope: 'global', maxHoursPerWeek: val });
+                      return next;
+                    });
+                  }}
+                  className="h-8 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="pt-2 border-t">
+              <Label className="text-xs">Max Ca/Ngày (Toàn cục)</Label>
+              <Input
+                type="number"
+                min={1}
+                value={globalDailyLimit?.maxPerDay ?? ''}
+                onChange={(e) => {
+                  const val = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
+                  setConstraints((prev: any) => {
+                    const next = [...prev];
+                    const idx = next.findIndex(c => c.type === 'DailyShiftLimit' && !c.userId);
+                    if (val === undefined) {
+                      if (idx >= 0) next.splice(idx, 1);
+                    } else {
+                      if (idx >= 0) next[idx] = { ...next[idx], maxPerDay: val };
+                      else next.push({ id: `dl_global_${Date.now()}`, enabled: true, type: 'DailyShiftLimit', maxPerDay: val });
+                    }
+                    return next;
+                  });
+                }}
+                className="h-8 text-xs"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="strict-availability"
+                checked={strictAvailability?.strict ?? false}
+                onCheckedChange={(checked) => {
+                  setConstraints((prev: any) => {
+                    const next = [...prev];
+                    const idx = next.findIndex(c => c.type === 'AvailabilityStrictness');
+                    if (idx >= 0) next[idx] = { ...next[idx], strict: checked };
+                    else next.push({ id: `as_${Date.now()}`, enabled: true, type: 'AvailabilityStrictness', strict: checked });
+                    return next;
+                  });
+                }}
+                className="h-3 w-3"
+              />
+              <Label htmlFor="strict-availability" className="text-xs font-medium">Buộc tuân thủ thời gian rảnh</Label>
+            </div>
+            <p className="text-[11px] text-muted-foreground">Nếu bật, phân công bắt buộc sẽ bị bỏ qua nếu nhân viên không rảnh.</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-3 h-full overflow-hidden">
+            <ConditionSummary
+              constraints={constraints}
+              shiftTemplates={shiftTemplates}
+              allUsers={allUsers}
+              filterTab="WorkloadLimit"
+              onToggleEnabled={onToggleEnabled}
+              onDelete={onDelete}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function StaffingTab({ constraints, setConstraints, shiftTemplates, pushUndo, allUsers, onToggleEnabled, onDelete }: {
+  constraints: ScheduleCondition[];
+  setConstraints: React.Dispatch<React.SetStateAction<ScheduleCondition[]>>;
+  shiftTemplates: ShiftTemplate[];
+  pushUndo: (prev: ScheduleCondition[]) => void;
+  allUsers: ManagedUser[];
+  onToggleEnabled: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <div className="space-y-3 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:space-y-0">
+      <div className="space-y-3">
+        <Card>
+          <CardContent className="p-3 space-y-2">
+            <Label className="text-xs font-semibold">Nhu cầu theo ca</Label>
+            <p className="text-xs text-muted-foreground">Sử dụng nút "Thêm điều kiện" để thêm nhu cầu ca mới.</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Condition Summary Column */}
+      <div className="lg:sticky lg:top-0">
+        <Card className="h-full">
+          <CardContent className="p-3 h-full overflow-hidden">
+            <ConditionSummary
+              constraints={constraints}
+              shiftTemplates={shiftTemplates}
+              allUsers={allUsers}
+              filterTab="ShiftStaffing"
+              onToggleEnabled={onToggleEnabled}
+              onDelete={onDelete}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function PriorityTab({
+  constraints,
+  shiftTemplates,
+  allUsers,
+  onToggleEnabled,
+  onDelete,
+}: {
+  constraints: ScheduleCondition[];
+  shiftTemplates: ShiftTemplate[];
+  allUsers: ManagedUser[];
+  onToggleEnabled: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <div className="space-y-3 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:space-y-0">
+      <div className="space-y-3">
+        <Card>
+          <CardContent className="p-3 space-y-2">
+            <Label className="text-xs font-semibold">Ưu tiên nhân viên cho ca</Label>
+            <p className="text-xs text-muted-foreground">Sử dụng nút "Thêm điều kiện" để thêm ưu tiên mới.</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Condition Summary Column */}
+      <div className="lg:sticky lg:top-0">
+        <Card className="h-full">
+          <CardContent className="p-3 h-full overflow-hidden">
+            <ConditionSummary
+              constraints={constraints}
+              shiftTemplates={shiftTemplates}
+              allUsers={allUsers}
+              filterTab="StaffPriority"
+              onToggleEnabled={onToggleEnabled}
+              onDelete={onDelete}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function LinksTab({
+  constraints,
+  shiftTemplates,
+  allUsers,
+  onToggleEnabled,
+  onDelete,
+}: {
+  constraints: ScheduleCondition[];
+  shiftTemplates: ShiftTemplate[];
+  allUsers: ManagedUser[];
+  onToggleEnabled: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <div className="space-y-3 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:space-y-0">
+      <div className="space-y-3">
+        <Card>
+          <CardContent className="p-3 space-y-2">
+            <Label className="text-xs font-semibold">Ràng buộc nhân viên và ca</Label>
+            <p className="text-xs text-muted-foreground">Sử dụng nút "Thêm điều kiện" để thêm ràng buộc mới (bắt buộc hoặc cấm).</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Condition Summary Column */}
+      <div className="lg:sticky lg:top-0">
+        <Card className="h-full">
+          <CardContent className="p-3 h-full overflow-hidden">
+            <ConditionSummary
+              constraints={constraints}
+              shiftTemplates={shiftTemplates}
+              allUsers={allUsers}
+              filterTab="StaffShiftLink"
+              onToggleEnabled={onToggleEnabled}
+              onDelete={onDelete}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function AvailabilityTab({
+  constraints,
+  setConstraints,
+  shiftTemplates,
+  allUsers,
+  onToggleEnabled,
+  onDelete,
+}: {
+  constraints: ScheduleCondition[];
+  setConstraints: React.Dispatch<React.SetStateAction<ScheduleCondition[]>>;
+  shiftTemplates: ShiftTemplate[];
+  allUsers: ManagedUser[];
+  onToggleEnabled: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  const availability = constraints.find(c => c.type === 'AvailabilityStrictness') as any;
+  return (
+    <div className="space-y-3 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:space-y-0">
+      <div className="space-y-3">
+        <Card>
+          <CardContent className="p-3 space-y-2">
+            <Label className="text-xs">Tính năng xem thời gian rảnh sẽ được hiển thị ở phần Xem trước.</Label>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Condition Summary Column */}
+      <div className="lg:sticky lg:top-0">
+        <Card className="h-full">
+          <CardContent className="p-3 h-full overflow-hidden">
+            <ConditionSummary
+              constraints={constraints}
+              shiftTemplates={shiftTemplates}
+              allUsers={allUsers}
+              filterTab="AvailabilityStrictness"
+              onToggleEnabled={onToggleEnabled}
+              onDelete={onDelete}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function PreviewTab({
+  result,
+  editableAssignments,
+  handleToggleAssignment,
+  handleRun,
+  validationErrors,
+  shifts,
+  allUsers,
+  roleByUserId,
+  getRoleClasses,
+  dateRowSpanMap,
+  availabilityMap,
+  dayUserShiftCounts,
+  scheduledHoursByUser,
+  availableHoursByUser,
+}: {
+  result: ScheduleRunResult | null;
+  editableAssignments: EditableAssignment[];
+  handleToggleAssignment: (shiftId: string, userId: string) => void;
+  handleRun: () => void;
+  validationErrors: string[];
+  shifts: any[];
+  allUsers: ManagedUser[];
+  roleByUserId: Map<string, string | undefined>;
+  getRoleClasses: (role?: string) => string;
+  dateRowSpanMap: Record<string, number>;
+  availabilityMap: Map<string, string[]>;
+  dayUserShiftCounts: Map<string, number>;
+  scheduledHoursByUser: Map<string, number>;
+  availableHoursByUser: Map<string, number>;
+}) {
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="p-3">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleRun}
+            disabled={validationErrors.length > 0}
+            className="w-full"
+          >
+            Chạy xếp lịch tự động
+          </Button>
+          {validationErrors.length > 0 && (
+            <div className="text-xs text-destructive mt-2">
+              {validationErrors[0]}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {result ? (
+        <>
+          {result.warnings.length > 0 && (
+            <div className="text-xs text-yellow-600 dark:text-yellow-500 bg-yellow-50 dark:bg-yellow-950/20 p-2 rounded">
+              {result.warnings.join(' • ')}
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="secondary">Đề xuất: {editableAssignments.filter(a => a.selected).length}</Badge>
+            <Badge variant="outline">Chưa điền: {result.unfilled.reduce((acc: number, u: any) => acc + (u.remaining || 0), 0)}</Badge>
+            {(() => {
+              const counts: Record<string, number> = {};
+              for (const a of editableAssignments.filter(x => x.selected)) {
+                const r = roleByUserId.get(a.userId) || 'Bất kỳ';
+                counts[r] = (counts[r] || 0) + 1;
+              }
+              return Object.entries(counts).map(([r, n]) => (
+                <Badge key={`role_count_${r}`} className={getRoleClasses(r)}>{r}: {n}</Badge>
+              ));
+            })()}
+          </div>
+
+          <div className="border rounded-md overflow-hidden">
+            <Table className="text-xs">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[15%] p-2">Ngày</TableHead>
+                  <TableHead className="w-[20%] p-2">Ca</TableHead>
+                  <TableHead className="p-2">Phân công</TableHead>
+                  <TableHead className="w-[10%] p-2">Thiếu</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {shifts.map((shift: any, idx: number) => {
+                  const dayAssignments = editableAssignments.filter((a: any) => a.shiftId === shift.id);
+                  const unfilled = result.unfilled.find((u: any) => u.shiftId === shift.id)?.remaining || 0;
+                  const dateKey = format(new Date(shift.date), 'yyyy-MM-dd');
+                  const isFirstOfDay = idx === 0 || format(new Date(shifts[idx - 1].date), 'yyyy-MM-dd') !== dateKey;
+
+                  return (
+                    <TableRow key={shift.id} className={cn(unfilled > 0 && 'bg-destructive/5')}>
+                      {isFirstOfDay && (
+                        <TableCell rowSpan={dateRowSpanMap[dateKey]} className="font-semibold whitespace-nowrap p-2">
+                          {format(new Date(shift.date), 'eee, dd/MM', { locale: vi })}
+                        </TableCell>
+                      )}
+                      <TableCell className="p-2 whitespace-nowrap">{shift.label}</TableCell>
+                      <TableCell className="p-2">
+                        <div className="flex flex-wrap gap-1">
+                          {dayAssignments.map((a: any) => {
+                            const userName = allUsers.find((u: any) => u.uid === a.userId)?.displayName || a.userId;
+                            const role = roleByUserId.get(a.userId);
+                            const roleCls = getRoleClasses(role);
+                            const dayCount = dayUserShiftCounts.get(`${a.userId}:${dateKey}`) || 0;
+                            return (
+                              <TooltipProvider key={`${a.shiftId}_${a.userId}`}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <motion.button
+                                      onClick={() => handleToggleAssignment(a.shiftId, a.userId)}
+                                      className={cn('rounded px-1.5 py-0.5 text-[11px] font-medium border', roleCls, a.selected ? 'ring-2 ring-primary' : 'opacity-60')}
+                                      initial={{ scale: 0.98 }}
+                                      animate={{ scale: 1 }}
+                                      aria-pressed={a.selected}
+                                    >
+                                      {userName}
+                                      {dayCount >= 2 && <span className="ml-0.5 text-[9px] font-bold">×{dayCount}</span>}
+                                    </motion.button>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="text-xs">
+                                    <div>Vai trò: {role || 'Bất kỳ'}</div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            );
+                          })}
+                        </div>
+                      </TableCell>
+                      <TableCell className="p-2">{unfilled > 0 ? unfilled : '—'}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+
+          <Card>
+            <CardContent className="p-3">
+              <Label className="text-xs font-semibold block mb-2">Tổng kết giờ làm</Label>
+              <Table className="text-xs">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="p-1">Nhân viên</TableHead>
+                    <TableHead className="text-right p-1">Giờ dự kiến</TableHead>
+                    <TableHead className="text-right p-1">Giờ rảnh</TableHead>
+                    <TableHead className="text-right p-1">Chênh lệch</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {[...scheduledHoursByUser.keys()].sort().map((uid: string) => {
+                    const u = allUsers.find((x: any) => x.uid === uid);
+                    const sched = scheduledHoursByUser.get(uid) || 0;
+                    const avail = availableHoursByUser.get(uid) || 0;
+                    const diff = sched - avail;
+                    const exceed = diff > 0.0001;
+                    return (
+                      <TableRow key={`sum_${uid}`} className={cn(exceed && 'bg-destructive/5')}>
+                        <TableCell className="p-1 font-medium">{u?.displayName || uid}</TableCell>
+                        <TableCell className="text-right p-1">{sched.toFixed(1)}h</TableCell>
+                        <TableCell className="text-right p-1">{avail.toFixed(1)}h</TableCell>
+                        <TableCell className={cn('text-right p-1', exceed ? 'text-destructive font-semibold' : 'text-muted-foreground')}>
+                          {(diff >= 0 ? '+' : '') + diff.toFixed(1)}h
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </>
+      ) : (
+        <div className="text-xs text-muted-foreground text-center py-8">
+          Chạy xếp lịch để xem đề xuất.
+        </div>
+      )}
+    </div>
+  );
 }
 
 function validateConstraints(constraints: ScheduleCondition[]): string[] {
   const errors: string[] = [];
-  // min <= max checks for workload
   const workloads = constraints.filter(c => c.type === 'WorkloadLimit');
   for (const wl of workloads as any[]) {
     const minS = wl.minShiftsPerWeek ?? 0;
@@ -1007,24 +1068,21 @@ function validateConstraints(constraints: ScheduleCondition[]): string[] {
     if (minS > maxS) errors.push(`Giới hạn ca không hợp lệ: Min(${minS}) > Max(${maxS}).`);
     if (minH > maxH) errors.push(`Giới hạn giờ không hợp lệ: Min(${minH}) > Max(${maxH}).`);
   }
-  // conflicting links
   const links = constraints.filter(c => c.type === 'StaffShiftLink') as any[];
   const seen = new Map<string, string>();
   for (const ln of links) {
     const key = `${ln.userId}:${ln.templateId}`;
     const prev = seen.get(key);
     if (prev && prev !== ln.link) {
-      errors.push(`Xung đột ràng buộc cho nhân viên ${ln.userId} và mẫu ca ${ln.templateId}.`);
+      errors.push(`Xung đột ràng buộc cho nhân viên ${ln.userId} và ca ${ln.templateId}.`);
     } else {
       seen.set(key, ln.link);
     }
   }
-  // daily shift limits validation
   const dailyLimits = constraints.filter(c => c.type === 'DailyShiftLimit') as any[];
   for (const dl of dailyLimits) {
-    const max = dl.maxPerDay;
-    if (max != null && (typeof max !== 'number' || isNaN(max) || max < 0)) {
-      errors.push(`Giới hạn ca mỗi ngày không hợp lệ: Max(${max}).`);
+    if (dl.maxPerDay != null && (typeof dl.maxPerDay !== 'number' || isNaN(dl.maxPerDay) || dl.maxPerDay < 1)) {
+      errors.push(`Giới hạn ca mỗi ngày không hợp lệ.`);
     }
   }
   return errors;
