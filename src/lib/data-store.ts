@@ -300,18 +300,6 @@ export const dataStore = {
     }
   },
 
-  async updateSalaryPaymentStatus(monthId: string, userId: string, status: 'paid' | 'unpaid'): Promise<void> {
-    const docRef = doc(db, 'monthly_salaries', monthId);
-    const updateData: any = {
-      [`salaryRecords.${userId}.paymentStatus`]: status,
-    };
-    if (status === 'paid') {
-      updateData[`salaryRecords.${userId}.paidAt`] = serverTimestamp();
-    }
-
-    await updateDoc(docRef, updateData);
-  },
-
   async updateSalaryAdvance(monthId: string, userId: string, advanceAmount: number): Promise<void> {
     const docRef = doc(db, 'monthly_salaries', monthId);
     await updateDoc(docRef, { [`salaryRecords.${userId}.salaryAdvance`]: advanceAmount });
@@ -322,9 +310,33 @@ export const dataStore = {
     await updateDoc(docRef, { [`salaryRecords.${userId}.bonus`]: bonusAmount });
   },
 
-  async updateSalaryActualPaidAmount(monthId: string, userId: string, amount: number): Promise<void> {
+  /**
+   * Unified method to update payment-related fields for a salary record.
+   * You can update the payment status and/or the actual paid amount in a single call.
+   */
+  async updateSalaryPayment(
+    monthId: string,
+    userId: string,
+    status?: 'paid' | 'unpaid',
+    actualPaidAmount?: number
+  ): Promise<void> {
     const docRef = doc(db, 'monthly_salaries', monthId);
-    await updateDoc(docRef, { [`salaryRecords.${userId}.actualPaidAmount`]: amount });
+    const updateData: any = {};
+
+    if (typeof status !== 'undefined') {
+      updateData[`salaryRecords.${userId}.paymentStatus`] = status;
+      if (status === 'paid') {
+        updateData[`salaryRecords.${userId}.paidAt`] = serverTimestamp();
+      }
+    }
+
+    if (typeof actualPaidAmount !== 'undefined') {
+      updateData[`salaryRecords.${userId}.actualPaidAmount`] = actualPaidAmount;
+    }
+
+    if (Object.keys(updateData).length === 0) return;
+
+    await updateDoc(docRef, updateData);
   },
 
   async getAllViolationRecords(): Promise<Violation[]> {
