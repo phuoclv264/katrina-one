@@ -10,6 +10,7 @@ import type { AttendanceRecord, ManagedUser, Schedule, ShiftTemplate, UserRole }
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, isSameMonth, startOfToday, endOfToday, getISOWeek, getYear, getDay, parse, differenceInMinutes } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { findNearestAttendanceRecord } from '@/lib/attendance-utils';
 import AttendanceTable from './attendance-table';
 import AttendanceCards from './attendance-cards';
 import EditAttendanceDialog from './edit-attendance-dialog';
@@ -173,24 +174,9 @@ export default function AttendancePageComponent() {
                 const user = allUsers.find(u => u.uid === assignedUser.userId);
                 if (user) {
                     const recordsForUser = userRecords.get(user.uid) || [];
-                    let bestMatch: AttendanceRecord | null = null;
-                    let minDiff = Infinity;
-
-                    // Find the attendance record that best overlaps or is closest to this specific shift.
-                    for (const record of recordsForUser) {
-                        const checkInTime = (record.checkInTime as Timestamp).toDate();
-                        const checkOutTime = record.checkOutTime ? (record.checkOutTime as Timestamp).toDate() : new Date(); // Use current time for in-progress
-
-                        // Check for overlap: record starts before shift ends AND record ends after shift starts
-                        const overlaps = checkInTime < shiftEndTime && checkOutTime > shiftStartTime;
-                        if (overlaps) {
-                            const diff = Math.abs(differenceInMinutes(checkInTime, shiftStartTime));
-                            if (diff < minDiff) {
-                                minDiff = diff;
-                                bestMatch = record;
-                            }
-                        }
-                    }
+                    
+                    // Use the utility function to find the nearest record
+                    const bestMatch = findNearestAttendanceRecord(recordsForUser, shiftStartTime);
 
                     const attendanceData = bestMatch ? {
                         status: bestMatch.status,

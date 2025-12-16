@@ -7,12 +7,12 @@ import { useRouter } from 'nextjs-toploader/app';
 import { dataStore } from '@/lib/data-store';
 import type { RevenueStats, AttendanceRecord, Schedule, ShiftReport, WhistleblowingReport, ManagedUser, ExpenseSlip, MonthlyTaskAssignment, MonthlyTask } from '@/lib/types';
 import { format, startOfToday, endOfToday, getISOWeek, getYear, isAfter, startOfDay, parse, differenceInMinutes, isWithinInterval, addDays } from 'date-fns';
-import { ActiveShiftWithAttendance, AttendanceOverviewCard, AttendanceOverviewCardProps } from './_components/AttendanceOverviewCard';
+import { ShiftWithAttendance, AttendanceOverviewCard, AttendanceOverviewCardProps } from './_components/AttendanceOverviewCard';
+import { findNearestAttendanceRecord } from '@/lib/attendance-utils';
 import { RecentReportsCard } from './_components/RecentReportsCard';
 import { RecentComplaintsCard } from './_components/RecentComplaintsCard';
 import { CashierOverviewCard, CashierOverviewCardProps } from './_components/CashierOverviewCard';
 import { ManagementLinksCard } from './_components/ManagementLinksCard';
-import { SchedulingOverviewCard } from './_components/SchedulingOverviewCard';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import TodaysAdminTasksCard from './_components/TodaysAdminTasksCard';
 
@@ -102,34 +102,42 @@ export default function AdminDashboardPage() {
 
     const attendanceOverview = useMemo(() => {
         const now = new Date();
+        const todayStr = format(now, 'yyyy-MM-dd');
 
-        // Sort checkedInRecords from newest to oldest
-        const sortedAttendanceRecords = [...attendanceRecords].sort((a, b) => {
-            const timeA = (a.checkInTime as any)?.toMillis?.() || 0;
-            const timeB = (b.checkInTime as any)?.toMillis?.() || 0;
-            return timeB - timeA;
-        });
-
-        const checkedInRecords = new Map(sortedAttendanceRecords.map(r => [r.userId, r]));
+        // Group attendance records by userId (since a user might have multiple records in a day)
+        const recordsByUser = attendanceRecords.reduce((acc, record) => {
+            if (!acc[record.userId]) {
+                acc[record.userId] = [];
+            }
+            acc[record.userId].push(record);
+            return acc;
+        }, {} as Record<string, AttendanceRecord[]>);
         
-        const activeShifts = todaysSchedule?.shifts.filter(shift => {
+        // Get all today's shifts, not just active ones
+        const todayShifts = todaysSchedule?.shifts.filter(shift => shift.date === todayStr).map(shift => {
             const shiftStart = parse(shift.timeSlot.start, 'HH:mm', new Date(shift.date));
             const shiftEnd = parse(shift.timeSlot.end, 'HH:mm', new Date(shift.date));
-            return isWithinInterval(now, { start: shiftStart, end: shiftEnd });
-        }).map(shift => {
+            const isActive = isWithinInterval(now, { start: shiftStart, end: shiftEnd });
+            
             const employees = shift.assignedUsers.map(assignedUser => {
-                const record = checkedInRecords.get(assignedUser.userId);
+                const userRecords = recordsByUser[assignedUser.userId] || [];
+                
+                // Find the record with check-in time nearest to the shift start time
+                const nearestRecord = findNearestAttendanceRecord(userRecords, shiftStart);
+                
                 let status: 'present' | 'late' | 'absent' | 'pending_late' = 'absent';
                 let checkInTime: Date | null = null;
+                let checkOutTime: Date | null = null;
                 let lateMinutes: number | null = null;
                 let lateReason: string | null = null;
 
-                if (record) {
-                    if (record.status === 'pending_late') {
+                if (nearestRecord) {
+                    if (nearestRecord.status === 'pending_late') {
                         status = 'pending_late';
-                        lateReason = record.lateReason || `Dự kiến trễ ${record.estimatedLateMinutes} phút`;
-                    } else if (record.checkInTime) {
-                        checkInTime = (record.checkInTime as any).toDate();
+                        lateReason = nearestRecord.lateReason || `Dự kiến trễ ${nearestRecord.estimatedLateMinutes} phút`;
+                    } else if (nearestRecord.checkInTime) {
+                        checkInTime = (nearestRecord.checkInTime as any).toDate();
+                        checkOutTime = nearestRecord.checkOutTime ? (nearestRecord.checkOutTime as any).toDate() : null;
                         const shiftStartTime = parse(shift.timeSlot.start, 'HH:mm', new Date(shift.date));
                         
                         if (shiftStartTime.getHours() < 6) {
@@ -152,15 +160,16 @@ export default function AdminDashboardPage() {
                     name: assignedUser.userName,
                     status,
                     checkInTime,
+                    checkOutTime,
                     lateMinutes,
                     lateReason,
                 };
             });
-            return { ...shift, employees};
+            return { ...shift, employees, isActive };
         }) || [];
 
         return {
-            activeShifts: activeShifts,
+            todayShifts: todayShifts,
         };
     }, [attendanceRecords, todaysSchedule, allUsers]);
 
@@ -194,8 +203,7 @@ export default function AdminDashboardPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <CashierOverviewCard {...cashierOverview as CashierOverviewCardProps} />
-                <AttendanceOverviewCard activeShifts={attendanceOverview.activeShifts} />
-                <SchedulingOverviewCard upcomingShifts={upcomingShifts} />
+                <AttendanceOverviewCard todayShifts={attendanceOverview.todayShifts} upcomingShifts={upcomingShifts} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">

@@ -1,9 +1,44 @@
 
 import { Timestamp } from '@google-cloud/firestore';
 import type { AttendanceRecord, AssignedShift, Schedule } from './types';
-import { differenceInMinutes, format, isWithinInterval, set } from 'date-fns';
+import { differenceInMinutes, format, isWithinInterval, set, parse } from 'date-fns';
 import { CheckCircle, Clock, XCircle } from 'lucide-react';
 import React from 'react';
+
+/**
+ * Finds the attendance record with check-in time nearest to the shift start time.
+ * This handles cases where a user might have multiple attendance records in a single day.
+ * 
+ * @param userRecords - Array of all attendance records for a specific user
+ * @param shiftStartTime - The start time of the shift to match against
+ * @returns The nearest attendance record, or null if none found
+ */
+export function findNearestAttendanceRecord(
+    userRecords: AttendanceRecord[],
+    shiftStartTime: Date
+): AttendanceRecord | null {
+    if (!userRecords || userRecords.length === 0) return null;
+
+    let nearestRecord: AttendanceRecord | null = null;
+    let minTimeDiff = Infinity;
+
+    for (const record of userRecords) {
+        if (record.checkInTime) {
+            const recordCheckInTime = (record.checkInTime as any).toDate();
+            const timeDiff = Math.abs(differenceInMinutes(recordCheckInTime, shiftStartTime));
+            
+            if (timeDiff < minTimeDiff) {
+                minTimeDiff = timeDiff;
+                nearestRecord = record;
+            }
+        } else if (record.status === 'pending_late' && !nearestRecord) {
+            // If no check-in record found, use pending_late record as fallback
+            nearestRecord = record;
+        }
+    }
+
+    return nearestRecord;
+}
 
 export function getShiftDetails(shiftId: string, schedules: Record<string, Schedule>): { shift: AssignedShift | null, weekId: string | null } {
     if (!shiftId) return { shift: null, weekId: null };
