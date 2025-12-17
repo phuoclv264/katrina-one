@@ -36,13 +36,12 @@ import { DashboardHeader } from './_components/DashboardHeader';
 import { KPIMetricsSection } from './_components/KPIMetricsSection';
 import { RevenueAnalyticsSection } from './_components/RevenueAnalyticsSection';
 import { RecentReportsCard } from './_components/RecentReportsCard';
-import { RecentComplaintsCard } from './_components/RecentComplaintsCard';
-import TodaysAdminTasksCard from './_components/TodaysAdminTasksCard';
 import { QuickAccessToolsSection } from './_components/QuickAccessToolsSection';
 import { RecurringTasksCard } from './_components/RecurringTasksCard';
 import { TodaysScheduleSection } from './_components/TodaysScheduleSection';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { findNearestAttendanceRecord } from '@/lib/attendance-utils';
+import { toDateSafe } from '@/lib/utils';
 
 export default function AdminDashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -70,6 +69,7 @@ export default function AdminDashboardPage() {
     setRefreshTrigger((prev) => prev + 1);
   }, []);
   const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | 'week'>('today');
+  const [trendData, setTrendData] = useState<{ revenue: number; expense: number; profit: number; label: string }>({ revenue: 0, expense: 0, profit: 0, label: 'So với hôm qua' });
 
   useEffect(() => {
     if (!user) return;
@@ -178,6 +178,68 @@ export default function AdminDashboardPage() {
     };
   }, [revenueStats, dailySlips]);
 
+  useEffect(() => {
+    // Recalculate trend (compare to previous period) whenever date filter or current totals change
+    const computeTrend = async () => {
+      try {
+        const today = new Date();
+        let currStart: Date, currEnd: Date, prevStart: Date, prevEnd: Date, label = 'So với hôm qua';
+
+        if (dateFilter === 'week') {
+          currStart = startOfDay(startOfWeek(today, { weekStartsOn: 1 }));
+          currEnd = endOfDay(endOfWeek(today, { weekStartsOn: 1 }));
+          const prevWeekBase = addDays(today, -7);
+          prevStart = startOfDay(startOfWeek(prevWeekBase, { weekStartsOn: 1 }));
+          prevEnd = endOfDay(endOfWeek(prevWeekBase, { weekStartsOn: 1 }));
+          label = 'So với tuần trước';
+        } else {
+          const selected = dateFilter === 'yesterday' ? addDays(today, -1) : today;
+          currStart = startOfDay(selected);
+          currEnd = endOfDay(selected);
+          prevStart = addDays(currStart, -1);
+          prevEnd = addDays(currEnd, -1);
+          label = 'So với hôm qua';
+        }
+
+        // Current totals from cashierOverview
+        const currRevenue = cashierOverview.totalRevenue;
+        const currExpense = cashierOverview.totalExpense;
+        const currProfit = currRevenue - currExpense;
+
+        // Fetch previous period data. For single-day comparisons use the daily getters (which return newest stat for that date)
+        let prevRevenue = 0;
+        let prevExpense = 0;
+        if (dateFilter === 'week') {
+          const prevRevenueStats: any[] = await (dataStore as any).getRevenueStatsForDateRange?.({ from: format(prevStart, 'yyyy-MM-dd'), to: format(prevEnd, 'yyyy-MM-dd') }) || [];
+          prevRevenue = prevRevenueStats.reduce((s: number, st: any) => s + (st.netRevenue || 0), 0);
+
+          const prevExpenseSlips: any[] = await (dataStore as any).getExpenseSlipsForDateRange?.({ from: format(prevStart, 'yyyy-MM-dd'), to: format(prevEnd, 'yyyy-MM-dd') }) || [];
+          prevExpense = prevExpenseSlips.reduce((s: number, slip: any) => s + (slip.actualPaidAmount ?? slip.totalAmount ?? 0), 0);
+        } else {
+          const prevDateStr = format(prevStart, 'yyyy-MM-dd');
+          const prevDailyRevenue: any[] = await (dataStore as any).getDailyRevenueStats?.(prevDateStr) || [];
+          prevRevenue = prevDailyRevenue[0]?.netRevenue || 0;
+
+          const prevDailyExpense: any[] = await (dataStore as any).getDailyExpenseSlips?.(prevDateStr) || [];
+          prevExpense = prevDailyExpense.reduce((s: number, slip: any) => s + (slip.actualPaidAmount ?? slip.totalAmount ?? 0), 0);
+        }
+
+        const prevProfit = prevRevenue - prevExpense;
+
+        const pct = (curr: number, prev: number) => {
+          if (!prev) return curr ? 100 : 0;
+          return Math.round(((curr - prev) / Math.abs(prev)) * 100);
+        };
+
+        setTrendData({ revenue: pct(currRevenue, prevRevenue), expense: pct(currExpense, prevExpense), profit: pct(currProfit, prevProfit), label });
+      } catch (err) {
+        // fail silently and leave trends as-is
+        console.error('Failed to compute trend data:', err);
+      }
+    };
+    computeTrend();
+  }, [dateFilter, cashierOverview.totalRevenue, cashierOverview.totalExpense]);
+
   const attendanceOverview = useMemo(() => {
     const now = new Date();
     const todayStr = format(now, 'yyyy-MM-dd');
@@ -216,20 +278,25 @@ export default function AdminDashboardPage() {
                 status = 'pending_late';
                 lateReason = nearestRecord.lateReason || `Dự kiến trễ ${nearestRecord.estimatedLateMinutes} phút`;
               } else if (nearestRecord.checkInTime) {
-                checkInTime = new Date(nearestRecord.checkInTime as string);
-                checkOutTime = nearestRecord.checkOutTime ? new Date(nearestRecord.checkOutTime as string) : null;
+                checkInTime = toDateSafe(nearestRecord.checkInTime);
+                checkOutTime = toDateSafe(nearestRecord.checkOutTime);
+
                 const shiftStartTime = parse(shift.timeSlot.start, 'HH:mm', new Date(shift.date));
 
                 if (shiftStartTime.getHours() < 6) {
                   shiftStartTime.setHours(6, 0, 0, 0);
                 }
 
-                const diff = differenceInMinutes(checkInTime as Date, shiftStartTime);
-                if (diff > 5) {
-                  status = 'late';
-                  lateMinutes = diff;
+                if (checkInTime) {
+                  const diff = differenceInMinutes(checkInTime, shiftStartTime);
+                  if (diff > 5) {
+                    status = 'late';
+                    lateMinutes = diff;
+                  } else {
+                    status = 'present';
+                  }
                 } else {
-                  status = 'present';
+                  status = 'absent';
                 }
               } else {
                 status = 'absent';
@@ -277,8 +344,8 @@ export default function AdminDashboardPage() {
         bgColor: 'bg-white dark:bg-gray-800',
         iconBgColor: 'bg-green-50 dark:bg-green-900/20',
         iconColor: 'text-green-600 dark:text-green-400',
-        trend: -6,
-        trendLabel: 'So với hôm qua',
+        trend: trendData.revenue,
+        trendLabel: trendData.label,
       },
       {
         label: 'Tổng chi phí',
@@ -288,6 +355,8 @@ export default function AdminDashboardPage() {
         bgColor: 'bg-white dark:bg-gray-800',
         iconBgColor: 'bg-orange-50 dark:bg-orange-900/20',
         iconColor: 'text-orange-600 dark:text-orange-400',
+        trend: trendData.expense,
+        trendLabel: trendData.label,
       },
       {
         label: 'Lợi nhuận ròng',
@@ -297,6 +366,8 @@ export default function AdminDashboardPage() {
         bgColor: 'bg-white dark:bg-gray-800',
         iconBgColor: 'bg-blue-50 dark:bg-blue-900/20',
         iconColor: 'text-blue-600 dark:text-blue-400',
+        trend: trendData.profit,
+        trendLabel: trendData.label,
       },
       {
         label: 'Nhân sự hôm nay',
@@ -309,7 +380,7 @@ export default function AdminDashboardPage() {
         trendLabel: `${lateCount > 0 ? `${lateCount} đi trễ` : 'Đầy đủ'}`,
       },
     ];
-  }, [cashierOverview, attendanceOverview, todaysSchedule]);
+  }, [cashierOverview, attendanceOverview, todaysSchedule, trendData]);
 
   const todayShifts = useMemo(() => {
     const now = new Date();
@@ -381,24 +452,18 @@ export default function AdminDashboardPage() {
           {/* Right column: Quick access + Tasks (1 col) */}
           <div className="space-y-6">
             <QuickAccessToolsSection />
-            <RecurringTasksCard monthlyTasks={monthlyTasks} taskAssignments={taskAssignments} />
+            <RecurringTasksCard monthlyTasks={monthlyTasks} taskAssignments={taskAssignments} staffDirectory={allUsers} />
           </div>
         </div>
 
-        {/* Reports and Complaints */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        {/* Reports */}
+        <div className="mb-8">
           <RecentReportsCard shiftReports={shiftReports} />
-          <RecentComplaintsCard complaints={complaints} allUsers={allUsers} />
         </div>
 
-        {/* Tasks and Schedule */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <div className="lg:col-span-1">
-            <TodaysAdminTasksCard monthlyTasks={monthlyTasks} taskAssignments={taskAssignments} staffDirectory={allUsers} />
-          </div>
-          <div className="lg:col-span-2">
-            <TodaysScheduleSection shifts={todayShifts} />
-          </div>
+        {/* Schedule */}
+        <div className="mb-8">
+          <TodaysScheduleSection shifts={todayShifts} />
         </div>
 
         {/* Footer */}

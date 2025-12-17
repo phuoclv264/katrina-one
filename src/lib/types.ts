@@ -3,7 +3,6 @@
 
 import type { Timestamp, FieldValue } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
-import { EmployeeAttendance } from '@/app/(app)/admin/_components/AttendanceOverviewCard';
 
 export type Staff = {
   pin: string;
@@ -363,6 +362,18 @@ export type AssignedShift = {
   minUsers: number;
   employees?: EmployeeAttendance[]; // Augmented with attendance info on admin page
 };
+
+export type EmployeeAttendance = {
+  id: string;
+  name: string;
+  status: EmployeeStatus;
+  checkInTime: Date | null;
+  checkOutTime: Date | null;
+  lateMinutes: number | null;
+  lateReason: string | null;
+};
+
+export type EmployeeStatus = 'present' | 'late' | 'absent' | 'pending_late';
 
 export type Schedule = {
   weekId: string; // e.g., "2024-W28"

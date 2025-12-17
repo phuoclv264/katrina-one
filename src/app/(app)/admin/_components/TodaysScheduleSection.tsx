@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import type { AssignedShift } from '@/lib/types';
 import { generateShortName, formatTime } from '@/lib/utils';
 import { AlertCircle } from 'lucide-react';
-import { EmployeeAttendance } from './AttendanceOverviewCard';
+import type { EmployeeAttendance } from '@/lib/types';
 
 interface ShiftWithStatus extends AssignedShift {
   isActive?: boolean;
@@ -107,6 +107,11 @@ export function TodaysScheduleSection({ shifts, onViewDetails }: TodaysScheduleS
                               {checkOut && <span className="font-medium text-gray-700 dark:text-gray-200">{checkOut}</span>}
                               {employeeInfo?.status === 'pending_late' && (
                                 <span className="ml-3 text-orange-500">(Yêu cầu đi trễ)</span>
+                              )}
+                              {employeeInfo?.status === 'late' && (
+                                <span className="ml-3 text-red-500">
+                                  Trễ {employeeInfo.lateMinutes ?? '?'} phút{employeeInfo.lateReason ? ` — ${employeeInfo.lateReason}` : ''}
+                                </span>
                               )}
                             </div>
                           </div>

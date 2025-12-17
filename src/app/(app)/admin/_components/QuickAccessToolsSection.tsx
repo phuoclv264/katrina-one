@@ -14,9 +14,9 @@ export function QuickAccessToolsSection({ onNavigate }: QuickAccessToolsSectionP
   const tools = [
     {
       icon: CheckCircle2,
-      label: 'Công việc',
+      label: 'Báo cáo công việc định kỳ',
       color: 'blue',
-      path: '/task-lists',
+      path: '/monthly-task-reports',
       bgColor: 'bg-blue-100 dark:bg-blue-900/30',
       iconColor: 'text-blue-600 dark:text-blue-400',
       borderColor: 'border-blue-500',
@@ -26,7 +26,7 @@ export function QuickAccessToolsSection({ onNavigate }: QuickAccessToolsSectionP
       icon: Box,
       label: 'Kho hàng',
       color: 'orange',
-      path: '/inventory',
+      path: '/reports/inventory',
       bgColor: 'bg-orange-100 dark:bg-orange-900/30',
       iconColor: 'text-orange-600 dark:text-orange-400',
       borderColor: 'border-orange-500',
@@ -34,7 +34,7 @@ export function QuickAccessToolsSection({ onNavigate }: QuickAccessToolsSectionP
     },
     {
       icon: DollarSign,
-      label: 'Tài chính',
+      label: 'Thu chi',
       color: 'green',
       path: '/reports/cashier',
       bgColor: 'bg-green-100 dark:bg-green-900/30',
@@ -44,9 +44,9 @@ export function QuickAccessToolsSection({ onNavigate }: QuickAccessToolsSectionP
     },
     {
       icon: History,
-      label: 'Lịch sử',
+      label: 'Lịch sử kho',
       color: 'purple',
-      path: '/reports/by-shift',
+      path: '/inventory-history',
       bgColor: 'bg-purple-100 dark:bg-purple-900/30',
       iconColor: 'text-purple-600 dark:text-purple-400',
       borderColor: 'border-purple-500',
