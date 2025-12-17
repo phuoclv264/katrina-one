@@ -1,12 +1,14 @@
 'use client';
 
 import React from 'react';
+import { format } from 'date-fns';
 import { useRouter } from 'nextjs-toploader/app';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { AssignedShift } from '@/lib/types';
 import { generateShortName } from '@/lib/utils';
 import { AlertCircle } from 'lucide-react';
+import { EmployeeAttendance } from './AttendanceOverviewCard';
 
 interface ShiftWithStatus extends AssignedShift {
   isActive?: boolean;
@@ -79,23 +81,38 @@ export function TodaysScheduleSection({ shifts, onViewDetails }: TodaysScheduleS
                     </span>
                     {activeShift && (
                       <Badge variant="default" className="bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 border-0 animate-pulse h-5 px-2">
-                        Đang diễn ra
+                        Ongoing
                       </Badge>
                     )}
                   </div>
 
                   {/* Staff badges */}
-                  <div className="flex flex-wrap gap-2 mt-1">
+                  <div className="flex flex-col gap-2 mt-1">
                     {shift.assignedUsers.length > 0 ? (
-                      shift.assignedUsers.map((user) => (
-                        <Badge
-                          key={user.userId}
-                          variant="outline"
-                          className="bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-700 text-xs"
-                        >
-                          {generateShortName(user.userName)}
-                        </Badge>
-                      ))
+                      shift.assignedUsers.map((user) => {
+                        // Try to find attendance info attached to the shift (admin page augments shifts with employees[])
+                        const employeeInfo = shift.employees?.find((e: EmployeeAttendance) => e.id === user.userId);
+                        const checkIn = employeeInfo?.checkInTime ? format(new Date(employeeInfo.checkInTime), 'HH:mm') : null;
+                        const checkOut = employeeInfo?.checkOutTime ? format(new Date(employeeInfo.checkOutTime), 'HH:mm') : null;
+
+                        return (
+                          <div key={user.userId} className="flex items-center gap-3">
+                            <Badge
+                              variant="outline"
+                              className="bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-700 text-xs"
+                            >
+                              {generateShortName(user.userName)}
+                            </Badge>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              {checkIn ? <span className="font-medium text-gray-700 dark:text-gray-200">{checkIn} - </span> : <span className="italic">Chưa check-in</span>}
+                              {checkOut && <span className="font-medium text-gray-700 dark:text-gray-200">{checkOut}</span>}
+                              {employeeInfo?.status === 'pending_late' && (
+                                <span className="ml-3 text-orange-500">(Yêu cầu đi trễ)</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
                     ) : (
                       <span className="text-xs text-gray-400 italic">Chưa có nhân viên</span>
                     )}

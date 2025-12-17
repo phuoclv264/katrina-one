@@ -64,8 +64,8 @@ const formatCompletionTime = (completion?: TaskCompletionRecord) => {
   if (!completion?.completedAt) {
     return null;
   }
-  const completionDate = (completion.completedAt as any).toDate
-    ? (completion.completedAt as any).toDate()
+  const completionDate = completion.completedAt
+    ? completion.completedAt.toDate()
     : new Date(completion.completedAt as any);
   return format(completionDate, "HH:mm");
 };

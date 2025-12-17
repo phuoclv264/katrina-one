@@ -3,6 +3,7 @@
 
 import type { Timestamp, FieldValue } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
+import { EmployeeAttendance } from '@/app/(app)/admin/_components/AttendanceOverviewCard';
 
 export type Staff = {
   pin: string;
@@ -360,6 +361,7 @@ export type AssignedShift = {
   assignedUsers: AssignedUser[];
   assignedUsersWithRole?: AssignedUserWithRole[]; // Optional array of user-role pairs
   minUsers: number;
+  employees?: EmployeeAttendance[]; // Augmented with attendance info on admin page
 };
 
 export type Schedule = {

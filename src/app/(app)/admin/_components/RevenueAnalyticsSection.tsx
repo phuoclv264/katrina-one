@@ -17,6 +17,8 @@ const paymentMethodLabels: { [key: string]: { label: string; color: string; bgCo
   cash: { label: 'Tiền mặt', color: 'bg-green-500', bgColor: 'bg-green-50 dark:bg-green-900/10' },
   shopeeFood: { label: 'ShopeeFood', color: 'bg-blue-400', bgColor: 'bg-blue-50 dark:bg-blue-900/10' },
   grabFood: { label: 'GrabFood', color: 'bg-purple-400', bgColor: 'bg-purple-50 dark:bg-purple-900/10' },
+  // Support both old ('bank_transfer') and canonical ('bankTransfer') keys for compatibility
+  bankTransfer: { label: 'Chuyển khoản', color: 'bg-indigo-500', bgColor: 'bg-indigo-50 dark:bg-indigo-900/10' },
   bank_transfer: { label: 'Chuyển khoản', color: 'bg-indigo-500', bgColor: 'bg-indigo-50 dark:bg-indigo-900/10' },
 };
 

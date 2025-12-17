@@ -12,7 +12,8 @@ import { useRouter } from 'nextjs-toploader/app';
 
 const paymentMethodLabels: { [key: string]: string } = {
     cash: "Tiền mặt",
-    bank_transfer: "Chuyển khoản",
+  bankTransfer: "Chuyển khoản",
+  bank_transfer: "Chuyển khoản",
     techcombankVietQrPro: "TCB VietQR Pro",
     shopeeFood: "ShopeeFood",
     grabFood: "GrabFood",

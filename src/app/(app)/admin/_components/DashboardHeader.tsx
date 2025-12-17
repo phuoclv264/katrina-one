@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { format } from 'date-fns';
+import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
 interface DashboardHeaderProps {
@@ -12,10 +12,25 @@ interface DashboardHeaderProps {
   complaintsCount?: number;
 }
 
-export function DashboardHeader({ userName = 'Admin User', userRole = 'Chủ cửa hàng', complaintsCount = 0 }: DashboardHeaderProps) {
-  const [dateFilter, setDateFilter] = useState('today');
+type DateFilter = 'today' | 'yesterday' | 'week';
+
+type DashboardHeaderPropsEx = DashboardHeaderProps & {
+  selectedDateFilter?: DateFilter;
+  onDateFilterChange?: (filter: DateFilter) => void;
+};
+
+export function DashboardHeader({ userName = 'Admin User', userRole = 'Chủ cửa hàng', complaintsCount = 0, selectedDateFilter, onDateFilterChange }: DashboardHeaderPropsEx) {
+  const [localFilter, setLocalFilter] = useState<DateFilter>(selectedDateFilter ?? 'today');
   const now = new Date();
   const dateText = format(now, 'EEEE, dd MMMM yyyy', { locale: vi });
+  const weekStart = format(startOfWeek(now, { weekStartsOn: 1 }), 'dd MMM');
+  const weekEnd = format(endOfWeek(now, { weekStartsOn: 1 }), 'dd MMM yyyy');
+  const weekRangeText = `${weekStart} - ${weekEnd}`;
+
+  // keep internal state in sync if parent controls the filter
+  React.useEffect(() => {
+    if (selectedDateFilter) setLocalFilter(selectedDateFilter);
+  }, [selectedDateFilter]);
 
   return (
     <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-30">
@@ -27,7 +42,12 @@ export function DashboardHeader({ userName = 'Admin User', userRole = 'Chủ c�
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               Chào mừng trở lại, <span className="font-semibold">{userName}</span>!
             </p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{dateText}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{localFilter === 'week' ? `Tuần: ${weekRangeText}` : dateText}</p>
+            {localFilter === 'week' ? (
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Dữ liệu: {weekStart} - {weekEnd}</p>
+            ) : (
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Dữ liệu: {localFilter === 'yesterday' ? 'Hôm qua' : 'Hôm nay'}</p>
+            )}
           </div>
 
           {/* Right side: Filters and Notifications */}
@@ -35,26 +55,35 @@ export function DashboardHeader({ userName = 'Admin User', userRole = 'Chủ c�
             {/* Date filter buttons */}
             <div className="hidden md:flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 gap-1">
               <Button
-                variant={dateFilter === 'today' ? 'default' : 'ghost'}
+                variant={localFilter === 'today' ? 'default' : 'ghost'}
                 size="sm"
                 className="h-8 px-3 text-xs font-medium"
-                onClick={() => setDateFilter('today')}
+                onClick={() => {
+                  setLocalFilter('today');
+                  onDateFilterChange?.('today');
+                }}
               >
                 Hôm nay
               </Button>
               <Button
-                variant={dateFilter === 'yesterday' ? 'default' : 'ghost'}
+                variant={localFilter === 'yesterday' ? 'default' : 'ghost'}
                 size="sm"
                 className="h-8 px-3 text-xs font-medium"
-                onClick={() => setDateFilter('yesterday')}
+                onClick={() => {
+                  setLocalFilter('yesterday');
+                  onDateFilterChange?.('yesterday');
+                }}
               >
                 Hôm qua
               </Button>
               <Button
-                variant={dateFilter === 'week' ? 'default' : 'ghost'}
+                variant={localFilter === 'week' ? 'default' : 'ghost'}
                 size="sm"
                 className="h-8 px-3 text-xs font-medium"
-                onClick={() => setDateFilter('week')}
+                onClick={() => {
+                  setLocalFilter('week');
+                  onDateFilterChange?.('week');
+                }}
               >
                 Tuần này
               </Button>

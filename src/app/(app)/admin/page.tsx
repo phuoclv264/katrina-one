@@ -20,10 +20,13 @@ import {
   format,
   startOfToday,
   endOfToday,
+  startOfWeek,
+  endOfWeek,
+  startOfDay,
+  endOfDay,
   getISOWeek,
   getYear,
   isAfter,
-  startOfDay,
   parse,
   differenceInMinutes,
   isWithinInterval,
@@ -66,11 +69,42 @@ export default function AdminDashboardPage() {
   const handleReconnect = useCallback(() => {
     setRefreshTrigger((prev) => prev + 1);
   }, []);
+  const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | 'week'>('today');
 
   useEffect(() => {
     if (!user) return;
-    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const today = new Date();
     const weekId = `${getYear(new Date())}-W${getISOWeek(new Date())}`;
+
+    // Choose subscriptions depending on dateFilter. 'today' and 'yesterday' use single-day subscriptions
+    // while 'week' uses range queries where available.
+    if (dateFilter === 'week') {
+      // Ensure the week range covers the full days (00:00 - 23:59)
+      const start = startOfDay(startOfWeek(today, { weekStartsOn: 1 }));
+      const end = endOfDay(endOfWeek(today, { weekStartsOn: 1 }));
+      const startStr = format(start, 'yyyy-MM-dd');
+      const endStr = format(end, 'yyyy-MM-dd');
+
+      const unsubs = [
+        // Subscribe to revenue stats across the week
+        dataStore.subscribeToRevenueStatsForDateRange(startStr, endStr, setRevenueStats),
+        dataStore.subscribeToAttendanceRecordsForDateRange({ from: start, to: end }, setAttendanceRecords),
+        dataStore.subscribeToSchedule(weekId, setTodaysSchedule),
+        dataStore.subscribeToReportFeed(setComplaints),
+        dataStore.subscribeToUsers(setAllUsers),
+        dataStore.subscribeToMonthlyTasks(setMonthlyTasks),
+        dataStore.subscribeToMonthlyTasksForDate(new Date(startStr), setTaskAssignments),
+      ];
+
+      // For reports and expense slips we currently have range getters; fetch them once for the week
+  dataStore.getShiftReportsForDateRange({ from: start, to: end }).then(setShiftReports).catch(() => setShiftReports([]));
+      // Expense slips range getter lives in cashierStore via dataStore
+      dataStore.getExpenseSlipsForDateRange?.({ from: startStr, to: endStr }).then(setDailySlips).catch(() => setDailySlips([]));
+
+      return () => unsubs.forEach((u) => u());
+    }
+
+    const todayStr = dateFilter === 'yesterday' ? format(addDays(today, -1), 'yyyy-MM-dd') : format(today, 'yyyy-MM-dd');
 
     const unsubs = [
       dataStore.subscribeToDailyRevenueStats(todayStr, setRevenueStats),
@@ -87,7 +121,7 @@ export default function AdminDashboardPage() {
     return () => {
       unsubs.forEach((unsub) => unsub());
     };
-  }, [user, refreshTrigger]);
+  }, [user, refreshTrigger, dateFilter]);
 
   useEffect(() => {
     if (
@@ -109,15 +143,14 @@ export default function AdminDashboardPage() {
   useDataRefresher(handleReconnect);
 
   const cashierOverview = useMemo(() => {
-    const latestStat = revenueStats.length > 0 ? revenueStats[0] : null;
-    const revenueByMethod: RevenueStats['revenueByPaymentMethod'] = {
-      techcombankVietQrPro: 0,
-      cash: 0,
-      shopeeFood: 0,
-      grabFood: 0,
-      bankTransfer: 0,
-      ...(latestStat?.revenueByPaymentMethod || {}),
-    };
+    // Aggregate across the revenueStats array so weekly ranges work as well as single-day
+    const revenueByMethod = revenueStats.reduce((acc, stat) => {
+      const rb = stat.revenueByPaymentMethod || {};
+      Object.entries(rb).forEach(([k, v]) => {
+        acc[k] = (acc[k] || 0) + (v || 0);
+      });
+      return acc;
+    }, {} as Record<string, number>);
 
     const expenseByMethod = dailySlips.reduce(
       (acc, slip) => {
@@ -132,14 +165,15 @@ export default function AdminDashboardPage() {
       {} as Record<string, number>
     );
 
+    const totalRevenue = revenueStats.reduce((sum, s) => sum + (s.netRevenue || 0), 0);
     const totalExpense = Object.values(expenseByMethod).reduce((sum, amount) => sum + amount, 0);
-    const profit = (latestStat?.netRevenue ?? 0) - totalExpense;
+    const profit = totalRevenue - totalExpense;
 
     return {
       profit,
-      totalRevenue: latestStat?.netRevenue ?? 0,
+      totalRevenue,
       totalExpense,
-      revenueByMethod,
+      revenueByMethod: revenueByMethod as RevenueStats['revenueByPaymentMethod'],
       expenseByMethod,
     };
   }, [revenueStats, dailySlips]);
@@ -182,8 +216,8 @@ export default function AdminDashboardPage() {
                 status = 'pending_late';
                 lateReason = nearestRecord.lateReason || `Dự kiến trễ ${nearestRecord.estimatedLateMinutes} phút`;
               } else if (nearestRecord.checkInTime) {
-                checkInTime = (nearestRecord.checkInTime as any).toDate();
-                checkOutTime = nearestRecord.checkOutTime ? (nearestRecord.checkOutTime as any).toDate() : null;
+                checkInTime = new Date(nearestRecord.checkInTime as string);
+                checkOutTime = nearestRecord.checkOutTime ? new Date(nearestRecord.checkOutTime as string) : null;
                 const shiftStartTime = parse(shift.timeSlot.start, 'HH:mm', new Date(shift.date));
 
                 if (shiftStartTime.getHours() < 6) {
@@ -304,6 +338,8 @@ export default function AdminDashboardPage() {
         userName={user?.displayName || 'Admin User'}
         userRole={user?.role || 'Chủ cửa hàng'}
         complaintsCount={complaints.length}
+        selectedDateFilter={dateFilter}
+        onDateFilterChange={(f) => setDateFilter(f)}
       />
 
       {/* Main content */}
