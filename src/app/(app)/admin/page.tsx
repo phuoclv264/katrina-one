@@ -375,7 +375,6 @@ export default function AdminDashboardPage() {
             <RevenueAnalyticsSection
               revenueByMethod={cashierOverview.revenueByMethod}
               totalRevenue={cashierOverview.totalRevenue}
-              onRefresh={handleReconnect}
             />
           </div>
 
