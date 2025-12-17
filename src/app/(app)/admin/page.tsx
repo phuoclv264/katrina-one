@@ -337,7 +337,28 @@ export default function AdminDashboardPage() {
       <DashboardHeader
         userName={user?.displayName || 'Admin User'}
         userRole={user?.role || 'Chủ cửa hàng'}
-        complaintsCount={complaints.length}
+        complaintsCount={
+          // Compute number of report-feed items in the selected filter range
+          (() => {
+            try {
+              if (dateFilter === 'week') {
+                const start = startOfWeek(new Date(), { weekStartsOn: 1 });
+                const end = endOfWeek(new Date(), { weekStartsOn: 1 });
+                return complaints.filter((r) => {
+                  const created = (r.createdAt && (r.createdAt as any)?.toDate) ? (r.createdAt as any).toDate() : new Date(String(r.createdAt || ''));
+                  return created >= start && created <= end;
+                }).length;
+              }
+              const day = dateFilter === 'yesterday' ? format(addDays(new Date(), -1), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
+              return complaints.filter((r) => {
+                const created = (r.createdAt && (r.createdAt as any)?.toDate) ? (r.createdAt as any).toDate() : new Date(String(r.createdAt || ''));
+                return format(created, 'yyyy-MM-dd') === day;
+              }).length;
+            } catch (e) {
+              return complaints.length;
+            }
+          })()
+        }
         selectedDateFilter={dateFilter}
         onDateFilterChange={(f) => setDateFilter(f)}
       />

@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Bell } from 'lucide-react';
+import { MessageSquareWarning } from 'lucide-react';
+import { useRouter } from 'nextjs-toploader/app';
 import { Button } from '@/components/ui/button';
 import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -21,6 +22,7 @@ type DashboardHeaderPropsEx = DashboardHeaderProps & {
 
 export function DashboardHeader({ userName = 'Admin User', userRole = 'Chủ cửa hàng', complaintsCount = 0, selectedDateFilter, onDateFilterChange }: DashboardHeaderPropsEx) {
   const [localFilter, setLocalFilter] = useState<DateFilter>(selectedDateFilter ?? 'today');
+  const router = useRouter();
   const now = new Date();
   const dateText = format(now, 'EEEE, dd MMMM yyyy', { locale: vi });
   const weekStart = format(startOfWeek(now, { weekStartsOn: 1 }), 'dd MMM');
@@ -90,10 +92,16 @@ export function DashboardHeader({ userName = 'Admin User', userRole = 'Chủ c�
             </div>
 
             {/* Notifications */}
-            <button className="relative p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
-              <Bell className="h-5 w-5" />
+            <button
+              onClick={() => router.push('/reports-feed')}
+              aria-label="Xem tố cáo"
+              className="relative p-2 text-orange-500 hover:text-orange-600 transition rounded-lg hover:bg-orange-50 dark:hover:bg-orange-800"
+            >
+              <MessageSquareWarning className="h-5 w-5" />
               {complaintsCount > 0 && (
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-gray-800"></span>
+                <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 bg-red-600 text-white rounded-full flex items-center justify-center text-[10px] font-semibold">
+                  {complaintsCount > 99 ? '99+' : complaintsCount}
+                </span>
               )}
             </button>
 
