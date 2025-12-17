@@ -1,12 +1,11 @@
 'use client';
 
 import React from 'react';
-import { format } from 'date-fns';
 import { useRouter } from 'nextjs-toploader/app';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { AssignedShift } from '@/lib/types';
-import { generateShortName } from '@/lib/utils';
+import { generateShortName, formatTime } from '@/lib/utils';
 import { AlertCircle } from 'lucide-react';
 import { EmployeeAttendance } from './AttendanceOverviewCard';
 
@@ -92,8 +91,8 @@ export function TodaysScheduleSection({ shifts, onViewDetails }: TodaysScheduleS
                       shift.assignedUsers.map((user) => {
                         // Try to find attendance info attached to the shift (admin page augments shifts with employees[])
                         const employeeInfo = shift.employees?.find((e: EmployeeAttendance) => e.id === user.userId);
-                        const checkIn = employeeInfo?.checkInTime ? format(new Date(employeeInfo.checkInTime), 'HH:mm') : null;
-                        const checkOut = employeeInfo?.checkOutTime ? format(new Date(employeeInfo.checkOutTime), 'HH:mm') : null;
+                        const checkIn = formatTime(employeeInfo?.checkInTime);
+                        const checkOut = formatTime(employeeInfo?.checkOutTime);
 
                         return (
                           <div key={user.userId} className="flex items-center gap-3">

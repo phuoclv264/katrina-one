@@ -5,10 +5,10 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Users, CheckCircle, XCircle, Clock, MessageCircleWarning } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { cn, generateShortName } from '@/lib/utils';
+import { cn, formatTime, generateShortName } from '@/lib/utils';
 import type { AssignedShift, AttendanceRecord } from '@/lib/types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { format, addDays } from 'date-fns';
+import { addDays } from 'date-fns';
 import { useRouter } from 'nextjs-toploader/app';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
@@ -51,7 +51,7 @@ const statusBadgeClass: Record<EmployeeStatus, string> = {
 export function AttendanceOverviewCard({ todayShifts, upcomingShifts }: AttendanceOverviewCardProps) {
   const router = useRouter();
   const now = new Date();
-  const tomorrowStr = format(addDays(now, 1), 'yyyy-MM-dd');
+  const tomorrowStr = formatTime(addDays(now, 1), 'yyyy-MM-dd');
 
   const tomorrowShifts = useMemo(() => {
     return upcomingShifts.filter(shift => shift.date === tomorrowStr);
@@ -89,14 +89,14 @@ export function AttendanceOverviewCard({ todayShifts, upcomingShifts }: Attendan
                                 <Badge variant="outline" className={cn("flex items-center gap-1.5 cursor-default", statusBadgeClass[employee.status])}>
                                   {statusIcons[employee.status]}
                                   {generateShortName(employee.name)}
-                                  {employee.checkInTime && !employee.checkOutTime && <span className="text-xs">({format(employee.checkInTime, 'HH:mm')} → ..)</span>}
-                                  {employee.checkInTime &&employee.checkOutTime && <span className="text-xs">({format(employee.checkInTime, 'HH:mm')} → {format(employee.checkOutTime, 'HH:mm')})</span>}
+                                  {employee.checkInTime && !employee.checkOutTime && <span className="text-xs">({formatTime(employee.checkInTime)} → ..)</span>}
+                                  {employee.checkInTime &&employee.checkOutTime && <span className="text-xs">({formatTime(employee.checkInTime)} → {formatTime(employee.checkOutTime)})</span>}
                                 </Badge>
                               </TooltipTrigger>
                               <TooltipContent>
                                 <p className="font-semibold">{employee.name}</p>
-                                {employee.checkInTime && <p>Vào ca lúc: {format(employee.checkInTime, 'HH:mm')}</p>}
-                                {employee.checkOutTime && <p>Ra ca lúc: {format(employee.checkOutTime, 'HH:mm')}</p>}
+                                {employee.checkInTime && <p>Vào ca lúc: {formatTime(employee.checkInTime)}</p>}
+                                {employee.checkOutTime && <p>Ra ca lúc: {formatTime(employee.checkOutTime)}</p>}
                                 {employee.lateMinutes && <p className="text-yellow-500">Đi trễ: {employee.lateMinutes} phút</p>}
                                 {employee.lateReason && <p className="text-orange-500">Xin trễ: {employee.lateReason}</p>}
                               </TooltipContent>

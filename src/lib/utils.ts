@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { format } from 'date-fns';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -50,4 +51,23 @@ export function removeVietnameseTones(str: string) {
 
 export function normalizeSearchString(str: string) {
   return removeVietnameseTones(str).toLowerCase().trim();
+}
+
+/**
+ * Safely format a time-like value to 'HH:mm'. Accepts Date, number (ms), string (ISO),
+ * or Firestore Timestamp-like objects with a toDate() method. Returns null if value is invalid.
+ */
+export function formatTime(value?: unknown, formatStr: string = 'HH:mm'): string | null {
+  if (!value) return null;
+  try {
+    let d: Date | null = null;
+    if (value instanceof Date) d = value as Date;
+    else if (typeof value === 'number') d = new Date(value as number);
+    else if (typeof value === 'string') d = new Date(value as string);
+    else if (typeof (value as any)?.toDate === 'function') d = (value as any).toDate();
+    if (!d || Number.isNaN(d.getTime())) return null;
+    return format(d, formatStr);
+  } catch (e) {
+    return null;
+  }
 }
