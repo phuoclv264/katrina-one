@@ -38,6 +38,7 @@ import { RevenueAnalyticsSection } from './_components/RevenueAnalyticsSection';
 import { RecentReportsCard } from './_components/RecentReportsCard';
 import { QuickAccessToolsSection } from './_components/QuickAccessToolsSection';
 import MonthlyStaffReportDialog from '../reports/_components/MonthlyStaffReportDialog';
+import SalaryManagementDialog from '../attendance/_components/salary-management-dialog';
 import { RecurringTasksCard } from './_components/RecurringTasksCard';
 import { TodaysScheduleSection } from './_components/TodaysScheduleSection';
 import { LoadingPage } from '@/components/loading/LoadingPage';
@@ -59,6 +60,7 @@ export default function AdminDashboardPage() {
   const [taskAssignments, setTaskAssignments] = useState<MonthlyTaskAssignment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isMonthlyReportOpen, setIsMonthlyReportOpen] = useState(false);
+  const [isSalaryDialogOpen, setIsSalaryDialogOpen] = useState(false);
   const [todaysSchedule, setTodaysSchedule] = useState<Schedule | null>(null);
 
   useEffect(() => {
@@ -469,11 +471,14 @@ export default function AdminDashboardPage() {
             <QuickAccessToolsSection onNavigate={(path) => {
               if (path === 'create-monthly-report') {
                 setIsMonthlyReportOpen(true);
+              } else if (path === 'salary-management') {
+                setIsSalaryDialogOpen(true);
               } else {
                 router.push(path);
               }
             }} />
             <MonthlyStaffReportDialog isOpen={isMonthlyReportOpen} onOpenChange={(open: boolean) => setIsMonthlyReportOpen(open)} />
+            <SalaryManagementDialog isOpen={isSalaryDialogOpen} onClose={() => setIsSalaryDialogOpen(false)} allUsers={allUsers} />
             <RecurringTasksCard monthlyTasks={monthlyTasks} taskAssignments={taskAssignments} staffDirectory={allUsers} />
           </div>
         </div>
