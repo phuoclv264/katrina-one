@@ -267,7 +267,6 @@ function MonthlyTaskReportsView() {
     if (!matchedRecord) return
 
     if (viewMode === "tasks") {
-      console.log(viewMode);
       setOpenTasks((prev) => (prev.includes(matchedRecord.taskName) ? prev : [...prev, matchedRecord.taskName]))
     } else {
       const uid = matchedRecord.completedBy?.userId

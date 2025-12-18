@@ -1863,7 +1863,6 @@ export const dataStore = {
                 let submissions = violationData.penaltySubmissions || [];
                 const existingIndex = submissions.findIndex((s: any) => s.userId === record.user.userId);
                 if (existingIndex > -1) {
-                  console.log(`[retryPendingPenaltySubmissions] Updating existing submission for user: ${record.user.userId}`);
                   const existing = submissions[existingIndex];
                   const existingMedia = existing.media || (existing.photos || []).map((p: string) => ({ url: p, type: 'photo' as const }));
                   submissions[existingIndex] = { ...existing, media: [...existingMedia, ...record.uploaded], submittedAt: new Date().toISOString() };

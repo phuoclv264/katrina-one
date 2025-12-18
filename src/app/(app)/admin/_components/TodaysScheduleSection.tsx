@@ -97,7 +97,6 @@ export function TodaysScheduleSection({ shifts, onViewDetails }: TodaysScheduleS
                         if (employeeInfo?.lateReason) {
                           lateMessage = `Xin trễ${employeeInfo?.estimatedLateMinutes ? ` ${employeeInfo.estimatedLateMinutes} phút` : ''}${employeeInfo?.lateReason ? ` — ${employeeInfo.lateReason.trim()}` : ''}`;
                         }
-                        console.log('employeeInfo', employeeInfo);
 
                         return (
                           <div key={user.userId} className="flex items-center gap-3">
