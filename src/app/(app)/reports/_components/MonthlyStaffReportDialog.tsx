@@ -494,7 +494,7 @@ export default function MonthlyStaffReportDialog({ isOpen, onOpenChange }: Month
                     totalHours: userAttendance.reduce((sum, a) => sum + (a.totalHours || 0), 0),
                     totalSalary: userAttendance.reduce((sum, a) => sum + (a.salary || 0), 0),
                     totalViolations: userViolations.length,
-                    totalViolationCost: userViolations.reduce((sum, v) => sum + (v.cost || 0), 0),
+                    totalViolationCost: userViolations.reduce((sum, v) => sum + (v.userCosts?.find(uc => uc.userId === user.uid)?.cost || 0), 0),
                 };
             });
 

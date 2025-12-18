@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'nextjs-toploader/app';
-import { CheckCircle2, Box, DollarSign, History } from 'lucide-react';
+import { CheckCircle2, Box, DollarSign, History, Calendar } from 'lucide-react';
 
 interface QuickAccessToolsSectionProps {
   onNavigate?: (path: string) => void;
@@ -21,6 +21,16 @@ export function QuickAccessToolsSection({ onNavigate }: QuickAccessToolsSectionP
       iconColor: 'text-blue-600 dark:text-blue-400',
       borderColor: 'border-blue-500',
       hoverColor: 'hover:border-blue-500 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10',
+    },
+    {
+      icon: Calendar,
+      label: 'Tạo báo cáo tháng',
+      color: 'indigo',
+      path: 'create-monthly-report',
+      bgColor: 'bg-indigo-100 dark:bg-indigo-900/30',
+      iconColor: 'text-indigo-600 dark:text-indigo-400',
+      borderColor: 'border-indigo-500',
+      hoverColor: 'hover:border-indigo-500 dark:hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/10',
     },
     {
       icon: Box,

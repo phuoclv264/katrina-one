@@ -37,6 +37,7 @@ import { KPIMetricsSection } from './_components/KPIMetricsSection';
 import { RevenueAnalyticsSection } from './_components/RevenueAnalyticsSection';
 import { RecentReportsCard } from './_components/RecentReportsCard';
 import { QuickAccessToolsSection } from './_components/QuickAccessToolsSection';
+import MonthlyStaffReportDialog from '../reports/_components/MonthlyStaffReportDialog';
 import { RecurringTasksCard } from './_components/RecurringTasksCard';
 import { TodaysScheduleSection } from './_components/TodaysScheduleSection';
 import { LoadingPage } from '@/components/loading/LoadingPage';
@@ -57,6 +58,7 @@ export default function AdminDashboardPage() {
   const [monthlyTasks, setMonthlyTasks] = useState<MonthlyTask[]>([]);
   const [taskAssignments, setTaskAssignments] = useState<MonthlyTaskAssignment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isMonthlyReportOpen, setIsMonthlyReportOpen] = useState(false);
   const [todaysSchedule, setTodaysSchedule] = useState<Schedule | null>(null);
 
   useEffect(() => {
@@ -464,7 +466,14 @@ export default function AdminDashboardPage() {
 
           {/* Right column: Quick access + Tasks (1 col) */}
           <div className="space-y-6">
-            <QuickAccessToolsSection />
+            <QuickAccessToolsSection onNavigate={(path) => {
+              if (path === 'create-monthly-report') {
+                setIsMonthlyReportOpen(true);
+              } else {
+                router.push(path);
+              }
+            }} />
+            <MonthlyStaffReportDialog isOpen={isMonthlyReportOpen} onOpenChange={(open: boolean) => setIsMonthlyReportOpen(open)} />
             <RecurringTasksCard monthlyTasks={monthlyTasks} taskAssignments={taskAssignments} staffDirectory={allUsers} />
           </div>
         </div>
