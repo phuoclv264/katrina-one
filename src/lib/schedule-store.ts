@@ -976,11 +976,14 @@ export async function deletePassRequestNotification(notificationId: string): Pro
 function isTaskScheduledForDate(task: MonthlyTask, date: Date): boolean {
     const dayOfWeek = getDay(date); // 0=Sun, 1=Mon, ...
     const dayOfMonth = getDate(date);
+    const dateKey = format(date, 'yyyy-MM-dd');
 
-    if (task.schedule.type === 'random') {
-        return task.scheduledDates?.includes(format(date, 'yyyy-MM-dd')) ?? false;
+    // First, check if this date is in the custom scheduled dates (works for all task types)
+    if (task.scheduledDates && task.scheduledDates.includes(dateKey)) {
+        return true;
     }
 
+    // Then check the regular schedule rules based on schedule type
     switch (task.schedule.type) {
         case 'weekly':
             return task.schedule.daysOfWeek.includes(dayOfWeek);
@@ -1012,6 +1015,10 @@ function isTaskScheduledForDate(task: MonthlyTask, date: Date): boolean {
                 }
                 return occ.week === weekOfMonth;
             });
+
+        case 'random':
+            // For random type, dates are only in scheduledDates (already checked above)
+            return false;
 
         default:
             return false;
