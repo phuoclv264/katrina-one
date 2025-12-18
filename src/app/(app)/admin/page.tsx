@@ -302,6 +302,18 @@ export default function AdminDashboardPage() {
                 }
 
                 if (checkInTime) {
+                  // adjust shift start for managers: if the shift start is 06:00 and the assigned user is a manager ("Quản lý"),
+                  // treat the shift as starting at 07:00 to avoid marking them late for an early manager shift.
+                  const staff = allUsers.find(
+                    (u: any) =>
+                      u.id === assignedUser.userId ||
+                      u.uid === assignedUser.userId ||
+                      u.userId === assignedUser.userId
+                  );
+                  if (staff?.role === 'Quản lý' && shiftStartTime.getHours() === 6) {
+                    shiftStartTime.setHours(7, 0, 0, 0);
+                  }
+
                   const diff = differenceInMinutes(checkInTime, shiftStartTime);
                   if (diff > 5) {
                     status = 'late';
@@ -333,7 +345,7 @@ export default function AdminDashboardPage() {
     return {
       todayShifts,
     };
-  }, [attendanceRecords, todaysSchedule]);
+  }, [attendanceRecords, todaysSchedule, allUsers]);
 
   const kpiMetrics = useMemo(() => {
     const now = new Date();
