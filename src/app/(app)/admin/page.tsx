@@ -97,7 +97,7 @@ export default function AdminDashboardPage() {
       ];
 
       // For reports and expense slips we currently have range getters; fetch them once for the week
-  dataStore.getShiftReportsForDateRange({ from: start, to: end }).then(setShiftReports).catch(() => setShiftReports([]));
+      dataStore.getShiftReportsForDateRange({ from: start, to: end }).then(setShiftReports).catch(() => setShiftReports([]));
       // Expense slips range getter lives in cashierStore via dataStore
       dataStore.getExpenseSlipsForDateRange?.({ from: startStr, to: endStr }).then(setDailySlips).catch(() => setDailySlips([]));
 
@@ -272,14 +272,24 @@ export default function AdminDashboardPage() {
             let checkOutTime: Date | null = null;
             let lateMinutes: number | null = null;
             let lateReason: string | null = null;
+            let estimatedLateMinutes: number | null = null;
 
             if (nearestRecord) {
               if (nearestRecord.status === 'pending_late') {
                 status = 'pending_late';
-                lateReason = nearestRecord.lateReason || `Dự kiến trễ ${nearestRecord.estimatedLateMinutes} phút`;
+                estimatedLateMinutes = typeof nearestRecord.estimatedLateMinutes === 'number' ? nearestRecord.estimatedLateMinutes : null;
+                lateReason = nearestRecord.lateReason || (estimatedLateMinutes ? `Dự kiến trễ ${estimatedLateMinutes} phút` : null);
               } else if (nearestRecord.checkInTime) {
                 checkInTime = toDateSafe(nearestRecord.checkInTime);
                 checkOutTime = toDateSafe(nearestRecord.checkOutTime);
+
+                if (nearestRecord.lateReason) {
+                  lateReason = nearestRecord.lateReason;
+                }
+
+                if (nearestRecord.estimatedLateMinutes && nearestRecord.estimatedLateMinutes > 0) {
+                  estimatedLateMinutes = nearestRecord.estimatedLateMinutes;
+                }
 
                 const shiftStartTime = parse(shift.timeSlot.start, 'HH:mm', new Date(shift.date));
 
@@ -310,6 +320,7 @@ export default function AdminDashboardPage() {
               checkOutTime,
               lateMinutes,
               lateReason,
+              estimatedLateMinutes,
             };
           });
           return { ...shift, employees, isActive };
@@ -447,6 +458,8 @@ export default function AdminDashboardPage() {
               revenueByMethod={cashierOverview.revenueByMethod}
               totalRevenue={cashierOverview.totalRevenue}
             />
+            {/* Schedule */}
+            <TodaysScheduleSection shifts={todayShifts} />
           </div>
 
           {/* Right column: Quick access + Tasks (1 col) */}
@@ -460,16 +473,6 @@ export default function AdminDashboardPage() {
         <div className="mb-8">
           <RecentReportsCard shiftReports={shiftReports} />
         </div>
-
-        {/* Schedule */}
-        <div className="mb-8">
-          <TodaysScheduleSection shifts={todayShifts} />
-        </div>
-
-        {/* Footer */}
-        <footer className="mt-10 mb-4 text-center">
-          <p className="text-xs text-gray-400 dark:text-gray-500">© 2024 Restaurant Management System. All rights reserved.</p>
-        </footer>
       </main>
     </div>
   );

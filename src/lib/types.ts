@@ -371,6 +371,8 @@ export type EmployeeAttendance = {
   checkOutTime: Date | null;
   lateMinutes: number | null;
   lateReason: string | null;
+  /** If the user requested to be late, this is the estimated minutes */
+  estimatedLateMinutes?: number | null;
 };
 
 export type EmployeeStatus = 'present' | 'late' | 'absent' | 'pending_late';

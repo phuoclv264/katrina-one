@@ -54,41 +54,83 @@ export function DashboardHeader({ userName = 'Admin User', userRole = 'Chủ c�
 
           {/* Right side: Filters and Notifications */}
           <div className="flex items-center gap-3 sm:gap-6 w-full sm:w-auto">
-            {/* Date filter buttons */}
+            {/* Date filter buttons: desktop */}
             <div className="hidden md:flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 gap-1">
               <Button
-                variant={localFilter === 'today' ? 'default' : 'ghost'}
-                size="sm"
-                className="h-8 px-3 text-xs font-medium"
-                onClick={() => {
-                  setLocalFilter('today');
-                  onDateFilterChange?.('today');
-                }}
+              variant={localFilter === 'today' ? 'default' : 'ghost'}
+              size="sm"
+              className="h-8 px-3 text-xs font-medium"
+              onClick={() => {
+                setLocalFilter('today');
+                onDateFilterChange?.('today');
+              }}
               >
-                Hôm nay
+              Hôm nay
               </Button>
               <Button
-                variant={localFilter === 'yesterday' ? 'default' : 'ghost'}
-                size="sm"
-                className="h-8 px-3 text-xs font-medium"
-                onClick={() => {
-                  setLocalFilter('yesterday');
-                  onDateFilterChange?.('yesterday');
-                }}
+              variant={localFilter === 'yesterday' ? 'default' : 'ghost'}
+              size="sm"
+              className="h-8 px-3 text-xs font-medium"
+              onClick={() => {
+                setLocalFilter('yesterday');
+                onDateFilterChange?.('yesterday');
+              }}
               >
-                Hôm qua
+              Hôm qua
               </Button>
               <Button
-                variant={localFilter === 'week' ? 'default' : 'ghost'}
-                size="sm"
-                className="h-8 px-3 text-xs font-medium"
-                onClick={() => {
-                  setLocalFilter('week');
-                  onDateFilterChange?.('week');
-                }}
+              variant={localFilter === 'week' ? 'default' : 'ghost'}
+              size="sm"
+              className="h-8 px-3 text-xs font-medium"
+              onClick={() => {
+                setLocalFilter('week');
+                onDateFilterChange?.('week');
+              }}
               >
-                Tuần này
+              Tuần này
               </Button>
+            </div>
+
+            {/* Mobile: dropdown */}
+            <div className="md:hidden min-w-[140px]">
+              <label htmlFor="dashboard-date-filter" className="sr-only">
+              Chọn bộ lọc ngày
+              </label>
+              <div className="relative">
+              <select
+                id="dashboard-date-filter"
+                value={localFilter}
+                onChange={(e) => {
+                const v = e.target.value as DateFilter;
+                setLocalFilter(v);
+                onDateFilterChange?.(v);
+                }}
+                className="block w-full bg-gray-100 dark:bg-gray-700 rounded-lg h-8 pl-3 pr-8 text-sm font-medium text-gray-900 dark:text-white"
+                aria-label="Chọn bộ lọc ngày"
+              >
+                {(['today', 'yesterday', 'week'] as DateFilter[]).map((v) =>
+                  React.createElement(
+                    'option',
+                    { key: v, value: v },
+                    v === 'today' ? 'Hôm nay' : v === 'yesterday' ? 'Hôm qua' : 'Tuần này'
+                  )
+                )}
+              </select>
+
+              {/* chevron icon */}
+              <svg
+                className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+              </div>
             </div>
 
             {/* Notifications */}

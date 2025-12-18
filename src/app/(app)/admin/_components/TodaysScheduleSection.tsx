@@ -93,6 +93,11 @@ export function TodaysScheduleSection({ shifts, onViewDetails }: TodaysScheduleS
                         const employeeInfo = shift.employees?.find((e: EmployeeAttendance) => e.id === user.userId);
                         const checkIn = formatTime(employeeInfo?.checkInTime);
                         const checkOut = formatTime(employeeInfo?.checkOutTime);
+                        let lateMessage = null;
+                        if (employeeInfo?.lateReason) {
+                          lateMessage = `Xin trễ${employeeInfo?.estimatedLateMinutes ? ` ${employeeInfo.estimatedLateMinutes} phút` : ''}${employeeInfo?.lateReason ? ` — ${employeeInfo.lateReason.trim()}` : ''}`;
+                        }
+                        console.log('employeeInfo', employeeInfo);
 
                         return (
                           <div key={user.userId} className="flex items-center gap-3">
@@ -106,11 +111,11 @@ export function TodaysScheduleSection({ shifts, onViewDetails }: TodaysScheduleS
                               {checkIn ? <span className="font-medium text-gray-700 dark:text-gray-200">{checkIn} - </span> : <span className="italic">Chưa check-in</span>}
                               {checkOut && <span className="font-medium text-gray-700 dark:text-gray-200">{checkOut}</span>}
                               {employeeInfo?.status === 'pending_late' && (
-                                <span className="ml-3 text-orange-500">(Yêu cầu đi trễ)</span>
+                                <span className="ml-3 text-orange-500"></span>
                               )}
                               {employeeInfo?.status === 'late' && (
                                 <span className="ml-3 text-red-500">
-                                  Trễ {employeeInfo.lateMinutes ?? '?'} phút{employeeInfo.lateReason ? ` — ${employeeInfo.lateReason}` : ''}
+                                  Trễ {employeeInfo.lateMinutes ?? '?'} phút{lateMessage && ` (${lateMessage})`}
                                 </span>
                               )}
                             </div>

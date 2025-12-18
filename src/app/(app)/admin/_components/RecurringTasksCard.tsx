@@ -183,17 +183,17 @@ export function RecurringTasksCard({ monthlyTasks, taskAssignments, staffDirecto
       <div className="bg-gradient-to-br from-indigo-600 to-blue-700 dark:from-indigo-700 dark:to-blue-800 rounded-2xl shadow-lg p-5 text-white relative overflow-hidden">
         <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
         <div className="absolute -left-4 -bottom-4 w-32 h-32 bg-white/10 rounded-full blur-xl"></div>
-        <div className="relative z-10">
+        <div className="relative">
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-bold flex items-center gap-2 text-sm">
               <CheckCircle className="h-4 w-4" />
               Công việc định kỳ hôm nay
             </h3>
           </div>
-          <p className="text-xs opacity-80">Không có nhiệm vụ hôm nay</p>
+          <p className="text-sm opacity-80">Không có nhiệm vụ hôm nay</p>
           <button
             onClick={() => router.push('/task-lists')}
-            className="w-full mt-3 py-2 text-xs font-semibold text-white hover:bg-white/10 rounded-lg border border-white/20 transition"
+            className="w-full mt-3 py-2 text-sm font-semibold text-white hover:bg-white/10 rounded-lg border border-white/20 transition"
           >
             Xem tất cả công việc
           </button>
@@ -224,26 +224,26 @@ export function RecurringTasksCard({ monthlyTasks, taskAssignments, staffDirecto
 
     return (
       <div>
-        <div className={`flex items-center gap-1.5 text-[10px] font-semibold uppercase mb-2 ${statusStyles[status].className}`}>
+        <div className={`flex items-center gap-1.5 text-[11px] font-semibold uppercase mb-2 ${statusStyles[status].className}`}>
           {statusStyles[status].icon}
           <span>{label}</span>
         </div>
         {staff.length === 0 ? (
-          <p className="text-[10px] opacity-60">Không có ghi nhận.</p>
+          <p className="text-[11px] opacity-60">Không có ghi nhận.</p>
         ) : (
           <div className="space-y-1.5">
             {staff.map((item) => (
               <div key={item.userId} className="flex items-start justify-between bg-white/5 rounded px-2 py-1.5 border border-white/10">
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-medium truncate">{item.userName}</p>
-                  <p className="text-[9px] opacity-70 truncate">{item.shiftLabels.join(', ')}</p>
+                  <p className="text-[11px] font-medium truncate">{item.userName}</p>
+                  <p className="text-[10px] opacity-70 truncate">{item.shiftLabels.join(', ')}</p>
                   {item.status === 'reported' && item.completion?.note && (
-                    <p className="text-[9px] text-amber-300 mt-0.5 line-clamp-2">"{item.completion.note}"</p>
+                    <p className="text-[10px] text-amber-300 mt-0.5 line-clamp-2">"{item.completion.note}"</p>
                   )}
                 </div>
                 <div className="flex flex-col items-end gap-1 ml-2">
                   {item.status === 'completed' && item.completion?.completedAt && (
-                    <span className="text-[9px] font-semibold text-emerald-300">
+                    <span className="text-[10px] font-semibold text-emerald-300">
                       {formatTime(item.completion.completedAt, 'HH:mm')}
                     </span>
                   )}
@@ -254,7 +254,7 @@ export function RecurringTasksCard({ monthlyTasks, taskAssignments, staffDirecto
                         e.stopPropagation();
                         handleLightboxOpen(item.completion?.media);
                       }}
-                      className="text-[9px] text-blue-300 hover:underline inline-flex items-center gap-0.5"
+                      className="text-[10px] text-blue-300 hover:underline inline-flex items-center gap-0.5"
                     >
                       <Eye className="h-3 w-3" />
                       Xem
@@ -273,19 +273,19 @@ export function RecurringTasksCard({ monthlyTasks, taskAssignments, staffDirecto
     <div className="bg-gradient-to-br from-indigo-600 to-blue-700 dark:from-indigo-700 dark:to-blue-800 rounded-2xl shadow-lg p-5 text-white relative overflow-hidden">
       <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
       <div className="absolute -left-4 -bottom-4 w-32 h-32 bg-white/10 rounded-full blur-xl"></div>
-      <div className="relative z-10">
+      <div className="relative">
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-bold flex items-center gap-2 text-sm">
             <CheckCircle className="h-4 w-4" />
             Công việc định kỳ hôm nay
           </h3>
-          <span className="text-xs bg-white/20 px-2 py-0.5 rounded">
+          <span className="text-sm bg-white/20 px-2 py-0.5 rounded">
             {taskStats.completed}/{taskStats.total}
           </span>
         </div>
         
         <div className="mb-4">
-          <div className="flex justify-between text-xs mb-1 opacity-90">
+          <div className="flex justify-between text-sm mb-1 opacity-90">
             <span>Tiến độ tổng quan</span>
             <span>{taskStats.percentage}%</span>
           </div>
@@ -318,13 +318,13 @@ export function RecurringTasksCard({ monthlyTasks, taskAssignments, staffDirecto
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <p className="text-xs font-medium leading-relaxed line-clamp-2">{task.taskName}</p>
+                        <p className="text-sm font-medium leading-relaxed line-clamp-2">{task.taskName}</p>
                         <ChevronDown 
                           className={`h-3.5 w-3.5 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
                         />
                       </div>
                       {!isExpanded && (
-                        <div className="flex flex-wrap items-center gap-1.5 text-[9px]">
+                        <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
                           {task.completed > 0 && (
                             <span className="flex items-center gap-0.5 bg-emerald-500/20 px-1 py-0.5 rounded">
                               <CheckCircle className="h-2.5 w-2.5 text-emerald-300" />
@@ -361,22 +361,22 @@ export function RecurringTasksCard({ monthlyTasks, taskAssignments, staffDirecto
                 {isExpanded && (
                   <div className="border-t border-white/10 p-3 space-y-3 animate-in fade-in duration-200">
                     {task.description && (
-                      <p className="text-[10px] opacity-80 leading-relaxed">{task.description}</p>
+                      <p className="text-[11px] opacity-80 leading-relaxed">{task.description}</p>
                     )}
                     
                     {/* Summary stats */}
                     <div className="grid grid-cols-3 gap-2">
                       <div className="bg-emerald-500/10 rounded px-2 py-1.5 text-center">
-                        <div className="text-xs font-bold text-emerald-300">{task.completed}</div>
-                        <div className="text-[9px] opacity-80">Hoàn thành</div>
+                        <div className="text-sm font-bold text-emerald-300">{task.completed}</div>
+                        <div className="text-[10px] opacity-80">Hoàn thành</div>
                       </div>
                       <div className="bg-amber-500/10 rounded px-2 py-1.5 text-center">
-                        <div className="text-xs font-bold text-amber-300">{task.reported}</div>
-                        <div className="text-[9px] opacity-80">Báo cáo</div>
+                        <div className="text-sm font-bold text-amber-300">{task.reported}</div>
+                        <div className="text-[10px] opacity-80">Báo cáo</div>
                       </div>
                       <div className="bg-gray-500/10 rounded px-2 py-1.5 text-center">
-                        <div className="text-xs font-bold text-gray-300">{task.pending}</div>
-                        <div className="text-[9px] opacity-80">Chưa gửi</div>
+                        <div className="text-sm font-bold text-gray-300">{task.pending}</div>
+                        <div className="text-[10px] opacity-80">Chưa gửi</div>
                       </div>
                     </div>
 
@@ -390,7 +390,7 @@ export function RecurringTasksCard({ monthlyTasks, taskAssignments, staffDirecto
                     {/* Additional reports */}
                     {task.additionalReports.length > 0 && (
                       <div className="pt-3 border-t border-white/10">
-                        <p className="text-[10px] font-semibold uppercase opacity-80 mb-2">Báo cáo khác</p>
+                        <p className="text-[11px] font-semibold uppercase opacity-80 mb-2">Báo cáo khác</p>
                         <div className="space-y-1.5">
                           {task.additionalReports.map((report, idx) => (
                             <div
@@ -398,14 +398,14 @@ export function RecurringTasksCard({ monthlyTasks, taskAssignments, staffDirecto
                               className="flex items-start justify-between bg-white/5 rounded px-2 py-1.5 border border-dashed border-white/10"
                             >
                               <div className="flex-1 min-w-0">
-                                <p className="text-[10px] font-medium">{report.completedBy?.userName ?? 'Không xác định'}</p>
+                                <p className="text-[11px] font-medium">{report.completedBy?.userName ?? 'Không xác định'}</p>
                                 {report.note && (
-                                  <p className="text-[9px] text-amber-300 line-clamp-2">"{report.note}"</p>
+                                  <p className="text-[10px] text-amber-300 line-clamp-2">"{report.note}"</p>
                                 )}
                               </div>
                               <div className="flex items-center gap-2 ml-2">
                                 {report.completedAt && (
-                                  <span className="text-[9px] font-semibold text-emerald-300">
+                                  <span className="text-[10px] font-semibold text-emerald-300">
                                     {formatTime(report.completedAt, 'HH:mm')}
                                   </span>
                                 )}
@@ -416,7 +416,7 @@ export function RecurringTasksCard({ monthlyTasks, taskAssignments, staffDirecto
                                       e.stopPropagation();
                                       handleLightboxOpen(report.media);
                                     }}
-                                    className="text-[9px] text-blue-300 hover:underline inline-flex items-center gap-0.5"
+                                    className="text-[10px] text-blue-300 hover:underline inline-flex items-center gap-0.5"
                                   >
                                     <Eye className="h-3 w-3" />
                                   </button>
@@ -436,7 +436,7 @@ export function RecurringTasksCard({ monthlyTasks, taskAssignments, staffDirecto
 
         <button
           onClick={() => router.push('/monthly-tasks')}
-          className="w-full mt-3 py-2 text-xs font-semibold text-white hover:bg-white/10 rounded-lg border border-white/20 transition"
+          className="w-full mt-3 py-2 text-sm font-semibold text-white hover:bg-white/10 rounded-lg border border-white/20 transition"
         >
           Xem chi tiết tất cả công việc
         </button>
