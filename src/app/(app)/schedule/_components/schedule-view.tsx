@@ -259,7 +259,7 @@ export default function ScheduleView() {
         setProcessingNotificationId(notification.id);
 
         try {
-            const acceptingUser: AssignedUser = { userId: user.uid, userName: user.displayName || 'N/A' };
+            const acceptingUser = allUsers.find(u => u.uid === user.uid);
 
             await dataStore.acceptPassShift(notification.id, notification.payload, acceptingUser, schedule);
 

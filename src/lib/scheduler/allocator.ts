@@ -69,7 +69,12 @@ export function allocate(
     const userName = users.find(u => u.uid === userId)?.displayName || userId;
     shift.assignedUsersWithRole = [...(shift.assignedUsersWithRole || []), { userId, userName, assignedRole }];
     // Maintain assignedUsers for downstream consumers but do not rely on it for allocation logic
-    shift.assignedUsers = (shift.assignedUsersWithRole || []).map(u => ({ userId: u.userId, userName: u.userName || u.userId }));
+    shift.assignedUsers = (shift.assignedUsersWithRole || []).map(u => {
+      const resolvedRole = u.assignedRole === 'Bất kỳ'
+        ? usersByUid.get(u.userId)?.role!
+        : u.assignedRole;
+      return { userId: u.userId, userName: u.userName || u.userId, assignedRole: resolvedRole };
+    });
   };
 
   // Apply forced assignments first

@@ -34,11 +34,11 @@ type Props = {
   allUsers: ManagedUser[];
   availability: Availability[];
   constraints: ScheduleCondition[];
-  onApplyAssignments: (assignments: { shiftId: string; userId: string }[], strategy: 'merge' | 'replace') => void;
+  onApplyAssignments: (assignments: { shiftId: string; userId: string; userName?: string; assignedRole?: UserRole | 'Bất kỳ' }[], strategy: 'merge' | 'replace') => void;
   shiftTemplates: ShiftTemplate[];
 };
 
-type EditableAssignment = { shiftId: string; userId: string; selected: boolean };
+type EditableAssignment = { shiftId: string; userId: string; selected: boolean; assignedRole?: UserRole | 'Bất kỳ' };
 type UndoRedoEntry = {
   constraints: ScheduleCondition[];
   timestamp: number;
@@ -274,7 +274,7 @@ export default function AutoScheduleDialog({
     }
     const r = runSchedule(shifts, allUsers, availability, editableConstraints);
     setResult(r);
-    setEditableAssignments(r.assignments.map(a => ({ shiftId: a.shiftId, userId: a.userId, selected: true })));
+    setEditableAssignments(r.assignments.map(a => ({ shiftId: a.shiftId, userId: a.userId, selected: true, assignedRole: a.role ?? 'Bất kỳ' })));
     if (r.warnings.length) {
       toast.info('Có cảnh báo trong kết quả xếp lịch.', { icon: '⚠️' });
     }
@@ -285,7 +285,19 @@ export default function AutoScheduleDialog({
   };
 
   const handleApply = () => {
-    const selected = editableAssignments.filter(a => a.selected).map(a => ({ shiftId: a.shiftId, userId: a.userId }));
+    const selected = editableAssignments
+      .filter(a => a.selected)
+      .map(a => {
+        const user = allUsers.find(u => u.uid === a.userId);
+        return {
+          shiftId: a.shiftId,
+          userId: a.userId,
+          userName: user?.displayName || a.userId,
+          // Prefer the role assigned by the scheduler (stored on the editable assignment),
+          // otherwise fall back to the user's profile role.
+          assignedRole: a.assignedRole ?? (roleByUserId.get(a.userId) as UserRole | 'Bất kỳ') ?? 'Bất kỳ',
+        };
+      });
     if (selected.length === 0) {
       toast.error('Không có phân công nào được chọn để áp dụng.');
       return;

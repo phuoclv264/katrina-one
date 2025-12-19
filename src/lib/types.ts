@@ -342,6 +342,7 @@ export type ShiftTemplate = {
 export type AssignedUser = {
   userId: string;
   userName: string;
+  assignedRole: UserRole;
 };
 
 export type AssignedUserWithRole = {

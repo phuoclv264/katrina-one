@@ -337,7 +337,7 @@ export default function ScheduleView() {
         setCurrentDate(current => addDays(current, direction === 'next' ? 7 : -7));
     };
     
-    const handleUpdateShiftAssignment = useCallback(async (shiftId: string, newAssignedUsers: {userId: string, userName: string}[]) => {
+    const handleUpdateShiftAssignment = useCallback(async (shiftId: string, newAssignedUsers: {userId: string, userName: string, assignedRole: UserRole}[]) => {
         if (!user) return;
         const baseSchedule = localSchedule ?? {
             weekId,
@@ -534,7 +534,7 @@ export default function ScheduleView() {
         setProcessingNotificationId(notification.id);
         
         try {
-            const acceptingUser: AssignedUser = { userId: user.uid, userName: user.displayName };
+            const acceptingUser = allUsers.find(u => u.uid === user.uid);
             
             await dataStore.acceptPassShift(notification.id, notification.payload, acceptingUser, localSchedule);
 
@@ -1172,20 +1172,16 @@ export default function ScheduleView() {
                         const updatedShifts = base.shifts.map(s => {
                             const adds = assignments.filter(a => a.shiftId === s.id);
                             if (adds.length === 0) return s;
-                            if (strategy === 'replace') {
-                                const newUsers = Array.from(new Set(adds.map(a => a.userId))).map(uid => ({ userId: uid, userName: allUsers.find(u => u.uid === uid)?.displayName || uid }));
-                                return { ...s, assignedUsers: newUsers };
-                            } else {
-                                const currentIds = new Set(s.assignedUsers.map(u => u.userId));
-                                const merged = [...s.assignedUsers];
-                                for (const a of adds) {
-                                    if (!currentIds.has(a.userId)) {
-                                        merged.push({ userId: a.userId, userName: allUsers.find(u => u.uid === a.userId)?.displayName || a.userId });
-                                        currentIds.add(a.userId);
-                                    }
-                                }
-                                return { ...s, assignedUsers: merged };
-                            }
+                            const unique = new Map<string, any>();
+                            for (const a of adds) unique.set(a.userId, a);
+
+                            const newAssignedUsers = Array.from(unique.values()).map(a => ({
+                                userId: a.userId,
+                                userName: a.userName ?? (allUsers.find(u => u.uid === a.userId)?.displayName || a.userId),
+                                assignedRole: a.assignedRole ?? allUsers.find(u => u.uid === a.userId)?.role ?? 'Bất kỳ',
+                            }));
+
+                            return { ...s, assignedUsers: newAssignedUsers};
                         });
                         const newSchedule = { ...base, shifts: updatedShifts };
                         setHasUnsavedChanges(!isEqual(newSchedule.shifts, serverSchedule?.shifts || []));

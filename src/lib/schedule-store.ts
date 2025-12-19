@@ -567,6 +567,10 @@ export async function requestDirectPassShift(shiftToPass: AssignedShift, request
         }
     }
 
+    // Find assigned role from shiftToPass assignedUsers
+    const assignedUser = shiftToPass.assignedUsers.find(u => u.userId === requestingUser.uid);
+    const assignedRole = assignedUser ? assignedUser.assignedRole : null;
+
     const payload: PassRequestPayload = {
         weekId: weekId,
         shiftId: shiftToPass.id,
@@ -576,7 +580,8 @@ export async function requestDirectPassShift(shiftToPass: AssignedShift, request
         shiftRole: shiftToPass.role,
         requestingUser: {
             userId: requestingUser.uid,
-            userName: requestingUser.displayName
+            userName: requestingUser.displayName,
+            assignedRole: assignedRole ?? requestingUser.role,
         },
         targetUserId: targetUser.uid,
         isSwapRequest: isSwap,
@@ -637,7 +642,11 @@ export async function revertPassRequest(notification: Notification, resolver: Au
     });
 }
 
-export async function acceptPassShift(notificationId: string, payload: PassRequestPayload, acceptingUser: AssignedUser, schedule: Schedule): Promise<void> {
+export async function acceptPassShift(notificationId: string, payload: PassRequestPayload, acceptingUser: ManagedUser | undefined, schedule: Schedule): Promise<void> {
+    if (!acceptingUser) {
+        throw new Error("Người dùng chấp nhận không hợp lệ.");
+    }
+
     const notificationRef = doc(db, "notifications", notificationId);
 
     const shift = schedule.shifts.find(s => s.id === payload.shiftId);
@@ -650,11 +659,18 @@ export async function acceptPassShift(notificationId: string, payload: PassReque
         throw new Error("Yêu cầu này không còn hợp lệ vì người pass ca đã không còn trong ca làm việc.");
     }
 
+    // check shift assigned role to see if accepting user can take the shift
+    const targetAssignedRole = shift.assignedUsers.find(u => u.userId === payload.requestingUser.userId)?.assignedRole;
+
+    if (targetAssignedRole && acceptingUser.role !== targetAssignedRole && acceptingUser.secondaryRoles?.indexOf(targetAssignedRole) === -1) {
+        throw new Error(`Bạn không thể nhận ca này vì ca yêu cầu được phân công cho vai trò "${targetAssignedRole}", trong khi vai trò của bạn là "${acceptingUser.role}".`);
+    }
+
     if (!payload.isSwapRequest) {
         const allShiftsOnDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
         const shiftToTake: AssignedShift = { ...schedule.shifts.find(s => s.id === payload.shiftId)!, assignedUsers: [] };
 
-        const conflict = hasTimeConflict(acceptingUser.userId, shiftToTake, allShiftsOnDay);
+        const conflict = hasTimeConflict(acceptingUser.uid, shiftToTake, allShiftsOnDay);
         if (conflict) {
             throw new Error(`Ca này bị trùng giờ với ca "${conflict.label}" (${conflict.timeSlot.start} - ${conflict.timeSlot.end}) mà bạn đã được phân công.`);
         }
