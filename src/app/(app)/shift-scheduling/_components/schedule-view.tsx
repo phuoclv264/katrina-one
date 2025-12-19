@@ -152,6 +152,7 @@ export default function ScheduleView() {
     
     const [serverSchedule, setServerSchedule] = useState<Schedule | null>(null);
     const [localSchedule, setLocalSchedule] = useState<Schedule | null>(null);
+    const [incomingSchedule, setIncomingSchedule] = useState<Schedule | null>(null);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
     const [availability, setAvailability] = useState<Availability[]>([]);
@@ -217,9 +218,7 @@ export default function ScheduleView() {
 
         setIsLoading(true);
         const unsubSchedule = dataStore.subscribeToSchedule(weekId, (newSchedule) => {
-            setServerSchedule(newSchedule);
-            setLocalSchedule(newSchedule);
-            setHasUnsavedChanges(false);
+            setIncomingSchedule(newSchedule);
             setIsLoading(false);
         });
 
@@ -253,6 +252,32 @@ export default function ScheduleView() {
             routerRef.current.replace('/shift-scheduling', { scroll: false });
         }
     }, [searchParams]);
+
+    // Normalize assigned users once both schedule data and user roles are available.
+    useEffect(() => {
+        if (!incomingSchedule) {
+            setServerSchedule(null);
+            setLocalSchedule(null);
+            setHasUnsavedChanges(false);
+            return;
+        }
+
+        const normalizedSchedule: Schedule = {
+            ...incomingSchedule,
+            shifts: incomingSchedule.shifts.map((shift: AssignedShift) => {
+                const normalizedAssignedUsers: AssignedUser[] = shift.assignedUsers.map((au: AssignedUser) => {
+                    const fallbackRole = allUsers.find((u) => u.uid === au.userId)?.role;
+                    const resolvedRole: UserRole = au.assignedRole ?? fallbackRole ?? 'Phục vụ';
+                    return { ...au, assignedRole: resolvedRole };
+                });
+                return { ...shift, assignedUsers: normalizedAssignedUsers };
+            }),
+        };
+
+        setServerSchedule(normalizedSchedule);
+        setLocalSchedule(normalizedSchedule);
+        setHasUnsavedChanges(false);
+    }, [incomingSchedule, allUsers]);
     
     // Check for unsaved changes before leaving the page
     useEffect(() => {
@@ -713,7 +738,7 @@ export default function ScheduleView() {
             }
         }
         
-        const userRole = userDetails.role;
+        const displayedRole = assignedUser.assignedRole ?? userDetails.role;
         const userAvailability = availabilityByDay[dateKey];
         const isBusy = userAvailability ? !isUserAvailable(assignedUser.userId, shiftObject.timeSlot, userAvailability) : false;
         const shiftCount = dailyShiftCounts.get(dateKey)?.get(assignedUser.userId) || 1;
@@ -721,18 +746,22 @@ export default function ScheduleView() {
         const nameToShow = userAbbreviations.get(assignedUser.userId) || assignedUser.userName;
 
         const badgeContent = (
-            <Badge className={cn("h-auto py-0.5 text-xs", getRoleColor(userRole))}>
+            <Badge className={cn("h-auto py-0.5 text-xs flex items-center", getRoleColor(displayedRole))}>
                 {isBusy && <AlertTriangle className="h-3 w-3 mr-1 text-destructive-foreground"/>}
                 {hasMultipleShifts && (
                     <span className={cn("font-bold mr-1", shiftCount > 2 ? 'text-red-500' : 'text-yellow-500')}>{shiftCount}</span>
                 )}
                 {nameToShow}
+                {displayedRole && (
+                    <span className="text-xs mr-1 pl-1 font-medium text-muted-foreground">{displayedRole === 'Phục vụ' ? 'PV' : (displayedRole === 'Pha chế' ? 'PC' : 'QL')}</span>
+                )}
             </Badge>
         );
 
         const tooltipContent = [
             isBusy && "Nhân viên này không đăng ký rảnh.",
-            hasMultipleShifts && `Nhân viên này được xếp ${shiftCount} ca hôm nay.`
+            hasMultipleShifts && `Nhân viên này được xếp ${shiftCount} ca hôm nay.`,
+            assignedUser.assignedRole && `Vai trò được phân công: ${assignedUser.assignedRole}`
         ].filter(Boolean).join(' ');
         
         if (tooltipContent) {
@@ -797,10 +826,12 @@ export default function ScheduleView() {
                                     <TableBody>
                                         {daysOfWeek.map(day => {
                                             const dateKey = format(day, 'yyyy-MM-dd');
+                                            const isToday = isSameDay(day, new Date());
+                                            const isPast = !isToday && isAfter(new Date(), day);
                                             return (
-                                            <TableRow key={dateKey} className="border-t">
+                                            <TableRow key={dateKey} className={cn("border-t", isToday && "bg-yellow-50 dark:bg-yellow-900/30", isPast && "opacity-70")}>
                                                 <TableCell className="font-semibold align-top text-center">
-                                                    <p>{format(day, 'eee, dd/MM', { locale: vi })}</p>
+                                                    <p className={cn(isPast && 'text-muted-foreground', isToday && 'font-semibold')}>{format(day, 'eee, dd/MM', { locale: vi })}{isToday && <Badge className="ml-2 text-xs">Hôm nay</Badge>}</p>
                                                 </TableCell>
                                                 {shiftTemplates.map(template => {
                                                     const dayOfWeek = getDay(day);
@@ -822,11 +853,13 @@ export default function ScheduleView() {
                                                         const userA = allUsers.find(u => u.uid === a.userId);
                                                         const userB = allUsers.find(u => u.uid === b.userId);
                                                         if (!userA || !userB) return 0;
-                                                        return (roleOrder[userA.role] || 99) - (roleOrder[userB.role] || 99);
+                                                        const roleA = a.assignedRole ?? userA.role;
+                                                        const roleB = b.assignedRole ?? userB.role;
+                                                        return (roleOrder[roleA] || 99) - (roleOrder[roleB] || 99);
                                                     });
 
                                                     return (
-                                                        <TableCell key={template.id} className={cn("p-1 align-top h-28 text-center border-l", isUnderstaffed && "bg-destructive/10")}>
+                                                        <TableCell key={template.id} className={cn("p-1 align-top h-28 text-center border-l", isUnderstaffed && "bg-destructive/10", isPast && "opacity-60", isToday && "ring-1 ring-yellow-200") }>
                                                             <Button 
                                                                 variant="ghost" 
                                                                 className="h-full w-full flex flex-col items-center justify-center p-1 group"
@@ -874,11 +907,13 @@ export default function ScheduleView() {
                                             return schedule.shifts.find(s => s.date === dateKey && s.templateId === template.id) ?? createShiftFromId(`shift_${dateKey}_${template.id}`);
                                         }).filter(Boolean) as AssignedShift[];
                                         
-                                        return (
-                                            <AccordionItem value={dateKey} key={dateKey} className="border-b group">
+                                        const isToday = isSameDay(day, new Date());
+                                            const isPast = !isToday && isAfter(new Date(), day);
+                                            return (
+                                            <AccordionItem value={dateKey} key={dateKey} className={cn("border-b group", isToday && "bg-yellow-50 dark:bg-yellow-900/30", isPast && "opacity-70")}>
                                                 <div className="p-4 bg-muted/30 rounded-t-md">
                                                     <AccordionTrigger className="font-semibold text-base hover:no-underline p-0">
-                                                        <span className="text-lg">{format(day, 'eeee, dd/MM', { locale: vi })}</span>
+                                                        <span className="text-lg">{format(day, 'eeee, dd/MM', { locale: vi })}{isToday && <Badge className="ml-2 text-xs">Hôm nay</Badge>}</span>
                                                     </AccordionTrigger>
                                                     <div className="w-full space-y-2 mt-2 group-data-[state=open]:hidden">
                                                         {shiftsForDay.map(shiftObject => {
@@ -887,11 +922,13 @@ export default function ScheduleView() {
                                                                 const userA = allUsers.find(u => u.uid === a.userId);
                                                                 const userB = allUsers.find(u => u.uid === b.userId);
                                                                 if (!userA || !userB) return 0;
-                                                                return (roleOrder[userA.role] || 99) - (roleOrder[userB.role] || 99);
+                                                                const roleA = a.assignedRole ?? userA.role;
+                                                                const roleB = b.assignedRole ?? userB.role;
+                                                                return (roleOrder[roleA] || 99) - (roleOrder[roleB] || 99);
                                                             });
                                                             return (
                                                                 <div key={shiftObject.id} className="flex items-start gap-2 flex-wrap text-sm font-normal">
-                                                                    <span className="font-semibold">{shiftObject.label}:</span>
+                                                                    <span className="font-semibold">{shiftObject.role && shiftObject.role !== 'Bất kỳ' ? `${shiftObject.label} (${shiftObject.role})` : shiftObject.label}:</span>
                                                                     <div className="flex flex-wrap gap-1">
                                                                         {sortedAssignedUsers.map(assignedUser => (
                                                                            <React.Fragment key={assignedUser.userId}>
@@ -917,11 +954,13 @@ export default function ScheduleView() {
                                                                 const userA = allUsers.find(u => u.uid === a.userId);
                                                                 const userB = allUsers.find(u => u.uid === b.userId);
                                                                 if (!userA || !userB) return 0;
-                                                                return (roleOrder[userA.role] || 99) - (roleOrder[userB.role] || 99);
+                                                                const roleA = a.assignedRole ?? userA.role;
+                                                                const roleB = b.assignedRole ?? userB.role;
+                                                                return (roleOrder[roleA] || 99) - (roleOrder[roleB] || 99);
                                                             });
 
                                                             return (
-                                                                <div key={template.id} className={cn("p-3 border rounded-md bg-card", isUnderstaffed && "border-destructive bg-destructive/10")}>
+                                                                <div key={template.id} className={cn("p-3 border rounded-md bg-card", isUnderstaffed && "border-destructive bg-destructive/10", isPast && "opacity-60", isToday && "ring-1 ring-yellow-200") }>
                                                                     <div className="flex items-center justify-between gap-2">
                                                                         <div className="flex-1">
                                                                             <p className="font-semibold">{template.label}</p>

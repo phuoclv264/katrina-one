@@ -563,6 +563,9 @@ export default function ScheduleView() {
                                                     shiftsForDay.map(shift => {
                                                         const shiftEndTime = new Date(`${shift.date}T${shift.timeSlot.end}`);
                                                         const isPastShift = isBefore(shiftEndTime, new Date());
+                                                        // Find current user's assigned role for this shift when available
+                                                        const myAssignedEntry = shift.assignedUsers.find(u => u.userId === user.uid);
+                                                        const myAssignedRole = myAssignedEntry?.assignedRole ?? null;
                                                         return (
                                                             <Card
                                                                 key={shift.id}
@@ -575,7 +578,7 @@ export default function ScheduleView() {
                                                             >
                                                                 <CardContent className="p-3 flex items-center justify-between gap-2">
                                                                     <div>
-                                                                        <p className="font-bold text-base">{shift.label}</p>
+                                                                        <p className="font-bold text-base">{myAssignedRole ? `${shift.label} (${myAssignedRole})` : shift.label}</p>
                                                                         <p className="text-sm">{shift.timeSlot.start} - {shift.timeSlot.end}</p>
                                                                     </div>
                                                                     {!isPastShift && (

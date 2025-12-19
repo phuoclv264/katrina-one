@@ -99,18 +99,31 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
             recUser = allUsers.find(u => u.uid === recipientId);
         }
 
+        // Attempt to resolve shift role from the provided schedule where possible
+        const findShiftRole = (label: string, timeSlot: { start: string, end: string }, date: string, userId?: string | null) => {
+            const matched = schedule?.shifts.find(s => s.date === date && s.label === label && s.timeSlot.start === timeSlot.start && s.timeSlot.end === timeSlot.end);
+            if (!matched) return null;
+            if (userId) {
+                const assignedEntry = matched.assignedUsers.find(u => u.userId === userId);
+                if (assignedEntry && assignedEntry.assignedRole) return assignedEntry.assignedRole;
+            }
+            return matched.role ?? null;
+        };
+
         const sA = {
             label: payload.shiftLabel,
             timeSlot: payload.shiftTimeSlot,
             date: payload.shiftDate,
+            role: findShiftRole(payload.shiftLabel, payload.shiftTimeSlot, payload.shiftDate, payload.requestingUser?.userId),
         };
         
-        let sB: { label: string, timeSlot: { start: string, end: string }, date: string } | null = null;
+        let sB: { label: string, timeSlot: { start: string, end: string }, date: string, role?: string | null } | null = null;
         if (payload.isSwapRequest && payload.targetUserShiftPayload) {
             sB = {
                 label: payload.targetUserShiftPayload.shiftLabel,
                 timeSlot: payload.targetUserShiftPayload.shiftTimeSlot,
                 date: payload.targetUserShiftPayload.date,
+                role: findShiftRole(payload.targetUserShiftPayload.shiftLabel, payload.targetUserShiftPayload.shiftTimeSlot, payload.targetUserShiftPayload.date, payload.targetUserId),
             };
         }
         
@@ -139,7 +152,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
     }, [status, resolvedBy, resolvedAt, payload, createdAt, allUsers]);
 
     // --- Helper Components ---
-     const UserBlock = ({ user, shift, label }: { user?: ManagedUser, shift?: { label: string, timeSlot: { start: string, end: string }, date: string } | null, label: string }) => {
+     const UserBlock = ({ user, shift, label }: { user?: ManagedUser, shift?: { label: string, timeSlot: { start: string, end: string }, date: string,  role?: string | null } | null, label: string }) => {
         if (!user) {
             return (
                 <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -152,7 +165,8 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
             )
         };
         const initials = user.displayName.split(' ').map(n => n[0]).join('').substring(0, 2);
-        const shiftInfoText = shift ? `${shift.label} • ${shift.timeSlot.start}-${shift.timeSlot.end} • ${format(parseISO(shift.date), 'eee, dd/MM', { locale: vi })}` : 'Không có ca';
+        const shiftLabelWithRole = shift && (shift.role ? `${shift.label} (${shift.role})` : shift?.label);
+        const shiftInfoText = shift ? `${shiftLabelWithRole} • ${shift.timeSlot.start}-${shift.timeSlot.end} • ${format(parseISO(shift.date), 'eee, dd/MM', { locale: vi })}` : 'Không có ca';
         
         return (
             <div className="flex items-center gap-3 flex-1 min-w-0">
