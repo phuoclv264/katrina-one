@@ -1,0 +1,157 @@
+
+> nextn@0.1.0 dev
+> next dev --turbopack -p 9002
+
+   ▲ Next.js 15.3.6 (Turbopack)
+   - Local:        http://localhost:9002
+   - Network:      http://192.168.0.2:9002
+
+ ✓ Starting...
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+ ✓ Ready in 1716ms
+ ○ Compiling /shift-scheduling ...
+ ✓ Compiled /shift-scheduling in 23.7s
+ ⨯ ./src/app/(app)/shift-scheduling/_components/auto-schedule-dialog.tsx:338:6
+Parsing ecmascript source code failed
+[0m [90m 336 |[39m[0m
+[0m [90m 337 |[39m   [36mreturn[39m ([0m
+[0m[31m[1m>[22m[39m[90m 338 |[39m     [33m<[39m[33mDialog[39m open[33m=[39m{isOpen} onOpenChange[33m=[39m{onClose}[33m>[39m[0m
+[0m [90m     |[39m      [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[0m
+[0m [90m 339 |[39m       [33m<[39m[33mDialogContent[39m className[33m=[39m[32m"max-w-6xl h-full lg:h-[90vh] grid grid-rows-[auto_1fr_auto] lg:grid-rows-1 lg:grid-cols-[250px_1fr] p-0 overflow-hidden"[39m[33m>[39m[0m
+[0m [90m 340 |[39m         [33m<[39m[33mDialogHeader[39m className[33m=[39m[32m"px-4 pt-4 pb-4 border-b lg:hidden"[39m[33m>[39m[0m
+[0m [90m 341 |[39m           [33m<[39m[33mDialogTitle[39m className[33m=[39m[32m"tracking-tight"[39m[33m>[39m[33mXếp[39m lịch tự động[33m<[39m[33m/[39m[33mDialogTitle[39m[33m>[39m[0m
+
+Unexpected token `Dialog`. Expected jsx identifier
+
+
+
+./src/app/(app)/shift-scheduling/_components/schedule-view.tsx:67:1
+Export default doesn't exist in target module
+[0m [90m 65 |[39m [36mimport[39m { useRouter } [36mfrom[39m [32m'nextjs-toploader/app'[39m[33m;[39m[0m
+[0m [90m 66 |[39m [36mimport[39m { [33mLabel[39m } [36mfrom[39m [32m'@/components/ui/label'[39m[33m;[39m[0m
+[0m[31m[1m>[22m[39m[90m 67 |[39m [36mimport[39m [33mAutoScheduleDialog[39m [36mfrom[39m [32m'./auto-schedule-dialog'[39m[33m;[39m[0m
+[0m [90m    |[39m [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[0m
+[0m [90m 68 |[39m[0m
+[0m [90m 69 |[39m[0m
+[0m [90m 70 |[39m [90m// Helper function to abbreviate names[39m[0m
+
+The export default was not found in module [project]/src/app/(app)/shift-scheduling/_components/auto-schedule-dialog.tsx [app-client] (ecmascript).
+The module has no exports at all.
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+
+
+./src/app/(app)/shift-scheduling/_components/schedule-view.tsx:67:1
+Export default doesn't exist in target module
+[0m [90m 65 |[39m [36mimport[39m { useRouter } [36mfrom[39m [32m'nextjs-toploader/app'[39m[33m;[39m[0m
+[0m [90m 66 |[39m [36mimport[39m { [33mLabel[39m } [36mfrom[39m [32m'@/components/ui/label'[39m[33m;[39m[0m
+[0m[31m[1m>[22m[39m[90m 67 |[39m [36mimport[39m [33mAutoScheduleDialog[39m [36mfrom[39m [32m'./auto-schedule-dialog'[39m[33m;[39m[0m
+[0m [90m    |[39m [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[0m
+[0m [90m 68 |[39m[0m
+[0m [90m 69 |[39m[0m
+[0m [90m 70 |[39m [90m// Helper function to abbreviate names[39m[0m
+
+The export default was not found in module [project]/src/app/(app)/shift-scheduling/_components/auto-schedule-dialog.tsx [app-ssr] (ecmascript).
+The module has no exports at all.
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 4s
+ GET /shift-scheduling 500 in 28277ms
+ ⨯ ./src/app/(app)/shift-scheduling/_components/auto-schedule-dialog.tsx:338:6
+Parsing ecmascript source code failed
+[0m [90m 336 |[39m[0m
+[0m [90m 337 |[39m   [36mreturn[39m ([0m
+[0m[31m[1m>[22m[39m[90m 338 |[39m     [33m<[39m[33mDialog[39m open[33m=[39m{isOpen} onOpenChange[33m=[39m{onClose}[33m>[39m[0m
+[0m [90m     |[39m      [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[0m
+[0m [90m 339 |[39m       [33m<[39m[33mDialogContent[39m className[33m=[39m[32m"max-w-6xl h-full lg:h-[90vh] grid grid-rows-[auto_1fr_auto] lg:grid-rows-1 lg:grid-cols-[250px_1fr] p-0 overflow-hidden"[39m[33m>[39m[0m
+[0m [90m 340 |[39m         [33m<[39m[33mDialogHeader[39m className[33m=[39m[32m"px-4 pt-4 pb-4 border-b lg:hidden"[39m[33m>[39m[0m
+[0m [90m 341 |[39m           [33m<[39m[33mDialogTitle[39m className[33m=[39m[32m"tracking-tight"[39m[33m>[39m[33mXếp[39m lịch tự động[33m<[39m[33m/[39m[33mDialogTitle[39m[33m>[39m[0m
+
+Unexpected token `Dialog`. Expected jsx identifier
+
+
+
+./src/app/(app)/shift-scheduling/_components/schedule-view.tsx:67:1
+Export default doesn't exist in target module
+[0m [90m 65 |[39m [36mimport[39m { useRouter } [36mfrom[39m [32m'nextjs-toploader/app'[39m[33m;[39m[0m
+[0m [90m 66 |[39m [36mimport[39m { [33mLabel[39m } [36mfrom[39m [32m'@/components/ui/label'[39m[33m;[39m[0m
+[0m[31m[1m>[22m[39m[90m 67 |[39m [36mimport[39m [33mAutoScheduleDialog[39m [36mfrom[39m [32m'./auto-schedule-dialog'[39m[33m;[39m[0m
+[0m [90m    |[39m [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[0m
+[0m [90m 68 |[39m[0m
+[0m [90m 69 |[39m[0m
+[0m [90m 70 |[39m [90m// Helper function to abbreviate names[39m[0m
+
+The export default was not found in module [project]/src/app/(app)/shift-scheduling/_components/auto-schedule-dialog.tsx [app-client] (ecmascript).
+The module has no exports at all.
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+
+
+./src/app/(app)/shift-scheduling/_components/schedule-view.tsx:67:1
+Export default doesn't exist in target module
+[0m [90m 65 |[39m [36mimport[39m { useRouter } [36mfrom[39m [32m'nextjs-toploader/app'[39m[33m;[39m[0m
+[0m [90m 66 |[39m [36mimport[39m { [33mLabel[39m } [36mfrom[39m [32m'@/components/ui/label'[39m[33m;[39m[0m
+[0m[31m[1m>[22m[39m[90m 67 |[39m [36mimport[39m [33mAutoScheduleDialog[39m [36mfrom[39m [32m'./auto-schedule-dialog'[39m[33m;[39m[0m
+[0m [90m    |[39m [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[0m
+[0m [90m 68 |[39m[0m
+[0m [90m 69 |[39m[0m
+[0m [90m 70 |[39m [90m// Helper function to abbreviate names[39m[0m
+
+The export default was not found in module [project]/src/app/(app)/shift-scheduling/_components/auto-schedule-dialog.tsx [app-ssr] (ecmascript).
+The module has no exports at all.
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+
+ GET /shift-scheduling 500 in 392ms
+ ⨯ ./src/app/(app)/shift-scheduling/_components/auto-schedule-dialog.tsx:338:6
+Parsing ecmascript source code failed
+[0m [90m 336 |[39m[0m
+[0m [90m 337 |[39m   [36mreturn[39m ([0m
+[0m[31m[1m>[22m[39m[90m 338 |[39m     [33m<[39m[33mDialog[39m open[33m=[39m{isOpen} onOpenChange[33m=[39m{onClose}[33m>[39m[0m
+[0m [90m     |[39m      [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[0m
+[0m [90m 339 |[39m       [33m<[39m[33mDialogContent[39m className[33m=[39m[32m"max-w-6xl h-full lg:h-[90vh] grid grid-rows-[auto_1fr_auto] lg:grid-rows-1 lg:grid-cols-[250px_1fr] p-0 overflow-hidden"[39m[33m>[39m[0m
+[0m [90m 340 |[39m         [33m<[39m[33mDialogHeader[39m className[33m=[39m[32m"px-4 pt-4 pb-4 border-b lg:hidden"[39m[33m>[39m[0m
+[0m [90m 341 |[39m           [33m<[39m[33mDialogTitle[39m className[33m=[39m[32m"tracking-tight"[39m[33m>[39m[33mXếp[39m lịch tự động[33m<[39m[33m/[39m[33mDialogTitle[39m[33m>[39m[0m
+
+Unexpected token `Dialog`. Expected jsx identifier
+
+
+
+./src/app/(app)/shift-scheduling/_components/schedule-view.tsx:67:1
+Export default doesn't exist in target module
+[0m [90m 65 |[39m [36mimport[39m { useRouter } [36mfrom[39m [32m'nextjs-toploader/app'[39m[33m;[39m[0m
+[0m [90m 66 |[39m [36mimport[39m { [33mLabel[39m } [36mfrom[39m [32m'@/components/ui/label'[39m[33m;[39m[0m
+[0m[31m[1m>[22m[39m[90m 67 |[39m [36mimport[39m [33mAutoScheduleDialog[39m [36mfrom[39m [32m'./auto-schedule-dialog'[39m[33m;[39m[0m
+[0m [90m    |[39m [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[0m
+[0m [90m 68 |[39m[0m
+[0m [90m 69 |[39m[0m
+[0m [90m 70 |[39m [90m// Helper function to abbreviate names[39m[0m
+
+The export default was not found in module [project]/src/app/(app)/shift-scheduling/_components/auto-schedule-dialog.tsx [app-client] (ecmascript).
+The module has no exports at all.
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+
+
+./src/app/(app)/shift-scheduling/_components/schedule-view.tsx:67:1
+Export default doesn't exist in target module
+[0m [90m 65 |[39m [36mimport[39m { useRouter } [36mfrom[39m [32m'nextjs-toploader/app'[39m[33m;[39m[0m
+[0m [90m 66 |[39m [36mimport[39m { [33mLabel[39m } [36mfrom[39m [32m'@/components/ui/label'[39m[33m;[39m[0m
+[0m[31m[1m>[22m[39m[90m 67 |[39m [36mimport[39m [33mAutoScheduleDialog[39m [36mfrom[39m [32m'./auto-schedule-dialog'[39m[33m;[39m[0m
+[0m [90m    |[39m [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[0m
+[0m [90m 68 |[39m[0m
+[0m [90m 69 |[39m[0m
+[0m [90m 70 |[39m [90m// Helper function to abbreviate names[39m[0m
+
+The export default was not found in module [project]/src/app/(app)/shift-scheduling/_components/auto-schedule-dialog.tsx [app-ssr] (ecmascript).
+The module has no exports at all.
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+
+ GET /shift-scheduling 500 in 275ms
