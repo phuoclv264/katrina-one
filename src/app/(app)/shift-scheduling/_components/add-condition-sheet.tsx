@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -26,6 +26,8 @@ type Props = {
   shiftTemplates: ShiftTemplate[];
   allUsers: ManagedUser[];
   onAddCondition: (condition: ScheduleCondition) => void;
+  onSaveCondition?: (condition: ScheduleCondition) => void;
+  conditionToEdit?: ScheduleCondition | null;
 };
 
 export default function AddConditionSheet({
@@ -35,6 +37,8 @@ export default function AddConditionSheet({
   shiftTemplates,
   allUsers,
   onAddCondition,
+  onSaveCondition,
+  conditionToEdit,
 }: Props) {
   const [type, setType] = useState<ConditionType>(conditionType || 'WorkloadLimit');
   const [selectedUser, setSelectedUser] = useState<ManagedUser[]>([]);
@@ -53,6 +57,71 @@ export default function AddConditionSheet({
   const [linkType, setLinkType] = useState<'force' | 'ban'>('force');
   const [blockedUsers, setBlockedUsers] = useState<ManagedUser[]>([]);
   const [availabilityStrict, setAvailabilityStrict] = useState(false);
+
+  useEffect(() => {
+    if (conditionToEdit) {
+      setType(conditionToEdit.type as ConditionType);
+      switch (conditionToEdit.type) {
+        case 'WorkloadLimit': {
+          const wl = conditionToEdit as any;
+          setScope(wl.scope);
+          setSelectedUser(wl.scope === 'user' ? allUsers.filter(u => u.uid === wl.userId) : []);
+          setMinShifts(wl.minShiftsPerWeek != null ? String(wl.minShiftsPerWeek) : '');
+          setMaxShifts(wl.maxShiftsPerWeek != null ? String(wl.maxShiftsPerWeek) : '');
+          setMinHours(wl.minHoursPerWeek != null ? String(wl.minHoursPerWeek) : '');
+          setMaxHours(wl.maxHoursPerWeek != null ? String(wl.maxHoursPerWeek) : '');
+          break;
+        }
+        case 'DailyShiftLimit': {
+          const dl = conditionToEdit as any;
+          setSelectedUser(dl.userId ? allUsers.filter(u => u.uid === dl.userId) : []);
+          setMaxDaily(dl.maxPerDay != null ? String(dl.maxPerDay) : '');
+          break;
+        }
+        case 'ShiftStaffing': {
+          const ss = conditionToEdit as any;
+          setSelectedTemplate(ss.templateId || '');
+          setStaffingRole(ss.role);
+          setStaffingCount(ss.count != null ? String(ss.count) : '1');
+          setStaffingMandatory(!!ss.mandatory);
+          break;
+        }
+        case 'StaffPriority': {
+          const sp = conditionToEdit as any;
+          setSelectedUser(allUsers.filter(u => u.uid === sp.userId));
+          setSelectedTemplate(sp.templateId || '');
+          setPriorityWeight(sp.weight != null ? String(sp.weight) : '1');
+          setPriorityMandatory(!!sp.mandatory);
+          break;
+        }
+        case 'StaffShiftLink': {
+          const sl = conditionToEdit as any;
+          setSelectedUser(allUsers.filter(u => u.uid === sl.userId));
+          setSelectedTemplate(sl.templateId || '');
+          setLinkType(sl.link);
+          break;
+        }
+        case 'StaffExclusion': {
+          const se = conditionToEdit as any;
+          setSelectedUser(allUsers.filter(u => u.uid === se.userId));
+          setBlockedUsers(allUsers.filter(u => (se.blockedUserIds || []).includes(u.uid)));
+          setSelectedTemplate(se.templateId || '');
+          break;
+        }
+        case 'AvailabilityStrictness': {
+          const av = conditionToEdit as any;
+          setAvailabilityStrict(!!av.strict);
+          break;
+        }
+        default:
+          break;
+      }
+    } else {
+      resetForm();
+      setType(conditionType || 'WorkloadLimit');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conditionToEdit, allUsers, conditionType]);
 
   const handleClose = () => {
     resetForm();
@@ -81,14 +150,19 @@ export default function AddConditionSheet({
   const handleSubmit = () => {
     const condition = buildCondition();
     if (condition) {
-      onAddCondition(condition);
+      if (conditionToEdit && onSaveCondition) {
+        onSaveCondition(condition);
+      } else {
+        onAddCondition(condition);
+      }
       handleClose();
     }
   };
 
   const buildCondition = (): ScheduleCondition | null => {
-    const baseId = `${type}_${Date.now()}`;
-    const base = { id: baseId, enabled: true };
+    const baseId = conditionToEdit?.id || `${type}_${Date.now()}`;
+    const baseEnabled = conditionToEdit?.enabled ?? true;
+    const base = { id: baseId, enabled: baseEnabled };
 
     switch (type) {
       case 'WorkloadLimit':

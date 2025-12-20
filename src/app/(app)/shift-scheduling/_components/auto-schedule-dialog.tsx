@@ -71,6 +71,7 @@ export default function AutoScheduleDialog({
   const [activeTab, setActiveTab] = useState('preview');
   const [filterTab, setFilterTab] = useState<string | string[]>('');
   const [showAddCondition, setShowAddCondition] = useState(false);
+  const [editCondition, setEditCondition] = useState<ScheduleCondition | null>(null);
   const [savedTimestamp, setSavedTimestamp] = useState<number | null>(null);
   const [lastSaveTime, setLastSaveTime] = useState<string>('');
 
@@ -237,6 +238,21 @@ export default function AutoScheduleDialog({
     pushUndo(prev);
     setEditableConstraints([...editableConstraints, condition]);
     toast.success('Đã thêm điều kiện mới.');
+  };
+
+  const handleStartEditCondition = (condition: ScheduleCondition) => {
+    if (!canSaveStructuredConstraints) return;
+    setEditCondition(condition);
+    setShowAddCondition(true);
+  };
+
+  const handleSaveCondition = (condition: ScheduleCondition) => {
+    const prev = [...editableConstraints];
+    pushUndo(prev);
+    setEditableConstraints(prev.map(c => c.id === condition.id ? condition : c));
+    toast.success('Đã cập nhật điều kiện.');
+    setEditCondition(null);
+    setShowAddCondition(false);
   };
 
   const handleDeleteCondition = (id: string) => {
@@ -422,6 +438,8 @@ export default function AutoScheduleDialog({
                       shiftTemplates={shiftTemplates}
                       onToggleEnabled={handleToggleCondition}
                       onDelete={handleDeleteCondition}
+                      onEdit={handleStartEditCondition}
+                      canSave={canSaveStructuredConstraints}
                     />
                   </TabsContent>
 
@@ -434,6 +452,8 @@ export default function AutoScheduleDialog({
                       allUsers={allUsers}
                       onToggleEnabled={handleToggleCondition}
                       onDelete={handleDeleteCondition}
+                      onEdit={handleStartEditCondition}
+                      canSave={canSaveStructuredConstraints}
                     />
                   </TabsContent>
 
@@ -444,6 +464,8 @@ export default function AutoScheduleDialog({
                       allUsers={allUsers}
                       onToggleEnabled={handleToggleCondition}
                       onDelete={handleDeleteCondition}
+                      onEdit={handleStartEditCondition}
+                      canSave={canSaveStructuredConstraints}
                     />
                   </TabsContent>
 
@@ -454,6 +476,8 @@ export default function AutoScheduleDialog({
                       allUsers={allUsers}
                       onToggleEnabled={handleToggleCondition}
                       onDelete={handleDeleteCondition}
+                      onEdit={handleStartEditCondition}
+                      canSave={canSaveStructuredConstraints}
                     />
                   </TabsContent>
 
@@ -465,6 +489,8 @@ export default function AutoScheduleDialog({
                       allUsers={allUsers}
                       onToggleEnabled={handleToggleCondition}
                       onDelete={handleDeleteCondition}
+                      onEdit={handleStartEditCondition}
+                      canSave={canSaveStructuredConstraints}
                     />
                   </TabsContent>
 
@@ -550,16 +576,21 @@ export default function AutoScheduleDialog({
 
       <AddConditionSheet
         isOpen={showAddCondition}
-        onClose={() => setShowAddCondition(false)}
+        onClose={() => {
+          setShowAddCondition(false);
+          setEditCondition(null);
+        }}
         shiftTemplates={shiftTemplates}
         allUsers={allUsers}
         onAddCondition={handleAddCondition}
+        onSaveCondition={handleSaveCondition}
+        conditionToEdit={editCondition}
       />
     </Dialog>
   );
 }
 
-function WorkloadTab({ constraints, setConstraints, pushUndo, allUsers, shiftTemplates, onToggleEnabled, onDelete }: any) {
+function WorkloadTab({ constraints, setConstraints, pushUndo, allUsers, shiftTemplates, onToggleEnabled, onDelete, onEdit, canSave }: any) {
   const globalWorkload = constraints.find((c: ScheduleCondition) => c.type === 'WorkloadLimit' && (c as any).scope === 'global') as any;
   const globalDailyLimit = constraints.find((c: ScheduleCondition) => c.type === 'DailyShiftLimit' && !(c as any).userId) as any;
   const strictAvailability = constraints.find((c: ScheduleCondition) => c.type === 'AvailabilityStrictness') as any;
@@ -714,6 +745,7 @@ function WorkloadTab({ constraints, setConstraints, pushUndo, allUsers, shiftTem
               filterTab="WorkloadLimit"
               onToggleEnabled={onToggleEnabled}
               onDelete={onDelete}
+              onEdit={canSave ? onEdit : undefined}
             />
           </CardContent>
         </Card>
@@ -722,7 +754,7 @@ function WorkloadTab({ constraints, setConstraints, pushUndo, allUsers, shiftTem
   );
 }
 
-function StaffingTab({ constraints, setConstraints, shiftTemplates, pushUndo, allUsers, onToggleEnabled, onDelete }: {
+function StaffingTab({ constraints, setConstraints, shiftTemplates, pushUndo, allUsers, onToggleEnabled, onDelete, onEdit, canSave }: {
   constraints: ScheduleCondition[];
   setConstraints: React.Dispatch<React.SetStateAction<ScheduleCondition[]>>;
   shiftTemplates: ShiftTemplate[];
@@ -730,6 +762,8 @@ function StaffingTab({ constraints, setConstraints, shiftTemplates, pushUndo, al
   allUsers: ManagedUser[];
   onToggleEnabled: (id: string) => void;
   onDelete: (id: string) => void;
+  onEdit?: (c: ScheduleCondition) => void;
+  canSave?: boolean;
 }) {
   return (
     <div className="space-y-3 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:space-y-0">
@@ -753,6 +787,7 @@ function StaffingTab({ constraints, setConstraints, shiftTemplates, pushUndo, al
               filterTab="ShiftStaffing"
               onToggleEnabled={onToggleEnabled}
               onDelete={onDelete}
+              onEdit={canSave ? onEdit : undefined}
             />
           </CardContent>
         </Card>
@@ -767,12 +802,16 @@ function PriorityTab({
   allUsers,
   onToggleEnabled,
   onDelete,
+  onEdit,
+  canSave,
 }: {
   constraints: ScheduleCondition[];
   shiftTemplates: ShiftTemplate[];
   allUsers: ManagedUser[];
   onToggleEnabled: (id: string) => void;
   onDelete: (id: string) => void;
+  onEdit?: (c: ScheduleCondition) => void;
+  canSave?: boolean;
 }) {
   return (
     <div className="space-y-3 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:space-y-0">
@@ -796,6 +835,7 @@ function PriorityTab({
               filterTab="StaffPriority"
               onToggleEnabled={onToggleEnabled}
               onDelete={onDelete}
+              onEdit={canSave ? onEdit : undefined}
             />
           </CardContent>
         </Card>
@@ -810,12 +850,16 @@ function LinksTab({
   allUsers,
   onToggleEnabled,
   onDelete,
+  onEdit,
+  canSave,
 }: {
   constraints: ScheduleCondition[];
   shiftTemplates: ShiftTemplate[];
   allUsers: ManagedUser[];
   onToggleEnabled: (id: string) => void;
   onDelete: (id: string) => void;
+  onEdit?: (c: ScheduleCondition) => void;
+  canSave?: boolean;
 }) {
   return (
     <div className="space-y-3 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:space-y-0">
@@ -839,6 +883,7 @@ function LinksTab({
               filterTab={["StaffShiftLink", "StaffExclusion"]}
               onToggleEnabled={onToggleEnabled}
               onDelete={onDelete}
+              onEdit={canSave ? onEdit : undefined}
             />
           </CardContent>
         </Card>
@@ -854,6 +899,8 @@ function AvailabilityTab({
   allUsers,
   onToggleEnabled,
   onDelete,
+  onEdit,
+  canSave,
 }: {
   constraints: ScheduleCondition[];
   setConstraints: React.Dispatch<React.SetStateAction<ScheduleCondition[]>>;
@@ -861,6 +908,8 @@ function AvailabilityTab({
   allUsers: ManagedUser[];
   onToggleEnabled: (id: string) => void;
   onDelete: (id: string) => void;
+  onEdit?: (c: ScheduleCondition) => void;
+  canSave?: boolean;
 }) {
   const availability = constraints.find(c => c.type === 'AvailabilityStrictness') as any;
   return (
@@ -884,6 +933,7 @@ function AvailabilityTab({
               filterTab="AvailabilityStrictness"
               onToggleEnabled={onToggleEnabled}
               onDelete={onDelete}
+              onEdit={canSave ? onEdit : undefined}
             />
           </CardContent>
         </Card>
