@@ -458,9 +458,31 @@ export function subscribeToStructuredConstraints(callback: (constraints: Schedul
     return unsubscribe;
 }
 
+function removeUndefinedDeep<T>(obj: T): T {
+    if (obj === undefined) return undefined as unknown as T;
+    if (obj === null) return obj;
+    if (Array.isArray(obj)) {
+        return obj
+            .map(item => removeUndefinedDeep(item))
+            .filter(item => item !== undefined) as unknown as T;
+    }
+    if (typeof obj === 'object') {
+        const out: any = {};
+        for (const [k, v] of Object.entries(obj as any)) {
+            if (v === undefined) continue;
+            const cleaned = removeUndefinedDeep(v);
+            if (cleaned !== undefined) out[k] = cleaned;
+        }
+        return out as T;
+    }
+    return obj;
+}
+
 export async function updateStructuredConstraints(constraints: ScheduleCondition[]): Promise<void> {
     const docRef = doc(db, 'app-data', 'scheduleConstraints');
-    await setDoc(docRef, { constraints, updatedAt: serverTimestamp() }, { merge: true });
+    // Remove any undefined fields (Firestore rejects undefined)
+    const sanitized = (constraints || []).map(c => removeUndefinedDeep(c));
+    await setDoc(docRef, { constraints: sanitized, updatedAt: serverTimestamp() }, { merge: true });
 }
 
 export async function requestPassShift(shiftToPass: AssignedShift, requestingUser: { uid: string, displayName: string }): Promise<Notification | null> {

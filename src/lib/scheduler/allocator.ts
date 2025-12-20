@@ -161,6 +161,8 @@ export function allocate(
         });
 
         candidateScores.sort((a, b) => {
+          return Math.random() < 0.5 ? -1 : 1;
+        }).sort((a, b) => {
           if (b.score !== a.score) return b.score - a.score;
           return a.user.uid.localeCompare(b.user.uid);
         });

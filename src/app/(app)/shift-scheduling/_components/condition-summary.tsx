@@ -17,6 +17,10 @@ type Props = {
   shiftTemplates: ShiftTemplate[];
   allUsers: ManagedUser[];
   filterTab?: string | string[];
+  /** Optional employee UID to filter conditions by */
+  employeeFilterUserId?: string | null;
+  /** Called when the component's clear filter UI is clicked (optional) */
+  onClearEmployeeFilter?: () => void;
   onToggleEnabled: (constraintId: string) => void;
   onDelete: (constraintId: string) => void;
   onEdit?: (constraint: ScheduleCondition) => void;
@@ -37,20 +41,45 @@ export default function ConditionSummary({
   shiftTemplates,
   allUsers,
   filterTab,
+  employeeFilterUserId,
+  onClearEmployeeFilter,
   onToggleEnabled,
   onDelete,
   onEdit,
 }: Props) {
   const filtered = useMemo(() => {
     let items = constraints;
-    
+
     if (filterTab) {
       const filters = Array.isArray(filterTab) ? filterTab : [filterTab];
       items = items.filter(c => filters.includes(c.type));
     }
-    
+
+    if (employeeFilterUserId) {
+      const uid = employeeFilterUserId;
+      items = items.filter(c => conditionReferencesUser(c, uid));
+    }
+
     return items;
-  }, [constraints, filterTab]);
+  }, [constraints, filterTab, employeeFilterUserId]);
+
+  function conditionReferencesUser(c: ScheduleCondition, uid: string) {
+    const c_ = c as any;
+    switch (c.type) {
+      case 'WorkloadLimit':
+        return c_.scope !== 'global' && c_.userId === uid;
+      case 'DailyShiftLimit':
+        return !!c_.userId && c_.userId === uid;
+      case 'StaffPriority':
+        return c_.userId === uid;
+      case 'StaffShiftLink':
+        return c_.userId === uid;
+      case 'StaffExclusion':
+        return c_.userId === uid || (c_.blockedUserIds || []).includes(uid);
+      default:
+        return false;
+    }
+  }
 
   const groupedByType = useMemo(() => {
     const groups: Record<string, ScheduleCondition[]> = {};
@@ -66,6 +95,18 @@ export default function ConditionSummary({
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-sm">Tổng hợp điều kiện ({filtered.length})</h3>
+          {employeeFilterUserId && (
+            <div className="flex items-center gap-2 ml-4">
+              <Badge variant="secondary" className="text-[11px] h-6">
+                {allUsers.find(u => u.uid === employeeFilterUserId)?.displayName || '—'}
+              </Badge>
+              {onClearEmployeeFilter && (
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={onClearEmployeeFilter} aria-label="Clear employee filter">
+                  ✕
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
