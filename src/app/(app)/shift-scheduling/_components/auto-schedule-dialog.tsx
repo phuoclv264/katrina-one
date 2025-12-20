@@ -336,89 +336,29 @@ export default function AutoScheduleDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl h-[90vh] flex flex-col p-0 overflow-hidden">
-        <DialogHeader className="px-4 pt-4 pb-4 border-b">
+      <DialogContent className="max-w-6xl h-full lg:h-[90vh] grid grid-rows-[auto_1fr_auto] lg:grid-rows-1 lg:grid-cols-[250px_1fr] p-0 overflow-hidden">
+        <DialogHeader className="px-4 pt-4 pb-4 border-b lg:hidden">
           <DialogTitle className="tracking-tight">Xếp lịch tự động</DialogTitle>
-
-          {/* Status bar */}
-          {hasUnsavedChanges || lastSaveTime || validationErrors.length > 0 || undoStack.current.length > 0 || redoStack.current.length > 0 ? (
-            <div className="flex items-center justify-between mt-3 pt-3 border-t">
-              <div className="flex items-center gap-4 text-xs">
-                {hasUnsavedChanges && (
-                  <div className="flex items-center gap-1 text-yellow-600 dark:text-yellow-500">
-                    <div className="w-2 h-2 rounded-full bg-yellow-600 dark:bg-yellow-500" />
-                    <span>Có thay đổi chưa gửi</span>
-                  </div>
-                )}
-                {lastSaveTime && (
-                  <div className="text-muted-foreground">
-                    Lần lưu cuối: {lastSaveTime}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2">
-                {undoStack.current.length > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleUndo}
-                    aria-label="Hoàn tác (Ctrl+Z)"
-                    title="Ctrl+Z"
-                  >
-                    <Undo2 className="h-4 w-4 mr-1" />
-                    Hoàn tác
-                  </Button>
-                )}
-
-                {redoStack.current.length > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleRedo}
-                    aria-label="Làm lại (Ctrl+Y)"
-                    title="Ctrl+Y"
-                  >
-                    <Redo2 className="h-4 w-4 mr-1" />
-                    Làm lại
-                  </Button>
-                )}
-
-                {validationErrors.length > 0 && (
-                  <div className="flex items-center gap-1 text-destructive text-xs">
-                    <span>⚠️</span>
-                    <span>{validationErrors.length} lỗi</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : null}
         </DialogHeader>
-
-        <div className="flex-1 overflow-hidden">
-          {/* Single column: Tabs and controls with inline condition summary */}
-          <div className="flex flex-col overflow-hidden h-full">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-              <TabsList className="grid grid-cols-3 lg:grid-cols-6 m-4 mb-0 justify-start gap-1 h-auto bg-transparent p-0">
+        {/* Sidebar for navigation and global actions - visible on larger screens */}
+        <div className="hidden lg:flex lg:flex-col lg:border-r bg-muted/30">
+          <div className="px-4 pt-4 pb-4 border-b">
+            <DialogTitle className="tracking-tight">Xếp lịch tự động</DialogTitle>
+          </div>
+          <div className="flex-1 p-2 space-y-1">
+            <Tabs value={activeTab} onValueChange={setActiveTab} orientation="vertical" className="h-full">
+              <TabsList className="flex flex-col h-full bg-transparent p-0">
                 {TABS.map(tab => (
                   <TabsTrigger
                     key={tab.value}
                     value={tab.value}
-                    className="relative text-xs px-3 py-1.5 data-[state=active]:bg-muted"
+                    className="relative text-xs justify-start px-3 py-1.5 data-[state=active]:bg-muted w-full"
                   >
                     {tab.label}
                     {tab.types && tab.types.length > 0 && tab.types.reduce((acc, t) => acc + (conditionCounts[t] || 0), 0) > 0 && (
                       <Badge
                         variant="secondary"
-                        className="ml-1 h-5 px-1.5 text-[10px] cursor-pointer"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const totalTypes = tab.types || [];
-                          const isSame = Array.isArray(filterTab)
-                            ? totalTypes.length === filterTab.length && totalTypes.every(t => filterTab.includes(t))
-                            : totalTypes.length === 1 && filterTab === totalTypes[0];
-                          setFilterTab(isSame ? '' : totalTypes);
-                        }}
+                        className="ml-auto h-5 px-1.5 text-[10px]"
                       >
                         {tab.types.reduce((acc, t) => acc + (conditionCounts[t] || 0), 0)}
                       </Badge>
@@ -426,12 +366,100 @@ export default function AutoScheduleDialog({
                   </TabsTrigger>
                 ))}
               </TabsList>
+            </Tabs>
+          </div>
+          <div className="p-2 border-t">
+            {/* Global action buttons like Save/Add can be placed here */}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowAddCondition(true)}
+              className="w-full"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Thêm điều kiện
+            </Button>
+          </div>
+        </div>
 
-              <ScrollArea className="flex-1 min-h-0">
-                <div className="p-4 space-y-4">
-                  <TabsContent value="workload" className="m-0 space-y-4">
-                    <WorkloadTab
-                      constraints={editableConstraints}
+        {/* Main content area */}
+        <div className="flex flex-col overflow-hidden">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+            {/* Mobile Tab Navigation */}
+            <div className="lg:hidden px-4 pt-2 pb-2 border-b">
+              <Select value={activeTab} onValueChange={setActiveTab}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Chọn một mục..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {TABS.map(tab => (
+                    <SelectItem key={tab.value} value={tab.value}>{tab.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Status bar */}
+            <div className="px-4 py-2 border-b">
+              {hasUnsavedChanges || lastSaveTime || validationErrors.length > 0 || undoStack.current.length > 0 || redoStack.current.length > 0 ? (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4 text-xs">
+                    {hasUnsavedChanges && (
+                      <div className="flex items-center gap-1 text-yellow-600 dark:text-yellow-500">
+                        <div className="w-2 h-2 rounded-full bg-yellow-600 dark:bg-yellow-500" />
+                        <span>Có thay đổi chưa gửi</span>
+                      </div>
+                    )}
+                    {lastSaveTime && (
+                      <div className="text-muted-foreground">
+                        Lần lưu cuối: {lastSaveTime}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {undoStack.current.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleUndo}
+                        aria-label="Hoàn tác (Ctrl+Z)"
+                        title="Ctrl+Z"
+                      >
+                        <Undo2 className="h-4 w-4 mr-1" />
+                        Hoàn tác
+                      </Button>
+                    )}
+
+                    {redoStack.current.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleRedo}
+                        aria-label="Làm lại (Ctrl+Y)"
+                        title="Ctrl+Y"
+                      >
+                        <Redo2 className="h-4 w-4 mr-1" />
+                        Làm lại
+                      </Button>
+                    )}
+
+                    {validationErrors.length > 0 && (
+                      <div className="flex items-center gap-1 text-destructive text-xs">
+                        <span>⚠️</span>
+                        <span>{validationErrors.length} lỗi</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <ScrollArea className="flex-1 min-h-0">
+              <div className="p-4 space-y-4">
+                <TabsContent value="workload" className="m-0 space-y-4">
+                  <WorkloadTab
+                    constraints={editableConstraints}
                       setConstraints={setEditableConstraints}
                       pushUndo={pushUndo}
                       allUsers={allUsers}
@@ -596,10 +624,10 @@ function WorkloadTab({ constraints, setConstraints, pushUndo, allUsers, shiftTem
   const strictAvailability = constraints.find((c: ScheduleCondition) => c.type === 'AvailabilityStrictness') as any;
 
   return (
-    <div className="space-y-3 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:space-y-0 min-h-0">
-      <div className="space-y-3">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="space-y-4">
         <Card>
-          <CardContent className="p-3 space-y-2">
+          <CardContent className="p-4 space-y-2">
             <Label className="text-xs font-semibold">Giải thích chiến lược</Label>
             <p className="text-xs text-muted-foreground">Phân bổ tỉ lệ thuận với thời gian rảnh. Giới hạn Min/Max Ca và Giờ. Ưu tiên giới hạn riêng của nhân viên hơn giới hạn toàn cục.</p>
           </CardContent>
@@ -766,11 +794,11 @@ function StaffingTab({ constraints, setConstraints, shiftTemplates, pushUndo, al
   canSave?: boolean;
 }) {
   return (
-    <div className="space-y-3 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:space-y-0">
-      <div className="space-y-3">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="space-y-4">
         <Card>
-          <CardContent className="p-3 space-y-2">
-            <Label className="text-xs font-semibold">Nhu cầu theo ca</Label>
+          <CardContent className="p-4 space-y-2">
+            <Label className="text-sm font-semibold">Nhu cầu theo ca</Label>
             <p className="text-xs text-muted-foreground">Sử dụng nút "Thêm điều kiện" để thêm nhu cầu ca mới.</p>
           </CardContent>
         </Card>
@@ -814,11 +842,11 @@ function PriorityTab({
   canSave?: boolean;
 }) {
   return (
-    <div className="space-y-3 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:space-y-0">
-      <div className="space-y-3">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="space-y-4">
         <Card>
-          <CardContent className="p-3 space-y-2">
-            <Label className="text-xs font-semibold">Ưu tiên nhân viên cho ca</Label>
+          <CardContent className="p-4 space-y-2">
+            <Label className="text-sm font-semibold">Ưu tiên nhân viên cho ca</Label>
             <p className="text-xs text-muted-foreground">Sử dụng nút "Thêm điều kiện" để thêm ưu tiên mới.</p>
           </CardContent>
         </Card>
@@ -862,11 +890,11 @@ function LinksTab({
   canSave?: boolean;
 }) {
   return (
-    <div className="space-y-3 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:space-y-0">
-      <div className="space-y-3">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="space-y-4">
         <Card>
-          <CardContent className="p-3 space-y-2">
-            <Label className="text-xs font-semibold">Ràng buộc nhân viên và ca</Label>
+          <CardContent className="p-4 space-y-2">
+            <Label className="text-sm font-semibold">Ràng buộc nhân viên và ca</Label>
             <p className="text-xs text-muted-foreground">Sử dụng nút "Thêm điều kiện" để thêm ràng buộc mới (bắt buộc hoặc cấm).</p>
           </CardContent>
         </Card>
@@ -913,11 +941,11 @@ function AvailabilityTab({
 }) {
   const availability = constraints.find(c => c.type === 'AvailabilityStrictness') as any;
   return (
-    <div className="space-y-3 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:space-y-0">
-      <div className="space-y-3">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="space-y-4">
         <Card>
-          <CardContent className="p-3 space-y-2">
-            <Label className="text-xs">Tính năng xem thời gian rảnh sẽ được hiển thị ở phần Xem trước.</Label>
+          <CardContent className="p-4 space-y-2">
+            <Label className="text-sm font-semibold">Tính năng xem thời gian rảnh sẽ được hiển thị ở phần Xem trước.</Label>
           </CardContent>
         </Card>
       </div>
@@ -976,7 +1004,7 @@ function PreviewTab({
   return (
     <div className="space-y-4">
       <Card>
-        <CardContent className="p-3">
+        <CardContent className="p-4">
           <Button
             variant="secondary"
             size="sm"
