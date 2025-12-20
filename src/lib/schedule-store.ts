@@ -27,7 +27,7 @@ import {
     and,
     arrayUnion,
 } from 'firebase/firestore';
-import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, AuthUser, PassRequestPayload, TimeSlot, MonthlyTask, MonthlyTaskAssignment, MediaAttachment, MediaItem, TaskCompletionRecord } from './types';
+import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, AuthUser, PassRequestPayload, TimeSlot, MonthlyTask, MonthlyTaskAssignment, MediaAttachment, MediaItem, TaskCompletionRecord, SimpleUser } from './types';
 import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, getDay, parseISO, isPast, isWithinInterval, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, getDate, getWeekOfMonth, addMonths } from 'date-fns';
 import { hasTimeConflict } from './schedule-utils';
 import { DateRange } from 'react-day-picker';
@@ -1192,7 +1192,7 @@ export function subscribeToMonthlyTaskCompletionsForMonth(
     return unsubscribe;
 }
 
-export async function updateMonthlyTaskCompletionStatus(taskId: string, taskName: string, user: AssignedUser, date: Date, isCompleted: boolean, media?: MediaItem[], note?: string): Promise<void> {
+export async function updateMonthlyTaskCompletionStatus(taskId: string, taskName: string, user: SimpleUser, date: Date, isCompleted: boolean, media?: MediaItem[], note?: string): Promise<void> {
     const dateKey = format(date, 'yyyy-MM-dd');
     const docRef = doc(db, 'monthly_task_completions', `${dateKey}_${user.userId}`);
 

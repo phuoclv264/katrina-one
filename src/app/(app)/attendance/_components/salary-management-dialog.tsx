@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { dataStore } from '@/lib/data-store';
-import type { MonthlySalarySheet, SalaryRecord, ManagedUser, Schedule, AttendanceRecord, Violation, AssignedUser, UserRole } from '@/lib/types';
+import type { MonthlySalarySheet, SalaryRecord, ManagedUser, Schedule, AttendanceRecord, Violation, SimpleUser, UserRole } from '@/lib/types';
 import { format, startOfMonth, endOfMonth, getISOWeek, getYear, parseISO, differenceInMinutes, addMonths } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { toast } from '@/components/ui/pro-toast';
@@ -29,7 +29,7 @@ type SalaryManagementDialogProps = {
 const calculateSalarySheet = async (
     month: Date,
     allUsers: ManagedUser[],
-    currentUser: AssignedUser,
+    currentUser: SimpleUser,
     existingSalaryRecords?: Record<string, SalaryRecord>
 ): Promise<MonthlySalarySheet> => {
     const monthId = format(month, 'yyyy-MM');

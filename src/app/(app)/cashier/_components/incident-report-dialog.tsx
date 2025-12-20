@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import type { IncidentReport, IncidentCategory, AuthUser, ManagedUser, PaymentMethod, AssignedUser } from '@/lib/types';
+import type { IncidentReport, IncidentCategory, AuthUser, ManagedUser, PaymentMethod, AssignedUser, SimpleUser } from '@/lib/types';
 import { Loader2, Camera, Trash2, X } from 'lucide-react';
 import { toast } from '@/components/ui/pro-toast';
 import { IncidentCategoryCombobox } from '@/components/incident-category-combobox';
@@ -28,7 +28,7 @@ type IncidentReportDialogProps = {
     isProcessing: boolean;
     categories: IncidentCategory[];
     canManageCategories: boolean;
-    reporter: AssignedUser | null;
+    reporter: SimpleUser | null;
     incidentToEdit: IncidentReport | null;
     isSelfConfession?: boolean;
     onCategoriesChange: (newCategories: IncidentCategory[]) => void;

@@ -12,7 +12,7 @@ import { format, parseISO } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 import { toast } from '@/components/ui/pro-toast';
 import { dataStore } from '@/lib/data-store';
-import type { SalaryRecord, AssignedUser, Schedule } from '@/lib/types';
+import type { SalaryRecord, SimpleUser, Schedule } from '@/lib/types';
 import { findShiftForRecord, getStatusInfo } from '@/lib/attendance-utils';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -22,7 +22,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 type SalaryRecordAccordionItemProps = {
     record: SalaryRecord;
     monthId: string;
-    currentUser: AssignedUser | null;
+    currentUser: SimpleUser | null;
     currentUserRole: string | undefined;
     scheduleMap: Record<string, Schedule>;
     onRecordUpdated: (userId: string, updates: Partial<SalaryRecord>) => void;
