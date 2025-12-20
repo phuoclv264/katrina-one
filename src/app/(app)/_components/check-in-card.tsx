@@ -1,12 +1,12 @@
+
 'use client';
 import { useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, AlertDialogOverlay } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
 import type { AssignedShift, AttendanceRecord } from '@/lib/types';
-import { Camera, CheckCircle, Loader2, Info, Clock, X, History, AlertTriangle } from 'lucide-react';
-import { format, getISOWeek } from 'date-fns';
+import { Camera, CheckCircle, Loader2, Info, Clock, X, History, AlertTriangle, LogOut } from 'lucide-react';
+import { format } from 'date-fns';
 import { dataStore } from '@/lib/data-store';
 import CameraDialog from '@/components/camera-dialog';
 import { toast } from 'react-hot-toast';
@@ -43,18 +43,9 @@ export default function CheckInCard() {
 
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
-    const [currentTime, setCurrentTime] = useState(new Date());
-
-    // The active shift is now derived from the useAuth hook
     useEffect(() => {
-        // The useAuth hook provides an array of currently active shifts. We'll use the first one for the check-in card.
         setActiveShift(activeShifts.length > 0 ? activeShifts[0] : null);
     }, [activeShifts]);
-
-    useEffect(() => {
-        const timer = setInterval(() => setCurrentTime(new Date()), 1000 * 60);
-        return () => clearInterval(timer);
-    }, []);
 
     useEffect(() => {
         let isMounted = true;
@@ -78,13 +69,11 @@ export default function CheckInCard() {
         let unsubLatest: (() => void) | null = null;
         let unsubToday: (() => void) | null = null;
 
-        // Subscribe to the single latest "in-progress" record to determine status
         unsubLatest = dataStore.subscribeToLatestInProgressAttendanceRecord(user.uid, (record) => {
             setLatestInProgressRecord(record);
-            setIsLoading(false); // Considered loaded once we have attendance status
+            setIsLoading(false);
         });
 
-        // Subscribe to all of today's records for history display
         unsubToday = dataStore.subscribeToUserAttendanceForToday(user.uid, (records) => {
             setAttendanceRecords(records);
         });
@@ -98,8 +87,8 @@ export default function CheckInCard() {
 
     const handleCheckInOrOut = () => {
         if (!latestInProgressRecord && !activeShift) {
-            setCameraAction('check-in-out'); // It's still a form of check-in
-            setOffShiftReason(''); // Reset reason
+            setCameraAction('check-in-out');
+            setOffShiftReason('');
             setIsOffShiftReasonDialogOpen(true);
         } else {
             if (latestInProgressRecord?.checkInTime) {
@@ -205,14 +194,17 @@ export default function CheckInCard() {
         }
     };
 
-    // Don't show the card if loading, or if there's no active shift AND no in-progress record to check out from.
-    // This ensures the user can always check out.
     const handleToggleBreak = async () => {
         if (!latestInProgressRecord) return;
         setCameraAction('break');
         setIsCameraOpen(true);
     };
 
+    if (authLoading || isLoading) {
+        return null;
+    }
+
+    const checkInTime = latestInProgressRecord?.checkInTime ? (latestInProgressRecord.checkInTime as Timestamp).toDate() : null;
     const hasPendingLateRequest = attendanceRecords[0]?.status === 'pending_late';
 
     const renderRequestLateButton = () => {
@@ -246,120 +238,60 @@ export default function CheckInCard() {
         }
     }
 
-    const renderStatus = () => {
-        if (latestInProgressRecord && latestInProgressRecord.status === 'completed') {
-            // This case is now handled by the logic in ShiftsPage to move the card down.
-            // We can show a generic "no active shift" message here.
-            return null;
-        }
-        if (latestInProgressRecord && latestInProgressRecord.checkInTime && latestInProgressRecord.status === 'in-progress') {
-            const checkInTime = (latestInProgressRecord.checkInTime as Timestamp).toDate();
-            return (
-                <div className="text-center">
-                    <p className="text-sm text-muted-foreground">Bạn đã chấm công vào lúc</p>
-                    <p className="text-4xl font-bold font-mono mb-4">{format(checkInTime, 'HH:mm')}</p>
-
-                    {latestInProgressRecord.onBreak ? (
-                        <p className="text-lg font-semibold text-blue-600">Đang trong giờ nghỉ...</p>
-                    ) : (
-                        <Button onClick={handleCheckInOrOut} disabled={isProcessing} className="w-full h-12 text-base">
-                            {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Camera className="mr-2 h-5 w-5" />}
-                            Chấm công ra
+    return (
+        <>
+            <div className="bg-gradient-to-br from-primary to-blue-600 rounded-2xl p-5 text-white shadow-glow relative overflow-hidden group">
+                <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl group-hover:opacity-20 transition-opacity duration-500"></div>
+                <div className="relative z-10">
+                    <div className="flex justify-between items-start mb-6">
+                        <div>
+                            <p className="text-blue-100 text-xs font-semibold uppercase tracking-wider mb-0.5">Trạng thái</p>
+                            <div className="flex items-center gap-2">
+                                <span className="relative flex h-3 w-3">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-green-400 border-2 border-blue-600"></span>
+                                </span>
+                                <h2 className="text-lg font-bold">
+                                    {latestInProgressRecord ? 'Đang trong ca' : 'Chưa chấm công'}
+                                </h2>
+                            </div>
+                        </div>
+                        {checkInTime && (
+                             <div className="text-right">
+                                <p className="text-blue-100 text-xs font-semibold uppercase tracking-wider mb-0.5">Check-in</p>
+                                <p className="text-2xl font-display font-bold tracking-tight">{format(checkInTime, 'HH:mm')}</p>
+                            </div>
+                        )}
+                    </div>
+                    <div className="flex gap-3">
+                        <Button
+                            onClick={handleCheckInOrOut}
+                            disabled={isProcessing}
+                            className="flex-1 bg-white text-primary hover:bg-blue-50 py-2.5 px-4 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center justify-center gap-2"
+                        >
+                            {isProcessing
+                                ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                : latestInProgressRecord
+                                    ? <><LogOut className="text-lg" /> Chấm công ra</>
+                                    : <><Camera className="text-lg" /> Chấm công vào</>
+                            }
                         </Button>
-                    )}
-
-                    {(user?.role === 'Quản lý') && (
+                        <Button
+                            onClick={() => setIsHistoryOpen(true)}
+                            className="bg-blue-700/50 hover:bg-blue-700 text-white p-2.5 rounded-xl transition-colors backdrop-blur-sm"
+                            title="Lịch sử"
+                        >
+                            <History className="text-xl" />
+                        </Button>
+                    </div>
+                    {latestInProgressRecord && (user?.role === 'Quản lý') && (
                         <Button onClick={handleToggleBreak} disabled={isProcessing} variant="outline" className="w-full mt-2">
                             {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (latestInProgressRecord.onBreak ? <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> : <Info className="mr-2 h-4 w-4 text-blue-500" />)}
                             {latestInProgressRecord.onBreak ? 'Tiếp tục vào làm việc' : 'Tạm nghỉ'}
                         </Button>
                     )}
+                    {!latestInProgressRecord && renderRequestLateButton()}
                 </div>
-            );
-        }
-
-        if (!latestInProgressRecord && !activeShift) {
-            return (
-                <div className="space-y-2">
-                    <Button onClick={handleCheckInOrOut} disabled={isProcessing} className="w-full h-12 text-base" variant="outline">
-                        {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Camera className="mr-2 h-5 w-5" />}
-                        Chấm công ngoài giờ làm việc
-                    </Button>
-
-                    {renderRequestLateButton()}
-                </div>
-            );
-        }
-
-        if (!activeShift) {
-            return null; // Don't show check-in button if there's no active shift
-        }
-
-        return (
-            <div className="space-y-2">
-                <Button onClick={() => handleCheckInOrOut()} disabled={isProcessing} className="w-full h-16 text-xl">
-                    {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Camera className="mr-2 h-5 w-5" />}
-                    Chấm công vào
-                </Button>
-                {renderRequestLateButton()}
-            </div>
-        );
-    };
-
-    const statusContent = renderStatus();
-
-    if (authLoading || isLoading) {
-        return null; // Still hide while initially loading auth state
-    }
-
-    const renderHistory = () => {
-        if (attendanceRecords.length === 0) return null;
-
-        return (
-            <div className="mt-6 border-t pt-4">
-                <h4 className="text-sm font-semibold text-muted-foreground mb-2">Lịch sử trong ngày</h4>
-                <ul className="space-y-2">
-                    {attendanceRecords.map(record => {
-                        const checkIn = record.checkInTime ? (record.checkInTime as Timestamp).toDate() : null;
-                        const checkOut = record.checkOutTime ? (record.checkOutTime as Timestamp).toDate() : null;
-                        const isOffShift = record.isOffShift;
-                        return checkIn && (
-                            <li key={record.id} className="text-sm flex justify-between items-center bg-muted/50 p-2 rounded-md">
-                                <span>Vào{isOffShift ? ' ngoài giờ' : ''}: <span className="font-mono font-medium">{format(checkIn, 'HH:mm')}</span></span>
-                                <span>Ra: <span className="font-mono font-medium">{checkOut ? format(checkOut, 'HH:mm') : '--:--'}</span></span>
-                            </li>
-                        );
-                    })}
-                </ul>
-            </div>
-        );
-    };
-
-    return (
-        <>
-            <Card className="mb-6 shadow-lg border-primary/20 bg-gradient-to-br from-card to-primary/5">
-                <CardHeader className="flex flex-row items-center gap-4 space-y-0 pb-4">
-                    {latestInProgressRecord && latestInProgressRecord.photoInUrl && (
-                        <button onClick={() => openLightbox([{ src: latestInProgressRecord.photoInUrl! }], 0)} className="relative h-16 w-16 rounded-full overflow-hidden shrink-0 cursor-pointer">
-                            <Image src={latestInProgressRecord.photoInUrl} alt="Avatar" layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
-                        </button>
-                    )}
-                    <div className="flex-1">
-                        <CardTitle className="text-xl">{user?.displayName}</CardTitle>
-                        {activeShift && <CardDescription>
-                            Ca làm việc: <span className="font-semibold">{activeShift ? `${activeShift.label} (${activeShift.timeSlot.start} - ${activeShift.timeSlot.end})` : 'Không có ca làm việc'}</span>
-                        </CardDescription>}
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    {statusContent}
-                    {renderHistory()}
-                </CardContent>
-            </Card>
-            <div className="px-4 -mt-4">
-                <Button variant="secondary" className="w-full" onClick={() => setIsHistoryOpen(true)}>
-                    <History className="mr-2 h-4 w-4" /> Xem lịch sử làm việc
-                </Button>
             </div>
             <CameraDialog
                 isOpen={isCameraOpen}
@@ -369,23 +301,7 @@ export default function CheckInCard() {
                 singlePhotoMode={true}
                 isHD={true}
             />
-            <AlertDialog open={isOffShiftReasonDialogOpen} onOpenChange={setIsOffShiftReasonDialogOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Lý do chấm công ngoài giờ</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Vui lòng cung cấp lý do bạn cần chấm công khi không có trong ca làm việc đã được phân công. (VD: Tăng ca, làm thay,...)
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <Textarea
-                        value={offShiftReason}
-                        onChange={(e) => setOffShiftReason(e.target.value)}
-                        placeholder="Nhập lý do của bạn ở đây..."
-                    />
-                    <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={handleReasonSubmit}>Tiếp tục</AlertDialogAction></AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-            <AlertDialog open={isLateReasonDialogOpen} onOpenChange={setIsLateReasonDialogOpen}>
+             <AlertDialog open={isLateReasonDialogOpen} onOpenChange={setIsLateReasonDialogOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Lý do đi trễ</AlertDialogTitle>
@@ -455,6 +371,22 @@ export default function CheckInCard() {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter><AlertDialogAction onClick={() => setShowOldShiftAlert(false)}>Đã hiểu</AlertDialogAction></AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            <AlertDialog open={isOffShiftReasonDialogOpen} onOpenChange={setIsOffShiftReasonDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Lý do chấm công ngoài giờ</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Vui lòng cung cấp lý do bạn cần chấm công khi không có trong ca làm việc đã được phân công. (VD: Tăng ca, làm thay,...)
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <Textarea
+                        value={offShiftReason}
+                        onChange={(e) => setOffShiftReason(e.target.value)}
+                        placeholder="Nhập lý do của bạn ở đây..."
+                    />
+                    <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={handleReasonSubmit}>Tiếp tục</AlertDialogAction></AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
         </>
