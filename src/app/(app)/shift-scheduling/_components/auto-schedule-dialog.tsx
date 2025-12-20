@@ -27,6 +27,8 @@ import ConditionSummary from './condition-summary';
 import AddConditionSheet from './add-condition-sheet';
 import { UserMultiSelect } from '@/components/user-multi-select';
 
+type TabConfig = { value: string; label: string; types?: string[] };
+
 type Props = {
   isOpen: boolean;
   onClose: () => void;
@@ -44,13 +46,13 @@ type UndoRedoEntry = {
   timestamp: number;
 };
 
-const TABS = [
-  { value: 'workload', label: 'Định mức', type: 'WorkloadLimit' },
-  { value: 'staffing', label: 'Nhu cầu ca', type: 'ShiftStaffing' },
-  { value: 'priority', label: 'Ưu tiên', type: 'StaffPriority' },
-  { value: 'links', label: 'Ràng buộc', type: 'StaffShiftLink' },
-  { value: 'availability', label: 'Thời gian rảnh', type: 'AvailabilityStrictness' },
-  { value: 'preview', label: 'Xem trước', type: null },
+const TABS: TabConfig[] = [
+  { value: 'workload', label: 'Định mức', types: ['WorkloadLimit'] },
+  { value: 'staffing', label: 'Nhu cầu ca', types: ['ShiftStaffing'] },
+  { value: 'priority', label: 'Ưu tiên', types: ['StaffPriority'] },
+  { value: 'links', label: 'Ràng buộc', types: ['StaffShiftLink', 'StaffExclusion'] },
+  { value: 'availability', label: 'Thời gian rảnh', types: ['AvailabilityStrictness'] },
+  { value: 'preview', label: 'Xem trước' },
 ];
 
 export default function AutoScheduleDialog({
@@ -67,7 +69,7 @@ export default function AutoScheduleDialog({
   const [result, setResult] = useState<ScheduleRunResult | null>(null);
   const [editableAssignments, setEditableAssignments] = useState<EditableAssignment[]>([]);
   const [activeTab, setActiveTab] = useState('preview');
-  const [filterTab, setFilterTab] = useState('');
+  const [filterTab, setFilterTab] = useState<string | string[]>('');
   const [showAddCondition, setShowAddCondition] = useState(false);
   const [savedTimestamp, setSavedTimestamp] = useState<number | null>(null);
   const [lastSaveTime, setLastSaveTime] = useState<string>('');
@@ -389,16 +391,20 @@ export default function AutoScheduleDialog({
                     className="relative text-xs px-3 py-1.5 data-[state=active]:bg-muted"
                   >
                     {tab.label}
-                    {tab.type && conditionCounts[tab.type] > 0 && (
+                    {tab.types && tab.types.length > 0 && tab.types.reduce((acc, t) => acc + (conditionCounts[t] || 0), 0) > 0 && (
                       <Badge
                         variant="secondary"
                         className="ml-1 h-5 px-1.5 text-[10px] cursor-pointer"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setFilterTab(filterTab === tab.type ? '' : tab.type);
+                          const totalTypes = tab.types || [];
+                          const isSame = Array.isArray(filterTab)
+                            ? totalTypes.length === filterTab.length && totalTypes.every(t => filterTab.includes(t))
+                            : totalTypes.length === 1 && filterTab === totalTypes[0];
+                          setFilterTab(isSame ? '' : totalTypes);
                         }}
                       >
-                        {conditionCounts[tab.type]}
+                        {tab.types.reduce((acc, t) => acc + (conditionCounts[t] || 0), 0)}
                       </Badge>
                     )}
                   </TabsTrigger>
@@ -830,7 +836,7 @@ function LinksTab({
               constraints={constraints}
               shiftTemplates={shiftTemplates}
               allUsers={allUsers}
-              filterTab="StaffShiftLink"
+              filterTab={["StaffShiftLink", "StaffExclusion"]}
               onToggleEnabled={onToggleEnabled}
               onDelete={onDelete}
             />
@@ -1071,6 +1077,7 @@ function PreviewTab({
 
 function validateConstraints(constraints: ScheduleCondition[]): string[] {
   const errors: string[] = [];
+  const makePairKey = (a: string, b: string) => [a, b].sort().join('|');
   const workloads = constraints.filter(c => c.type === 'WorkloadLimit');
   for (const wl of workloads as any[]) {
     const minS = wl.minShiftsPerWeek ?? 0;
@@ -1090,6 +1097,29 @@ function validateConstraints(constraints: ScheduleCondition[]): string[] {
     } else {
       seen.set(key, ln.link);
     }
+  }
+  const exclusions = constraints.filter(c => c.type === 'StaffExclusion') as any[];
+  const exclusionSeen = new Map<string, Set<string>>();
+  for (const ex of exclusions) {
+    if (!ex.blockedUserIds || ex.blockedUserIds.length === 0) {
+      errors.push('Điều kiện không ghép chung cần chọn ít nhất 1 nhân viên bị chặn.');
+      continue;
+    }
+    const scope = ex.templateId || 'ALL';
+    const set = exclusionSeen.get(scope) || new Set<string>();
+    for (const blocked of ex.blockedUserIds) {
+      if (blocked === ex.userId) {
+        errors.push('Không thể cấm nhân viên làm chung với chính họ.');
+        continue;
+      }
+      const key = makePairKey(ex.userId, blocked);
+      if (set.has(key)) {
+        errors.push(`Điều kiện không ghép chung bị trùng giữa ${ex.userId} và ${blocked}${ex.templateId ? ` (ca ${ex.templateId})` : ''}.`);
+      } else {
+        set.add(key);
+      }
+    }
+    exclusionSeen.set(scope, set);
   }
   const dailyLimits = constraints.filter(c => c.type === 'DailyShiftLimit') as any[];
   for (const dl of dailyLimits) {

@@ -431,6 +431,13 @@ export type StaffShiftLink = BaseConstraint & {
   link: 'force' | 'ban';
 };
 
+export type StaffExclusion = BaseConstraint & {
+  type: 'StaffExclusion';
+  userId: string;
+  blockedUserIds: string[];
+  templateId?: string;
+};
+
 export type WorkloadLimit = BaseConstraint & {
   type: 'WorkloadLimit';
   scope: 'global' | 'user';
@@ -451,6 +458,7 @@ export type ScheduleCondition =
   | ShiftStaffing
   | DailyShiftLimit
   | StaffShiftLink
+  | StaffExclusion
   | WorkloadLimit
   | AvailabilityStrictness;
 

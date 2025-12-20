@@ -16,7 +16,7 @@ type Props = {
   constraints: ScheduleCondition[];
   shiftTemplates: ShiftTemplate[];
   allUsers: ManagedUser[];
-  filterTab?: string;
+  filterTab?: string | string[];
   onToggleEnabled: (constraintId: string) => void;
   onDelete: (constraintId: string) => void;
   onEdit?: (constraint: ScheduleCondition) => void;
@@ -28,6 +28,7 @@ const typeLabels: Record<string, string> = {
   ShiftStaffing: 'Nhu cầu ca',
   StaffPriority: 'Ưu tiên',
   StaffShiftLink: 'Ràng buộc',
+  StaffExclusion: 'Không ghép chung',
   AvailabilityStrictness: 'Thời gian rảnh',
 };
 
@@ -44,7 +45,8 @@ export default function ConditionSummary({
     let items = constraints;
     
     if (filterTab) {
-      items = items.filter(c => c.type === filterTab);
+      const filters = Array.isArray(filterTab) ? filterTab : [filterTab];
+      items = items.filter(c => filters.includes(c.type));
     }
     
     return items;
@@ -183,6 +185,9 @@ function getConditionLabel(
       const tpl = templates.find(tm => tm.id === c_.templateId);
       const usr = users.find(us => us.uid === c_.userId);
       return `${c_.link === 'force' ? 'Bắt buộc' : 'Cấm'}: ${usr?.displayName || c_.userId} ↔ ${tpl?.label || c_.templateId}`;
+    case 'StaffExclusion':
+      const baseUser = users.find(us => us.uid === c_.userId);
+      return `Không ghép: ${baseUser?.displayName || c_.userId}`;
     case 'AvailabilityStrictness':
       return c_.strict ? 'Thời gian rảnh: Bắt buộc' : 'Thời gian rảnh: Mềm';
     default:
@@ -212,6 +217,11 @@ function getConditionDetails(
       return `Trọng số: ${c_.weight}`;
     case 'StaffShiftLink':
       return '';
+    case 'StaffExclusion':
+      const blocked = (c_.blockedUserIds || []).map((id: string) => users.find(u => u.uid === id)?.displayName || id);
+      const tplEx = c_.templateId ? templates.find(tm => tm.id === c_.templateId) : null;
+      const scopeText = tplEx ? ` • Chỉ áp dụng cho ${tplEx.label}` : ' • Áp dụng mọi ca';
+      return `Tránh ghép với: ${blocked.join(', ') || '—'}${scopeText}`;
     case 'AvailabilityStrictness':
       return '';
     default:
