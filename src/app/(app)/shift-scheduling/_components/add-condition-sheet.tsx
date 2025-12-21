@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -17,7 +17,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { UserMultiSelect } from '@/components/user-multi-select';
 import type { ScheduleCondition, ShiftTemplate, ManagedUser, UserRole } from '@/lib/types';
 
-type ConditionType = 'WorkloadLimit' | 'DailyShiftLimit' | 'ShiftStaffing' | 'StaffPriority' | 'StaffShiftLink' | 'AvailabilityStrictness';
+type ConditionType = 'WorkloadLimit' | 'DailyShiftLimit' | 'ShiftStaffing' | 'StaffPriority' | 'StaffShiftLink' | 'StaffExclusion' | 'AvailabilityStrictness';
 
 type Props = {
   isOpen: boolean;
@@ -26,6 +26,8 @@ type Props = {
   shiftTemplates: ShiftTemplate[];
   allUsers: ManagedUser[];
   onAddCondition: (condition: ScheduleCondition) => void;
+  onSaveCondition?: (condition: ScheduleCondition) => void;
+  conditionToEdit?: ScheduleCondition | null;
 };
 
 export default function AddConditionSheet({
@@ -35,6 +37,8 @@ export default function AddConditionSheet({
   shiftTemplates,
   allUsers,
   onAddCondition,
+  onSaveCondition,
+  conditionToEdit,
 }: Props) {
   const [type, setType] = useState<ConditionType>(conditionType || 'WorkloadLimit');
   const [selectedUser, setSelectedUser] = useState<ManagedUser[]>([]);
@@ -51,7 +55,73 @@ export default function AddConditionSheet({
   const [priorityWeight, setPriorityWeight] = useState('1');
   const [priorityMandatory, setPriorityMandatory] = useState(false);
   const [linkType, setLinkType] = useState<'force' | 'ban'>('force');
+  const [blockedUsers, setBlockedUsers] = useState<ManagedUser[]>([]);
   const [availabilityStrict, setAvailabilityStrict] = useState(false);
+
+  useEffect(() => {
+    if (conditionToEdit) {
+      setType(conditionToEdit.type as ConditionType);
+      switch (conditionToEdit.type) {
+        case 'WorkloadLimit': {
+          const wl = conditionToEdit as any;
+          setScope(wl.scope);
+          setSelectedUser(wl.scope === 'user' ? allUsers.filter(u => u.uid === wl.userId) : []);
+          setMinShifts(wl.minShiftsPerWeek != null ? String(wl.minShiftsPerWeek) : '');
+          setMaxShifts(wl.maxShiftsPerWeek != null ? String(wl.maxShiftsPerWeek) : '');
+          setMinHours(wl.minHoursPerWeek != null ? String(wl.minHoursPerWeek) : '');
+          setMaxHours(wl.maxHoursPerWeek != null ? String(wl.maxHoursPerWeek) : '');
+          break;
+        }
+        case 'DailyShiftLimit': {
+          const dl = conditionToEdit as any;
+          setSelectedUser(dl.userId ? allUsers.filter(u => u.uid === dl.userId) : []);
+          setMaxDaily(dl.maxPerDay != null ? String(dl.maxPerDay) : '');
+          break;
+        }
+        case 'ShiftStaffing': {
+          const ss = conditionToEdit as any;
+          setSelectedTemplate(ss.templateId || '');
+          setStaffingRole(ss.role);
+          setStaffingCount(ss.count != null ? String(ss.count) : '1');
+          setStaffingMandatory(!!ss.mandatory);
+          break;
+        }
+        case 'StaffPriority': {
+          const sp = conditionToEdit as any;
+          setSelectedUser(allUsers.filter(u => u.uid === sp.userId));
+          setSelectedTemplate(sp.templateId || '');
+          setPriorityWeight(sp.weight != null ? String(sp.weight) : '1');
+          setPriorityMandatory(!!sp.mandatory);
+          break;
+        }
+        case 'StaffShiftLink': {
+          const sl = conditionToEdit as any;
+          setSelectedUser(allUsers.filter(u => u.uid === sl.userId));
+          setSelectedTemplate(sl.templateId || '');
+          setLinkType(sl.link);
+          break;
+        }
+        case 'StaffExclusion': {
+          const se = conditionToEdit as any;
+          setSelectedUser(allUsers.filter(u => u.uid === se.userId));
+          setBlockedUsers(allUsers.filter(u => (se.blockedUserIds || []).includes(u.uid)));
+          setSelectedTemplate(se.templateId || '');
+          break;
+        }
+        case 'AvailabilityStrictness': {
+          const av = conditionToEdit as any;
+          setAvailabilityStrict(!!av.strict);
+          break;
+        }
+        default:
+          break;
+      }
+    } else {
+      resetForm();
+      setType(conditionType || 'WorkloadLimit');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conditionToEdit, allUsers, conditionType]);
 
   const handleClose = () => {
     resetForm();
@@ -73,20 +143,26 @@ export default function AddConditionSheet({
     setPriorityWeight('1');
     setPriorityMandatory(false);
     setLinkType('force');
+    setBlockedUsers([]);
     setAvailabilityStrict(false);
   };
 
   const handleSubmit = () => {
     const condition = buildCondition();
     if (condition) {
-      onAddCondition(condition);
+      if (conditionToEdit && onSaveCondition) {
+        onSaveCondition(condition);
+      } else {
+        onAddCondition(condition);
+      }
       handleClose();
     }
   };
 
   const buildCondition = (): ScheduleCondition | null => {
-    const baseId = `${type}_${Date.now()}`;
-    const base = { id: baseId, enabled: true };
+    const baseId = conditionToEdit?.id || `${type}_${Date.now()}`;
+    const baseEnabled = conditionToEdit?.enabled ?? true;
+    const base = { id: baseId, enabled: baseEnabled };
 
     switch (type) {
       case 'WorkloadLimit':
@@ -149,6 +225,15 @@ export default function AddConditionSheet({
           templateId: selectedTemplate,
           link: linkType,
         } as any;
+      case 'StaffExclusion':
+        if (selectedUser.length === 0 || blockedUsers.length === 0) return null;
+        return {
+          ...base,
+          type: 'StaffExclusion',
+          userId: selectedUser[0].uid,
+          blockedUserIds: blockedUsers.map(u => u.uid),
+          templateId: selectedTemplate || undefined,
+        } as any;
       case 'AvailabilityStrictness':
         return {
           ...base,
@@ -172,6 +257,8 @@ export default function AddConditionSheet({
         return selectedUser.length > 0 && selectedTemplate !== '';
       case 'StaffShiftLink':
         return selectedUser.length > 0 && selectedTemplate !== '';
+      case 'StaffExclusion':
+        return selectedUser.length > 0 && blockedUsers.length > 0;
       case 'AvailabilityStrictness':
         return true;
       default:
@@ -204,6 +291,7 @@ export default function AddConditionSheet({
                 <SelectItem value="ShiftStaffing">Nhu cầu ca</SelectItem>
                 <SelectItem value="StaffPriority">Ưu tiên nhân viên</SelectItem>
                 <SelectItem value="StaffShiftLink">Ràng buộc nhân viên↔ca</SelectItem>
+                <SelectItem value="StaffExclusion">Không ghép chung</SelectItem>
                 <SelectItem value="AvailabilityStrictness">Thời gian rảnh</SelectItem>
               </SelectContent>
             </Select>
@@ -277,6 +365,19 @@ export default function AddConditionSheet({
               shiftTemplates={shiftTemplates}
               linkType={linkType}
               setLinkType={setLinkType}
+            />
+          )}
+
+          {type === 'StaffExclusion' && (
+            <ExclusionForm
+              selectedUser={selectedUser}
+              setSelectedUser={setSelectedUser}
+              blockedUsers={blockedUsers}
+              setBlockedUsers={setBlockedUsers}
+              allUsers={allUsers}
+              selectedTemplate={selectedTemplate}
+              setSelectedTemplate={setSelectedTemplate}
+              shiftTemplates={shiftTemplates}
             />
           )}
 
@@ -606,6 +707,69 @@ function LinkForm({ selectedUser, setSelectedUser, allUsers, selectedTemplate, s
           <SelectContent>
             <SelectItem value="force">Bắt buộc (nhân viên phải có ca này)</SelectItem>
             <SelectItem value="ban">Cấm (nhân viên không được có ca này)</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+}
+
+function ExclusionForm({
+  selectedUser,
+  setSelectedUser,
+  blockedUsers,
+  setBlockedUsers,
+  allUsers,
+  selectedTemplate,
+  setSelectedTemplate,
+  shiftTemplates,
+}: {
+  selectedUser: ManagedUser[];
+  setSelectedUser: React.Dispatch<React.SetStateAction<ManagedUser[]>>;
+  blockedUsers: ManagedUser[];
+  setBlockedUsers: React.Dispatch<React.SetStateAction<ManagedUser[]>>;
+  allUsers: ManagedUser[];
+  selectedTemplate: string;
+  setSelectedTemplate: React.Dispatch<React.SetStateAction<string>>;
+  shiftTemplates: ShiftTemplate[];
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="space-y-2">
+        <Label className="text-xs font-semibold">Nhân viên chính</Label>
+        <UserMultiSelect
+          selectionMode="single"
+          users={allUsers}
+          selectedUsers={selectedUser}
+          onChange={setSelectedUser}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-xs font-semibold">Cấm làm chung với</Label>
+        <UserMultiSelect
+          selectionMode="multiple"
+          users={allUsers.filter(u => selectedUser.length === 0 || u.uid !== selectedUser[0].uid)}
+          selectedUsers={blockedUsers}
+          onChange={setBlockedUsers}
+        />
+        <p className="text-[11px] text-muted-foreground">Những người này sẽ không được xếp chung ca với nhân viên trên.</p>
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-xs font-semibold">Áp dụng cho ca (tùy chọn)</Label>
+        <Select
+          value={selectedTemplate || 'ALL'}
+          onValueChange={(val) => setSelectedTemplate(val === 'ALL' ? '' : val)}
+        >
+          <SelectTrigger className="h-8">
+            <SelectValue placeholder="Tất cả ca" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">Tất cả ca</SelectItem>
+            {shiftTemplates.map(t => (
+              <SelectItem key={t.id} value={t.id}>{t.label} ({t.timeSlot.start}-{t.timeSlot.end})</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>

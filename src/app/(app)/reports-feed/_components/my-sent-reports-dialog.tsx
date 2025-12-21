@@ -75,9 +75,9 @@ export default function MySentReportsDialog({ isOpen, onClose, reports, userId, 
                                                 <div>
                                                     <h4 className="font-semibold mb-1">Đính kèm:</h4>
                                                     <div className="flex flex-wrap gap-2">
-                                                        {report.attachments.map((url, index) => (
+                                                        {report.attachments.map((attachment, index) => (
                                                             <div key={index} className="relative w-20 h-20 rounded-md overflow-hidden">
-                                                                <Image src={url} alt={`Attachment ${index + 1}`} fill className="object-cover" />
+                                                                <Image src={attachment.url} alt={`Attachment ${index + 1}`} fill className="object-cover" />
                                                             </div>
                                                         ))}
                                                     </div>

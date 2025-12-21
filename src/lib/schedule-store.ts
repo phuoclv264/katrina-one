@@ -27,7 +27,7 @@ import {
     and,
     arrayUnion,
 } from 'firebase/firestore';
-import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, AuthUser, PassRequestPayload, TimeSlot, MonthlyTask, MonthlyTaskAssignment, MediaAttachment, MediaItem, TaskCompletionRecord } from './types';
+import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, AuthUser, PassRequestPayload, TimeSlot, MonthlyTask, MonthlyTaskAssignment, MediaAttachment, MediaItem, TaskCompletionRecord, SimpleUser } from './types';
 import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, getDay, parseISO, isPast, isWithinInterval, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, getDate, getWeekOfMonth, addMonths } from 'date-fns';
 import { hasTimeConflict } from './schedule-utils';
 import { DateRange } from 'react-day-picker';
@@ -458,9 +458,31 @@ export function subscribeToStructuredConstraints(callback: (constraints: Schedul
     return unsubscribe;
 }
 
+function removeUndefinedDeep<T>(obj: T): T {
+    if (obj === undefined) return undefined as unknown as T;
+    if (obj === null) return obj;
+    if (Array.isArray(obj)) {
+        return obj
+            .map(item => removeUndefinedDeep(item))
+            .filter(item => item !== undefined) as unknown as T;
+    }
+    if (typeof obj === 'object') {
+        const out: any = {};
+        for (const [k, v] of Object.entries(obj as any)) {
+            if (v === undefined) continue;
+            const cleaned = removeUndefinedDeep(v);
+            if (cleaned !== undefined) out[k] = cleaned;
+        }
+        return out as T;
+    }
+    return obj;
+}
+
 export async function updateStructuredConstraints(constraints: ScheduleCondition[]): Promise<void> {
     const docRef = doc(db, 'app-data', 'scheduleConstraints');
-    await setDoc(docRef, { constraints, updatedAt: serverTimestamp() }, { merge: true });
+    // Remove any undefined fields (Firestore rejects undefined)
+    const sanitized = (constraints || []).map(c => removeUndefinedDeep(c));
+    await setDoc(docRef, { constraints: sanitized, updatedAt: serverTimestamp() }, { merge: true });
 }
 
 export async function requestPassShift(shiftToPass: AssignedShift, requestingUser: { uid: string, displayName: string }): Promise<Notification | null> {
@@ -1192,7 +1214,7 @@ export function subscribeToMonthlyTaskCompletionsForMonth(
     return unsubscribe;
 }
 
-export async function updateMonthlyTaskCompletionStatus(taskId: string, taskName: string, user: AssignedUser, date: Date, isCompleted: boolean, media?: MediaItem[], note?: string): Promise<void> {
+export async function updateMonthlyTaskCompletionStatus(taskId: string, taskName: string, user: SimpleUser, date: Date, isCompleted: boolean, media?: MediaItem[], note?: string): Promise<void> {
     const dateKey = format(date, 'yyyy-MM-dd');
     const docRef = doc(db, 'monthly_task_completions', `${dateKey}_${user.userId}`);
 

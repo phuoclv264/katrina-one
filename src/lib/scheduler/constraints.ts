@@ -17,7 +17,11 @@ export type NormalizedContext = {
   capsByUser: Map<string, UserCaps>;
   mandatoryDemand: Set<string>;
   strictAvailability: boolean;
+  incompatibleGlobal: Set<string>; // `${a}|${b}` sorted
+  incompatibleByShift: Map<string, Set<string>>; // shiftId -> `${a}|${b}`
 };
+
+const makePairKey = (a: string, b: string) => a < b ? `${a}|${b}` : `${b}|${a}`;
 
 const defaultCaps: UserCaps = {
   minShiftsPerWeek: 0,
@@ -38,6 +42,8 @@ export function normalizeConstraints(
   const bannedPairs = new Set<string>();
   const capsByUser = new Map<string, UserCaps>();
   const mandatoryDemand = new Set<string>();
+  const incompatibleGlobal = new Set<string>();
+  const incompatibleByShift = new Map<string, Set<string>>();
 
   // Global workload defaults
   let globalWorkload: WorkloadLimit | null = null;
@@ -126,8 +132,36 @@ export function normalizeConstraints(
           prioritiesByShift.set(sh.id, map);
         }
       }
+    } else if (c.type === 'StaffExclusion') {
+      const targetShifts = c.templateId
+        ? shifts.filter(s => s.templateId === c.templateId)
+        : shifts;
+      const blocked = (c as any).blockedUserIds as string[] | undefined;
+      if (!blocked || blocked.length === 0) continue;
+
+      if (targetShifts.length === shifts.length) {
+        for (const b of blocked) {
+          incompatibleGlobal.add(makePairKey((c as any).userId, b));
+        }
+      } else {
+        for (const sh of targetShifts) {
+          const set = incompatibleByShift.get(sh.id) || new Set<string>();
+          for (const b of blocked) set.add(makePairKey((c as any).userId, b));
+          incompatibleByShift.set(sh.id, set);
+        }
+      }
     }
   }
 
-  return { maxByShiftRole, prioritiesByShift, forcedAssignments, bannedPairs, capsByUser, mandatoryDemand, strictAvailability: availabilityStrictness?.strict ?? false };
+  return {
+    maxByShiftRole,
+    prioritiesByShift,
+    forcedAssignments,
+    bannedPairs,
+    capsByUser,
+    mandatoryDemand,
+    strictAvailability: availabilityStrictness?.strict ?? false,
+    incompatibleGlobal,
+    incompatibleByShift,
+  };
 }
