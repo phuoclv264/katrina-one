@@ -24,15 +24,16 @@ import { CashierHomeView } from '@/components/views/cashier-home-view';
 import ChecklistView from '@/app/(app)/checklist/[shift]/_components/checklist-view';
 import HygieneReportView from '@/app/(app)/bartender/hygiene-report/_components/hygiene-report-view';
 import ManagerReportView from '@/app/(app)/manager/comprehensive-report/_components/manager-report-view';
+import CashierReportsView from '@/app/(app)/reports/cashier/_components/cashier-reports-view';
+import ShiftManagementView from '@/app/(app)/shift-scheduling/_components/schedule-view';
 import { format } from 'date-fns';
 import { useRouter } from 'nextjs-toploader/app';
 import { getHomePathForRole } from '@/lib/navigation';
+import { cn } from '@/lib/utils';
 
 // Placeholder components
 const HomeView = () => <div className="p-4">Home View Content</div>;
 const QuickAccessView = ({ type }: { type: string }) => <div className="p-4">Quick Access: {type}</div>;
-const CashierReportView = () => <div className="p-4">Cashier Report Content</div>;
-const ShiftSchedulingView = () => <div className="p-4">Shift Scheduling Content</div>;
 
 function getCurrentShift(): string {
   const now = new Date();
@@ -154,9 +155,9 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
       case 'reports':
         return <ManagerReportView isStandalone={false} />;
       case 'shift-scheduling':
-        return <ShiftSchedulingView />;
+        return <ShiftManagementView />;
       case 'cashier-reports':
-        return <CashierHomeView isStandalone={false} />;
+        return <CashierReportsView isStandalone={false} />;
       default:
         return <HomeView />;
     }
@@ -164,7 +165,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-3.5rem)] md:hidden">
-      <div className="flex-1 pb-16">
+      <div className={cn("flex-1 pb-16", isTabContent && "p-4")}>
         {renderContent()}
       </div>
       <BottomNav 
