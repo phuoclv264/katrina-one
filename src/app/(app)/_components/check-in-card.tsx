@@ -5,7 +5,11 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
 import type { AssignedShift, AttendanceRecord } from '@/lib/types';
-import { Camera, CheckCircle, Loader2, Info, Clock, X, History, AlertTriangle } from 'lucide-react';
+import { Camera, CheckCircle, Loader2, Info, Clock, X, History, AlertTriangle, Coffee, LogOut, Play, Pause, ArrowRight, ArrowLeft, ChevronRight, User as UserIcon } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
+import { vi } from 'date-fns/locale';
 import { format, getISOWeek } from 'date-fns';
 import { dataStore } from '@/lib/data-store';
 import CameraDialog from '@/components/camera-dialog';
@@ -215,152 +219,158 @@ export default function CheckInCard() {
 
     const hasPendingLateRequest = attendanceRecords[0]?.status === 'pending_late';
 
-    const renderRequestLateButton = () => {
-        if (todaysShifts.length === 0) return null;
-        if (hasPendingLateRequest) {
-            return (
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm">
-                    <p className="text-blue-800 font-semibold text-base mb-2">Đã ghi nhận yêu cầu đi trễ:</p>
-                    <div className="space-y-2 text-left text-blue-900/80">
-                        <p><strong>Lý do:</strong> {attendanceRecords[0].lateReason}</p>
-                        <p><strong>Dự kiến trễ:</strong> {attendanceRecords[0].estimatedLateMinutes} phút</p>
-                        {attendanceRecords[0].lateReasonPhotoUrl && (
-                            <div className="flex items-start gap-2">
-                                <strong>Bằng chứng:</strong>
-                                <button onClick={() => openLightbox([{ src: attendanceRecords[0].lateReasonPhotoUrl! }])} className="relative h-16 w-16 rounded-md overflow-hidden cursor-pointer shrink-0">
-                                    <Image src={attendanceRecords[0].lateReasonPhotoUrl} alt="Ảnh bằng chứng đi trễ" layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                    <p className="text-center text-blue-800 font-semibold mt-3 pt-3 border-t border-blue-200">Vui lòng chấm công khi bạn đến nơi.</p>
-                </div>
-            )
-        } else {
-            return (
-                <Button onClick={handleOpenLateRequestDialog} disabled={isProcessing} variant="outline" className="w-full">
-                    {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Clock className="mr-2 h-4 w-4" />}
-                    Xin đi trễ
-                </Button>
-            );
+    // Calculate duration if checked in
+    const getDuration = () => {
+        if (latestInProgressRecord?.checkInTime) {
+            const start = (latestInProgressRecord.checkInTime as Timestamp).toDate();
+            const diff = currentTime.getTime() - start.getTime();
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            return `${hours}h ${minutes}m`;
         }
-    }
-
-    const renderStatus = () => {
-        if (latestInProgressRecord && latestInProgressRecord.status === 'completed') {
-            // This case is now handled by the logic in ShiftsPage to move the card down.
-            // We can show a generic "no active shift" message here.
-            return null;
-        }
-        if (latestInProgressRecord && latestInProgressRecord.checkInTime && latestInProgressRecord.status === 'in-progress') {
-            const checkInTime = (latestInProgressRecord.checkInTime as Timestamp).toDate();
-            return (
-                <div className="text-center">
-                    <p className="text-sm text-muted-foreground">Bạn đã chấm công vào lúc</p>
-                    <p className="text-4xl font-bold font-mono mb-4">{format(checkInTime, 'HH:mm')}</p>
-
-                    {latestInProgressRecord.onBreak ? (
-                        <p className="text-lg font-semibold text-blue-600">Đang trong giờ nghỉ...</p>
-                    ) : (
-                        <Button onClick={handleCheckInOrOut} disabled={isProcessing} className="w-full h-12 text-base">
-                            {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Camera className="mr-2 h-5 w-5" />}
-                            Chấm công ra
-                        </Button>
-                    )}
-
-                    {(user?.role === 'Quản lý') && (
-                        <Button onClick={handleToggleBreak} disabled={isProcessing} variant="outline" className="w-full mt-2">
-                            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (latestInProgressRecord.onBreak ? <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> : <Info className="mr-2 h-4 w-4 text-blue-500" />)}
-                            {latestInProgressRecord.onBreak ? 'Tiếp tục vào làm việc' : 'Tạm nghỉ'}
-                        </Button>
-                    )}
-                </div>
-            );
-        }
-
-        if (!latestInProgressRecord && !activeShift) {
-            return (
-                <div className="space-y-2">
-                    <Button onClick={handleCheckInOrOut} disabled={isProcessing} className="w-full h-12 text-base" variant="outline">
-                        {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Camera className="mr-2 h-5 w-5" />}
-                        Chấm công ngoài giờ làm việc
-                    </Button>
-
-                    {renderRequestLateButton()}
-                </div>
-            );
-        }
-
-        if (!activeShift) {
-            return null; // Don't show check-in button if there's no active shift
-        }
-
-        return (
-            <div className="space-y-2">
-                <Button onClick={() => handleCheckInOrOut()} disabled={isProcessing} className="w-full h-16 text-xl">
-                    {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Camera className="mr-2 h-5 w-5" />}
-                    Chấm công vào
-                </Button>
-                {renderRequestLateButton()}
-            </div>
-        );
+        return '--';
     };
 
-    const statusContent = renderStatus();
+    const isCheckedIn = !!latestInProgressRecord && latestInProgressRecord.status === 'in-progress';
+    const isOnBreak = latestInProgressRecord?.onBreak;
+    const mainButtonText = isCheckedIn ? 'Chấm công ra' : 'Chấm công vào';
 
     if (authLoading || isLoading) {
-        return null; // Still hide while initially loading auth state
+        return null; 
     }
-
-    const renderHistory = () => {
-        if (attendanceRecords.length === 0) return null;
-
-        return (
-            <div className="mt-6 border-t pt-4">
-                <h4 className="text-sm font-semibold text-muted-foreground mb-2">Lịch sử trong ngày</h4>
-                <ul className="space-y-2">
-                    {attendanceRecords.map(record => {
-                        const checkIn = record.checkInTime ? (record.checkInTime as Timestamp).toDate() : null;
-                        const checkOut = record.checkOutTime ? (record.checkOutTime as Timestamp).toDate() : null;
-                        const isOffShift = record.isOffShift;
-                        return checkIn && (
-                            <li key={record.id} className="text-sm flex justify-between items-center bg-muted/50 p-2 rounded-md">
-                                <span>Vào{isOffShift ? ' ngoài giờ' : ''}: <span className="font-mono font-medium">{format(checkIn, 'HH:mm')}</span></span>
-                                <span>Ra: <span className="font-mono font-medium">{checkOut ? format(checkOut, 'HH:mm') : '--:--'}</span></span>
-                            </li>
-                        );
-                    })}
-                </ul>
-            </div>
-        );
-    };
 
     return (
         <>
-            <Card className="mb-6 shadow-lg border-primary/20 bg-gradient-to-br from-card to-primary/5">
-                <CardHeader className="flex flex-row items-center gap-4 space-y-0 pb-4">
-                    {latestInProgressRecord && latestInProgressRecord.photoInUrl && (
-                        <button onClick={() => openLightbox([{ src: latestInProgressRecord.photoInUrl! }], 0)} className="relative h-16 w-16 rounded-full overflow-hidden shrink-0 cursor-pointer">
-                            <Image src={latestInProgressRecord.photoInUrl} alt="Avatar" layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
-                        </button>
-                    )}
-                    <div className="flex-1">
-                        <CardTitle className="text-xl">{user?.displayName}</CardTitle>
-                        {activeShift && <CardDescription>
-                            Ca làm việc: <span className="font-semibold">{activeShift ? `${activeShift.label} (${activeShift.timeSlot.start} - ${activeShift.timeSlot.end})` : 'Không có ca làm việc'}</span>
-                        </CardDescription>}
+            <Card className="overflow-hidden border-0 shadow-lg bg-gradient-to-br from-blue-600 to-indigo-700 text-white">
+                <div className="relative p-6 overflow-hidden">
+                    {/* Background decoration */}
+                    <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
+                    <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-40 h-40 bg-black/10 rounded-full blur-3xl"></div>
+
+                    <div className="relative z-10 space-y-6">
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <p className="text-blue-100 text-sm font-medium mb-1">
+                                    {format(currentTime, 'EEEE, d MMMM', { locale: vi })}
+                                </p>
+                                <h2 className="text-3xl font-bold tracking-tight">
+                                    {format(currentTime, 'HH:mm')}
+                                </h2>
+                            </div>
+                            <div className={cn(
+                                "px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-md border",
+                                isCheckedIn 
+                                    ? "bg-green-500/20 border-green-400/30 text-green-100" 
+                                    : "bg-white/20 border-white/30 text-white"
+                            )}>
+                                {isCheckedIn ? (isOnBreak ? 'Đang nghỉ' : 'Đang làm việc') : 'Chưa vào ca'}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/10">
+                                <p className="text-blue-100 text-xs mb-1">Thời gian làm</p>
+                                <p className="text-xl font-semibold">{getDuration()}</p>
+                            </div>
+                            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/10">
+                                <p className="text-blue-100 text-xs mb-1">Ca làm việc</p>
+                                <p className="text-xl font-semibold truncate">
+                                    {activeShift ? activeShift.label : 'Ngoài giờ'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <Button 
+                            size="xl" 
+                            variant={isCheckedIn ? "destructive" : "secondary"}
+                            className={cn(
+                                "w-full shadow-xl",
+                                !isCheckedIn && "bg-white text-blue-600 hover:bg-blue-50 border-0"
+                            )}
+                            onClick={handleCheckInOrOut}
+                            disabled={isProcessing}
+                        >
+                            {isProcessing ? (
+                                <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+                            ) : (
+                                <Camera className="mr-2 h-6 w-6" />
+                            )}
+                            {mainButtonText}
+                        </Button>
+
+                        {/* Secondary Actions */}
+                        <div className="space-y-3">
+                            {isCheckedIn && (user?.role === 'Quản lý') && (
+                                <Button 
+                                    variant="secondary" 
+                                    className="w-full h-12 bg-white/10 border-white/20 text-white hover:bg-white/20"
+                                    onClick={handleToggleBreak}
+                                    disabled={isProcessing}
+                                >
+                                    {isOnBreak ? <Play className="mr-2 h-4 w-4" /> : <Pause className="mr-2 h-4 w-4" />}
+                                    {isOnBreak ? 'Tiếp tục' : 'Nghỉ ngơi'}
+                                </Button>
+                            )}
+                            
+                            {!isCheckedIn && (
+                                <Button 
+                                    variant="ghost" 
+                                    className="w-full h-12 text-blue-100 hover:text-white hover:bg-white/10"
+                                    onClick={handleOpenLateRequestDialog}
+                                    disabled={isProcessing || hasPendingLateRequest}
+                                >
+                                    <Clock className="mr-2 h-4 w-4" />
+                                    {hasPendingLateRequest ? 'Đã xin trễ' : 'Xin đi trễ'}
+                                </Button>
+                            )}
+                        </div>
+
+                        {/* Recent History List */}
+                        {attendanceRecords.length > 0 && (
+                            <div className="space-y-3 pt-2 border-t border-white/10">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-sm font-semibold text-blue-100">Hoạt động gần đây</h3>
+                                    <Button variant="ghost" size="sm" className="h-8 text-xs text-blue-100 hover:text-white hover:bg-white/10" onClick={() => setIsHistoryOpen(true)}>
+                                        Xem tất cả <ChevronRight className="ml-1 h-3 w-3" />
+                                    </Button>
+                                </div>
+                                <div className="space-y-2">
+                                    {attendanceRecords.slice(0, 2).map((record) => (
+                                        <div key={record.id} className="flex items-center justify-between p-3 rounded-xl bg-white/10 border border-white/10 backdrop-blur-sm">
+                                            <div className="flex items-center gap-3">
+                                                <div className={cn(
+                                                    "h-8 w-8 rounded-full flex items-center justify-center",
+                                                    record.checkOutTime ? "bg-green-400/20 text-green-300" : "bg-blue-400/20 text-blue-200"
+                                                )}>
+                                                    {record.checkOutTime ? <CheckCircle className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-medium text-white">
+                                                        {record.checkOutTime ? 'Hoàn thành ca' : 'Đang làm việc'}
+                                                    </p>
+                                                    <p className="text-xs text-blue-100">
+                                                        {record.isOffShift ? 'Ca ngoài giờ' : 'Ca chính thức'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-sm font-mono font-medium text-white">
+                                                    {record.checkInTime ? format((record.checkInTime as Timestamp).toDate(), 'HH:mm') : '--:--'}
+                                                </p>
+                                                <p className="text-xs text-blue-100">
+                                                    {record.checkOutTime ? format((record.checkOutTime as Timestamp).toDate(), 'HH:mm') : '...'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
-                </CardHeader>
-                <CardContent>
-                    {statusContent}
-                    {renderHistory()}
-                </CardContent>
+                </div>
             </Card>
-            <div className="px-4 -mt-4">
-                <Button variant="secondary" className="w-full" onClick={() => setIsHistoryOpen(true)}>
-                    <History className="mr-2 h-4 w-4" /> Xem lịch sử làm việc
-                </Button>
-            </div>
+
+            {/* Dialogs */}
             <CameraDialog
                 isOpen={isCameraOpen}
                 onClose={() => setIsCameraOpen(false)}
@@ -369,94 +379,150 @@ export default function CheckInCard() {
                 singlePhotoMode={true}
                 isHD={true}
             />
-            <AlertDialog open={isOffShiftReasonDialogOpen} onOpenChange={setIsOffShiftReasonDialogOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Lý do chấm công ngoài giờ</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Vui lòng cung cấp lý do bạn cần chấm công khi không có trong ca làm việc đã được phân công. (VD: Tăng ca, làm thay,...)
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <Textarea
-                        value={offShiftReason}
-                        onChange={(e) => setOffShiftReason(e.target.value)}
-                        placeholder="Nhập lý do của bạn ở đây..."
-                    />
-                    <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={handleReasonSubmit}>Tiếp tục</AlertDialogAction></AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-            <AlertDialog open={isLateReasonDialogOpen} onOpenChange={setIsLateReasonDialogOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Lý do đi trễ</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Vui lòng cung cấp lý do bạn đi trễ. Thông tin này sẽ được gửi đến quản lý.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <div className="space-y-4 py-2">
+
+            <Dialog open={isLateReasonDialogOpen} onOpenChange={setIsLateReasonDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Xin đi trễ</DialogTitle>
+                        <DialogDescription>
+                            Vui lòng nhập lý do và thời gian dự kiến đến trễ.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
                         <div className="space-y-2">
-                            <Label htmlFor="late-minutes">Số phút đi trễ (dự kiến)</Label>
-                            <Input
-                                id="late-minutes"
-                                type="number"
-                                value={estimatedLateMinutes}
-                                onChange={(e) => setEstimatedLateMinutes(e.target.value)}
-                                placeholder="VD: 15"
+                            <Label>Lý do đi trễ</Label>
+                            <Input 
+                                placeholder="Ví dụ: Kẹt xe, hỏng xe..." 
+                                value={lateReason}
+                                onChange={(e) => setLateReason(e.target.value)}
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="late-reason">Lý do đi trễ</Label>
-                            <Textarea id="late-reason" value={lateReason} onChange={(e) => setLateReason(e.target.value)} placeholder="VD: Kẹt xe, có việc đột xuất..." />
+                            <Label>Số phút trễ dự kiến</Label>
+                            <Input 
+                                type="number" 
+                                min="1"
+                                value={estimatedLateMinutes}
+                                onChange={(e) => setEstimatedLateMinutes(e.target.value)}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Hình ảnh minh chứng (tùy chọn)</Label>
+                            {lateReasonPhotoId ? (
+                                <div className="flex items-center gap-2 text-green-600 text-sm bg-green-50 p-2 rounded">
+                                    <CheckCircle className="h-4 w-4" />
+                                    Đã chụp ảnh
+                                    <Button variant="ghost" size="sm" onClick={() => setLateReasonPhotoId(null)} className="ml-auto h-6 text-red-500 hover:text-red-600 hover:bg-red-50">Xóa</Button>
+                                </div>
+                            ) : (
+                                <Button variant="outline" onClick={() => {
+                                    setCameraAction('late-request');
+                                    setIsCameraOpen(true);
+                                }} className="w-full">
+                                    <Camera className="mr-2 h-4 w-4" />
+                                    Chụp ảnh
+                                </Button>
+                            )}
                         </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                        <Button variant="outline" className="flex-1" onClick={() => { setCameraAction('late-request'); setIsCameraOpen(true); }}>
-                            <Camera className="mr-2 h-4 w-4" />
-                            {lateReasonPhotoId ? 'Chụp lại ảnh' : 'Đính kèm ảnh'}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsLateReasonDialogOpen(false)}>Hủy</Button>
+                        <Button onClick={handleLateReasonSubmit} disabled={!lateReason || !estimatedLateMinutes || isProcessing}>
+                            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Gửi yêu cầu'}
                         </Button>
-                        {lateReasonPhotoUrl && (
-                            <div className="relative">
-                                <button onClick={() => openLightbox([{ src: lateReasonPhotoUrl! }])} className="block w-12 h-12 rounded-md overflow-hidden">
-                                    <Image src={lateReasonPhotoUrl} alt="Ảnh bằng chứng đi trễ" layout="fill" objectFit="cover" />
-                                </button>
-                                <Button
-                                    variant="destructive"
-                                    size="icon"
-                                    className="absolute -top-2 -right-2 h-5 w-5 rounded-full z-10"
-                                    onClick={() => {
-                                        if (lateReasonPhotoId) photoStore.deletePhoto(lateReasonPhotoId);
-                                        setLateReasonPhotoId(null);
-                                    }}
-                                >
-                                    <X className="h-3 w-3" />
-                                </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Lịch sử chấm công hôm nay</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 mt-4">
+                        {attendanceRecords.length === 0 ? (
+                            <p className="text-center text-muted-foreground py-8">Chưa có dữ liệu chấm công hôm nay.</p>
+                        ) : (
+                            <div className="space-y-3">
+                                {attendanceRecords.map((record) => (
+                                    <div key={record.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <Badge variant={record.isOffShift ? "secondary" : "default"}>
+                                                    {record.isOffShift ? 'Ngoài giờ' : 'Ca chính'}
+                                                </Badge>
+                                                {record.status === 'in-progress' && (
+                                                    <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
+                                                        Đang làm
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="text-right text-sm">
+                                            <div className="flex items-center justify-end gap-2 text-green-600">
+                                                <ArrowRight className="h-3 w-3" />
+                                                <span className="font-mono font-medium">
+                                                    {record.checkInTime ? format((record.checkInTime as Timestamp).toDate(), 'HH:mm') : '--:--'}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center justify-end gap-2 text-red-600 mt-1">
+                                                <ArrowLeft className="h-3 w-3" />
+                                                <span className="font-mono font-medium">
+                                                    {record.checkOutTime ? format((record.checkOutTime as Timestamp).toDate(), 'HH:mm') : '--:--'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         )}
                     </div>
-                    <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={handleLateReasonSubmit}>Gửi yêu cầu</AlertDialogAction></AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-            {user && (
-                <WorkHistoryDialog
-                    isOpen={isHistoryOpen}
-                    onClose={() => setIsHistoryOpen(false)}
-                    user={user}
-                />
-            )}
+                </DialogContent>
+            </Dialog>
+
             <AlertDialog open={showOldShiftAlert} onOpenChange={setShowOldShiftAlert}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle className="flex items-center gap-2">
-                            <AlertTriangle className="text-destructive" />
-                            Không thể chấm công ra
-                        </AlertDialogTitle>
+                        <AlertDialogTitle>Cảnh báo ca làm việc cũ</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Bạn không thể chấm công ra cho một ca làm việc đã bắt đầu từ ngày hôm trước. Vui lòng liên hệ chủ quán để được hỗ trợ.
+                            Bạn đang có một ca làm việc chưa kết thúc từ ngày hôm qua. 
+                            Bạn có muốn kết thúc ca làm việc đó ngay bây giờ không?
                         </AlertDialogDescription>
                     </AlertDialogHeader>
-                    <AlertDialogFooter><AlertDialogAction onClick={() => setShowOldShiftAlert(false)}>Đã hiểu</AlertDialogAction></AlertDialogFooter>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setShowOldShiftAlert(false)}>Hủy</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => {
+                            setShowOldShiftAlert(false);
+                            setCameraAction('check-in-out');
+                            setIsCameraOpen(true);
+                        }}>
+                            Kết thúc ca cũ
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            <Dialog open={isOffShiftReasonDialogOpen} onOpenChange={setIsOffShiftReasonDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Lý do chấm công ngoài giờ</DialogTitle>
+                        <DialogDescription>
+                            Bạn đang chấm công vào thời điểm không có ca được phân công. Vui lòng nhập lý do.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <Textarea
+                            placeholder="Ví dụ: Làm thay bạn A, Tăng ca đột xuất..."
+                            value={offShiftReason}
+                            onChange={(e) => setOffShiftReason(e.target.value)}
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsOffShiftReasonDialogOpen(false)}>Hủy</Button>
+                        <Button onClick={handleReasonSubmit}>Tiếp tục</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }

@@ -18,11 +18,19 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        // New variants inspired by staff dashboard samples
+        gradient:
+          "rounded-2xl text-lg font-bold bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-400 hover:to-rose-500 text-white shadow-lg shadow-red-500/30 active:scale-[0.98] active:shadow-none",
+        tile:
+          "flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-white dark:bg-card-dark text-sm shadow-sm border border-transparent hover:border-gray-100 dark:hover:border-gray-700 hover:shadow-md transition-all",
+        chip:
+          "rounded-xl px-3 py-2 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 border border-transparent hover:border-gray-200 dark:hover:border-gray-700",
       },
       size: {
         default: "h-10 px-4 py-2",
         sm: "h-9 rounded-md px-3",
         lg: "h-11 rounded-md px-8",
+        xl: "py-4 px-6 h-auto text-lg", // for large hero buttons
         icon: "h-10 w-10",
       },
     },

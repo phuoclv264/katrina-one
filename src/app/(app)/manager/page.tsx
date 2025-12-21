@@ -9,9 +9,9 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import CheckInCard from '../_components/check-in-card';
 import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
 import TodaysTasksCard from '../monthly-tasks/_components/task-reporting-card';
+import DashboardLayout from '@/components/dashboard-layout';
 import type { MonthlyTaskAssignment, ShiftTemplate } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { LoadingPage } from '@/components/loading/LoadingPage';
@@ -58,96 +58,80 @@ export default function ManagerDashboardPage() {
   const shiftsText = todaysShifts.map(s => `${s.label} (${s.timeSlot.start}-${s.timeSlot.end})`).join(', ');
 
   return (
-    <div className="container mx-auto flex min-h-full items-center justify-center p-4 sm:p-6 md:p-8">
-      <div className="w-full max-w-md space-y-6">
-        {showCheckInCardOnTop && <CheckInCard />}
+    <DashboardLayout
+      title={<span className="flex items-center gap-2"><UserCog /> Bảng điều khiển Quản lý</span>}
+      description={todaysShifts.length > 0 ? `Hôm nay bạn có ca: ${shiftsText}. Chọn chức năng để thực hiện.` : 'Bạn không có ca làm việc nào hôm nay.'}
+      top={isCheckedIn && todaysMonthlyAssignments.length > 0 ? <TodaysTasksCard assignments={todaysMonthlyAssignments} shiftTemplates={shiftTemplates} /> : undefined}
+    >
+      {isCheckedIn ? (
+        <Button size="lg" onClick={() => router.push('/manager/comprehensive-report')}>
+          <FileSearch className="mr-2" />
+          Phiếu kiểm tra toàn diện
+        </Button>
+      ) : (
+        <Alert variant="default" className="border-amber-500/30 bg-amber-500/10">
+          <Info className="h-4 w-4 text-amber-600" />
+          <AlertTitle className="text-amber-800 dark:text-amber-300">Chưa chấm công</AlertTitle>
+          <AlertDescription className="text-amber-700 dark:text-amber-400">
+            Vui lòng chấm công để truy cập các chức năng quản lý.
+          </AlertDescription>
+        </Alert>
+      )}
 
-        {isCheckedIn && todaysMonthlyAssignments.length > 0 && <TodaysTasksCard assignments={todaysMonthlyAssignments} shiftTemplates={shiftTemplates} />}
+      <Button size="lg" variant="outline" onClick={() => router.push('/reports')}>
+        <CheckSquare className="mr-2" />
+        Xem Báo cáo
+      </Button>
+      <Separator className="my-2" />
+      <Button size="lg" variant="outline" onClick={() => router.push('/schedule')}>
+        <CalendarDays className="mr-2" />
+        Lịch làm việc
+      </Button>
+      
+      <Button size="lg" variant="outline" onClick={() => router.push('/violations')}>
+        <ShieldX className="mr-2" />
+        Ghi nhận Vi phạm
+      </Button>
+      <Button size="lg" variant="outline" onClick={() => router.push('/reports-feed')}>
+        <MessageSquare className="mr-2" />
+        Tố cáo
+      </Button>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><UserCog /> Bảng điều khiển Quản lý</CardTitle>
-            <CardDescription>
-              {todaysShifts.length > 0
-                ? `Hôm nay bạn có ca: ${shiftsText}. Chọn chức năng để thực hiện.`
-                : "Bạn không có ca làm việc nào hôm nay."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            {isCheckedIn ? (
-              <Button size="lg" onClick={() => router.push('/manager/comprehensive-report')}>
-                <FileSearch className="mr-2" />
-                Phiếu kiểm tra toàn diện
-              </Button>
-            ) : (
-              <Alert variant="default" className="border-amber-500/30 bg-amber-500/10">
-                <Info className="h-4 w-4 text-amber-600" />
-                <AlertTitle className="text-amber-800 dark:text-amber-300">Chưa chấm công</AlertTitle>
-                <AlertDescription className="text-amber-700 dark:text-amber-400">
-                  Vui lòng chấm công để truy cập các chức năng quản lý.
-                </AlertDescription>
-              </Alert>
-            )}
+      {isCheckedIn && (hasServerSecondaryRole || hasBartenderSecondaryRole || hasCashierSecondaryRole) && <Separator className="my-2" />}
 
-            <Button size="lg" variant="outline" onClick={() => router.push('/reports')}>
-              <CheckSquare className="mr-2" />
-              Xem Báo cáo
-            </Button>
-            <Separator className="my-2" />
-            <Button size="lg" variant="outline" onClick={() => router.push('/schedule')}>
-              <CalendarDays className="mr-2" />
-              Lịch làm việc
-            </Button>
-            
-            <Button size="lg" variant="outline" onClick={() => router.push('/violations')}>
-              <ShieldX className="mr-2" />
-              Ghi nhận Vi phạm
-            </Button>
-            <Button size="lg" variant="outline" onClick={() => router.push('/reports-feed')}>
-              <MessageSquare className="mr-2" />
-              Tố cáo
-            </Button>
+      {isCheckedIn && hasServerSecondaryRole && (
+        <>
+          <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Phục vụ</p>
+          <Button size="lg" variant="outline" onClick={() => router.push('/shifts')}>
+            <CheckSquare className="mr-2" />
+            Checklist Công việc
+          </Button>
+        </>
+      )}
 
-              {isCheckedIn && (hasServerSecondaryRole || hasBartenderSecondaryRole || hasCashierSecondaryRole) && <Separator className="my-2" />}
-
-              {isCheckedIn && hasServerSecondaryRole && (
-                <>
-                  <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Phục vụ</p>
-                  <Button size="lg" variant="outline" onClick={() => router.push('/shifts')}>
-                    <CheckSquare className="mr-2" />
-                    Checklist Công việc
-                  </Button>
-                </>
-              )}
-
-              {isCheckedIn && hasBartenderSecondaryRole && (
-                  <>
-                  <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Pha chế</p>
-                  <Button size="lg" variant="outline" onClick={() => router.push('/bartender/hygiene-report')}>
-                      <ClipboardList className="mr-2" />
-                      Báo cáo Vệ sinh quầy
-                  </Button>
-                  <Button size="lg" variant="outline" onClick={() => router.push('/bartender/inventory')}>
-                      <Archive className="mr-2" />
-                      Kiểm kê Tồn kho
-                  </Button>
-                  </>
-              )}
-              
-              {isCheckedIn && hasCashierSecondaryRole && (
-                <>
-                  <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Thu ngân</p>
-                  <Button size="lg" variant="outline" onClick={() => router.push('/cashier')}>
-                    <Banknote className="mr-2" />
-                    Báo cáo Thu ngân
-                  </Button>
-                </>
-              )}
-
-          </CardContent>
-        </Card>
-        {!showCheckInCardOnTop && <CheckInCard />}
-      </div>
-    </div>
+      {isCheckedIn && hasBartenderSecondaryRole && (
+        <>
+          <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Pha chế</p>
+          <Button size="lg" variant="outline" onClick={() => router.push('/bartender/hygiene-report')}>
+            <ClipboardList className="mr-2" />
+            Báo cáo Vệ sinh quầy
+          </Button>
+          <Button size="lg" variant="outline" onClick={() => router.push('/bartender/inventory')}>
+            <Archive className="mr-2" />
+            Kiểm kê Tồn kho
+          </Button>
+        </>
+      )}
+      
+      {isCheckedIn && hasCashierSecondaryRole && (
+        <>
+          <p className="text-sm font-medium text-muted-foreground text-center">Vai trò phụ: Thu ngân</p>
+          <Button size="lg" variant="outline" onClick={() => router.push('/cashier')}>
+            <Banknote className="mr-2" />
+            Báo cáo Thu ngân
+          </Button>
+        </>
+      )}
+    </DashboardLayout>
   );
 }

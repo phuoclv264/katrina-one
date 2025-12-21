@@ -17,6 +17,11 @@ export default {
       },
     },
     extend: {
+      boxShadow: {
+        // Custom shadows inspired by sample designs
+        soft: '0 8px 30px rgba(2,6,23,0.06), 0 2px 8px rgba(2,6,23,0.04)',
+        glow: '0 0 20px rgba(16,185,129,0.12)',
+      },
       fontFamily: {
         body: ['Montserrat', 'sans-serif'],
         headline: ['Montserrat', 'sans-serif'],
