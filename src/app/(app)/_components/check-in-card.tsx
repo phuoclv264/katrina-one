@@ -374,7 +374,7 @@ export default function CheckInCard() {
                                 </Button>
                             )}
                             
-                            {!isCheckedIn && (
+                            {!isCheckedIn && todaysShifts.length > 0 && (
                                 <Button 
                                     variant="ghost" 
                                     className="w-full h-12 rounded-xl text-zinc-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
