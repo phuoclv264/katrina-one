@@ -179,10 +179,14 @@ export default function AttendancePageComponent() {
                     const bestMatch = findNearestAttendanceRecord(recordsForUser, shiftStartTime);
 
                     const attendanceData = bestMatch ? {
+                        id: bestMatch.id,
                         status: bestMatch.status,
                         checkInTime: (bestMatch.checkInTime as Timestamp)?.toDate(),
                         checkOutTime: (bestMatch.checkOutTime as Timestamp)?.toDate(),
-                    } : {};
+                        salary: bestMatch.salary,
+                    } : {
+                        id: `scheduled-${shift.id}-${user.uid}`
+                    };
                     
                     group.staff.push({ user, ...attendanceData });
 
@@ -202,7 +206,14 @@ export default function AttendancePageComponent() {
             offShiftRecords.forEach(record => {
                 const user = allUsers.find(u => u.uid === record.userId);
                 if (user) {
-                    offShiftGroup.staff.push({ user, status: record.status, checkInTime: (record.checkInTime as Timestamp)?.toDate(), checkOutTime: (record.checkOutTime as Timestamp)?.toDate() });
+                    offShiftGroup.staff.push({ 
+                        user, 
+                        id: record.id,
+                        status: record.status, 
+                        checkInTime: (record.checkInTime as Timestamp)?.toDate(), 
+                        checkOutTime: (record.checkOutTime as Timestamp)?.toDate(),
+                        salary: record.salary
+                    });
                 }
             });
         }
@@ -402,11 +413,11 @@ export default function AttendancePageComponent() {
                                     </div>
                                     <div className="mt-4 space-y-2">
                                         {todaysSummary.staffByShift.sort((a,b) => a.timeSlot.localeCompare(b.timeSlot)).map(({ shiftLabel, timeSlot, staff }) => (
-                                            <div key={shiftLabel} className="p-2 rounded-md border bg-muted/30">
+                                            <div key={`${shiftLabel}-${timeSlot}`} className="p-2 rounded-md border bg-muted/30">
                                                 <p className="font-semibold text-sm">{shiftLabel} <span className="text-xs text-muted-foreground font-normal">{timeSlot}</span></p>
                                                 <div className="mt-1 space-y-1 pl-2">
-                                                    {staff.sort((a,b) => (roleOrder[a.user.role as UserRole] || 99) - (roleOrder[b.user.role as UserRole] || 99)).map(({ user, salary, status, checkInTime, checkOutTime }) => (
-                                                        <div key={user.uid} className="flex justify-between items-center text-sm gap-2">
+                                                    {staff.sort((a,b) => (roleOrder[a.user.role as UserRole] || 99) - (roleOrder[b.user.role as UserRole] || 99)).map(({ user, id, salary, status, checkInTime, checkOutTime }) => (
+                                                        <div key={id} className="flex justify-between items-center text-sm gap-2">
                                                     <div className="flex items-center gap-1.5 min-w-0">
                                                                 <span className={cn("h-2 w-2 rounded-full", status === 'in-progress' ? 'bg-green-500 animate-pulse' : (status ? 'bg-gray-400' : 'bg-red-500'))} title={status ? (status === 'in-progress' ? 'Đang làm việc' : 'Đã làm') : 'Vắng mặt'}></span>
                                                                 <p className="truncate">{isMobile ? generateShortName(user.displayName) : user.displayName} <span className="text-xs text-muted-foreground">({user.role})</span></p>
