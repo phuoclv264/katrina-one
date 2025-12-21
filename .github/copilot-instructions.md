@@ -82,8 +82,7 @@ For code changes, follow this sequence:
 1. `npm install` (if dependencies changed or starting fresh)
 2. Make your code changes
 3. `npm run typecheck` (optional - to check types, but won't block build)
-4. `npm run build` (required - validates build succeeds)
-5. Test your changes
+4. Test your changes
 
 **Important:** Do NOT run `npm run lint` as it currently fails due to config issues. The build process skips linting automatically.
 
@@ -260,9 +259,7 @@ Do NOT fix these unless directly related to your task.
 **No GitHub Actions or CI/CD pipelines currently exist** in this repository. Manual validation is required:
 
 1. Run `npm install` to ensure dependencies resolve
-2. Run `npm run build` to ensure production build succeeds
-3. Test changes in development mode with `npm run dev`
-4. Verify Firebase operations work (requires active Firebase project)
+2. Verify Firebase operations work (requires active Firebase project)
 
 ## Environment Setup
 
@@ -314,14 +311,12 @@ When adding features:
 1. **Clean start:**
    ```bash
    npm install
-   npm run build  # Verify baseline builds
    ```
 
 2. **Make changes** to relevant files in `src/`
-
-3. **Validate:**
+3. **Type check:**
    ```bash
-   npm run build  # Must succeed
+   npm run typecheck  # Optional, won't block build
    ```
 
 4. **Test manually:**

@@ -9,15 +9,15 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 hover:shadow-md",
+        default: "bg-pastel-blue text-zinc-900 shadow-sm hover:bg-pastel-blue/80 hover:shadow-md",
         destructive:
           "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90 hover:shadow-md",
         outline:
-          "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground hover:border-accent",
+          "border border-pastel-purple/50 bg-background shadow-sm hover:bg-pastel-purple/10 hover:text-zinc-900",
         secondary:
-          "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+          "bg-pastel-mint text-zinc-900 shadow-sm hover:bg-pastel-mint/80 hover:shadow-md",
+        ghost: "hover:bg-pastel-pink/20 text-zinc-900",
+        link: "text-pastel-blue font-semibold underline-offset-4 hover:underline",
         // New variants inspired by staff dashboard samples
         gradient:
           "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-600/20 hover:from-blue-500 hover:to-indigo-500 hover:shadow-blue-600/40",

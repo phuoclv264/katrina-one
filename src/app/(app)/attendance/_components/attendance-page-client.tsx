@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { ArrowLeft, UserCheck, RefreshCw, Loader2, DollarSign, LayoutGrid, GanttChartSquare, X, Calendar as CalendarIcon, Calculator } from 'lucide-react';
 import { dataStore } from '@/lib/data-store';
 import type { AttendanceRecord, ManagedUser, Schedule, ShiftTemplate, UserRole } from '@/lib/types';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, isSameMonth, startOfToday, endOfToday, getISOWeek, getYear, getDay, parse, differenceInMinutes } from 'date-fns';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, isSameMonth, startOfToday, endOfToday, getISOWeek, getISOWeekYear, getYear, getDay, parse, differenceInMinutes } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { findNearestAttendanceRecord } from '@/lib/attendance-utils';
@@ -137,7 +137,7 @@ export default function AttendancePageComponent() {
         const todayStart = startOfToday();
         const todayEnd = endOfToday();
         const todayDateString = format(today, 'yyyy-MM-dd');
-        const weekId = `${getYear(today)}-W${getISOWeek(today)}`;
+        const weekId = `${getISOWeekYear(today)}-W${getISOWeek(today)}`;
         const todaysSchedule = schedules[weekId];
 
         const todaysRecords = attendanceRecords.filter(record => {

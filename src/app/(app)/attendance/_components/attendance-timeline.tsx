@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { format, startOfDay, addMinutes, differenceInMinutes, getISOWeek, getYear } from 'date-fns';
+import { format, startOfDay, addMinutes, differenceInMinutes, getISOWeek, getISOWeekYear, getYear } from 'date-fns';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { AttendanceRecord, ManagedUser, Schedule, AssignedShift } from '@/lib/types';
@@ -321,7 +321,7 @@ export default function AttendanceTimeline({
                 <div className="w-full">
                     {sortedDays.map((day) => {
                         const dayDate = new Date(day);
-                        const weekId = `${getYear(dayDate)}-W${getISOWeek(dayDate)}`;
+                        const weekId = `${getISOWeekYear(dayDate)}-W${getISOWeek(dayDate)}`;
                         const scheduleForDay = schedules[weekId];
                         const shiftsForDay = scheduleForDay?.shifts.filter((s) => s.date === day) || [];
 

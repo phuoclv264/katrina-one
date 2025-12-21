@@ -61,6 +61,13 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        pastel: {
+          pink: "hsl(var(--pastel-pink))",
+          yellow: "hsl(var(--pastel-yellow))",
+          mint: "hsl(var(--pastel-mint))",
+          blue: "hsl(var(--pastel-blue))",
+          purple: "hsl(var(--pastel-purple))",
+        },
         chart: {
           '1': 'hsl(var(--chart-1))',
           '2': 'hsl(var(--chart-2))',

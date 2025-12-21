@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import {
     getISOWeek,
+    getISOWeekYear,
     startOfWeek,
     endOfWeek,
     addDays,
@@ -201,7 +202,7 @@ export default function ScheduleView() {
     );
 
 
-    const weekId = useMemo(() => `${currentDate.getFullYear()}-W${getISOWeek(currentDate)}`, [currentDate]);
+    const weekId = useMemo(() => `${getISOWeekYear(currentDate)}-W${getISOWeek(currentDate)}`, [currentDate]);
 
     const canManage = useMemo(() => user?.role === 'Chủ nhà hàng', [user]);
     

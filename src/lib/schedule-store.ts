@@ -28,7 +28,7 @@ import {
     arrayUnion,
 } from 'firebase/firestore';
 import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, AuthUser, PassRequestPayload, TimeSlot, MonthlyTask, MonthlyTaskAssignment, MediaAttachment, MediaItem, TaskCompletionRecord, SimpleUser } from './types';
-import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, getDay, parseISO, isPast, isWithinInterval, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, getDate, getWeekOfMonth, addMonths } from 'date-fns';
+import { getISOWeek, getISOWeekYear, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, getDay, parseISO, isPast, isWithinInterval, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, getDate, getWeekOfMonth, addMonths } from 'date-fns';
 import { hasTimeConflict } from './schedule-utils';
 import { DateRange } from 'react-day-picker';
 import { uploadMedia, deleteFileByUrl } from './data-store-helpers';
@@ -47,7 +47,22 @@ export async function getSchedule(weekId: string): Promise<Schedule | null> {
 // --- Availability Functions ---
 
 export function subscribeToAvailabilityForWeek(weekId: string, callback: (availability: Availability[]) => void): () => void {
-    const weekStart = startOfWeek(parseISO(`${weekId}-1`), { weekStartsOn: 1 });
+    const parts = weekId.split('-W');
+    if (parts.length !== 2) {
+        callback([]);
+        return () => { };
+    }
+    const year = parseInt(parts[0]);
+    const week = parseInt(parts[1]);
+
+    if (isNaN(year) || isNaN(week)) {
+        callback([]);
+        return () => { };
+    }
+
+    // Jan 4th is always in ISO week 1
+    const jan4 = new Date(year, 0, 4);
+    const weekStart = addDays(startOfWeek(jan4, { weekStartsOn: 1 }), (week - 1) * 7);
     const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
 
     const q = query(
@@ -160,7 +175,7 @@ export async function getSchedulesForMonth(date: Date): Promise<Schedule[]> {
         end: monthEnd,
     }, { weekStartsOn: 1 });
 
-    const weekIds = weeks.map(weekStart => `${getYear(weekStart)}-W${getISOWeek(weekStart)}`);
+    const weekIds = weeks.map(weekStart => `${getISOWeekYear(weekStart)}-W${getISOWeek(weekStart)}`);
 
     const schedulePromises = weekIds.map(weekId => getDoc(doc(db, 'schedules', weekId)));
     const scheduleDocs = await Promise.all(schedulePromises);
@@ -179,7 +194,7 @@ export function subscribeToSchedulesForMonth(date: Date, callback: (schedules: S
         end: monthEnd,
     }, { weekStartsOn: 1 });
 
-    const weekIds = weeks.map(weekStart => `${getYear(weekStart)}-W${getISOWeek(weekStart)}`);
+    const weekIds = weeks.map(weekStart => `${getISOWeekYear(weekStart)}-W${getISOWeek(weekStart)}`);
 
     if (weekIds.length === 0) {
         callback([]);
@@ -211,7 +226,7 @@ export async function getSchedulesForDateRange(
         end: toDate,
     }, { weekStartsOn: 1 });
 
-    const weekIds = weeks.map(weekStart => `${getYear(weekStart)}-W${getISOWeek(weekStart)}`);
+    const weekIds = weeks.map(weekStart => `${getISOWeekYear(weekStart)}-W${getISOWeek(weekStart)}`);
 
     if (weekIds.length === 0) return [];
 
@@ -240,7 +255,7 @@ export function subscribeToSchedulesForDateRange(
         end: toDate,
     }, { weekStartsOn: 1 });
 
-    const weekIds = weeks.map(weekStart => `${getYear(weekStart)}-W${getISOWeek(weekStart)}`);
+    const weekIds = weeks.map(weekStart => `${getISOWeekYear(weekStart)}-W${getISOWeek(weekStart)}`);
 
     if (weekIds.length === 0) {
         callback([]);
@@ -327,7 +342,7 @@ export async function updateSchedule(weekId: string, data: Partial<Schedule>): P
 
 export async function createDraftScheduleForNextWeek(currentDate: Date, shiftTemplates: ShiftTemplate[]): Promise<void> {
     const nextWeekDate = addDays(currentDate, 7);
-    const nextWeekId = `${nextWeekDate.getFullYear()}-W${getISOWeek(nextWeekDate)}`;
+    const nextWeekId = `${getISOWeekYear(nextWeekDate)}-W${getISOWeek(nextWeekDate)}`;
 
     const scheduleRef = doc(db, 'schedules', nextWeekId);
     const scheduleSnap = await getDoc(scheduleRef);
@@ -487,7 +502,7 @@ export async function updateStructuredConstraints(constraints: ScheduleCondition
 
 export async function requestPassShift(shiftToPass: AssignedShift, requestingUser: { uid: string, displayName: string }): Promise<Notification | null> {
     // Server-side check: Fetch the latest schedule to verify the user is still in the shift
-    const weekId = `${new Date(shiftToPass.date).getFullYear()}-W${getISOWeek(new Date(shiftToPass.date))}`;
+    const weekId = `${getISOWeekYear(new Date(shiftToPass.date))}-W${getISOWeek(new Date(shiftToPass.date))}`;
     const scheduleDoc = await getDoc(doc(db, 'schedules', weekId));
     if (scheduleDoc.exists()) {
         const schedule = scheduleDoc.data() as Schedule;
@@ -540,7 +555,7 @@ export async function requestPassShift(shiftToPass: AssignedShift, requestingUse
 
 export async function requestDirectPassShift(shiftToPass: AssignedShift, requestingUser: AuthUser, targetUser: ManagedUser, isSwap: boolean, targetUserShift: AssignedShift | null): Promise<Notification | null> {
     // Server-side check
-    const weekId = `${new Date(shiftToPass.date).getFullYear()}-W${getISOWeek(new Date(shiftToPass.date))}`;
+    const weekId = `${getISOWeekYear(new Date(shiftToPass.date))}-W${getISOWeek(new Date(shiftToPass.date))}`;
     const scheduleDoc = await getDoc(doc(db, 'schedules', weekId));
     if (!scheduleDoc.exists()) {
         throw new Error("Không tìm thấy lịch làm việc cho tuần này.");
@@ -1068,7 +1083,7 @@ export function subscribeToMonthlyTasksForDate(
     callback: (assignments: MonthlyTaskAssignment[]) => void
 ): () => void {
     const dateKey = format(date, 'yyyy-MM-dd');
-    const weekId = `${getYear(date)}-W${getISOWeek(date)}`;
+    const weekId = `${getISOWeekYear(date)}-W${getISOWeek(date)}`;
 
     let allDefinedTasks: MonthlyTask[] = [];
     let allUsers: ManagedUser[] = [];

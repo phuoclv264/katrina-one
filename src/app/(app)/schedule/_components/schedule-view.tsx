@@ -6,7 +6,7 @@ import { dataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { toast } from '@/components/ui/pro-toast';
-import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, isBefore, isSameWeek, getDay, startOfToday, parseISO, isWithinInterval } from 'date-fns';
+import { getISOWeek, getISOWeekYear, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, isBefore, isSameWeek, getDay, startOfToday, parseISO, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, UserCheck, Clock, ShieldCheck, Info, CheckCircle, X, MoreVertical, MessageSquareWarning, Send, ArrowRight, ChevronsDownUp, MailQuestion, Save, Settings, FileSignature, Loader2, Users } from 'lucide-react';
 import type { Schedule, Availability, TimeSlot, AssignedShift, Notification, UserRole, ShiftTemplate, AuthUser, ManagedUser, AssignedUser } from '@/lib/types';
@@ -58,7 +58,7 @@ export default function ScheduleView() {
     const [isLoading, setIsLoading] = useState(true);
     const [processingNotificationId, setProcessingNotificationId] = useState<string | null>(null);
 
-    const weekId = useMemo(() => `${currentDate.getFullYear()}-W${getISOWeek(currentDate)}`, [currentDate]);
+    const weekId = useMemo(() => `${getISOWeekYear(currentDate)}-W${getISOWeek(currentDate)}`, [currentDate]);
 
     const [isAvailabilityDialogOpen, setIsAvailabilityDialogOpen] = useState(false);
     const [isPassRequestsDialogOpen, setIsPassRequestsDialogOpen] = useState(false);

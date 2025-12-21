@@ -25,6 +25,7 @@ import {
   startOfDay,
   endOfDay,
   getISOWeek,
+  getISOWeekYear,
   getYear,
   isAfter,
   parse,
@@ -78,7 +79,7 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     if (!user) return;
     const today = new Date();
-    const weekId = `${getYear(new Date())}-W${getISOWeek(new Date())}`;
+    const weekId = `${getISOWeekYear(new Date())}-W${getISOWeek(new Date())}`;
 
     // Choose subscriptions depending on dateFilter. 'today' and 'yesterday' use single-day subscriptions
     // while 'week' uses range queries where available.

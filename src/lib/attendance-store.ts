@@ -22,7 +22,7 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { ref } from 'firebase/storage';
 import type { AssignedShift, AttendanceRecord, AuthUser, Schedule } from './types';
-import { getISOWeek, startOfMonth, endOfMonth, format, startOfToday, endOfToday, differenceInMinutes, parse } from 'date-fns';
+import { getISOWeek, getISOWeekYear, startOfMonth, endOfMonth, format, startOfToday, endOfToday, differenceInMinutes, parse } from 'date-fns';
 import * as violationsService from './violations-service';
 import { getActiveShifts } from './schedule-utils';
 import { photoStore } from './photo-store';
@@ -34,7 +34,7 @@ import { withCoalescedInvoke } from 'next/dist/lib/coalesced-function';
 import { DateRange } from 'react-day-picker';
 export async function getActiveShiftForUser(userId: string): Promise<AssignedShift | null> {
     const today = new Date();
-    const weekId = `${today.getFullYear()}-W${getISOWeek(today)}`;
+    const weekId = `${getISOWeekYear(today)}-W${getISOWeek(today)}`;
     const schedule = await getSchedule(weekId);
     if (!schedule || schedule.status !== 'published') {
         return null;
