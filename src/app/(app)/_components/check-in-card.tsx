@@ -331,7 +331,7 @@ export default function CheckInCard() {
                                     "text-xl font-bold truncate",
                                     isCheckedIn ? "text-white" : "text-zinc-900 dark:text-white"
                                 )}>
-                                    {activeShift ? activeShift.label : 'Ngoài giờ'}
+                                    {activeShift ? `${activeShift.label} (${activeShift.assignedUsers.find(u => u.userId === user?.uid)?.assignedRole || 'N/A'})` : 'Ngoài giờ'}
                                 </p>
                             </div>
                         </div>
