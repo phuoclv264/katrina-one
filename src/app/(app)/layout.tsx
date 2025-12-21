@@ -42,7 +42,7 @@ export default function AppLayout({
           </div>
 
           {/* Mobile View: Single Page App Feel */}
-          <MobileLayout />
+          <MobileLayout>{children}</MobileLayout>
           
         </SidebarInset>
       </SidebarProvider>

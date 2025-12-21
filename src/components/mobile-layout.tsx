@@ -25,6 +25,8 @@ import ChecklistView from '@/app/(app)/checklist/[shift]/_components/checklist-v
 import HygieneReportView from '@/app/(app)/bartender/hygiene-report/_components/hygiene-report-view';
 import ManagerReportView from '@/app/(app)/manager/comprehensive-report/_components/manager-report-view';
 import { format } from 'date-fns';
+import { useRouter } from 'nextjs-toploader/app';
+import { getHomePathForRole } from '@/lib/navigation';
 
 // Placeholder components
 const HomeView = () => <div className="p-4">Home View Content</div>;
@@ -44,22 +46,36 @@ function getCurrentShift(): string {
   return 'sang'; // Default or closed
 }
 
-export function MobileLayout() {
+const HOME_PATHS = ['/shifts', '/bartender', '/manager', '/admin', '/cashier'];
+
+export function MobileLayout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const { setOpenMobile } = useSidebar();
   const pathname = usePathname();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState('home');
+  const [isTabContent, setIsTabContent] = useState(true);
 
   // Initialize active tab based on pathname
   useEffect(() => {
-    if (pathname.includes('/schedule')) setActiveTab('schedule');
-    else if (pathname.includes('/checklist')) setActiveTab('checklist');
-    else if (pathname.includes('/hygiene-report')) setActiveTab('hygiene');
-    else if (pathname.includes('/comprehensive-report')) setActiveTab('reports');
-    else if (pathname.includes('/shift-scheduling')) setActiveTab('shift-scheduling');
-    else if (pathname.includes('/reports/cashier')) setActiveTab('cashier-reports');
-    else setActiveTab('home');
-  }, []); // Run only once on mount
+    if (pathname.includes('/schedule')) { setActiveTab('schedule'); setIsTabContent(true); }
+    else if (pathname.includes('/checklist')) { setActiveTab('checklist'); setIsTabContent(true); }
+    else if (pathname.includes('/hygiene-report')) { setActiveTab('hygiene'); setIsTabContent(true); }
+    else if (pathname.includes('/comprehensive-report')) { setActiveTab('reports'); setIsTabContent(true); }
+    else if (pathname.includes('/shift-scheduling')) { setActiveTab('shift-scheduling'); setIsTabContent(true); }
+    else if (pathname.includes('/reports/cashier')) { setActiveTab('cashier-reports'); setIsTabContent(true); }
+    else if (HOME_PATHS.some(path => pathname === path || pathname === '/')) { 
+        setIsTabContent(true); 
+        // Only reset to home if we are in an "unknown" state or explicitly navigating to root
+        // We preserve the activeTab if it's already set to a valid tab (e.g. via handleTabChange)
+        if (activeTab === '') {
+            setActiveTab('home');
+        }
+    } else {
+        setIsTabContent(false);
+        setActiveTab('');
+    }
+  }, [pathname]);
 
   if (!user) return null;
 
@@ -107,10 +123,20 @@ export function MobileLayout() {
       setOpenMobile(true);
     } else {
       setActiveTab(tabId);
+      
+      // If we are currently on a non-home path (e.g. /profile), navigate back to home
+      // This ensures the "SPA" feel is restored on the main dashboard route
+      const isHomePath = HOME_PATHS.some(path => pathname === path || pathname === '/');
+      if (!isHomePath) {
+          const homePath = getHomePathForRole(user.role);
+          router.push(homePath);
+      }
     }
   };
 
   const renderContent = () => {
+    if (!isTabContent) return children;
+
     switch (activeTab) {
       case 'home':
         if (user.role === 'Phục vụ') return <ServerHomeView />;
