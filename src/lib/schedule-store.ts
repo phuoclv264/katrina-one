@@ -679,7 +679,7 @@ export async function revertPassRequest(notification: Notification, resolver: Au
     });
 }
 
-export async function acceptPassShift(notificationId: string, payload: PassRequestPayload, acceptingUser: ManagedUser | undefined, schedule: Schedule): Promise<void> {
+export async function acceptPassShift(notificationId: string, payload: PassRequestPayload, acceptingUser: SimpleUser, allUsers: ManagedUser[], schedule: Schedule): Promise<void> {
     if (!acceptingUser) {
         throw new Error("Người dùng chấp nhận không hợp lệ.");
     }
@@ -698,16 +698,21 @@ export async function acceptPassShift(notificationId: string, payload: PassReque
 
     // check shift assigned role to see if accepting user can take the shift
     const targetAssignedRole = shift.assignedUsers.find(u => u.userId === payload.requestingUser.userId)?.assignedRole;
+    const acceptingUserDetails = allUsers.find(u => u.uid === acceptingUser.userId);
 
-    if (targetAssignedRole && acceptingUser.role !== targetAssignedRole && acceptingUser.secondaryRoles?.indexOf(targetAssignedRole) === -1) {
-        throw new Error(`Bạn không thể nhận ca này vì ca yêu cầu được phân công cho vai trò "${targetAssignedRole}", trong khi vai trò của bạn là "${acceptingUser.role}".`);
+    if (!acceptingUserDetails) {
+        throw new Error("Không tìm thấy thông tin người dùng chấp nhận ca.");
+    }
+
+    if (targetAssignedRole && acceptingUserDetails && acceptingUserDetails.role !== targetAssignedRole && acceptingUserDetails.secondaryRoles?.indexOf(targetAssignedRole) === -1) {
+        throw new Error(`Bạn không thể nhận ca này vì ca yêu cầu được phân công cho vai trò "${targetAssignedRole}", trong khi vai trò của bạn là "${acceptingUserDetails.role}".`);
     }
 
     if (!payload.isSwapRequest) {
         const allShiftsOnDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
         const shiftToTake: AssignedShift = { ...schedule.shifts.find(s => s.id === payload.shiftId)!, assignedUsers: [] };
 
-        const conflict = hasTimeConflict(acceptingUser.uid, shiftToTake, allShiftsOnDay);
+        const conflict = hasTimeConflict(acceptingUserDetails.uid, shiftToTake, allShiftsOnDay);
         if (conflict) {
             throw new Error(`Ca này bị trùng giờ với ca "${conflict.label}" (${conflict.timeSlot.start} - ${conflict.timeSlot.end}) mà bạn đã được phân công.`);
         }

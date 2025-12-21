@@ -45,7 +45,7 @@ import {
 } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser } from '@/lib/types';
+import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, SimpleUser } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { toast } from '@/components/ui/pro-toast';
 import ShiftAssignmentDialog from './shift-assignment-popover'; // Renaming this import for clarity, but it's the right file
@@ -560,9 +560,9 @@ export default function ScheduleView() {
         setProcessingNotificationId(notification.id);
         
         try {
-            const acceptingUser = allUsers.find(u => u.uid === user.uid);
+            const acceptingUser: SimpleUser = { userId: user.uid, userName: user.displayName || 'N/A' };
             
-            await dataStore.acceptPassShift(notification.id, notification.payload, acceptingUser, localSchedule);
+            await dataStore.acceptPassShift(notification.id, notification.payload, acceptingUser, allUsers, localSchedule);
 
             // Optimistic update UI
             setNotifications(prevNotifs => prevNotifs.map(n => {

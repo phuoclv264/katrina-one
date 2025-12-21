@@ -9,7 +9,7 @@ import { toast } from '@/components/ui/pro-toast';
 import { getISOWeek, getISOWeekYear, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, isBefore, isSameWeek, getDay, startOfToday, parseISO, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, UserCheck, Clock, ShieldCheck, Info, CheckCircle, X, MoreVertical, MessageSquareWarning, Send, ArrowRight, ChevronsDownUp, MailQuestion, Save, Settings, FileSignature, Loader2, Users } from 'lucide-react';
-import type { Schedule, Availability, TimeSlot, AssignedShift, Notification, UserRole, ShiftTemplate, AuthUser, ManagedUser, AssignedUser } from '@/lib/types';
+import type { Schedule, Availability, TimeSlot, AssignedShift, Notification, UserRole, ShiftTemplate, AuthUser, ManagedUser, AssignedUser, SimpleUser } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import AvailabilityDialog from './availability-dialog';
 import PassRequestsDialog from './pass-requests-dialog';
@@ -259,9 +259,9 @@ export default function ScheduleView() {
         setProcessingNotificationId(notification.id);
 
         try {
-            const acceptingUser = allUsers.find(u => u.uid === user.uid);
-
-            await dataStore.acceptPassShift(notification.id, notification.payload, acceptingUser, schedule);
+            const acceptingUser: SimpleUser = { userId: user.uid, userName: user.displayName || 'N/A' };
+            
+            await dataStore.acceptPassShift(notification.id, notification.payload, acceptingUser, allUsers, schedule);
 
             // Optimistic update UI
             setNotifications(prevNotifs => prevNotifs.map(n => {
