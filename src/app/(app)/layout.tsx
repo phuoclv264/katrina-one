@@ -11,6 +11,7 @@ import { PanelLeft } from 'lucide-react';
 import { LightboxProvider } from '@/contexts/lightbox-context';
 import { BackButtonHandler } from '@/components/back-button-handler';
 import { Skeleton } from '@/components/ui/skeleton';
+import { MobileLayout } from '@/components/mobile-layout';
 
 export default function AppLayout({
   children,
@@ -24,22 +25,25 @@ export default function AppLayout({
           <AppSidebar />
         </Sidebar>
         <BackButtonHandler />
-        <SidebarInset>
+        <SidebarInset className="pb-0">
           <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:px-6">
             <div>
-              <SidebarTrigger>
-                <Button variant="outline" size="icon" className="shrink-0 md:hidden">
-                  <PanelLeft />
-                  <span className="sr-only">Toggle navigation menu</span>
-                </Button>
-              </SidebarTrigger>
+              <SidebarTrigger className="hidden" />
             </div>
             <Suspense fallback={<Skeleton className="h-6 w-32" />}>
               <MobileHeader />
             </Suspense>
           </header>
           <NextTopLoader speed={1000} />
-          {children}
+          
+          {/* Desktop View: Standard Routing */}
+          <div className="hidden md:block">
+            {children}
+          </div>
+
+          {/* Mobile View: Single Page App Feel */}
+          <MobileLayout />
+          
         </SidebarInset>
       </SidebarProvider>
     </LightboxProvider>
