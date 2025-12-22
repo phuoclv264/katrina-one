@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { getDay } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
@@ -443,7 +443,9 @@ function EditTaskForm({
 }
 
 
-export default function MonthlyTasksPage() {
+// MIGRATED: Added Suspense boundary for Cache Components
+// This component uses new Date() in multiple places which needs to be deferred during prerendering
+function MonthlyTasksPageContent() {
     const { user, loading: authLoading } = useAuth();
     const router = useRouter();
     const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -710,5 +712,12 @@ export default function MonthlyTasksPage() {
             </Card>
         </div>
         </>
+    );
+}
+export default function MonthlyTasksPage() {
+    return (
+        <Suspense fallback={<LoadingPage />}>
+            <MonthlyTasksPageContent />
+        </Suspense>
     );
 }
