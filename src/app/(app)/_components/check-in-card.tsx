@@ -25,7 +25,6 @@ import { isToday } from 'date-fns';
 import WorkHistoryDialog from './work-history-dialog';
 
 export default function CheckInCard() {
-    const { openLightbox } = useLightbox();
     const { user, loading: authLoading, activeShifts, todaysShifts } = useAuth();
     const [activeShift, setActiveShift] = useState<AssignedShift | null>(null);
     const [latestInProgressRecord, setLatestInProgressRecord] = useState<AttendanceRecord | null>(null);
@@ -580,19 +579,11 @@ export default function CheckInCard() {
                     <AlertDialogHeader>
                         <AlertDialogTitle>Cảnh báo ca làm việc cũ</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Bạn đang có một ca làm việc chưa kết thúc từ ngày hôm qua. 
-                            Bạn có muốn kết thúc ca làm việc đó ngay bây giờ không?
+                            Không thể kết thúc ca làm việc trước ngày hôm nay, vui lòng liên hệ chủ quán.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel onClick={() => setShowOldShiftAlert(false)}>Hủy</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => {
-                            setShowOldShiftAlert(false);
-                            setCameraAction('check-in-out');
-                            setIsCameraOpen(true);
-                        }}>
-                            Kết thúc ca cũ
-                        </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

@@ -12,6 +12,7 @@ import { LightboxProvider } from '@/contexts/lightbox-context';
 import { BackButtonHandler } from '@/components/back-button-handler';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MobileLayout } from '@/components/mobile-layout';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function AppLayout({
   children,
@@ -36,13 +37,12 @@ export default function AppLayout({
           </header>
           <NextTopLoader speed={1000} />
           
-          {/* Desktop View: Standard Routing */}
-          <div className="hidden md:block">
-            {children}
-          </div>
-
-          {/* Mobile View: Single Page App Feel */}
-          <MobileLayout>{children}</MobileLayout>
+          {/* Render only the view for the current device to avoid mounting both views */}
+          {useIsMobile() ? (
+            <MobileLayout>{children}</MobileLayout>
+          ) : (
+            <div className="hidden md:block">{children}</div>
+          )}
           
         </SidebarInset>
       </SidebarProvider>

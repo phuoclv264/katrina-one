@@ -7,7 +7,7 @@ import { BottomNav, NavTab } from '@/components/bottom-nav';
 import { 
   Home, 
   CalendarDays, 
-  Menu, 
+  User,
   ClipboardList, 
   ShieldCheck, 
   FileText, 
@@ -29,7 +29,9 @@ import ShiftManagementView from '@/app/(app)/shift-scheduling/_components/schedu
 import { format } from 'date-fns';
 import { useRouter } from 'nextjs-toploader/app';
 import { getHomePathForRole } from '@/lib/navigation';
+import UserMenuView from '@/components/user-menu-view';
 import { cn } from '@/lib/utils';
+import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
 
 // Placeholder components
 const HomeView = () => <div className="p-4">Home View Content</div>;
@@ -51,7 +53,7 @@ const HOME_PATHS = ['/shifts', '/bartender', '/manager', '/admin', '/cashier'];
 
 export function MobileLayout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  const { setOpenMobile } = useSidebar();
+  const { isCheckedIn } = useCheckInCardPlacement();
   const pathname = usePathname();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('home');
@@ -62,7 +64,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
     if (pathname.includes('/schedule')) { setActiveTab('schedule'); setIsTabContent(true); }
     else if (pathname.includes('/checklist')) { setActiveTab('checklist'); setIsTabContent(true); }
     else if (pathname.includes('/hygiene-report')) { setActiveTab('hygiene'); setIsTabContent(true); }
-    else if (pathname.includes('/comprehensive-report')) { setActiveTab('reports'); setIsTabContent(true); }
+    else if (pathname.includes('/comprehensive-report')) { setActiveTab('comprehensive-reports'); setIsTabContent(true); }
     else if (pathname.includes('/shift-scheduling')) { setActiveTab('shift-scheduling'); setIsTabContent(true); }
     else if (pathname.includes('/reports/cashier')) { setActiveTab('cashier-reports'); setIsTabContent(true); }
     else if (HOME_PATHS.some(path => pathname === path || pathname === '/')) { 
@@ -78,14 +80,17 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
     }
   }, [pathname]);
 
-  if (!user) return null;
-
   const getTabs = (): NavTab[] => {
     const commonUserTab = {
       id: 'menu',
       label: 'Menu',
-      icon: Menu,
+      icon: User,
     };
+
+    // If no user (auth still loading), return a minimal tabs array so hooks order remains stable
+    if (!user) {
+      return [{ id: 'home', label: 'Trang chủ', icon: Home }, commonUserTab];
+    }
 
     if (user.role === 'Chủ nhà hàng') {
       return [
@@ -99,13 +104,16 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
     let quickAccess: NavTab | null = null;
     switch (user.role) {
       case 'Phục vụ':
-        quickAccess = { id: 'checklist', label: 'Checklist', icon: ClipboardList };
+        // Quick access to checklist is only shown when the user is on an active shift
+        if (isCheckedIn) quickAccess = { id: 'checklist', label: 'Checklist', icon: ClipboardList };
         break;
       case 'Pha chế':
-        quickAccess = { id: 'hygiene', label: 'Vệ sinh', icon: ShieldCheck };
+        // Quick access to hygiene is only shown when the user is on an active shift
+        if (isCheckedIn) quickAccess = { id: 'hygiene', label: 'Vệ sinh', icon: ShieldCheck };
         break;
       case 'Quản lý':
-        quickAccess = { id: 'reports', label: 'Báo cáo', icon: FileText };
+        // Managers can view reports anytime
+        if (isCheckedIn) quickAccess = { id: 'comprehensive-reports', label: 'Báo cáo toàn diện', icon: FileText };
         break;
     }
 
@@ -119,9 +127,33 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
 
   const tabs = getTabs();
 
+  // Ensure active tab remains valid as quick-access tabs appear/disappear when check-in status changes
+  useEffect(() => {
+    // Only run this sync when we have an authenticated user
+    if (!user) return;
+
+    // If the current active tab is a quick-access tab that is no longer present, reset to home
+    const quickTabIds = ['checklist', 'hygiene', 'comprehensive-reports'];
+    const currentIsQuick = quickTabIds.includes(activeTab);
+    const quickTabVisible = tabs.some(t => quickTabIds.includes(t.id));
+
+    if (currentIsQuick && !quickTabVisible) {
+      // Move back to home and navigate to the role's home path if needed
+      setActiveTab('home');
+      setIsTabContent(true);
+      const homePath = getHomePathForRole(user.role);
+      if (pathname !== homePath) router.push(homePath);
+    }
+  }, [tabs, activeTab, pathname, router, user]);
+
+  // Don't render until auth is resolved
+  if (!user) return null;
+
   const handleTabChange = (tabId: string) => {
     if (tabId === 'menu') {
-      setOpenMobile(true);
+      // Show the user menu page (mobile-friendly) instead of opening the drawer
+      setActiveTab('menu');
+      setIsTabContent(true);
     } else {
       setActiveTab(tabId);
       
@@ -139,6 +171,8 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
     if (!isTabContent) return children;
 
     switch (activeTab) {
+      case 'menu':
+        return <UserMenuView onNavigateToHome={() => handleTabChange('home')} />;
       case 'home':
         if (user.role === 'Phục vụ') return <ServerHomeView />;
         if (user.role === 'Chủ nhà hàng') return <OwnerHomeView isStandalone={false} />;
@@ -152,7 +186,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
         return <ChecklistView shiftKey={getCurrentShift()} isStandalone={false} />;
       case 'hygiene':
         return <HygieneReportView isStandalone={false} />;
-      case 'reports':
+      case 'comprehensive-reports':
         return <ManagerReportView isStandalone={false} />;
       case 'shift-scheduling':
         return <ShiftManagementView />;

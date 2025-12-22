@@ -111,12 +111,19 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
       return () => unsubs.forEach((u) => u());
     }
 
-    const todayStr = dateFilter === 'yesterday' ? format(addDays(today, -1), 'yyyy-MM-dd') : format(today, 'yyyy-MM-dd');
+    // Determine the target day (yesterday when requested) so we subscribe to the correct week if needed
+    const targetDate = dateFilter === 'yesterday' ? addDays(today, -1) : today;
+    const todayStr = format(targetDate, 'yyyy-MM-dd');
+    const dayStart = startOfDay(targetDate);
+    const dayEnd = endOfDay(targetDate);
+
+    // Use the week that contains the target date so Monday->yesterday (Sunday) finds the previous week's schedule
+    const targetWeekId = `${getISOWeekYear(targetDate)}-W${getISOWeek(targetDate)}`;
 
     const unsubs = [
       dataStore.subscribeToDailyRevenueStats(todayStr, setRevenueStats),
-      dataStore.subscribeToAttendanceRecordsForDateRange({ from: startOfToday(), to: endOfToday() }, setAttendanceRecords),
-      dataStore.subscribeToSchedule(weekId, setTodaysSchedule),
+      dataStore.subscribeToAttendanceRecordsForDateRange({ from: dayStart, to: dayEnd }, setAttendanceRecords),
+      dataStore.subscribeToSchedule(targetWeekId, setTodaysSchedule),
       dataStore.subscribeToReportsForDay(todayStr, setShiftReports),
       dataStore.subscribeToReportFeed(setComplaints),
       dataStore.subscribeToDailyExpenseSlips(todayStr, setDailySlips),
@@ -248,7 +255,8 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
   }, [dateFilter, cashierOverview.totalRevenue, cashierOverview.totalExpense]);
 
   const attendanceOverview = useMemo(() => {
-    const now = new Date();
+    // Use the selected date filter when deriving the day to display.
+    const now = dateFilter === 'yesterday' ? addDays(new Date(), -1) : new Date();
     const todayStr = format(now, 'yyyy-MM-dd');
 
     const recordsByUser = attendanceRecords.reduce(
@@ -348,7 +356,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
     return {
       todayShifts,
     };
-  }, [attendanceRecords, todaysSchedule, allUsers]);
+  }, [attendanceRecords, todaysSchedule, allUsers, dateFilter]);
 
   const kpiMetrics = useMemo(() => {
     const now = new Date();
@@ -413,7 +421,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
   }, [cashierOverview, attendanceOverview, todaysSchedule, trendData]);
 
   const todayShifts = useMemo(() => {
-    const now = new Date();
+    const now = dateFilter === 'yesterday' ? addDays(new Date(), -1) : new Date();
     const todayStr = format(now, 'yyyy-MM-dd');
     return (
       attendanceOverview.todayShifts
@@ -426,7 +434,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
           }),
         })) || []
     );
-  }, [attendanceOverview]);
+  }, [attendanceOverview, dateFilter]);
 
   if (authLoading || isLoading) {
     return <LoadingPage />;
