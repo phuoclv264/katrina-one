@@ -204,16 +204,20 @@ export const ViolationCard = React.forwardRef<HTMLDivElement, ViolationCardProps
                     
                     if (shouldShowActions) {
                         return (
-                            <div key={violatedUser.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                                 <p className="font-semibold text-sm">{violatedUser.name}: Chưa nộp phạt.</p>
-                                <Button size="sm" onClick={() => onPenaltySubmit(v, violatedUser, 'video')} className="w-full sm:w-auto">
-                                    Xác nhận đã nộp phạt
-                                </Button>
-                                {isOwner && (
-                                    <Button size="sm" variant="outline" onClick={() => onPenaltySubmit(v, violatedUser, 'manual')} className="w-full sm:w-auto">
-                                        Đã nộp (Không cần ảnh)
-                                    </Button>
-                                )}
+                            <div key={violatedUser.id} className="flex flex-col sm:flex-row sm:items-center gap-2">
+                                <p className="font-semibold text-sm sm:flex-1">{violatedUser.name}: Chưa nộp phạt.</p>
+                                <div className="flex gap-2 sm:justify-end w-full sm:w-auto">
+                                    <div className="flex flex-col sm:flex-row gap-2 w-full">
+                                        <Button size="sm" onClick={() => onPenaltySubmit(v, violatedUser, 'video')} className="w-full sm:w-auto">
+                                            Xác nhận đã nộp phạt
+                                        </Button>
+                                        {isOwner && (
+                                            <Button size="sm" variant="outline" onClick={() => onPenaltySubmit(v, violatedUser, 'manual')} className="w-full sm:w-auto">
+                                                Đã nộp (Không cần ảnh)
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         );
                     }
