@@ -27,7 +27,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { v4 as uuidv4 } from 'uuid';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { parseISO, format, isSameDay, isToday } from 'date-fns';
-import { Timestamp } from '@google-cloud/firestore';
+import { Timestamp } from '@firebase/firestore';
 import { useLightbox } from '@/contexts/lightbox-context';
 import CameraDialog from '@/components/camera-dialog';
 import { get, set, del } from '@/lib/idb-keyval-store';

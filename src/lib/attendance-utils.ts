@@ -1,5 +1,5 @@
 
-import { Timestamp } from '@google-cloud/firestore';
+import { Timestamp } from '@firebase/firestore';
 import type { AttendanceRecord, AssignedShift, Schedule } from './types';
 import { differenceInMinutes, format, isWithinInterval, set, parse } from 'date-fns';
 import { CheckCircle, Clock, XCircle } from 'lucide-react';

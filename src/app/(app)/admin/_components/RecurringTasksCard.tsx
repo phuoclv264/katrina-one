@@ -207,7 +207,7 @@ export function RecurringTasksCard({ monthlyTasks, taskAssignments, staffDirecto
     staff: StaffStatus[],
     status: StaffStatus['status'],
   ) => {
-    const statusStyles: Record<StaffStatus['status'], { className: string; icon: JSX.Element }> = {
+    const statusStyles: Record<StaffStatus['status'], { className: string; icon: React.JSX.Element }> = {
       completed: {
         className: 'text-emerald-300',
         icon: <CheckCircle className="h-3.5 w-3.5" />,
