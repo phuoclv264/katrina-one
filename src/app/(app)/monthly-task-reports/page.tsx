@@ -263,7 +263,10 @@ function MonthlyTaskReportsView() {
     const anchor = searchParams.get("highlight")
     if (!anchor || completions.length === 0) return
 
-    const matchedRecord = completions.find((rec) => rec.completionId === anchor)
+    const matchedRecord = completions.find((rec) => 
+      rec.completionId === anchor || 
+      (rec.completionId && anchor && rec.completionId.startsWith(anchor + "_"))
+    )
     if (!matchedRecord) return
 
     if (viewMode === "tasks") {
@@ -370,9 +373,16 @@ function MonthlyTaskReportsView() {
                                       const { date, assignedUsers, completions: records } = assignment
                                       const totalCompletions = records.length
                                       const completionPercentage = assignedUsers.length > 0 ? Math.round((totalCompletions / assignedUsers.length) * 100) : 0
-                                      const reportedUsersWithRecords = assignedUsers
-                                        .map((user) => ({ user, record: records.find((r) => r.completedBy?.userId === user.userId) }))
-                                        .filter((item): item is { user: AssignedUser; record: TaskCompletionRecord } => !!item.record)
+                                      
+                                      const reportedUsersWithRecords = records.map((record) => {
+                                        const assignedUser = assignedUsers.find((u) => u.userId === record.completedBy?.userId)
+                                        return { 
+                                          user: assignedUser || record.completedBy, 
+                                          record,
+                                          isOffShift: !assignedUser
+                                        }
+                                      })
+
                                       const unreportedUsers = assignedUsers.filter((user) => !records.some((r) => r.completedBy?.userId === user.userId))
                                       return (
                                         <div key={date} className="space-y-4">
@@ -387,10 +397,10 @@ function MonthlyTaskReportsView() {
                                             </div>
                                           </div>
                                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                            {reportedUsersWithRecords.map(({ user: reportedUser, record }) => {
-                                              const shiftInfo = assignment.assignedUsersByShift.find((s) => s.users.some((u) => u.userId === reportedUser.userId))
+                                            {reportedUsersWithRecords.map(({ user: reportedUser, record, isOffShift }) => {
+                                              const shiftInfo = assignment.assignedUsersByShift.find((s) => s.users.some((u) => u.userId === reportedUser?.userId))
                                               return (
-                                                <Card key={reportedUser.userId} className="relative group/card overflow-hidden border transition-all hover:shadow-md bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-200/50 dark:border-emerald-900/50" ref={(el) => {
+                                                <Card key={reportedUser?.userId || record.completionId} className={`relative group/card overflow-hidden border transition-all hover:shadow-md ${isOffShift ? "bg-amber-50/30 dark:bg-amber-900/5 border-amber-200/50 dark:border-amber-900/30" : "bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-200/50 dark:border-emerald-900/50"}`} ref={(el) => {
                                                   if (!el) return
                                                   if (record.completionId) {
                                                     setReportCardRef(record.completionId, el)
@@ -400,15 +410,28 @@ function MonthlyTaskReportsView() {
                                                   <CardContent className="p-5 space-y-4">
                                                     <div className="flex items-start justify-between gap-2">
                                                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                                                        <div className="p-2 rounded-lg flex-shrink-0 bg-emerald-100 dark:bg-emerald-900"><User className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /></div>
+                                                        <div className={`p-2 rounded-lg flex-shrink-0 ${isOffShift ? "bg-amber-100 dark:bg-amber-900" : "bg-emerald-100 dark:bg-emerald-900"}`}><User className={`h-4 w-4 ${isOffShift ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}`} /></div>
                                                         <div className="min-w-0 flex-1">
-                                                          <p className="font-semibold text-sm truncate text-foreground">{reportedUser.userName}</p>
+                                                          <p className="font-semibold text-sm truncate text-foreground flex items-center gap-2">
+                                                            {reportedUser?.userName || "Unknown"}
+                                                            {isOffShift && <span className="text-[10px] font-normal text-amber-600 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded border border-amber-100 dark:border-amber-800">Ngoài ca</span>}
+                                                          </p>
                                                           {record.completedAt && (<p className="text-xs text-muted-foreground flex items-center gap-1 mt-1"><Clock className="h-3 w-3" />{format(record.completedAt.toDate(), "HH:mm")}</p>)}
                                                         </div>
                                                       </div>
-                                                      <div className="flex-shrink-0"><CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" /></div>
+                                                      <div className="flex-shrink-0"><CheckCircle2 className={`h-5 w-5 ${isOffShift ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}`} /></div>
                                                     </div>
-                                                    {shiftInfo && (<div className="flex items-center gap-2 p-2 bg-secondary/50 dark:bg-primary/10 rounded-lg text-xs"><span className="font-medium text-foreground">{shiftInfo.shiftLabel}</span><span className="text-muted-foreground">{shiftInfo.timeSlot.start} - {shiftInfo.timeSlot.end}</span></div>)}
+                                                    {shiftInfo ? (
+                                                      <div className="flex items-center gap-2 p-2 bg-secondary/50 dark:bg-primary/10 rounded-lg text-xs">
+                                                        <span className="font-medium text-foreground">{shiftInfo.shiftLabel}</span>
+                                                        <span className="text-muted-foreground">{shiftInfo.timeSlot.start} - {shiftInfo.timeSlot.end}</span>
+                                                      </div>
+                                                    ) : isOffShift && (
+                                                      <div className="flex items-center gap-2 p-2 bg-amber-100/20 dark:bg-amber-900/10 rounded-lg text-xs text-amber-700 dark:text-amber-400">
+                                                        <AlertCircle className="h-3 w-3" />
+                                                        <span>Không có ca làm việc trong ngày</span>
+                                                      </div>
+                                                    )}
                                                     <>
                                                       {record.note && (<Alert variant="default" className="border-0 bg-amber-100/30 dark:bg-amber-900/20 p-3"><div className="flex items-start gap-2"><MessageSquareText className="h-4 w-4 mt-0.5 text-amber-700 dark:text-amber-400 flex-shrink-0" /><AlertDescription className="text-amber-800 dark:text-amber-300 text-xs">{record.note}</AlertDescription></div></Alert>)}
                                                       {record.media && record.media.length > 0 && (

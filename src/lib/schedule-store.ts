@@ -1182,7 +1182,15 @@ export function subscribeToMonthlyTasksForDate(
     const unsubCompletions = onSnapshot(completionsQuery, (querySnapshot) => {
         let completions: TaskCompletionRecord[] = [];
         querySnapshot.forEach(docSnap => {
-            completions = completions.concat(docSnap.data().completions || []);
+            const data = docSnap.data();
+            if (data.completions && Array.isArray(data.completions)) {
+                completions = completions.concat(
+                    data.completions.map((c: TaskCompletionRecord) => ({ 
+                        ...c, 
+                        completionId: `${docSnap.id}_${c.taskId}` 
+                    }))
+                );
+            }
         });
         allCompletionsForDay = completions;
         processAndCallback();
@@ -1221,7 +1229,10 @@ export function subscribeToMonthlyTaskCompletionsForMonth(
             const data = docSnap.data();
             if (data.completions && Array.isArray(data.completions)) {
                 allCompletionsForMonth = allCompletionsForMonth.concat(
-                    data.completions.map((c: TaskCompletionRecord) => ({ ...c, completionId: docSnap.id }))
+                    data.completions.map((c: TaskCompletionRecord) => ({ 
+                        ...c, 
+                        completionId: `${docSnap.id}_${c.taskId}` 
+                    }))
                 );
             }
         });
