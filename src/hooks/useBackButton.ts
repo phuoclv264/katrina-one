@@ -23,7 +23,6 @@ export function useBackButton(
 ) {
   const router = useRouter();
   const pathname = usePathname();
-  const savedHandler = useRef<() => void>();
 
   // Use refs to hold the latest values of dependencies
   const lightboxRef = useRef(lightbox);
