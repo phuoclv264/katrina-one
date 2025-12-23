@@ -8,6 +8,15 @@ type Counters = {
   dailyShifts: Map<string, Map<string, number>>; // date -> (userId -> count)
 };
 
+const makePairKey = (a: string, b: string) => a < b ? `${a}|${b}` : `${b}|${a}`;
+
+const isPairBlocked = (a: string, b: string, shiftId: string, ctx: NormalizedContext) => {
+  const key = makePairKey(a, b);
+  if (ctx.incompatibleGlobal.has(key)) return true;
+  const shiftSet = ctx.incompatibleByShift.get(shiftId);
+  return shiftSet?.has(key) ?? false;
+};
+
 function initCounters(): Counters {
   // Always start with empty counters (replace mode)
   return {
@@ -69,7 +78,12 @@ export function allocate(
     const userName = users.find(u => u.uid === userId)?.displayName || userId;
     shift.assignedUsersWithRole = [...(shift.assignedUsersWithRole || []), { userId, userName, assignedRole }];
     // Maintain assignedUsers for downstream consumers but do not rely on it for allocation logic
-    shift.assignedUsers = (shift.assignedUsersWithRole || []).map(u => ({ userId: u.userId, userName: u.userName || u.userId }));
+    shift.assignedUsers = (shift.assignedUsersWithRole || []).map(u => {
+      const resolvedRole = u.assignedRole === 'Bất kỳ'
+        ? usersByUid.get(u.userId)?.role!
+        : u.assignedRole;
+      return { userId: u.userId, userName: u.userName || u.userId, assignedRole: resolvedRole };
+    });
   };
 
   // Apply forced assignments first
@@ -86,12 +100,13 @@ export function allocate(
     const dailyAvailability = availability.filter(a => a.date === shift.date);
     const isAvail = isUserAvailable(f.userId, shift.timeSlot, dailyAvailability);
     const conflict = hasTimeConflict(f.userId, shift, workingShifts.filter(s => s.date === shift.date));
+    const pairBlocked = (shift.assignedUsersWithRole || []).some(u => isPairBlocked(u.userId, f.userId, shift.id, ctx));
     if (!isAvail) {
       if (ctx.strictAvailability) {
         continue; // Skip assignment
       }
     }
-    if (conflict) {
+    if (conflict || pairBlocked) {
       continue; // Do not allow overlapping forced assignments
     }
 
@@ -130,12 +145,13 @@ export function allocate(
         const candidateScores = candidates.map(u => {
           const key = `${u.uid}:${shift.id}`;
           const banned = ctx.bannedPairs.has(key);
-          const alreadyAssignedHere = (shift.assignedUsersWithRole || []).some(x => x.userId === u.uid);
+          const alreadyAssignedHere = (shift.assignedUsersWithRole || []).some(existing => existing.userId === u.uid);
           const avail = isUserAvailable(u.uid, shift.timeSlot, dailyAvailability);
           const okCaps = canAssign(u.uid, shift.date, duration);
           const conflict = hasTimeConflict(u.uid, shift, allShiftsOnDay);
+          const pairBlocked = (shift.assignedUsersWithRole || []).some(existing => isPairBlocked(existing.userId, u.uid, shift.id, ctx));
 
-          if (banned || alreadyAssignedHere || !avail || !okCaps || !!conflict) {
+          if (banned || alreadyAssignedHere || !avail || !okCaps || !!conflict || pairBlocked) {
             return { user: u, score: Number.NEGATIVE_INFINITY, reason: 'ineligible' as const };
           }
           const weekCount = counters.weekShifts.get(u.uid) || 0;
@@ -145,6 +161,8 @@ export function allocate(
         });
 
         candidateScores.sort((a, b) => {
+          return Math.random() < 0.5 ? -1 : 1;
+        }).sort((a, b) => {
           if (b.score !== a.score) return b.score - a.score;
           return a.user.uid.localeCompare(b.user.uid);
         });

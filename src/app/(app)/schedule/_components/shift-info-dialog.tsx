@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Users, UserCheck, Send, Loader2, Replace } from 'lucide-react';
-import type { ManagedUser, Schedule, AssignedShift, Availability, AuthUser, Notification, ShiftTemplate } from '@/lib/types';
+import type { ManagedUser, Schedule, AssignedShift, Availability, AuthUser, Notification, ShiftTemplate, UserRole } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { isUserAvailable } from '@/lib/schedule-utils';
@@ -36,6 +36,7 @@ type ShiftInfoDialogProps = {
 type ColleagueInfo = {
     user: ManagedUser;
     shift: AssignedShift;
+    assignedRole?: UserRole | null;
 }
 
 export default function ShiftInfoDialog({
@@ -78,7 +79,8 @@ export default function ShiftInfoDialog({
           if (u.userId !== currentUser.uid && !colleagueMap.has(u.userId)) {
              const user = allUsers.find(au => au.uid === u.userId);
              if (user) {
-                colleagueMap.set(u.userId, { user, shift: overlappingShift });
+                const assignedRole = (overlappingShift.assignedUsers.find(x => x.userId === u.userId)?.assignedRole) ?? null;
+                colleagueMap.set(u.userId, { user, shift: overlappingShift, assignedRole });
              }
           }
       });
@@ -153,7 +155,7 @@ export default function ShiftInfoDialog({
              <ScrollArea className="h-72 mt-4">
                 {colleagues.length > 0 ? (
                     <div className="space-y-2 pr-4">
-                    {colleagues.map(({ user, shift: colleagueShift }) => {
+                    {colleagues.map(({ user, shift: colleagueShift, assignedRole }) => {
                         const canSwap = shift.label !== colleagueShift.label || (shift.timeSlot.start !== colleagueShift.timeSlot.start || shift.timeSlot.end !== colleagueShift.timeSlot.end);
                         const alreadyRequested = existingPendingRequests.some(r => r.payload.targetUserId === user.uid);
                         const isThisUserProcessing = processingUserId === user.uid;
@@ -162,7 +164,7 @@ export default function ShiftInfoDialog({
                                 <CardContent className="p-3 flex items-center justify-between">
                                     <div>
                                         <p className="font-semibold">{user.displayName}</p>
-                                        <p className="text-sm text-muted-foreground">{colleagueShift.label} ({colleagueShift.timeSlot.start} - {colleagueShift.timeSlot.end})</p>
+                                        <p className="text-sm text-muted-foreground">{assignedRole ? `${colleagueShift.label} (${assignedRole})` : (colleagueShift.role ? `${colleagueShift.label} (${colleagueShift.role})` : colleagueShift.label)} ({colleagueShift.timeSlot.start} - {colleagueShift.timeSlot.end})</p>
                                     </div>
                                     {canSwap && (
                                         <Button size="sm" onClick={() => handlePassRequest(user, true)} disabled={isProcessing || isThisUserProcessing || alreadyRequested}>

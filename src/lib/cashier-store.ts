@@ -307,7 +307,8 @@ export async function updateOtherCostCategories(newCategories: OtherCostCategory
 }
 
 export function subscribeToDailyRevenueStats(date: string, callback: (stats: RevenueStats[]) => void): () => void {
-    const q = query(collection(db, 'revenue_stats'), where('date', '==', date), orderBy('createdAt', 'desc'));
+    // Only return the newest stat for the given date (limit 1 ordered by createdAt desc)
+    const q = query(collection(db, 'revenue_stats'), where('date', '==', date), orderBy('createdAt', 'desc'), limit(1));
     return onSnapshot(q, (snapshot) => {
         const stats = snapshot.docs.map(doc => ({
             id: doc.id,
@@ -323,7 +324,8 @@ export function subscribeToDailyRevenueStats(date: string, callback: (stats: Rev
 
 export async function getDailyRevenueStats(date: string): Promise<RevenueStats[]> {
      const slipsCollection = collection(db, 'revenue_stats');
-    const q = query(slipsCollection, where('date', '==', date), orderBy('createdAt', 'desc'));
+    // Only fetch the newest stat for the date
+    const q = query(slipsCollection, where('date', '==', date), orderBy('createdAt', 'desc'), limit(1));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({
         id: doc.id,
@@ -388,9 +390,94 @@ export function subscribeToDailyExpenseSlips(date: string, callback: (slips: Exp
     });
 }
 
+export function subscribeToRevenueStatsForDateRange(fromDate: string, toDate: string, callback: (stats: RevenueStats[]) => void): () => void {
+    // Query revenue_stats documents where date is between fromDate and toDate (inclusive)
+    // Order by date ascending so client can render trend across the range
+    const q = query(collection(db, 'revenue_stats'), where('date', '>=', fromDate), where('date', '<=', toDate), orderBy('date', 'asc'));
+    return onSnapshot(q, (snapshot) => {
+        // Pick the newest stat for each date within the range
+        const latestByDate = new Map<string, { doc: any; createdAtMs: number }>();
+        snapshot.docs.forEach((d) => {
+            const data = d.data();
+            const dateKey = data.date as string;
+            let createdAtMs = 0;
+            if (data.createdAt && (data.createdAt as Timestamp)?.toDate) {
+                createdAtMs = (data.createdAt as Timestamp).toDate().getTime();
+            } else if (data.createdAt) {
+                const parsed = Date.parse(String(data.createdAt));
+                createdAtMs = isNaN(parsed) ? 0 : parsed;
+            }
+
+            const current = latestByDate.get(dateKey);
+            if (!current || createdAtMs > current.createdAtMs) {
+                latestByDate.set(dateKey, { doc: d, createdAtMs });
+            }
+        });
+
+        const stats = Array.from(latestByDate.values())
+            .map(({ doc: d }) => ({
+                id: d.id,
+                ...d.data(),
+                createdAt: (d.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+            } as RevenueStats))
+            // sort by date ascending
+            .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
+        callback(stats);
+    }, (error) => {
+        console.error(`[Firestore Read Error] Could not read revenue stats for range ${fromDate} - ${toDate}: ${error.code}`);
+        callback([]);
+    });
+}
+
+export async function getRevenueStatsForDateRange({ from, to }: { from: string, to: string }): Promise<RevenueStats[]> {
+    const q = query(collection(db, 'revenue_stats'), where('date', '>=', from), where('date', '<=', to), orderBy('date', 'asc'));
+    const snapshot = await getDocs(q);
+
+    // Reduce to newest stat per date
+    const latestByDate = new Map<string, { doc: any; createdAtMs: number }>();
+    snapshot.docs.forEach((d) => {
+        const data = d.data();
+        const dateKey = data.date as string;
+        let createdAtMs = 0;
+        if (data.createdAt && (data.createdAt as Timestamp)?.toDate) {
+            createdAtMs = (data.createdAt as Timestamp).toDate().getTime();
+        } else if (data.createdAt) {
+            const parsed = Date.parse(String(data.createdAt));
+            createdAtMs = isNaN(parsed) ? 0 : parsed;
+        }
+
+        const current = latestByDate.get(dateKey);
+        if (!current || createdAtMs > current.createdAtMs) {
+            latestByDate.set(dateKey, { doc: d, createdAtMs });
+        }
+    });
+
+    const stats = Array.from(latestByDate.values())
+        .map(({ doc: d }) => ({
+            id: d.id,
+            ...d.data(),
+            createdAt: (d.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+        } as RevenueStats))
+        .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
+    return stats;
+}
+
 export async function getDailyExpenseSlips(date: string): Promise<ExpenseSlip[]> {
      const slipsCollection = collection(db, 'expense_slips');
     const q = query(slipsCollection, where('date', '==', date), orderBy('createdAt', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+    } as ExpenseSlip));
+}
+
+export async function getExpenseSlipsForDateRange({ from, to }: { from: string, to: string }): Promise<ExpenseSlip[]> {
+    const slipsCollection = collection(db, 'expense_slips');
+    const q = query(slipsCollection, where('date', '>=', from), where('date', '<=', to), orderBy('date', 'asc'));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({
         id: doc.id,

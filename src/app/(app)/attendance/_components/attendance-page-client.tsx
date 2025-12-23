@@ -7,9 +7,10 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { ArrowLeft, UserCheck, RefreshCw, Loader2, DollarSign, LayoutGrid, GanttChartSquare, X, Calendar as CalendarIcon, Calculator } from 'lucide-react';
 import { dataStore } from '@/lib/data-store';
 import type { AttendanceRecord, ManagedUser, Schedule, ShiftTemplate, UserRole } from '@/lib/types';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, isSameMonth, startOfToday, endOfToday, getISOWeek, getYear, getDay, parse, differenceInMinutes } from 'date-fns';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, isSameMonth, startOfToday, endOfToday, getISOWeek, getISOWeekYear, getYear, getDay, parse, differenceInMinutes } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { findNearestAttendanceRecord } from '@/lib/attendance-utils';
 import AttendanceTable from './attendance-table';
 import AttendanceCards from './attendance-cards';
 import EditAttendanceDialog from './edit-attendance-dialog';
@@ -136,7 +137,7 @@ export default function AttendancePageComponent() {
         const todayStart = startOfToday();
         const todayEnd = endOfToday();
         const todayDateString = format(today, 'yyyy-MM-dd');
-        const weekId = `${getYear(today)}-W${getISOWeek(today)}`;
+        const weekId = `${getISOWeekYear(today)}-W${getISOWeek(today)}`;
         const todaysSchedule = schedules[weekId];
 
         const todaysRecords = attendanceRecords.filter(record => {
@@ -173,30 +174,19 @@ export default function AttendancePageComponent() {
                 const user = allUsers.find(u => u.uid === assignedUser.userId);
                 if (user) {
                     const recordsForUser = userRecords.get(user.uid) || [];
-                    let bestMatch: AttendanceRecord | null = null;
-                    let minDiff = Infinity;
-
-                    // Find the attendance record that best overlaps or is closest to this specific shift.
-                    for (const record of recordsForUser) {
-                        const checkInTime = (record.checkInTime as Timestamp).toDate();
-                        const checkOutTime = record.checkOutTime ? (record.checkOutTime as Timestamp).toDate() : new Date(); // Use current time for in-progress
-
-                        // Check for overlap: record starts before shift ends AND record ends after shift starts
-                        const overlaps = checkInTime < shiftEndTime && checkOutTime > shiftStartTime;
-                        if (overlaps) {
-                            const diff = Math.abs(differenceInMinutes(checkInTime, shiftStartTime));
-                            if (diff < minDiff) {
-                                minDiff = diff;
-                                bestMatch = record;
-                            }
-                        }
-                    }
+                    
+                    // Use the utility function to find the nearest record
+                    const bestMatch = findNearestAttendanceRecord(recordsForUser, shiftStartTime);
 
                     const attendanceData = bestMatch ? {
+                        id: bestMatch.id,
                         status: bestMatch.status,
                         checkInTime: (bestMatch.checkInTime as Timestamp)?.toDate(),
                         checkOutTime: (bestMatch.checkOutTime as Timestamp)?.toDate(),
-                    } : {};
+                        salary: bestMatch.salary,
+                    } : {
+                        id: `scheduled-${shift.id}-${user.uid}`
+                    };
                     
                     group.staff.push({ user, ...attendanceData });
 
@@ -216,7 +206,14 @@ export default function AttendancePageComponent() {
             offShiftRecords.forEach(record => {
                 const user = allUsers.find(u => u.uid === record.userId);
                 if (user) {
-                    offShiftGroup.staff.push({ user, status: record.status, checkInTime: (record.checkInTime as Timestamp)?.toDate(), checkOutTime: (record.checkOutTime as Timestamp)?.toDate() });
+                    offShiftGroup.staff.push({ 
+                        user, 
+                        id: record.id,
+                        status: record.status, 
+                        checkInTime: (record.checkInTime as Timestamp)?.toDate(), 
+                        checkOutTime: (record.checkOutTime as Timestamp)?.toDate(),
+                        salary: record.salary
+                    });
                 }
             });
         }
@@ -416,11 +413,11 @@ export default function AttendancePageComponent() {
                                     </div>
                                     <div className="mt-4 space-y-2">
                                         {todaysSummary.staffByShift.sort((a,b) => a.timeSlot.localeCompare(b.timeSlot)).map(({ shiftLabel, timeSlot, staff }) => (
-                                            <div key={shiftLabel} className="p-2 rounded-md border bg-muted/30">
+                                            <div key={`${shiftLabel}-${timeSlot}`} className="p-2 rounded-md border bg-muted/30">
                                                 <p className="font-semibold text-sm">{shiftLabel} <span className="text-xs text-muted-foreground font-normal">{timeSlot}</span></p>
                                                 <div className="mt-1 space-y-1 pl-2">
-                                                    {staff.sort((a,b) => (roleOrder[a.user.role as UserRole] || 99) - (roleOrder[b.user.role as UserRole] || 99)).map(({ user, salary, status, checkInTime, checkOutTime }) => (
-                                                        <div key={user.uid} className="flex justify-between items-center text-sm gap-2">
+                                                    {staff.sort((a,b) => (roleOrder[a.user.role as UserRole] || 99) - (roleOrder[b.user.role as UserRole] || 99)).map(({ user, id, salary, status, checkInTime, checkOutTime }) => (
+                                                        <div key={id} className="flex justify-between items-center text-sm gap-2">
                                                     <div className="flex items-center gap-1.5 min-w-0">
                                                                 <span className={cn("h-2 w-2 rounded-full", status === 'in-progress' ? 'bg-green-500 animate-pulse' : (status ? 'bg-gray-400' : 'bg-red-500'))} title={status ? (status === 'in-progress' ? 'Đang làm việc' : 'Đã làm') : 'Vắng mặt'}></span>
                                                                 <p className="truncate">{isMobile ? generateShortName(user.displayName) : user.displayName} <span className="text-xs text-muted-foreground">({user.role})</span></p>

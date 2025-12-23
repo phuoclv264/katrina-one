@@ -6,10 +6,10 @@ import { dataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { toast } from '@/components/ui/pro-toast';
-import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, isBefore, isSameWeek, getDay, startOfToday, parseISO, isWithinInterval } from 'date-fns';
+import { getISOWeek, getISOWeekYear, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, isBefore, isSameWeek, getDay, startOfToday, parseISO, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, UserCheck, Clock, ShieldCheck, Info, CheckCircle, X, MoreVertical, MessageSquareWarning, Send, ArrowRight, ChevronsDownUp, MailQuestion, Save, Settings, FileSignature, Loader2, Users } from 'lucide-react';
-import type { Schedule, Availability, TimeSlot, AssignedShift, Notification, UserRole, ShiftTemplate, AuthUser, ManagedUser, AssignedUser } from '@/lib/types';
+import type { Schedule, Availability, TimeSlot, AssignedShift, Notification, UserRole, ShiftTemplate, AuthUser, ManagedUser, AssignedUser, SimpleUser } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import AvailabilityDialog from './availability-dialog';
 import PassRequestsDialog from './pass-requests-dialog';
@@ -58,7 +58,7 @@ function ScheduleViewComponent() {
     const [isLoading, setIsLoading] = useState(true);
     const [processingNotificationId, setProcessingNotificationId] = useState<string | null>(null);
 
-    const weekId = useMemo(() => `${currentDate.getFullYear()}-W${getISOWeek(currentDate)}`, [currentDate]);
+    const weekId = useMemo(() => `${getISOWeekYear(currentDate)}-W${getISOWeek(currentDate)}`, [currentDate]);
 
     const [isAvailabilityDialogOpen, setIsAvailabilityDialogOpen] = useState(false);
     const [isPassRequestsDialogOpen, setIsPassRequestsDialogOpen] = useState(false);
@@ -259,9 +259,9 @@ function ScheduleViewComponent() {
         setProcessingNotificationId(notification.id);
 
         try {
-            const acceptingUser: AssignedUser = { userId: user.uid, userName: user.displayName || 'N/A' };
-
-            await dataStore.acceptPassShift(notification.id, notification.payload, acceptingUser, schedule);
+            const acceptingUser: SimpleUser = { userId: user.uid, userName: user.displayName || 'N/A' };
+            
+            await dataStore.acceptPassShift(notification.id, notification.payload, acceptingUser, allUsers, schedule);
 
             // Optimistic update UI
             setNotifications(prevNotifs => prevNotifs.map(n => {
@@ -563,6 +563,9 @@ function ScheduleViewComponent() {
                                                     shiftsForDay.map(shift => {
                                                         const shiftEndTime = new Date(`${shift.date}T${shift.timeSlot.end}`);
                                                         const isPastShift = isBefore(shiftEndTime, new Date());
+                                                        // Find current user's assigned role for this shift when available
+                                                        const myAssignedEntry = shift.assignedUsers.find(u => u.userId === user.uid);
+                                                        const myAssignedRole = myAssignedEntry?.assignedRole ?? null;
                                                         return (
                                                             <Card
                                                                 key={shift.id}
@@ -575,7 +578,7 @@ function ScheduleViewComponent() {
                                                             >
                                                                 <CardContent className="p-3 flex items-center justify-between gap-2">
                                                                     <div>
-                                                                        <p className="font-bold text-base">{shift.label}</p>
+                                                                        <p className="font-bold text-base">{myAssignedRole ? `${shift.label} (${myAssignedRole})` : shift.label}</p>
                                                                         <p className="text-sm">{shift.timeSlot.start} - {shift.timeSlot.end}</p>
                                                                     </div>
                                                                     {!isPastShift && (

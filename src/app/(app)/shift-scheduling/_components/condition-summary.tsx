@@ -16,7 +16,11 @@ type Props = {
   constraints: ScheduleCondition[];
   shiftTemplates: ShiftTemplate[];
   allUsers: ManagedUser[];
-  filterTab?: string;
+  filterTab?: string | string[];
+  /** Optional employee UID to filter conditions by */
+  employeeFilterUserId?: string | null;
+  /** Called when the component's clear filter UI is clicked (optional) */
+  onClearEmployeeFilter?: () => void;
   onToggleEnabled: (constraintId: string) => void;
   onDelete: (constraintId: string) => void;
   onEdit?: (constraint: ScheduleCondition) => void;
@@ -28,6 +32,7 @@ const typeLabels: Record<string, string> = {
   ShiftStaffing: 'Nhu cầu ca',
   StaffPriority: 'Ưu tiên',
   StaffShiftLink: 'Ràng buộc',
+  StaffExclusion: 'Không ghép chung',
   AvailabilityStrictness: 'Thời gian rảnh',
 };
 
@@ -36,19 +41,45 @@ export default function ConditionSummary({
   shiftTemplates,
   allUsers,
   filterTab,
+  employeeFilterUserId,
+  onClearEmployeeFilter,
   onToggleEnabled,
   onDelete,
   onEdit,
 }: Props) {
   const filtered = useMemo(() => {
     let items = constraints;
-    
+
     if (filterTab) {
-      items = items.filter(c => c.type === filterTab);
+      const filters = Array.isArray(filterTab) ? filterTab : [filterTab];
+      items = items.filter(c => filters.includes(c.type));
     }
-    
+
+    if (employeeFilterUserId) {
+      const uid = employeeFilterUserId;
+      items = items.filter(c => conditionReferencesUser(c, uid));
+    }
+
     return items;
-  }, [constraints, filterTab]);
+  }, [constraints, filterTab, employeeFilterUserId]);
+
+  function conditionReferencesUser(c: ScheduleCondition, uid: string) {
+    const c_ = c as any;
+    switch (c.type) {
+      case 'WorkloadLimit':
+        return c_.scope !== 'global' && c_.userId === uid;
+      case 'DailyShiftLimit':
+        return !!c_.userId && c_.userId === uid;
+      case 'StaffPriority':
+        return c_.userId === uid;
+      case 'StaffShiftLink':
+        return c_.userId === uid;
+      case 'StaffExclusion':
+        return c_.userId === uid || (c_.blockedUserIds || []).includes(uid);
+      default:
+        return false;
+    }
+  }
 
   const groupedByType = useMemo(() => {
     const groups: Record<string, ScheduleCondition[]> = {};
@@ -64,6 +95,18 @@ export default function ConditionSummary({
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-sm">Tổng hợp điều kiện ({filtered.length})</h3>
+          {employeeFilterUserId && (
+            <div className="flex items-center gap-2 ml-4">
+              <Badge variant="secondary" className="text-[11px] h-6">
+                {allUsers.find(u => u.uid === employeeFilterUserId)?.displayName || '—'}
+              </Badge>
+              {onClearEmployeeFilter && (
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={onClearEmployeeFilter} aria-label="Clear employee filter">
+                  ✕
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -183,6 +226,9 @@ function getConditionLabel(
       const tpl = templates.find(tm => tm.id === c_.templateId);
       const usr = users.find(us => us.uid === c_.userId);
       return `${c_.link === 'force' ? 'Bắt buộc' : 'Cấm'}: ${usr?.displayName || c_.userId} ↔ ${tpl?.label || c_.templateId}`;
+    case 'StaffExclusion':
+      const baseUser = users.find(us => us.uid === c_.userId);
+      return `Không ghép: ${baseUser?.displayName || c_.userId}`;
     case 'AvailabilityStrictness':
       return c_.strict ? 'Thời gian rảnh: Bắt buộc' : 'Thời gian rảnh: Mềm';
     default:
@@ -212,6 +258,11 @@ function getConditionDetails(
       return `Trọng số: ${c_.weight}`;
     case 'StaffShiftLink':
       return '';
+    case 'StaffExclusion':
+      const blocked = (c_.blockedUserIds || []).map((id: string) => users.find(u => u.uid === id)?.displayName || id);
+      const tplEx = c_.templateId ? templates.find(tm => tm.id === c_.templateId) : null;
+      const scopeText = tplEx ? ` • Chỉ áp dụng cho ${tplEx.label}` : ' • Áp dụng mọi ca';
+      return `Tránh ghép với: ${blocked.join(', ') || '—'}${scopeText}`;
     case 'AvailabilityStrictness':
       return '';
     default:

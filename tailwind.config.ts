@@ -17,6 +17,11 @@ export default {
       },
     },
     extend: {
+      boxShadow: {
+        // Custom shadows inspired by sample designs
+        soft: '0 4px 12px rgba(2,6,23,0.05), 0 1px 4px rgba(2,6,23,0.03)',
+        glow: '0 0 15px rgba(16,185,129,0.1)',
+      },
       fontFamily: {
         body: ['Montserrat', 'sans-serif'],
         headline: ['Montserrat', 'sans-serif'],
@@ -55,6 +60,13 @@ export default {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
+        },
+        pastel: {
+          pink: "hsl(var(--pastel-pink))",
+          yellow: "hsl(var(--pastel-yellow))",
+          mint: "hsl(var(--pastel-mint))",
+          blue: "hsl(var(--pastel-blue))",
+          purple: "hsl(var(--pastel-purple))",
         },
         chart: {
           '1': 'hsl(var(--chart-1))',

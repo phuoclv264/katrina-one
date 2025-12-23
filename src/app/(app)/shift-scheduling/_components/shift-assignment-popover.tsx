@@ -16,6 +16,7 @@ import type { AssignedShift, Availability, ManagedUser, UserRole, AssignedUser }
 import { cn } from '@/lib/utils';
 import { isUserAvailable, hasTimeConflict } from '@/lib/schedule-utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
@@ -37,7 +38,8 @@ type ShiftAssignmentDialogProps = {
   currentUserRole: UserRole;
   currentUserName: string;
   availability: Availability[];
-  onSave: (shiftId: string, newAssignedUsers: AssignedUser[]) => void;
+  // newAssignedUsers may include an assignedRole when set by Owner
+  onSave: (shiftId: string, newAssignedUsers: { userId: string; userName: string; assignedRole: UserRole }[]) => void;
   isOpen: boolean;
   onClose: () => void;
   allShiftsOnDay: AssignedShift[];
@@ -77,6 +79,7 @@ export default function ShiftAssignmentDialog({
     
   const isPassAssignmentMode = !!passRequestingUser;
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [selectedRoles, setSelectedRoles] = useState<Record<string, UserRole>>({});
   const [conflictError, setConflictError] = useState<{ userName: string; shiftLabel: string } | null>(null);
 
   useEffect(() => {
@@ -84,8 +87,15 @@ export default function ShiftAssignmentDialog({
       if (isPassAssignmentMode) {
         // In pass assignment mode, selection is cleared initially.
         setSelectedUserIds(new Set());
+        setSelectedRoles({});
       } else {
         setSelectedUserIds(new Set(shift.assignedUsers.map(u => u.userId)));
+        // Initialize roles from existing assignedUsersWithRole if present
+        const initRoles: Record<string, UserRole> = {};
+        (shift.assignedUsers || []).forEach(u => {
+          initRoles[u.userId] = u.assignedRole;
+        });
+        setSelectedRoles(initRoles);
       }
       setConflictError(null);
     }
@@ -158,6 +168,8 @@ export default function ShiftAssignmentDialog({
           return;
         }
         newSet.add(user.uid);
+        // Initialize role for this selection
+        setSelectedRoles(prev => ({ ...prev, [user.uid]: (shift.assignedUsers || []).find(u => u.userId === user.uid)?.assignedRole ?? user.role }));
       }
       // If the user is already selected, clicking again deselects them.
       setSelectedUserIds(newSet);
@@ -174,6 +186,8 @@ export default function ShiftAssignmentDialog({
           return;
         }
         newSet.add(user.uid);
+        // Initialize role for this selection
+        setSelectedRoles(prev => ({ ...prev, [user.uid]: (shift.assignedUsers || []).find(u => u.userId === user.uid)?.assignedRole ?? user.role }));
       }
       setSelectedUserIds(newSet);
     }
@@ -181,9 +195,9 @@ export default function ShiftAssignmentDialog({
 
 
   const handleSave = () => {
-    const newAssignedUsers = Array.from(selectedUserIds).map(userId => {
+    const newAssignedUsers : AssignedUser[] = Array.from(selectedUserIds).map(userId => {
         const user = allUsers.find(u => u.uid === userId);
-        return { userId, userName: user?.displayName || 'Unknown' };
+        return { userId, userName: user?.displayName || 'Unknown', assignedRole: selectedRoles[userId] };
     });
     onSave(shift.id, newAssignedUsers);
     onClose();
@@ -207,6 +221,31 @@ export default function ShiftAssignmentDialog({
           <div className="flex-1 space-y-1">
             <p className="font-semibold">{user.displayName}</p>
             <p className={cn("text-xs", getRoleTextColor(user.role))}>{user.role}</p>
+            {isSelected && currentUserRole === 'Chủ nhà hàng' && (
+              <div className="mt-1">
+                {/* Use only user's main + secondary roles as options */}
+                {((user.secondaryRoles?.filter(r => r !== 'Thu ngân') || []).length || 0) > 0 ? (
+                  (() => {
+                    const roleOptions: (UserRole)[] = Array.from(new Set([user.role, ...(user.secondaryRoles?.filter(r => r !== 'Thu ngân') || [])]));
+                    const selectedValue = selectedRoles[user.uid] ?? (shift.assignedUsers?.find(u => u.userId === user.uid)?.assignedRole ?? user.role);
+                    return (
+                      <Select value={selectedValue} onValueChange={(v) => setSelectedRoles(prev => ({ ...prev, [user.uid]: v as UserRole }))}>
+                        <SelectTrigger className="h-7 w-36 text-xs">
+                          <SelectValue placeholder="Vai trò" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {roleOptions.map(r => (
+                            <SelectItem key={r} value={r}>{r}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    );
+                  })()
+                ) : (
+                  <div className="text-xs text-muted-foreground">Vai trò: <span className="font-medium">{user.role}</span></div>
+                )}
+              </div>
+            )}
           </div>
            <div className="flex flex-col items-end gap-1">
              {isSelected ? (

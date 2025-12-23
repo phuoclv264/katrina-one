@@ -13,6 +13,8 @@ import { BackButtonHandler } from '@/components/back-button-handler';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import NotificationHandler from '@/components/notification-handler';
+import { MobileLayout } from '@/components/mobile-layout';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function AppLayout({
   children,
@@ -39,22 +41,24 @@ export default function AppLayout({
         </Sidebar>
         <BackButtonHandler />
         <NotificationHandler />
-        <SidebarInset>
+        <SidebarInset className="pb-0">
           <header className="safe-top sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:px-6">
             <div>
-              <SidebarTrigger>
-                <Button variant="outline" size="icon" className="shrink-0 md:hidden">
-                  <PanelLeft />
-                  <span className="sr-only">Toggle navigation menu</span>
-                </Button>
-              </SidebarTrigger>
+              <SidebarTrigger className="hidden" />
             </div>
             <Suspense fallback={<Skeleton className="h-6 w-32" />}>
               <MobileHeader />
             </Suspense>
           </header>
           <NextTopLoader speed={1000} />
-          {children}
+          
+          {/* Render only the view for the current device to avoid mounting both views */}
+          {useIsMobile() ? (
+            <MobileLayout>{children}</MobileLayout>
+          ) : (
+            <div className="hidden md:block">{children}</div>
+          )}
+          
         </SidebarInset>
       </SidebarProvider>
     </LightboxProvider>

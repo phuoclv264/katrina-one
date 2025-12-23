@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowUpCircle, ArrowDownCircle, Wallet, LandPlot, Calendar as CalendarIcon, BarChart, List, Banknote, Loader2, ArrowRight, TrendingUp } from 'lucide-react';
@@ -96,8 +96,9 @@ const getSlipContentName = (item: ExpenseItem): string => {
     return item.name;
 }
 
-
-export default function FinancialReportPage() {
+// MIGRATED: Added Suspense boundary for Cache Components
+// This component uses new Date() in useState initialization which needs to be deferred during prerendering
+function FinancialReportPageContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -667,5 +668,12 @@ export default function FinancialReportPage() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+export default function FinancialReportPage() {
+  return (
+    <Suspense fallback={<LoadingPage />}>
+      <FinancialReportPageContent />
+    </Suspense>
   );
 }

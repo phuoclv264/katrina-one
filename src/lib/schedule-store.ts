@@ -27,8 +27,8 @@ import {
     and,
     arrayUnion,
 } from 'firebase/firestore';
-import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, AuthUser, PassRequestPayload, TimeSlot, MonthlyTask, MonthlyTaskAssignment, MediaAttachment, MediaItem, TaskCompletionRecord } from './types';
-import { getISOWeek, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, getDay, parseISO, isPast, isWithinInterval, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, getDate, getWeekOfMonth, addMonths } from 'date-fns';
+import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, AuthUser, PassRequestPayload, TimeSlot, MonthlyTask, MonthlyTaskAssignment, MediaAttachment, MediaItem, TaskCompletionRecord, SimpleUser } from './types';
+import { getISOWeek, getISOWeekYear, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, getDay, parseISO, isPast, isWithinInterval, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, getDate, getWeekOfMonth, addMonths } from 'date-fns';
 import { hasTimeConflict } from './schedule-utils';
 import { DateRange } from 'react-day-picker';
 import { uploadMedia, deleteFileByUrl } from './data-store-helpers';
@@ -47,7 +47,22 @@ export async function getSchedule(weekId: string): Promise<Schedule | null> {
 // --- Availability Functions ---
 
 export function subscribeToAvailabilityForWeek(weekId: string, callback: (availability: Availability[]) => void): () => void {
-    const weekStart = startOfWeek(parseISO(`${weekId}-1`), { weekStartsOn: 1 });
+    const parts = weekId.split('-W');
+    if (parts.length !== 2) {
+        callback([]);
+        return () => { };
+    }
+    const year = parseInt(parts[0]);
+    const week = parseInt(parts[1]);
+
+    if (isNaN(year) || isNaN(week)) {
+        callback([]);
+        return () => { };
+    }
+
+    // Jan 4th is always in ISO week 1
+    const jan4 = new Date(year, 0, 4);
+    const weekStart = addDays(startOfWeek(jan4, { weekStartsOn: 1 }), (week - 1) * 7);
     const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
 
     const q = query(
@@ -160,7 +175,7 @@ export async function getSchedulesForMonth(date: Date): Promise<Schedule[]> {
         end: monthEnd,
     }, { weekStartsOn: 1 });
 
-    const weekIds = weeks.map(weekStart => `${getYear(weekStart)}-W${getISOWeek(weekStart)}`);
+    const weekIds = weeks.map(weekStart => `${getISOWeekYear(weekStart)}-W${getISOWeek(weekStart)}`);
 
     const schedulePromises = weekIds.map(weekId => getDoc(doc(db, 'schedules', weekId)));
     const scheduleDocs = await Promise.all(schedulePromises);
@@ -179,7 +194,7 @@ export function subscribeToSchedulesForMonth(date: Date, callback: (schedules: S
         end: monthEnd,
     }, { weekStartsOn: 1 });
 
-    const weekIds = weeks.map(weekStart => `${getYear(weekStart)}-W${getISOWeek(weekStart)}`);
+    const weekIds = weeks.map(weekStart => `${getISOWeekYear(weekStart)}-W${getISOWeek(weekStart)}`);
 
     if (weekIds.length === 0) {
         callback([]);
@@ -211,7 +226,7 @@ export async function getSchedulesForDateRange(
         end: toDate,
     }, { weekStartsOn: 1 });
 
-    const weekIds = weeks.map(weekStart => `${getYear(weekStart)}-W${getISOWeek(weekStart)}`);
+    const weekIds = weeks.map(weekStart => `${getISOWeekYear(weekStart)}-W${getISOWeek(weekStart)}`);
 
     if (weekIds.length === 0) return [];
 
@@ -240,7 +255,7 @@ export function subscribeToSchedulesForDateRange(
         end: toDate,
     }, { weekStartsOn: 1 });
 
-    const weekIds = weeks.map(weekStart => `${getYear(weekStart)}-W${getISOWeek(weekStart)}`);
+    const weekIds = weeks.map(weekStart => `${getISOWeekYear(weekStart)}-W${getISOWeek(weekStart)}`);
 
     if (weekIds.length === 0) {
         callback([]);
@@ -327,7 +342,7 @@ export async function updateSchedule(weekId: string, data: Partial<Schedule>): P
 
 export async function createDraftScheduleForNextWeek(currentDate: Date, shiftTemplates: ShiftTemplate[]): Promise<void> {
     const nextWeekDate = addDays(currentDate, 7);
-    const nextWeekId = `${nextWeekDate.getFullYear()}-W${getISOWeek(nextWeekDate)}`;
+    const nextWeekId = `${getISOWeekYear(nextWeekDate)}-W${getISOWeek(nextWeekDate)}`;
 
     const scheduleRef = doc(db, 'schedules', nextWeekId);
     const scheduleSnap = await getDoc(scheduleRef);
@@ -458,14 +473,36 @@ export function subscribeToStructuredConstraints(callback: (constraints: Schedul
     return unsubscribe;
 }
 
+function removeUndefinedDeep<T>(obj: T): T {
+    if (obj === undefined) return undefined as unknown as T;
+    if (obj === null) return obj;
+    if (Array.isArray(obj)) {
+        return obj
+            .map(item => removeUndefinedDeep(item))
+            .filter(item => item !== undefined) as unknown as T;
+    }
+    if (typeof obj === 'object') {
+        const out: any = {};
+        for (const [k, v] of Object.entries(obj as any)) {
+            if (v === undefined) continue;
+            const cleaned = removeUndefinedDeep(v);
+            if (cleaned !== undefined) out[k] = cleaned;
+        }
+        return out as T;
+    }
+    return obj;
+}
+
 export async function updateStructuredConstraints(constraints: ScheduleCondition[]): Promise<void> {
     const docRef = doc(db, 'app-data', 'scheduleConstraints');
-    await setDoc(docRef, { constraints, updatedAt: serverTimestamp() }, { merge: true });
+    // Remove any undefined fields (Firestore rejects undefined)
+    const sanitized = (constraints || []).map(c => removeUndefinedDeep(c));
+    await setDoc(docRef, { constraints: sanitized, updatedAt: serverTimestamp() }, { merge: true });
 }
 
 export async function requestPassShift(shiftToPass: AssignedShift, requestingUser: { uid: string, displayName: string }): Promise<Notification | null> {
     // Server-side check: Fetch the latest schedule to verify the user is still in the shift
-    const weekId = `${new Date(shiftToPass.date).getFullYear()}-W${getISOWeek(new Date(shiftToPass.date))}`;
+    const weekId = `${getISOWeekYear(new Date(shiftToPass.date))}-W${getISOWeek(new Date(shiftToPass.date))}`;
     const scheduleDoc = await getDoc(doc(db, 'schedules', weekId));
     if (scheduleDoc.exists()) {
         const schedule = scheduleDoc.data() as Schedule;
@@ -518,7 +555,7 @@ export async function requestPassShift(shiftToPass: AssignedShift, requestingUse
 
 export async function requestDirectPassShift(shiftToPass: AssignedShift, requestingUser: AuthUser, targetUser: ManagedUser, isSwap: boolean, targetUserShift: AssignedShift | null): Promise<Notification | null> {
     // Server-side check
-    const weekId = `${new Date(shiftToPass.date).getFullYear()}-W${getISOWeek(new Date(shiftToPass.date))}`;
+    const weekId = `${getISOWeekYear(new Date(shiftToPass.date))}-W${getISOWeek(new Date(shiftToPass.date))}`;
     const scheduleDoc = await getDoc(doc(db, 'schedules', weekId));
     if (!scheduleDoc.exists()) {
         throw new Error("Không tìm thấy lịch làm việc cho tuần này.");
@@ -567,6 +604,10 @@ export async function requestDirectPassShift(shiftToPass: AssignedShift, request
         }
     }
 
+    // Find assigned role from shiftToPass assignedUsers
+    const assignedUser = shiftToPass.assignedUsers.find(u => u.userId === requestingUser.uid);
+    const assignedRole = assignedUser ? assignedUser.assignedRole : null;
+
     const payload: PassRequestPayload = {
         weekId: weekId,
         shiftId: shiftToPass.id,
@@ -576,7 +617,8 @@ export async function requestDirectPassShift(shiftToPass: AssignedShift, request
         shiftRole: shiftToPass.role,
         requestingUser: {
             userId: requestingUser.uid,
-            userName: requestingUser.displayName
+            userName: requestingUser.displayName,
+            assignedRole: assignedRole ?? requestingUser.role,
         },
         targetUserId: targetUser.uid,
         isSwapRequest: isSwap,
@@ -637,7 +679,11 @@ export async function revertPassRequest(notification: Notification, resolver: Au
     });
 }
 
-export async function acceptPassShift(notificationId: string, payload: PassRequestPayload, acceptingUser: AssignedUser, schedule: Schedule): Promise<void> {
+export async function acceptPassShift(notificationId: string, payload: PassRequestPayload, acceptingUser: SimpleUser, allUsers: ManagedUser[], schedule: Schedule): Promise<void> {
+    if (!acceptingUser) {
+        throw new Error("Người dùng chấp nhận không hợp lệ.");
+    }
+
     const notificationRef = doc(db, "notifications", notificationId);
 
     const shift = schedule.shifts.find(s => s.id === payload.shiftId);
@@ -650,11 +696,23 @@ export async function acceptPassShift(notificationId: string, payload: PassReque
         throw new Error("Yêu cầu này không còn hợp lệ vì người pass ca đã không còn trong ca làm việc.");
     }
 
+    // check shift assigned role to see if accepting user can take the shift
+    const targetAssignedRole = shift.assignedUsers.find(u => u.userId === payload.requestingUser.userId)?.assignedRole;
+    const acceptingUserDetails = allUsers.find(u => u.uid === acceptingUser.userId);
+
+    if (!acceptingUserDetails) {
+        throw new Error("Không tìm thấy thông tin người dùng chấp nhận ca.");
+    }
+
+    if (targetAssignedRole && acceptingUserDetails && acceptingUserDetails.role !== targetAssignedRole && acceptingUserDetails.secondaryRoles?.indexOf(targetAssignedRole) === -1) {
+        throw new Error(`Bạn không thể nhận ca này vì ca yêu cầu được phân công cho vai trò "${targetAssignedRole}", trong khi vai trò của bạn là "${acceptingUserDetails.role}".`);
+    }
+
     if (!payload.isSwapRequest) {
         const allShiftsOnDay = schedule.shifts.filter(s => s.date === payload.shiftDate);
         const shiftToTake: AssignedShift = { ...schedule.shifts.find(s => s.id === payload.shiftId)!, assignedUsers: [] };
 
-        const conflict = hasTimeConflict(acceptingUser.userId, shiftToTake, allShiftsOnDay);
+        const conflict = hasTimeConflict(acceptingUserDetails.uid, shiftToTake, allShiftsOnDay);
         if (conflict) {
             throw new Error(`Ca này bị trùng giờ với ca "${conflict.label}" (${conflict.timeSlot.start} - ${conflict.timeSlot.end}) mà bạn đã được phân công.`);
         }
@@ -976,11 +1034,14 @@ export async function deletePassRequestNotification(notificationId: string): Pro
 function isTaskScheduledForDate(task: MonthlyTask, date: Date): boolean {
     const dayOfWeek = getDay(date); // 0=Sun, 1=Mon, ...
     const dayOfMonth = getDate(date);
+    const dateKey = format(date, 'yyyy-MM-dd');
 
-    if (task.schedule.type === 'random') {
-        return task.scheduledDates?.includes(format(date, 'yyyy-MM-dd')) ?? false;
+    // First, check if this date is in the custom scheduled dates (works for all task types)
+    if (task.scheduledDates && task.scheduledDates.includes(dateKey)) {
+        return true;
     }
 
+    // Then check the regular schedule rules based on schedule type
     switch (task.schedule.type) {
         case 'weekly':
             return task.schedule.daysOfWeek.includes(dayOfWeek);
@@ -1013,6 +1074,10 @@ function isTaskScheduledForDate(task: MonthlyTask, date: Date): boolean {
                 return occ.week === weekOfMonth;
             });
 
+        case 'random':
+            // For random type, dates are only in scheduledDates (already checked above)
+            return false;
+
         default:
             return false;
     }
@@ -1023,7 +1088,7 @@ export function subscribeToMonthlyTasksForDate(
     callback: (assignments: MonthlyTaskAssignment[]) => void
 ): () => void {
     const dateKey = format(date, 'yyyy-MM-dd');
-    const weekId = `${getYear(date)}-W${getISOWeek(date)}`;
+    const weekId = `${getISOWeekYear(date)}-W${getISOWeek(date)}`;
 
     let allDefinedTasks: MonthlyTask[] = [];
     let allUsers: ManagedUser[] = [];
@@ -1117,7 +1182,15 @@ export function subscribeToMonthlyTasksForDate(
     const unsubCompletions = onSnapshot(completionsQuery, (querySnapshot) => {
         let completions: TaskCompletionRecord[] = [];
         querySnapshot.forEach(docSnap => {
-            completions = completions.concat(docSnap.data().completions || []);
+            const data = docSnap.data();
+            if (data.completions && Array.isArray(data.completions)) {
+                completions = completions.concat(
+                    data.completions.map((c: TaskCompletionRecord) => ({ 
+                        ...c, 
+                        completionId: `${docSnap.id}_${c.taskId}` 
+                    }))
+                );
+            }
         });
         allCompletionsForDay = completions;
         processAndCallback();
@@ -1156,7 +1229,10 @@ export function subscribeToMonthlyTaskCompletionsForMonth(
             const data = docSnap.data();
             if (data.completions && Array.isArray(data.completions)) {
                 allCompletionsForMonth = allCompletionsForMonth.concat(
-                    data.completions.map((c: TaskCompletionRecord) => ({ ...c, completionId: docSnap.id }))
+                    data.completions.map((c: TaskCompletionRecord) => ({ 
+                        ...c, 
+                        completionId: `${docSnap.id}_${c.taskId}` 
+                    }))
                 );
             }
         });
@@ -1169,7 +1245,7 @@ export function subscribeToMonthlyTaskCompletionsForMonth(
     return unsubscribe;
 }
 
-export async function updateMonthlyTaskCompletionStatus(taskId: string, taskName: string, user: AssignedUser, date: Date, isCompleted: boolean, media?: MediaItem[], note?: string): Promise<void> {
+export async function updateMonthlyTaskCompletionStatus(taskId: string, taskName: string, user: SimpleUser, date: Date, isCompleted: boolean, media?: MediaItem[], note?: string): Promise<void> {
     const dateKey = format(date, 'yyyy-MM-dd');
     const docRef = doc(db, 'monthly_task_completions', `${dateKey}_${user.userId}`);
 

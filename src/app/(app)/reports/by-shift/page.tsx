@@ -16,7 +16,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useToast } from '@/components/ui/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
-import { getISOWeek } from 'date-fns';
+import { getISOWeek, getISOWeekYear } from 'date-fns';
 import { useLightbox } from '@/contexts/lightbox-context';
 import { useRouter } from 'nextjs-toploader/app';
 
@@ -376,7 +376,7 @@ function ReportView() {
         }
     });
 
-    const weekId = `${new Date(date).getFullYear()}-W${getISOWeek(new Date(date))}`;
+    const weekId = `${getISOWeekYear(new Date(date))}-W${getISOWeek(new Date(date))}`;
     const unsubSchedule = dataStore.subscribeToSchedule(weekId, (sch) => {
          if (isMounted) {
             setSchedule(sch);

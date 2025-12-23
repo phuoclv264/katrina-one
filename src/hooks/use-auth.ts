@@ -11,7 +11,7 @@ import { unregisterNotifications } from '@/lib/firebase-messaging';
 import { useDataRefresher } from './useDataRefresher';
 import { isUserOnActiveShift, getActiveShifts } from '@/lib/schedule-utils';
 import type { Schedule, AssignedShift, Notification } from '@/lib/types';
-import { getISOWeek, format } from 'date-fns';
+import { getISOWeek, getISOWeekYear, format } from 'date-fns';
 
 export type UserRole = 'Phục vụ' | 'Pha chế' | 'Quản lý' | 'Chủ nhà hàng' | 'Thu ngân';
 
@@ -161,7 +161,7 @@ export const useAuth = () => {
     };
 
     const today = new Date();
-    const weekId = `${today.getFullYear()}-W${getISOWeek(today)}`;
+    const weekId = `${getISOWeekYear(today)}-W${getISOWeek(today)}`;
 
     const unsubscribeSchedule = dataStore.subscribeToSchedule(weekId, (schedule) => {
       checkUserShift(user, schedule);

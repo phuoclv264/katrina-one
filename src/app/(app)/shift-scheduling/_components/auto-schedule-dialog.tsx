@@ -27,6 +27,8 @@ import ConditionSummary from './condition-summary';
 import AddConditionSheet from './add-condition-sheet';
 import { UserMultiSelect } from '@/components/user-multi-select';
 
+type TabConfig = { value: string; label: string; types?: string[] };
+
 type Props = {
   isOpen: boolean;
   onClose: () => void;
@@ -34,23 +36,24 @@ type Props = {
   allUsers: ManagedUser[];
   availability: Availability[];
   constraints: ScheduleCondition[];
-  onApplyAssignments: (assignments: { shiftId: string; userId: string }[], strategy: 'merge' | 'replace') => void;
+  onApplyAssignments: (assignments: { shiftId: string; userId: string; userName?: string; assignedRole?: UserRole | 'Bất kỳ' }[], strategy: 'merge' | 'replace') => void;
   shiftTemplates: ShiftTemplate[];
 };
 
-type EditableAssignment = { shiftId: string; userId: string; selected: boolean };
+type EditableAssignment = { shiftId: string; userId: string; selected: boolean; assignedRole?: UserRole | 'Bất kỳ' };
 type UndoRedoEntry = {
   constraints: ScheduleCondition[];
   timestamp: number;
 };
 
-const TABS = [
-  { value: 'workload', label: 'Định mức', type: 'WorkloadLimit' },
-  { value: 'staffing', label: 'Nhu cầu ca', type: 'ShiftStaffing' },
-  { value: 'priority', label: 'Ưu tiên', type: 'StaffPriority' },
-  { value: 'links', label: 'Ràng buộc', type: 'StaffShiftLink' },
-  { value: 'availability', label: 'Thời gian rảnh', type: 'AvailabilityStrictness' },
-  { value: 'preview', label: 'Xem trước', type: null },
+const TABS: TabConfig[] = [
+  { value: 'workload', label: 'Định mức', types: ['WorkloadLimit'] },
+  { value: 'staffing', label: 'Nhu cầu ca', types: ['ShiftStaffing'] },
+  { value: 'priority', label: 'Ưu tiên', types: ['StaffPriority'] },
+  { value: 'links', label: 'Ràng buộc', types: ['StaffShiftLink', 'StaffExclusion'] },
+  { value: 'availability', label: 'Thời gian rảnh', types: ['AvailabilityStrictness'] },
+  { value: 'all', label: 'Tất cả điều kiện' },
+  { value: 'preview', label: 'Xem trước' },
 ];
 
 export default function AutoScheduleDialog({
@@ -67,10 +70,14 @@ export default function AutoScheduleDialog({
   const [result, setResult] = useState<ScheduleRunResult | null>(null);
   const [editableAssignments, setEditableAssignments] = useState<EditableAssignment[]>([]);
   const [activeTab, setActiveTab] = useState('preview');
-  const [filterTab, setFilterTab] = useState('');
+  const [filterTab, setFilterTab] = useState<string | string[]>('');
   const [showAddCondition, setShowAddCondition] = useState(false);
+  const [editCondition, setEditCondition] = useState<ScheduleCondition | null>(null);
   const [savedTimestamp, setSavedTimestamp] = useState<number | null>(null);
   const [lastSaveTime, setLastSaveTime] = useState<string>('');
+
+  // Employee filter for "Tất cả điều kiện" tab (single selection)
+  const [employeeFilter, setEmployeeFilter] = useState<ManagedUser[]>([]);
 
   const undoStack = useRef<UndoRedoEntry[]>([]);
   const redoStack = useRef<UndoRedoEntry[]>([]);
@@ -237,6 +244,21 @@ export default function AutoScheduleDialog({
     toast.success('Đã thêm điều kiện mới.');
   };
 
+  const handleStartEditCondition = (condition: ScheduleCondition) => {
+    if (!canSaveStructuredConstraints) return;
+    setEditCondition(condition);
+    setShowAddCondition(true);
+  };
+
+  const handleSaveCondition = (condition: ScheduleCondition) => {
+    const prev = [...editableConstraints];
+    pushUndo(prev);
+    setEditableConstraints(prev.map(c => c.id === condition.id ? condition : c));
+    toast.success('Đã cập nhật điều kiện.');
+    setEditCondition(null);
+    setShowAddCondition(false);
+  };
+
   const handleDeleteCondition = (id: string) => {
     const prev = [...editableConstraints];
     pushUndo(prev);
@@ -274,7 +296,7 @@ export default function AutoScheduleDialog({
     }
     const r = runSchedule(shifts, allUsers, availability, editableConstraints);
     setResult(r);
-    setEditableAssignments(r.assignments.map(a => ({ shiftId: a.shiftId, userId: a.userId, selected: true })));
+    setEditableAssignments(r.assignments.map(a => ({ shiftId: a.shiftId, userId: a.userId, selected: true, assignedRole: a.role ?? 'Bất kỳ' })));
     if (r.warnings.length) {
       toast.info('Có cảnh báo trong kết quả xếp lịch.', { icon: '⚠️' });
     }
@@ -285,7 +307,19 @@ export default function AutoScheduleDialog({
   };
 
   const handleApply = () => {
-    const selected = editableAssignments.filter(a => a.selected).map(a => ({ shiftId: a.shiftId, userId: a.userId }));
+    const selected = editableAssignments
+      .filter(a => a.selected)
+      .map(a => {
+        const user = allUsers.find(u => u.uid === a.userId);
+        return {
+          shiftId: a.shiftId,
+          userId: a.userId,
+          userName: user?.displayName || a.userId,
+          // Prefer the role assigned by the scheduler (stored on the editable assignment),
+          // otherwise fall back to the user's profile role.
+          assignedRole: a.assignedRole ?? (roleByUserId.get(a.userId) as UserRole | 'Bất kỳ') ?? 'Bất kỳ',
+        };
+      });
     if (selected.length === 0) {
       toast.error('Không có phân công nào được chọn để áp dụng.');
       return;
@@ -369,7 +403,26 @@ export default function AutoScheduleDialog({
           {/* Single column: Tabs and controls with inline condition summary */}
           <div className="flex flex-col overflow-hidden h-full">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-              <TabsList className="grid grid-cols-3 lg:grid-cols-6 m-4 mb-0 justify-start gap-1 h-auto bg-transparent p-0">
+              {/* Mobile: compact select + add button */}
+              <div className="m-4 sm:hidden flex items-center gap-2">
+                <Select value={activeTab} onValueChange={setActiveTab}>
+                  <SelectTrigger className="w-full h-8 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TABS.map(tab => (
+                      <SelectItem key={tab.value} value={tab.value}>{tab.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Button variant="secondary" size="sm" onClick={() => setShowAddCondition(true)} className="flex-shrink-0">
+                  <Plus className="h-4 w-4 mr-1" />
+                  Thêm
+                </Button>
+              </div>
+
+              <TabsList className="hidden sm:grid grid-cols-3 lg:grid-cols-6 m-4 mb-0 justify-start gap-1 h-auto bg-transparent p-0">
                 {TABS.map(tab => (
                   <TabsTrigger
                     key={tab.value}
@@ -377,16 +430,20 @@ export default function AutoScheduleDialog({
                     className="relative text-xs px-3 py-1.5 data-[state=active]:bg-muted"
                   >
                     {tab.label}
-                    {tab.type && conditionCounts[tab.type] > 0 && (
+                    {tab.types && tab.types.length > 0 && tab.types.reduce((acc, t) => acc + (conditionCounts[t] || 0), 0) > 0 && (
                       <Badge
                         variant="secondary"
                         className="ml-1 h-5 px-1.5 text-[10px] cursor-pointer"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setFilterTab(filterTab === tab.type ? '' : tab.type);
+                          const totalTypes = tab.types || [];
+                          const isSame = Array.isArray(filterTab)
+                            ? totalTypes.length === filterTab.length && totalTypes.every(t => filterTab.includes(t))
+                            : totalTypes.length === 1 && filterTab === totalTypes[0];
+                          setFilterTab(isSame ? '' : totalTypes);
                         }}
                       >
-                        {conditionCounts[tab.type]}
+                        {tab.types.reduce((acc, t) => acc + (conditionCounts[t] || 0), 0)}
                       </Badge>
                     )}
                   </TabsTrigger>
@@ -404,6 +461,8 @@ export default function AutoScheduleDialog({
                       shiftTemplates={shiftTemplates}
                       onToggleEnabled={handleToggleCondition}
                       onDelete={handleDeleteCondition}
+                      onEdit={handleStartEditCondition}
+                      canSave={canSaveStructuredConstraints}
                     />
                   </TabsContent>
 
@@ -416,6 +475,8 @@ export default function AutoScheduleDialog({
                       allUsers={allUsers}
                       onToggleEnabled={handleToggleCondition}
                       onDelete={handleDeleteCondition}
+                      onEdit={handleStartEditCondition}
+                      canSave={canSaveStructuredConstraints}
                     />
                   </TabsContent>
 
@@ -426,6 +487,8 @@ export default function AutoScheduleDialog({
                       allUsers={allUsers}
                       onToggleEnabled={handleToggleCondition}
                       onDelete={handleDeleteCondition}
+                      onEdit={handleStartEditCondition}
+                      canSave={canSaveStructuredConstraints}
                     />
                   </TabsContent>
 
@@ -436,6 +499,8 @@ export default function AutoScheduleDialog({
                       allUsers={allUsers}
                       onToggleEnabled={handleToggleCondition}
                       onDelete={handleDeleteCondition}
+                      onEdit={handleStartEditCondition}
+                      canSave={canSaveStructuredConstraints}
                     />
                   </TabsContent>
 
@@ -447,7 +512,44 @@ export default function AutoScheduleDialog({
                       allUsers={allUsers}
                       onToggleEnabled={handleToggleCondition}
                       onDelete={handleDeleteCondition}
+                      onEdit={handleStartEditCondition}
+                      canSave={canSaveStructuredConstraints}
                     />
+                  </TabsContent>
+
+                  <TabsContent value="all" className="m-0 space-y-4">
+                    <div className="space-y-3">
+                      <Card>
+                        <CardContent className="p-3 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Label className="text-xs font-semibold">Tất cả điều kiện</Label>
+                            <div className="ml-auto w-48">
+                              <UserMultiSelect
+                                users={allUsers}
+                                selectedUsers={employeeFilter}
+                                onChange={setEmployeeFilter}
+                                selectionMode="single"
+                              />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardContent className="p-3 h-full overflow-hidden">
+                          <ConditionSummary
+                            constraints={editableConstraints}
+                            shiftTemplates={shiftTemplates}
+                            allUsers={allUsers}
+                            onToggleEnabled={handleToggleCondition}
+                            onDelete={handleDeleteCondition}
+                            onEdit={canSaveStructuredConstraints ? handleStartEditCondition : undefined}
+                            employeeFilterUserId={employeeFilter[0]?.uid}
+                            onClearEmployeeFilter={() => setEmployeeFilter([])}
+                          />
+                        </CardContent>
+                      </Card>
+                    </div>
                   </TabsContent>
 
                   <TabsContent value="preview" className="m-0 space-y-4">
@@ -482,19 +584,19 @@ export default function AutoScheduleDialog({
               variant="secondary"
               size="sm"
               onClick={() => setShowAddCondition(true)}
-              className="w-full sm:w-auto"
+              className="hidden sm:inline-flex sm:w-auto"
             >
               <Plus className="h-4 w-4 mr-1" />
               Thêm điều kiện
             </Button>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto items-stretch mt-2 sm:mt-0">
+          <div className="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
             <Button
               variant="outline"
               size="sm"
               onClick={onClose}
-              className="w-full sm:w-auto"
+              className="flex-1 sm:w-auto"
             >
               Đóng
             </Button>
@@ -507,7 +609,7 @@ export default function AutoScheduleDialog({
                     size="sm"
                     onClick={handleSaveConstraints}
                     disabled={!canSaveStructuredConstraints || !hasUnsavedChanges}
-                    className="w-full sm:w-auto"
+                    className="sm:w-auto flex-shrink-0"
                   >
                     Lưu
                   </Button>
@@ -518,34 +620,37 @@ export default function AutoScheduleDialog({
               </Tooltip>
             </TooltipProvider>
 
-            <Button
-              onClick={handleApply}
-              disabled={!result || validationErrors.length > 0}
-              size="sm"
-              className="w-full sm:w-auto"
-            >
-              Áp dụng phân công
-            </Button>
+            {activeTab === 'preview' && (
+              <Button
+                onClick={handleApply}
+                disabled={!result || validationErrors.length > 0}
+                size="sm"
+                className="sm:w-auto flex-shrink-0"
+              >
+                Áp dụng phân công
+              </Button>
+            )}
           </div>
         </div>
       </DialogContent>
 
       <AddConditionSheet
         isOpen={showAddCondition}
-        onClose={() => setShowAddCondition(false)}
+        onClose={() => {
+          setShowAddCondition(false);
+          setEditCondition(null);
+        }}
         shiftTemplates={shiftTemplates}
         allUsers={allUsers}
         onAddCondition={handleAddCondition}
+        onSaveCondition={handleSaveCondition}
+        conditionToEdit={editCondition}
       />
     </Dialog>
   );
 }
 
-function WorkloadTab({ constraints, setConstraints, pushUndo, allUsers, shiftTemplates, onToggleEnabled, onDelete }: any) {
-  const globalWorkload = constraints.find((c: ScheduleCondition) => c.type === 'WorkloadLimit' && (c as any).scope === 'global') as any;
-  const globalDailyLimit = constraints.find((c: ScheduleCondition) => c.type === 'DailyShiftLimit' && !(c as any).userId) as any;
-  const strictAvailability = constraints.find((c: ScheduleCondition) => c.type === 'AvailabilityStrictness') as any;
-
+function WorkloadTab({ constraints, setConstraints, pushUndo, allUsers, shiftTemplates, onToggleEnabled, onDelete, onEdit, canSave }: any) {
   return (
     <div className="space-y-3 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:space-y-0 min-h-0">
       <div className="space-y-3">
@@ -553,137 +658,6 @@ function WorkloadTab({ constraints, setConstraints, pushUndo, allUsers, shiftTem
           <CardContent className="p-3 space-y-2">
             <Label className="text-xs font-semibold">Giải thích chiến lược</Label>
             <p className="text-xs text-muted-foreground">Phân bổ tỉ lệ thuận với thời gian rảnh. Giới hạn Min/Max Ca và Giờ. Ưu tiên giới hạn riêng của nhân viên hơn giới hạn toàn cục.</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-3 space-y-2">
-            <Label className="text-xs font-semibold">Giới hạn toàn cục</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-xs">Min Ca</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={globalWorkload?.minShiftsPerWeek ?? ''}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value || '0', 10);
-                    setConstraints((prev: any) => {
-                      const next = [...prev];
-                      const idx = next.findIndex(c => c.type === 'WorkloadLimit' && c.scope === 'global');
-                      if (idx >= 0) next[idx] = { ...next[idx], minShiftsPerWeek: val };
-                      else next.push({ id: `wl_global_${Date.now()}`, enabled: true, type: 'WorkloadLimit', scope: 'global', minShiftsPerWeek: val });
-                      return next;
-                    });
-                  }}
-                  className="h-8 text-xs"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Max Ca</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={globalWorkload?.maxShiftsPerWeek ?? ''}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value || '0', 10);
-                    setConstraints((prev: any) => {
-                      const next = [...prev];
-                      const idx = next.findIndex(c => c.type === 'WorkloadLimit' && c.scope === 'global');
-                      if (idx >= 0) next[idx] = { ...next[idx], maxShiftsPerWeek: val };
-                      else next.push({ id: `wl_global_${Date.now()}`, enabled: true, type: 'WorkloadLimit', scope: 'global', maxShiftsPerWeek: val });
-                      return next;
-                    });
-                  }}
-                  className="h-8 text-xs"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Min Giờ</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={globalWorkload?.minHoursPerWeek ?? ''}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value || '0', 10);
-                    setConstraints((prev: any) => {
-                      const next = [...prev];
-                      const idx = next.findIndex(c => c.type === 'WorkloadLimit' && c.scope === 'global');
-                      if (idx >= 0) next[idx] = { ...next[idx], minHoursPerWeek: val };
-                      else next.push({ id: `wl_global_${Date.now()}`, enabled: true, type: 'WorkloadLimit', scope: 'global', minHoursPerWeek: val });
-                      return next;
-                    });
-                  }}
-                  className="h-8 text-xs"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Max Giờ</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={globalWorkload?.maxHoursPerWeek ?? ''}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value || '0', 10);
-                    setConstraints((prev: any) => {
-                      const next = [...prev];
-                      const idx = next.findIndex(c => c.type === 'WorkloadLimit' && c.scope === 'global');
-                      if (idx >= 0) next[idx] = { ...next[idx], maxHoursPerWeek: val };
-                      else next.push({ id: `wl_global_${Date.now()}`, enabled: true, type: 'WorkloadLimit', scope: 'global', maxHoursPerWeek: val });
-                      return next;
-                    });
-                  }}
-                  className="h-8 text-xs"
-                />
-              </div>
-            </div>
-
-            <div className="pt-2 border-t">
-              <Label className="text-xs">Max Ca/Ngày (Toàn cục)</Label>
-              <Input
-                type="number"
-                min={1}
-                value={globalDailyLimit?.maxPerDay ?? ''}
-                onChange={(e) => {
-                  const val = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
-                  setConstraints((prev: any) => {
-                    const next = [...prev];
-                    const idx = next.findIndex(c => c.type === 'DailyShiftLimit' && !c.userId);
-                    if (val === undefined) {
-                      if (idx >= 0) next.splice(idx, 1);
-                    } else {
-                      if (idx >= 0) next[idx] = { ...next[idx], maxPerDay: val };
-                      else next.push({ id: `dl_global_${Date.now()}`, enabled: true, type: 'DailyShiftLimit', maxPerDay: val });
-                    }
-                    return next;
-                  });
-                }}
-                className="h-8 text-xs"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-3 space-y-2">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="strict-availability"
-                checked={strictAvailability?.strict ?? false}
-                onCheckedChange={(checked) => {
-                  setConstraints((prev: any) => {
-                    const next = [...prev];
-                    const idx = next.findIndex(c => c.type === 'AvailabilityStrictness');
-                    if (idx >= 0) next[idx] = { ...next[idx], strict: checked };
-                    else next.push({ id: `as_${Date.now()}`, enabled: true, type: 'AvailabilityStrictness', strict: checked });
-                    return next;
-                  });
-                }}
-                className="h-3 w-3"
-              />
-              <Label htmlFor="strict-availability" className="text-xs font-medium">Buộc tuân thủ thời gian rảnh</Label>
-            </div>
-            <p className="text-[11px] text-muted-foreground">Nếu bật, phân công bắt buộc sẽ bị bỏ qua nếu nhân viên không rảnh.</p>
           </CardContent>
         </Card>
 
@@ -696,6 +670,7 @@ function WorkloadTab({ constraints, setConstraints, pushUndo, allUsers, shiftTem
               filterTab="WorkloadLimit"
               onToggleEnabled={onToggleEnabled}
               onDelete={onDelete}
+              onEdit={canSave ? onEdit : undefined}
             />
           </CardContent>
         </Card>
@@ -704,7 +679,7 @@ function WorkloadTab({ constraints, setConstraints, pushUndo, allUsers, shiftTem
   );
 }
 
-function StaffingTab({ constraints, setConstraints, shiftTemplates, pushUndo, allUsers, onToggleEnabled, onDelete }: {
+function StaffingTab({ constraints, setConstraints, shiftTemplates, pushUndo, allUsers, onToggleEnabled, onDelete, onEdit, canSave }: {
   constraints: ScheduleCondition[];
   setConstraints: React.Dispatch<React.SetStateAction<ScheduleCondition[]>>;
   shiftTemplates: ShiftTemplate[];
@@ -712,6 +687,8 @@ function StaffingTab({ constraints, setConstraints, shiftTemplates, pushUndo, al
   allUsers: ManagedUser[];
   onToggleEnabled: (id: string) => void;
   onDelete: (id: string) => void;
+  onEdit?: (c: ScheduleCondition) => void;
+  canSave?: boolean;
 }) {
   return (
     <div className="space-y-3 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:space-y-0">
@@ -735,6 +712,7 @@ function StaffingTab({ constraints, setConstraints, shiftTemplates, pushUndo, al
               filterTab="ShiftStaffing"
               onToggleEnabled={onToggleEnabled}
               onDelete={onDelete}
+              onEdit={canSave ? onEdit : undefined}
             />
           </CardContent>
         </Card>
@@ -749,12 +727,16 @@ function PriorityTab({
   allUsers,
   onToggleEnabled,
   onDelete,
+  onEdit,
+  canSave,
 }: {
   constraints: ScheduleCondition[];
   shiftTemplates: ShiftTemplate[];
   allUsers: ManagedUser[];
   onToggleEnabled: (id: string) => void;
   onDelete: (id: string) => void;
+  onEdit?: (c: ScheduleCondition) => void;
+  canSave?: boolean;
 }) {
   return (
     <div className="space-y-3 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:space-y-0">
@@ -778,6 +760,7 @@ function PriorityTab({
               filterTab="StaffPriority"
               onToggleEnabled={onToggleEnabled}
               onDelete={onDelete}
+              onEdit={canSave ? onEdit : undefined}
             />
           </CardContent>
         </Card>
@@ -792,12 +775,16 @@ function LinksTab({
   allUsers,
   onToggleEnabled,
   onDelete,
+  onEdit,
+  canSave,
 }: {
   constraints: ScheduleCondition[];
   shiftTemplates: ShiftTemplate[];
   allUsers: ManagedUser[];
   onToggleEnabled: (id: string) => void;
   onDelete: (id: string) => void;
+  onEdit?: (c: ScheduleCondition) => void;
+  canSave?: boolean;
 }) {
   return (
     <div className="space-y-3 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:space-y-0">
@@ -818,9 +805,10 @@ function LinksTab({
               constraints={constraints}
               shiftTemplates={shiftTemplates}
               allUsers={allUsers}
-              filterTab="StaffShiftLink"
+              filterTab={["StaffShiftLink", "StaffExclusion"]}
               onToggleEnabled={onToggleEnabled}
               onDelete={onDelete}
+              onEdit={canSave ? onEdit : undefined}
             />
           </CardContent>
         </Card>
@@ -836,6 +824,8 @@ function AvailabilityTab({
   allUsers,
   onToggleEnabled,
   onDelete,
+  onEdit,
+  canSave,
 }: {
   constraints: ScheduleCondition[];
   setConstraints: React.Dispatch<React.SetStateAction<ScheduleCondition[]>>;
@@ -843,6 +833,8 @@ function AvailabilityTab({
   allUsers: ManagedUser[];
   onToggleEnabled: (id: string) => void;
   onDelete: (id: string) => void;
+  onEdit?: (c: ScheduleCondition) => void;
+  canSave?: boolean;
 }) {
   const availability = constraints.find(c => c.type === 'AvailabilityStrictness') as any;
   return (
@@ -866,6 +858,7 @@ function AvailabilityTab({
               filterTab="AvailabilityStrictness"
               onToggleEnabled={onToggleEnabled}
               onDelete={onDelete}
+              onEdit={canSave ? onEdit : undefined}
             />
           </CardContent>
         </Card>
@@ -1059,6 +1052,7 @@ function PreviewTab({
 
 function validateConstraints(constraints: ScheduleCondition[]): string[] {
   const errors: string[] = [];
+  const makePairKey = (a: string, b: string) => [a, b].sort().join('|');
   const workloads = constraints.filter(c => c.type === 'WorkloadLimit');
   for (const wl of workloads as any[]) {
     const minS = wl.minShiftsPerWeek ?? 0;
@@ -1078,6 +1072,29 @@ function validateConstraints(constraints: ScheduleCondition[]): string[] {
     } else {
       seen.set(key, ln.link);
     }
+  }
+  const exclusions = constraints.filter(c => c.type === 'StaffExclusion') as any[];
+  const exclusionSeen = new Map<string, Set<string>>();
+  for (const ex of exclusions) {
+    if (!ex.blockedUserIds || ex.blockedUserIds.length === 0) {
+      errors.push('Điều kiện không ghép chung cần chọn ít nhất 1 nhân viên bị chặn.');
+      continue;
+    }
+    const scope = ex.templateId || 'ALL';
+    const set = exclusionSeen.get(scope) || new Set<string>();
+    for (const blocked of ex.blockedUserIds) {
+      if (blocked === ex.userId) {
+        errors.push('Không thể cấm nhân viên làm chung với chính họ.');
+        continue;
+      }
+      const key = makePairKey(ex.userId, blocked);
+      if (set.has(key)) {
+        errors.push(`Điều kiện không ghép chung bị trùng giữa ${ex.userId} và ${blocked}${ex.templateId ? ` (ca ${ex.templateId})` : ''}.`);
+      } else {
+        set.add(key);
+      }
+    }
+    exclusionSeen.set(scope, set);
   }
   const dailyLimits = constraints.filter(c => c.type === 'DailyShiftLimit') as any[];
   for (const dl of dailyLimits) {

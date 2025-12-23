@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { ManagedUser, Schedule, ShiftTemplate, UserRole } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { addWeeks, eachDayOfInterval, endOfWeek, format, getISOWeek, getYear, startOfWeek } from 'date-fns';
+import { addWeeks, eachDayOfInterval, endOfWeek, format, getISOWeek, getISOWeekYear, getYear, startOfWeek } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
 interface WeekScheduleDialogProps {
@@ -73,7 +73,7 @@ export default function WeekScheduleDialog({
     const newStart = addWeeks(initialWeekInterval.start, weekOffset);
     const start = startOfWeek(newStart, { weekStartsOn: 1 });
     const end = endOfWeek(newStart, { weekStartsOn: 1 });
-    const id = `${getYear(newStart)}-W${getISOWeek(newStart)}`;
+    const id = `${getISOWeekYear(newStart)}-W${getISOWeek(newStart)}`;
     setWeekInterval({ start, end });
     onWeekChange(id);
   }, [initialWeekInterval.start, weekOffset, onWeekChange]);

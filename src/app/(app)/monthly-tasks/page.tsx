@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { getDay } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
@@ -8,7 +8,7 @@ import { useRouter } from 'nextjs-toploader/app';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingPage } from '@/components/loading/LoadingPage';
-import { CalendarClock, Plus, Edit, Trash2, Loader2 } from 'lucide-react';
+import { CalendarClock, Plus, Edit, Trash2, Loader2, RefreshCw } from 'lucide-react';
 import { dataStore } from '@/lib/data-store';
 import type { MonthlyTask, UserRole, ManagedUser } from '@/lib/types';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -21,26 +21,34 @@ import { Toggle } from '@/components/ui/toggle';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { addYears, eachWeekOfInterval, eachMonthOfInterval, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, format, addDays as addDaysFns } from 'date-fns';
+import { vi as viLocale } from 'date-fns/locale';
 
 function EditTaskForm({
     task,
     onSave,
     onCancel,
     isProcessing,
+    onRegenerateRandomDates,
 }: {
     task: MonthlyTask;
     onSave: (updatedTask: MonthlyTask) => void;
     onCancel: () => void;
     isProcessing: boolean;
+    onRegenerateRandomDates?: (schedule: MonthlyTask['schedule']) => string[];
 }) {
     const ROLES: UserRole[] = ['Phục vụ', 'Pha chế', 'Quản lý'];
     const [localTask, setLocalTask] = useState(task);
+    const [originalScheduleType] = useState(task.schedule.type);
+    const [newCustomDate, setNewCustomDate] = useState('');
 
     const handleFieldChange = (field: keyof MonthlyTask, value: any) => {
         setLocalTask(prev => ({ ...prev, [field]: value }));
     };
 
     const handleScheduleTypeChange = (type: 'weekly' | 'interval' | 'monthly_date' | 'monthly_weekday' | 'random') => {
+        // If type hasn't changed, don't reset the schedule
+        if (localTask.schedule.type === type) return;
+        
         let newSchedule: MonthlyTask['schedule'];
         switch (type) {
             case 'weekly':
@@ -72,6 +80,27 @@ function EditTaskForm({
                 [field]: value,
             }
         }));
+    };
+
+    const handleRegenerateRandomDates = (mode: 'append' | 'replace') => {
+        if (typeof onRegenerateRandomDates !== 'function') {
+            toast.error('Không thể tạo lại ngày: chức năng chưa sẵn sàng.');
+            return;
+        }
+        const generated = onRegenerateRandomDates(localTask.schedule);
+        if (!generated || generated.length === 0) {
+            toast.info('Không có ngày nào được tạo.');
+            return;
+        }
+        setLocalTask(prev => {
+            if (mode === 'append') {
+                const merged = Array.from(new Set([...(prev.scheduledDates || []), ...generated])).sort();
+                return { ...prev, scheduledDates: merged };
+            } else {
+                return { ...prev, scheduledDates: [...generated] };
+            }
+        });
+        toast.success(mode === 'append' ? 'Đã thêm ngày ngẫu nhiên mới.' : 'Đã tạo lại ngày ngẫu nhiên.');
     };
 
     const handleWeeklyDayToggle = (day: number) => {
@@ -220,11 +249,67 @@ function EditTaskForm({
                                 Loại trừ cuối tuần (Thứ 7 & Chủ Nhật)
                             </label>
                         </div>
+                        <div className="pt-2">
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="outline" size="sm">
+                                        <RefreshCw className="mr-2 h-4 w-4" />Tạo lại ngày ngẫu nhiên
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Tạo lại ngày ngẫu nhiên?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            Bạn có muốn thêm các ngày ngẫu nhiên mới (giữ nguyên các ngày hiện có) hay thay thế toàn bộ danh sách bằng các ngày mới?
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleRegenerateRandomDates('append')}>Thêm</AlertDialogAction>
+                                        <AlertDialogAction onClick={() => handleRegenerateRandomDates('replace')}>Thay thế</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </div>
                     </div>
                 );
             default:
                 return null;
         }
+    };
+
+    const handleAddCustomDate = () => {
+        if (!newCustomDate) {
+            toast.error("Vui lòng chọn ngày.");
+            return;
+        }
+        const currentDates = localTask.scheduledDates || [];
+        if (currentDates.includes(newCustomDate)) {
+            toast.error("Ngày này đã tồn tại trong danh sách.");
+            return;
+        }
+        setLocalTask(prev => ({
+            ...prev,
+            scheduledDates: [...currentDates, newCustomDate].sort()
+        }));
+        setNewCustomDate('');
+        toast.success("Đã thêm ngày tùy chỉnh.");
+    };
+
+    const handleRemoveCustomDate = (dateToRemove: string) => {
+        setLocalTask(prev => ({
+            ...prev,
+            scheduledDates: (prev.scheduledDates || []).filter(d => d !== dateToRemove)
+        }));
+        toast.success("Đã xóa ngày tùy chỉnh.");
+    };
+
+    const handleRemoveAllCustomDates = () => {
+        setLocalTask(prev => ({
+            ...prev,
+            scheduledDates: []
+        }));
+        toast.success("Đã xóa tất cả ngày tùy chỉnh.");
     };
 
     const handleSaveClick = () => {
@@ -277,6 +362,75 @@ function EditTaskForm({
                     {renderScheduleInputs()}
                 </div>
             </div>
+            <div className="p-3 border bg-background rounded-md space-y-3">
+                <div className="space-y-2">
+                    <Label>Ngày tùy chỉnh (Bổ sung thêm ngày cụ thể)</Label>
+                    <div className="flex gap-2">
+                        <Input
+                            type="date"
+                            value={newCustomDate}
+                            onChange={e => setNewCustomDate(e.target.value)}
+                            placeholder="Chọn ngày"
+                        />
+                        <Button type="button" variant="secondary" size="sm" onClick={handleAddCustomDate}>
+                            <Plus className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+                {localTask.scheduledDates && localTask.scheduledDates.length > 0 && (
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <Label className="text-xs text-muted-foreground">Danh sách ngày đã thêm ({localTask.scheduledDates.length} ngày)</Label>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs text-destructive hover:text-destructive"
+                                onClick={handleRemoveAllCustomDates}
+                            >
+                                Xóa tất cả
+                            </Button>
+                        </div>
+                        <div className="max-h-40 overflow-y-auto space-y-1">
+                            {localTask.scheduledDates
+                                .filter(d => {
+                                    const date = new Date(d);
+                                    date.setHours(0, 0, 0, 0);
+                                    const today = new Date();
+                                    today.setHours(0, 0, 0, 0);
+                                    return date >= today;
+                                })
+                                .slice(0, 20)
+                                .map(date => (
+                                <div key={date} className="flex items-center justify-between text-sm p-2 bg-muted/50 rounded">
+                                    <span>{format(new Date(date), 'dd/MM/yyyy (EEEE)', { locale: viLocale })}</span>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 text-destructive hover:text-destructive"
+                                        onClick={() => handleRemoveCustomDate(date)}
+                                    >
+                                        <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                        {(() => {
+                            const futureDatesCount = localTask.scheduledDates.filter(d => {
+                                const date = new Date(d);
+                                date.setHours(0, 0, 0, 0);
+                                const today = new Date();
+                                today.setHours(0, 0, 0, 0);
+                                return date >= today;
+                            }).length;
+                            return futureDatesCount > 20 ? (
+                                <p className="text-xs text-muted-foreground italic">... và {futureDatesCount - 20} ngày khác</p>
+                            ) : null;
+                        })()}
+                    </div>
+                )}
+            </div>
             <div className="flex justify-end gap-2">
                 <Button variant="ghost" size="sm" onClick={onCancel}>Hủy</Button>
                 <Button size="sm" onClick={handleSaveClick} disabled={isProcessing}>
@@ -289,7 +443,9 @@ function EditTaskForm({
 }
 
 
-export default function MonthlyTasksPage() {
+// MIGRATED: Added Suspense boundary for Cache Components
+// This component uses new Date() in multiple places which needs to be deferred during prerendering
+function MonthlyTasksPageContent() {
     const { user, loading: authLoading } = useAuth();
     const router = useRouter();
     const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -353,11 +509,18 @@ export default function MonthlyTasksPage() {
 
     const handleUpdateTask = (updatedTask: MonthlyTask) => {
         let finalTask = { ...updatedTask };
-        if (finalTask.schedule.type === 'random') {
-            finalTask.scheduledDates = generateRandomDates(finalTask.schedule);
-        } else {
-            delete finalTask.scheduledDates; // Clean up dates if not a random task
+        
+        // Only regenerate random dates if schedule type is random AND it's newly changed to random
+        const originalTask = tasks.find(t => t.id === updatedTask.id);
+        const scheduleTypeChanged = originalTask && originalTask.schedule.type !== finalTask.schedule.type;
+        
+        if (finalTask.schedule.type === 'random' && scheduleTypeChanged) {
+            // Only regenerate if switching TO random type
+            const newRandomDates = generateRandomDates(finalTask.schedule);
+            finalTask.scheduledDates = [...new Set([...(finalTask.scheduledDates || []), ...newRandomDates])].sort();
         }
+        // Keep scheduledDates for all task types (custom dates can be added to any task)
+        
         const newTasks = tasks.map(t => t.id === finalTask.id ? finalTask : t);
         handleSaveTasks(newTasks);
         setEditingTaskId(null);
@@ -422,26 +585,50 @@ export default function MonthlyTasksPage() {
 
     const formatScheduleInfo = (task: MonthlyTask): string => {
         const { schedule } = task;
+        let baseInfo = '';
         switch (schedule.type) {
             case 'weekly':
                 const daysOfWeek = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
                 const scheduledDays = schedule.daysOfWeek.map(d => daysOfWeek[d]).join(', ');
-                return `Hàng tuần: ${scheduledDays}`;
+                baseInfo = `Hàng tuần: ${scheduledDays}`;
+                break;
             case 'interval':
-                return `Mỗi ${schedule.intervalDays} ngày, từ ${schedule.startDate}`;
+                baseInfo = `Mỗi ${schedule.intervalDays} ngày, từ ${schedule.startDate}`;
+                break;
             case 'monthly_date':
-                return `Hàng tháng vào ngày: ${schedule.daysOfMonth.join(', ')}`;
+                baseInfo = `Hàng tháng vào ngày: ${schedule.daysOfMonth.join(', ')}`;
+                break;
             case 'monthly_weekday':
                 const weekMap: { [key: number]: string } = { 1: 'đầu tiên', 2: 'thứ 2', 3: 'thứ 3', 4: 'thứ 4', '-1': 'cuối cùng' };
                 const dayMap = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
                 const occurrence = schedule.occurrences[0];
-                if (!occurrence) return "Lịch theo thứ trong tháng";
-                return `Vào ${dayMap[occurrence.day]} ${weekMap[occurrence.week]} của tháng`;
+                if (!occurrence) {
+                    baseInfo = "Lịch theo thứ trong tháng";
+                } else {
+                    baseInfo = `Vào ${dayMap[occurrence.day]} ${weekMap[occurrence.week]} của tháng`;
+                }
+                break;
             case 'random':
                 const nextDates = (task.scheduledDates || []).filter(d => new Date(d) >= new Date()).slice(0, 3).join(', ');
-                return `Ngẫu nhiên: ${nextDates}...`;
-            default: return "Lịch trình không xác định";
+                baseInfo = `Ngẫu nhiên: ${nextDates}...`;
+                break;
+            default:
+                baseInfo = "Lịch trình không xác định";
         }
+        
+        // Add custom dates info if any exist
+        const customDatesCount = (task.scheduledDates || []).filter(d => {
+            const date = new Date(d);
+            date.setHours(0, 0, 0, 0);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return date >= today;
+        }).length;
+        if (customDatesCount > 0) {
+            baseInfo += ` | ${customDatesCount} ngày tùy chỉnh`;
+        }
+        
+        return baseInfo;
     };
 
     if (isLoading || authLoading) {
@@ -477,6 +664,7 @@ export default function MonthlyTasksPage() {
                                 }}
                                 onSave={handleUpdateTask}
                                 onCancel={() => setEditingTaskId(null)}
+                                onRegenerateRandomDates={(schedule) => generateRandomDates(schedule)}
                                 isProcessing={isProcessing}
                             />
                         ) : (
@@ -524,5 +712,12 @@ export default function MonthlyTasksPage() {
             </Card>
         </div>
         </>
+    );
+}
+export default function MonthlyTasksPage() {
+    return (
+        <Suspense fallback={<LoadingPage />}>
+            <MonthlyTasksPageContent />
+        </Suspense>
     );
 }

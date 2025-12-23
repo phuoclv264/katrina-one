@@ -35,7 +35,7 @@ import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebas
 import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission, ViolationUserCost, MediaAttachment, CashCount, ExtractHandoverDataOutput, AttendanceRecord, MonthlyTask, MonthlyTaskAssignment } from './types';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
-import { getISOWeek, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, addDays, parseISO, isPast, isWithinInterval, isSameMonth } from 'date-fns';
+import { getISOWeek, getISOWeekYear, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, addDays, parseISO, isPast, isWithinInterval, isSameMonth } from 'date-fns';
 import { hasTimeConflict, getActiveShifts } from './schedule-utils';
 import * as violationsService from './violations-service';
 import isEqual from 'lodash.isequal';
@@ -286,7 +286,7 @@ export const dataStore = {
       end: toDate,
     }, { weekStartsOn: 1 });
 
-    const weekIds = weeks.map(weekStart => `${getYear(weekStart)}-W${getISOWeek(weekStart)}`);
+    const weekIds = weeks.map(weekStart => `${getISOWeekYear(weekStart)}-W${getISOWeek(weekStart)}`);
 
     if (weekIds.length === 0) {
       callback([]);
@@ -1905,7 +1905,6 @@ export const dataStore = {
                 let submissions = violationData.penaltySubmissions || [];
                 const existingIndex = submissions.findIndex((s: any) => s.userId === record.user.userId);
                 if (existingIndex > -1) {
-                  console.log(`[retryPendingPenaltySubmissions] Updating existing submission for user: ${record.user.userId}`);
                   const existing = submissions[existingIndex];
                   const existingMedia = existing.media || (existing.photos || []).map((p: string) => ({ url: p, type: 'photo' as const }));
                   submissions[existingIndex] = { ...existing, media: [...existingMedia, ...record.uploaded], submittedAt: new Date().toISOString() };

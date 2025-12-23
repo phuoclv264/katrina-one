@@ -93,7 +93,7 @@ export function IncidentCategoryCombobox({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" position="popper"  onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
         <Command>
           <CommandInput 
             placeholder={canManage ? "Tìm hoặc thêm mới..." : "Tìm kiếm..."}
