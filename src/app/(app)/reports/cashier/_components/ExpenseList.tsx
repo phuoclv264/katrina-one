@@ -50,35 +50,35 @@ const ExpenseList = React.memo(({ expenses, onEdit, onDelete, processingItemId, 
                             if (el) itemRefs.current.set(highlightKey, el);
                             else itemRefs.current.delete(highlightKey);
                         }}
-                        className="bg-background relative"
+                        className="bg-background relative shadow-none border-slate-200 dark:border-slate-800"
                     >
-                        <CardContent className="p-3">
-                            <div className="flex justify-between items-start mb-2">
-                                <div className="space-y-1 pr-2">
-                                    <div className="font-semibold text-sm flex items-center gap-2 flex-wrap">
-                                      <p>{getSlipContentName(slip.items[0])}{slip.items.length > 1 && ` và ${slip.items.length - 1} mục khác`}</p>
-                                       {slip.isAiGenerated && <Badge className="bg-blue-100 text-blue-800">AI</Badge>}
-                                       {slip.lastModifiedBy && <Badge variant="outline">Đã sửa</Badge>}
-                                       {slip.associatedHandoverReportId && <Badge variant="outline">Tự động</Badge>}
+                        <CardContent className="p-2.5">
+                            <div className="flex justify-between items-start gap-2">
+                                <div className="space-y-1 min-w-0 flex-1">
+                                    <div className="font-semibold text-sm flex items-center gap-1.5 flex-wrap">
+                                      <p className="truncate">{getSlipContentName(slip.items[0])}{slip.items.length > 1 && ` +${slip.items.length - 1}`}</p>
+                                       {slip.isAiGenerated && <Badge className="bg-blue-100 text-blue-800 text-[10px] h-4 px-1">AI</Badge>}
+                                       {slip.lastModifiedBy && <Badge variant="outline" className="text-[10px] h-4 px-1">Sửa</Badge>}
+                                       {slip.associatedHandoverReportId && <Badge variant="outline" className="text-[10px] h-4 px-1">Auto</Badge>}
                                     </div>
-                                    <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1">
-                                        <span>{slip.createdBy.userName}</span>
+                                    <div className="text-[10px] text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                                        <span className="font-medium">{slip.createdBy.userName}</span>
                                         <span>•</span>
                                         <span>{slip.lastModified ? format(new Date(slip.lastModified as string), 'HH:mm') : format(new Date(slip.createdAt as string), 'HH:mm')}</span>
                                     </div>
                                 </div>
-                                <div className="text-right">
+                                <div className="text-right shrink-0">
                                     <p className="font-bold text-base text-red-600">-{actualAmount.toLocaleString('vi-VN')}đ</p>
-                                    <div className="flex items-center justify-end gap-2 text-sm mt-1">
-                                        {slip.paymentMethod === 'cash' ? <Wallet className="h-4 w-4"/> : <LandPlot className="h-4 w-4"/>}
+                                    <div className="flex items-center justify-end gap-1 text-[10px] mt-0.5 text-muted-foreground">
+                                        {slip.paymentMethod === 'cash' ? <Wallet className="h-3 w-3"/> : <LandPlot className="h-3 w-3"/>}
                                         <span>{slip.paymentMethod === 'cash' ? 'Tiền mặt' : 'CK'}</span>
                                     </div>
                                 </div>
                             </div>
-                            <div className="flex justify-end gap-2 mt-2 border-t pt-2">
-                                <Button variant="ghost" size="sm" onClick={() => onEdit(slip)} disabled={isProcessing}><Edit className="mr-2 h-4 w-4" />Chi tiết</Button>
+                            <div className="flex justify-end gap-1 mt-2 pt-2 border-t border-slate-100 dark:border-slate-900">
+                                <Button variant="ghost" size="sm" onClick={() => onEdit(slip)} disabled={isProcessing} className="h-7 text-[10px] px-2"><Edit className="mr-1.5 h-3 w-3" />Chi tiết</Button>
                                 <AlertDialog>
-                                    <AlertDialogTrigger asChild><Button variant="ghost" size="sm" className="text-destructive" disabled={isProcessing}><Trash2 className="mr-2 h-4 w-4" />Xóa</Button></AlertDialogTrigger>
+                                    <AlertDialogTrigger asChild><Button variant="ghost" size="sm" className="text-destructive h-7 text-[10px] px-2" disabled={isProcessing}><Trash2 className="mr-1.5 h-3 w-3" />Xóa</Button></AlertDialogTrigger>
                                     <AlertDialogContent>
                                       <AlertDialogHeader><AlertDialogTitle>Xác nhận xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader>
                                       <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => onDelete(slip.id)}>Xóa</AlertDialogAction></AlertDialogFooter>

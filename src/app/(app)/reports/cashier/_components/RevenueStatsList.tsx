@@ -60,13 +60,13 @@ const RevenueStatsList = React.memo(({ stats, onEdit, onDelete, processingItemId
                                 {stat.isEdited && <Badge variant="secondary" className="text-xs">Đã sửa</Badge>}
                             </div>
                         </div>
-                        <div className="flex justify-between items-center mt-1">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mt-1">
                             <div className="flex items-baseline gap-2 flex-wrap">
-                                <p className="text-xl font-bold text-green-700 dark:text-green-200">{stat.netRevenue.toLocaleString('vi-VN')}đ</p>
+                                <p className="text-lg sm:text-xl font-bold text-green-700 dark:text-green-200">{stat.netRevenue.toLocaleString('vi-VN')}đ</p>
                                 {difference !== 0 && <ChangeIndicator value={difference} />}
                             </div>
-                            <div className="flex gap-1">
-                                <Button variant="outline" size="sm" onClick={() => onEdit(stat)} className="h-8">Chi tiết</Button>
+                            <div className="flex items-center gap-1 self-end sm:self-auto">
+                                <Button variant="outline" size="sm" onClick={() => onEdit(stat)} className="h-8 text-xs px-2 sm:px-3">Chi tiết</Button>
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8" disabled={isProcessing}><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
                                     <AlertDialogContent>

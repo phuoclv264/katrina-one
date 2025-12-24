@@ -64,26 +64,26 @@ const HandoverReportCard = React.memo(({
                             }}
                             >
                                 <div className="flex justify-between items-start gap-2">
-                                    <div>
+                                    <div className="min-w-0 flex-1">
                                         <div className="flex items-center gap-2 flex-wrap">
-                                            <p className="font-semibold">Kiểm kê bởi {handover.createdBy.userName}</p>
-                                            {handover.finalHandoverDetails && <Badge variant="default" className="bg-primary/100"><FileSignature className="h-3 w-3 mr-1"/>Bàn giao cuối ca</Badge>}
+                                            <p className="font-semibold text-sm sm:text-base truncate">Kiểm kê bởi {handover.createdBy.userName}</p>
+                                            {handover.finalHandoverDetails && <Badge variant="default" className="bg-primary/100 text-[10px] h-4 px-1"><FileSignature className="h-3 w-3 mr-1"/>Bàn giao</Badge>}
                                         </div>
-                                        <p className="text-xs text-muted-foreground">lúc {format((handover.createdAt as Timestamp).toDate(), 'HH:mm')}</p>
-                                        {discrepancy !== 0 && <p className="text-xs text-muted-foreground mt-1 italic">Lý do chênh lệch: {handover.discrepancyReason || 'Không có'}</p>}
+                                        <p className="text-[10px] sm:text-xs text-muted-foreground">lúc {format((handover.createdAt as Timestamp).toDate(), 'HH:mm')}</p>
+                                        {discrepancy !== 0 && <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 italic line-clamp-1">Lý do: {handover.discrepancyReason || 'Không có'}</p>}
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-lg font-bold">{handover.actualCashCounted.toLocaleString('vi-VN')}đ</p>
-                                        {discrepancy !== 0 && <p className={cn("text-sm font-semibold", discrepancy > 0 ? "text-green-600" : "text-red-600")}>{discrepancy > 0 ? '+' : ''}{discrepancy.toLocaleString('vi-VN')}đ</p>}
+                                    <div className="text-right shrink-0">
+                                        <p className="text-base sm:text-lg font-bold">{handover.actualCashCounted.toLocaleString('vi-VN')}đ</p>
+                                        {discrepancy !== 0 && <p className={cn("text-[11px] sm:text-sm font-semibold", discrepancy > 0 ? "text-green-600" : "text-red-600")}>{discrepancy > 0 ? '+' : ''}{discrepancy.toLocaleString('vi-VN')}đ</p>}
                                     </div>
                                 </div>
-                                <div className="flex justify-end items-center gap-1 mt-1">
+                                <div className="flex justify-end items-center gap-1 mt-2">
                                     {handover.finalHandoverDetails && (
-                                        <Button variant="default" size="sm" onClick={() => onViewFinalHandover(handover)} className="h-8 bg-primary/100 hover:bg-primary/80"><FileSignature className="h-4 w-4 mr-2"/>Xem bàn giao</Button>
+                                        <Button variant="default" size="sm" onClick={() => onViewFinalHandover(handover)} className="h-7 text-[10px] px-2 bg-primary/100 hover:bg-primary/80"><FileSignature className="h-3.5 w-3.5 mr-1.5"/>Xem bàn giao</Button>
                                     )}
-                                    <Button variant="outline" size="sm" onClick={() => onEditCashHandover(handover)} className="h-8">Chi tiết</Button>
+                                    <Button variant="outline" size="sm" onClick={() => onEditCashHandover(handover)} className="h-7 text-[10px] px-2">Chi tiết</Button>
                                     <AlertDialog>
-                                        <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4"/></Button></AlertDialogTrigger>
+                                        <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-7 w-7"><Trash2 className="h-3.5 w-3.5"/></Button></AlertDialogTrigger>
                                         <AlertDialogContent>
                                             <AlertDialogHeader><AlertDialogTitle>Xóa biên bản này?</AlertDialogTitle></AlertDialogHeader>
                                             <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => onDeleteCashHandover(handover.id)}>Xóa</AlertDialogAction></AlertDialogFooter>

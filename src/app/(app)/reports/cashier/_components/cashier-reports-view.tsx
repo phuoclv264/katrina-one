@@ -60,15 +60,15 @@ function AddDocumentDialog({
                     <DialogTitle>Bổ sung chứng từ</DialogTitle>
                     <DialogDescription>Chọn ngày và loại chứng từ bạn muốn thêm vào hệ thống.</DialogDescription>
                 </DialogHeader>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+                <div className="grid grid-cols-1 gap-4 py-4">
                     <div className="space-y-2">
-                         <Label>Ngày chứng từ</Label>
+                         <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Ngày chứng từ</Label>
                         <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                             <PopoverTrigger asChild>
                                 <Button
                                     variant={"outline"}
                                     className={cn(
-                                        "w-full justify-start text-left font-normal",
+                                        "w-full justify-start text-left font-normal h-11",
                                         !date && "text-muted-foreground"
                                     )}
                                 >
@@ -76,7 +76,7 @@ function AddDocumentDialog({
                                     {date ? format(date, "PPP", { locale: vi }) : <span>Chọn ngày</span>}
                                 </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
+                            <PopoverContent className="w-auto p-0" align="start">
                                 <Calendar
                                     mode="single"
                                     selected={date}
@@ -89,24 +89,27 @@ function AddDocumentDialog({
                             </PopoverContent>
                         </Popover>
                     </div>
-                     <RadioGroup value={action} onValueChange={(value) => setAction(value as any)} className="space-y-2">
-                        <Label htmlFor="action-revenue" className="flex items-center justify-between rounded-lg border p-4 cursor-pointer [&:has([data-state=checked])]:border-primary">
-                            <span className="font-semibold">Thêm Doanh thu</span>
-                            <RadioGroupItem value="revenue" id="action-revenue" />
-                        </Label>
-                         <Label htmlFor="action-expense" className="flex items-center justify-between rounded-lg border p-4 cursor-pointer [&:has([data-state=checked])]:border-primary">
-                             <span className="font-semibold">Thêm Phiếu chi</span>
-                             <RadioGroupItem value="expense" id="action-expense" />
-                        </Label>
-                         <Label htmlFor="action-incident" className="flex items-center justify-between rounded-lg border p-4 cursor-pointer [&:has([data-state=checked])]:border-primary">
-                            <span className="font-semibold">Thêm Sự cố</span>
-                            <RadioGroupItem value="incident" id="action-incident" />
-                        </Label> 
-                         <Label htmlFor="action-handover" className="flex items-center justify-between rounded-lg border p-4 cursor-pointer [&:has([data-state=checked])]:border-primary">
-                            <span className="font-semibold">Thêm Phiếu bàn giao</span>
-                            <RadioGroupItem value="handover" id="action-handover" />
-                        </Label>
-                    </RadioGroup>
+                    <div className="space-y-2">
+                        <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Loại chứng từ</Label>
+                        <RadioGroup value={action} onValueChange={(value) => setAction(value as any)} className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <Label htmlFor="action-revenue" className="flex items-center justify-between rounded-lg border p-3 cursor-pointer [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5 transition-colors">
+                                <span className="font-medium text-sm">Doanh thu</span>
+                                <RadioGroupItem value="revenue" id="action-revenue" />
+                            </Label>
+                            <Label htmlFor="action-expense" className="flex items-center justify-between rounded-lg border p-3 cursor-pointer [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5 transition-colors">
+                                <span className="font-medium text-sm">Phiếu chi</span>
+                                <RadioGroupItem value="expense" id="action-expense" />
+                            </Label>
+                            <Label htmlFor="action-incident" className="flex items-center justify-between rounded-lg border p-3 cursor-pointer [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5 transition-colors">
+                                <span className="font-medium text-sm">Sự cố</span>
+                                <RadioGroupItem value="incident" id="action-incident" />
+                            </Label> 
+                            <Label htmlFor="action-handover" className="flex items-center justify-between rounded-lg border p-3 cursor-pointer [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5 transition-colors">
+                                <span className="font-medium text-sm">Bàn giao</span>
+                                <RadioGroupItem value="handover" id="action-handover" />
+                            </Label>
+                        </RadioGroup>
+                    </div>
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
@@ -588,28 +591,36 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
     <>
       <div className={cn("container mx-auto p-4 sm:p-6 md:p-8", !isStandalone && "p-0 sm:p-0 md:p-0")}>
         {isStandalone && (
-            <header className="mb-8">
-            <Button variant="ghost" className="-ml-4 mb-4" onClick={() => router.back()}>
+            <header className="mb-6">
+            <Button variant="ghost" size="sm" className="-ml-2 mb-4" onClick={() => router.back()}>
                 <ArrowLeft className="mr-2 h-4 w-4" />Quay lại
             </Button>
-            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-                <div>
-                <h1 className="text-3xl font-bold font-headline flex items-center gap-3"><Banknote /> Báo cáo Thu ngân</h1>
-                <p className="text-muted-foreground mt-2">Tổng hợp báo cáo doanh thu, phiếu chi và sự cố do thu ngân gửi.</p>
+            <div className="flex flex-col lg:flex-row justify-between lg:items-start gap-6">
+                <div className="flex-1">
+                <h1 className="text-2xl sm:text-3xl font-bold font-headline flex items-center gap-3"><Banknote className="h-8 w-8 text-primary" /> Báo cáo Thu ngân</h1>
+                <p className="text-muted-foreground mt-1 text-sm sm:text-base">Tổng hợp báo cáo doanh thu, phiếu chi và sự cố do thu ngân gửi.</p>
                 </div>
-                <div className="flex items-center gap-2">
-                <Button variant="outline" size="icon" onClick={() => handleMonthChange('prev')}><ChevronLeft className="h-4 w-4" /></Button>
-                <span className="text-lg font-medium w-32 text-center">{format(currentMonth, 'MM/yyyy')}</span>
-                <Button variant="outline" size="icon" onClick={() => handleMonthChange('next')} disabled={isNextMonthButtonDisabled}><ChevronRight className="h-4 w-4" /></Button>
+                
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+                    <div className="flex items-center justify-between sm:justify-center gap-2 bg-muted/50 p-1 rounded-lg">
+                        <Button variant="ghost" size="icon" onClick={() => handleMonthChange('prev')}><ChevronLeft className="h-4 w-4" /></Button>
+                        <span className="text-base font-semibold w-24 text-center">{format(currentMonth, 'MM/yyyy')}</span>
+                        <Button variant="ghost" size="icon" onClick={() => handleMonthChange('next')} disabled={isNextMonthButtonDisabled}><ChevronRight className="h-4 w-4" /></Button>
+                    </div>
+
+                    <Card className="shadow-sm border-primary/20">
+                        <CardHeader className="p-2 px-3 pb-1">
+                            <CardTitle className="text-[10px] font-bold flex items-center gap-2 uppercase tracking-widest text-muted-foreground">
+                                <Settings className="h-3 w-3"/> Công cụ quản lý
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-2 px-3 pt-0 flex flex-row sm:flex-col gap-2 overflow-x-auto no-scrollbar">
+                            <Button variant="outline" size="sm" onClick={() => setIsAddDocumentDialogOpen(true)} className="whitespace-nowrap h-8 text-xs flex-1 sm:flex-none"><FilePlus className="mr-2 h-3.5 w-3.5"/>Bổ sung</Button>
+                            <Button variant="outline" size="sm" onClick={() => setIsOtherCostCategoryDialogOpen(true)} className="whitespace-nowrap h-8 text-xs flex-1 sm:flex-none">Chi phí khác</Button>
+                            <Button variant="outline" size="sm" onClick={() => setIsIncidentCategoryDialogOpen(true)} className="whitespace-nowrap h-8 text-xs flex-1 sm:flex-none">Loại sự cố</Button>
+                        </CardContent>
+                    </Card>
                 </div>
-                <Card>
-                <CardHeader className="p-3 pb-2"><CardTitle className="text-base flex items-center gap-2"><Settings className="h-4 w-4"/>Cài đặt</CardTitle></CardHeader>
-                <CardContent className="p-3 pt-0 flex flex-col gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setIsAddDocumentDialogOpen(true)}><FilePlus className="mr-2 h-4 w-4"/>Bổ sung chứng từ</Button>
-                    <Button variant="outline" size="sm" onClick={() => setIsOtherCostCategoryDialogOpen(true)}>Quản lý Loại chi phí khác</Button>
-                    <Button variant="outline" size="sm" onClick={() => setIsIncidentCategoryDialogOpen(true)}>Quản lý Loại sự cố</Button>
-                </CardContent>
-                </Card>
             </div>
             </header>
         )}

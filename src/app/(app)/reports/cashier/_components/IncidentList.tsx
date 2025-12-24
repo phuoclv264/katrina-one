@@ -28,20 +28,20 @@ const IncidentList = React.memo(({ incidents, onEdit, onDelete, onOpenLightbox, 
                         if (el) itemRefs.current.set(highlightKey, el); else itemRefs.current.delete(highlightKey);
                     }}>
                         <div className="flex justify-between items-start gap-2">
-                            <div>
+                            <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <p className="font-semibold">{incident.content}</p>
-                                    <Badge variant="secondary">{incident.category}</Badge>
+                                    <p className="font-semibold text-sm sm:text-base truncate">{incident.content}</p>
+                                    <Badge variant="secondary" className="text-[10px] h-4 px-1">{incident.category}</Badge>
                                 </div>
-                                <p className="text-xs text-muted-foreground">bởi {incident.createdBy.userName} lúc {new Date(incident.createdAt as string).toLocaleString('vi-VN')}</p>
+                                <p className="text-[10px] sm:text-xs text-muted-foreground">bởi {incident.createdBy.userName} lúc {new Date(incident.createdAt as string).toLocaleString('vi-VN')}</p>
                             </div>
-                            <p className="text-xl font-bold text-amber-600">{incident.cost > 0 ? `${incident.cost.toLocaleString('vi-VN')}đ` : ''}</p>
+                            <p className="text-base sm:text-xl font-bold text-amber-600 shrink-0">{incident.cost > 0 ? `${incident.cost.toLocaleString('vi-VN')}đ` : ''}</p>
                         </div>
-                        <div className="flex justify-end gap-1 mt-1">
-                            {incident.photos && incident.photos.length > 0 && <Button variant="secondary" size="sm" onClick={() => onOpenLightbox(incident.photos, 0)} className="h-8">Xem ảnh</Button>}
-                            <Button variant="outline" size="sm" onClick={() => onEdit(incident)} className="h-8">Chi tiết</Button>
+                        <div className="flex justify-end gap-1 mt-2">
+                            {incident.photos && incident.photos.length > 0 && <Button variant="secondary" size="sm" onClick={() => onOpenLightbox(incident.photos, 0)} className="h-7 text-[10px] px-2">Xem ảnh</Button>}
+                            <Button variant="outline" size="sm" onClick={() => onEdit(incident)} className="h-7 text-[10px] px-2">Chi tiết</Button>
                             <AlertDialog>
-                                <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4"/></Button></AlertDialogTrigger>
+                                <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-7 w-7"><Trash2 className="h-3.5 w-3.5"/></Button></AlertDialogTrigger>
                                 <AlertDialogContent>
                                     <AlertDialogHeader><AlertDialogTitle>Xóa sự cố?</AlertDialogTitle></AlertDialogHeader>
                                     <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => onDelete(incident.id)}>Xóa</AlertDialogAction></AlertDialogFooter>
