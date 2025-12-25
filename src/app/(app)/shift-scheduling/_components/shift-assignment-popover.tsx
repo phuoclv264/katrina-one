@@ -16,7 +16,7 @@ import type { AssignedShift, Availability, ManagedUser, UserRole, AssignedUser }
 import { cn } from '@/lib/utils';
 import { isUserAvailable, hasTimeConflict } from '@/lib/schedule-utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/combobox';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
@@ -229,16 +229,22 @@ export default function ShiftAssignmentDialog({
                     const roleOptions: (UserRole)[] = Array.from(new Set([user.role, ...(user.secondaryRoles?.filter(r => r !== 'Thu ngân') || [])]));
                     const selectedValue = selectedRoles[user.uid] ?? (shift.assignedUsers?.find(u => u.userId === user.uid)?.assignedRole ?? user.role);
                     return (
-                      <Select value={selectedValue} onValueChange={(v) => setSelectedRoles(prev => ({ ...prev, [user.uid]: v as UserRole }))}>
-                        <SelectTrigger className="h-7 w-36 text-xs">
-                          <SelectValue placeholder="Vai trò" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {roleOptions.map(r => (
-                            <SelectItem key={r} value={r}>{r}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                      >
+                        <Combobox
+                          value={selectedValue}
+                          onChange={(v) => setSelectedRoles(prev => ({ ...prev, [user.uid]: v as UserRole }))}
+                          options={roleOptions.map(r => ({ value: r, label: r }))}
+                          compact
+                          searchable={false}
+                          className="h-7 w-36 text-xs"
+                          placeholder="Vai trò"
+                        />
+                      </div>
                     );
                   })()
                 ) : (

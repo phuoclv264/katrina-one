@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/use-auth';
 import type { UserRole } from '@/hooks/use-auth';
 import { toast } from '@/components/ui/pro-toast';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/combobox';
 import { cn } from '@/lib/utils';
 import { dataStore } from '@/lib/data-store';
 import type { AppSettings } from '@/lib/types';
@@ -200,17 +200,19 @@ export default function AuthPage() {
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="register-role">Vai trò</Label>
-                    <Select onValueChange={(value) => setRegisterRole(value as UserRole)} disabled={isProcessing} value={registerRole}>
-                        <SelectTrigger id="register-role">
-                            <SelectValue placeholder="Chọn vai trò của bạn" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="Phục vụ">Phục vụ</SelectItem>
-                            <SelectItem value="Pha chế">Pha chế</SelectItem>
-                            <SelectItem value="Thu ngân">Thu ngân</SelectItem>
-                            <SelectItem value="Quản lý">Quản lý</SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <Combobox
+                      options={[
+                        { value: "Phục vụ", label: "Phục vụ" },
+                        { value: "Pha chế", label: "Pha chế" },
+                        { value: "Thu ngân", label: "Thu ngân" },
+                        { value: "Quản lý", label: "Quản lý" },
+                      ]}
+                      value={registerRole}
+                      onChange={(value) => setRegisterRole(value as UserRole)}
+                      placeholder="Chọn vai trò của bạn"
+                      disabled={isProcessing}
+                      compact={false}
+                    />
                 </div>
                 <Button type="submit" className="w-full" disabled={isProcessing}>
                   {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

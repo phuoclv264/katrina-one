@@ -67,6 +67,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
     else if (pathname.includes('/comprehensive-report')) { setActiveTab('comprehensive-reports'); setIsTabContent(true); }
     else if (pathname.includes('/shift-scheduling')) { setActiveTab('shift-scheduling'); setIsTabContent(true); }
     else if (pathname.includes('/reports/cashier')) { setActiveTab('cashier-reports'); setIsTabContent(true); }
+    else if (pathname.includes('/cashier')) { setActiveTab('cashier'); setIsTabContent(true); }
     else if (HOME_PATHS.some(path => pathname === path || pathname === '/')) { 
         setIsTabContent(true); 
         // Only reset to home if we are in an "unknown" state or explicitly navigating to root
@@ -97,6 +98,16 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
         { id: 'home', label: 'Trang chủ', icon: Home },
         { id: 'shift-scheduling', label: 'Xếp lịch', icon: CalendarClock },
         { id: 'cashier-reports', label: 'Thu ngân', icon: Banknote },
+        commonUserTab
+      ];
+    }
+
+    // Cashier role needs a direct tab to access the cashier dashboard on mobile
+    if (user.role === 'Thu ngân') {
+      return [
+        { id: 'home', label: 'Trang chủ', icon: Home },
+        { id: 'cashier', label: 'Thu ngân', icon: Banknote },
+        { id: 'schedule', label: 'Lịch', icon: CalendarDays },
         commonUserTab
       ];
     }
@@ -178,7 +189,6 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
         if (user.role === 'Chủ nhà hàng') return <OwnerHomeView isStandalone={false} />;
         if (user.role === 'Pha chế') return <BartenderHomeView />;
         if (user.role === 'Quản lý') return <ManagerHomeView />;
-        if (user.role === 'Thu ngân') return <CashierHomeView isStandalone={false} />;
         return <HomeView />; 
       case 'schedule':
         return <ScheduleView />;
@@ -192,6 +202,8 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
         return <ShiftManagementView />;
       case 'cashier-reports':
         return <CashierReportsView isStandalone={false} />;
+      case 'cashier':
+        return <CashierHomeView isStandalone={false} />;
       default:
         return <HomeView />;
     }

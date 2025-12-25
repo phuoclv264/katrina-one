@@ -12,13 +12,7 @@ import { LoadingPage } from '@/components/loading/LoadingPage';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'nextjs-toploader/app';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { Combobox } from "@/components/combobox";
 import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -480,29 +474,30 @@ export default function ComprehensiveChecklistPage() {
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="new-task-section">Khu vực</Label>
-                            <Select value={newSection} onValueChange={value => setNewSection(value)} disabled={sections.length === 0}>
-                                <SelectTrigger id="new-task-section">
-                                    <SelectValue placeholder="Chọn khu vực..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {sections.map(section => (
-                                        <SelectItem key={section.title} value={section.title}>{section.title}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Combobox
+                                value={newSection}
+                                onChange={value => setNewSection(value)}
+                                options={sections.map(section => ({ value: section.title, label: section.title }))}
+                                placeholder="Chọn khu vực..."
+                                disabled={sections.length === 0}
+                                compact
+                                searchable={false}
+                            />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="new-task-type">Loại báo cáo</Label>
-                            <Select value={newType} onValueChange={(value) => setNewType(value as 'photo' | 'boolean' | 'opinion')}>
-                                <SelectTrigger id="new-task-type">
-                                    <SelectValue placeholder="Chọn loại báo cáo..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="boolean">Đảm bảo / Không đảm bảo</SelectItem>
-                                    <SelectItem value="photo">Hình ảnh</SelectItem>
-                                    <SelectItem value="opinion">Ý kiến</SelectItem>
-                                </SelectContent>
-                            </Select>
+                            <Combobox
+                                value={newType}
+                                onChange={(value) => setNewType(value as 'photo' | 'boolean' | 'opinion')}
+                                options={[
+                                    { value: "boolean", label: "Đảm bảo / Không đảm bảo" },
+                                    { value: "photo", label: "Hình ảnh" },
+                                    { value: "opinion", label: "Ý kiến" }
+                                ]}
+                                placeholder="Chọn loại báo cáo..."
+                                compact
+                                searchable={false}
+                            />
                         </div>
                     </div>
                     <Button onClick={handleAddTask} className="w-full md:w-auto" disabled={sections.length === 0}>
@@ -625,23 +620,22 @@ export default function ComprehensiveChecklistPage() {
                                                             autoFocus
                                                             className="text-sm h-9 flex-1"
                                                         />
-                                                        <Select
+                                                        <Combobox
                                                             value={editingTask.newType}
-                                                            onValueChange={(value) => {
+                                                            onChange={(value) => {
                                                                 if (editingTask) {
                                                                     setEditingTask({ ...editingTask, newType: value as 'photo' | 'boolean' | 'opinion' });
                                                                 }
                                                             }}
-                                                        >
-                                                            <SelectTrigger className="h-9 w-full sm:w-[220px]">
-                                                                <SelectValue />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectItem value="boolean">Đảm bảo / Không đảm bảo</SelectItem>
-                                                                <SelectItem value="photo">Hình ảnh</SelectItem>
-                                                                <SelectItem value="opinion">Ý kiến</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
+                                                            options={[
+                                                                { value: "boolean", label: "Đảm bảo / Không đảm bảo" },
+                                                                { value: "photo", label: "Hình ảnh" },
+                                                                { value: "opinion", label: "Ý kiến" }
+                                                            ]}
+                                                            compact
+                                                            searchable={false}
+                                                            className="h-9 w-full sm:w-[220px]"
+                                                        />
                                                     </div>
                                                 ) : (
                                                     <>

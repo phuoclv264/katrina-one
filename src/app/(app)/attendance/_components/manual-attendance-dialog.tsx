@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/combobox';
 import type { ManagedUser } from '@/lib/types';
 import { toast } from '@/components/ui/pro-toast';
 import { format, parseISO } from 'date-fns';
@@ -85,18 +85,15 @@ export default function ManualAttendanceDialog({
         <div className="py-4 space-y-4">
           <div>
             <Label htmlFor="employee-select">Nhân viên</Label>
-            <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-              <SelectTrigger id="employee-select">
-                <SelectValue placeholder="Chọn nhân viên..." />
-              </SelectTrigger>
-              <SelectContent>
-                {users.map(user => (
-                  <SelectItem key={user.uid} value={user.uid}>
-                    {user.displayName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              value={selectedUserId}
+              onChange={setSelectedUserId}
+              placeholder="Chọn nhân viên..."
+              options={users.map(user => ({
+                value: user.uid,
+                label: user.displayName
+              }))}
+            />
           </div>
           <div>
             <Label htmlFor="check-in-time">Giờ vào</Label>

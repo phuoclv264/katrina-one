@@ -18,7 +18,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'nextjs-toploader/app';
 import { Textarea } from '@/components/ui/textarea';
 import { callGenerateServerTasks, callSortTasks } from '@/lib/ai-service';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/combobox';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { diffChars } from 'diff';
@@ -225,26 +225,30 @@ function AiAssistant({
                             disabled={isGenerating}
                         />
                          <div className="flex flex-col sm:flex-row gap-2">
-                            <Select onValueChange={setTargetShift} value={targetShift} disabled={isGenerating}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Chọn ca..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="sang">Ca Sáng</SelectItem>
-                                    <SelectItem value="trua">Ca Trưa</SelectItem>
-                                    <SelectItem value="toi">Ca Tối</SelectItem>
-                                </SelectContent>
-                            </Select>
-                             <Select onValueChange={setTargetSection} value={targetSection} disabled={isGenerating}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Chọn mục..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                     <SelectItem value="Đầu ca">Đầu ca</SelectItem>
-                                     <SelectItem value="Trong ca">Trong ca</SelectItem>
-                                     <SelectItem value="Cuối ca">Cuối ca</SelectItem>
-                                </SelectContent>
-                            </Select>
+                            <Combobox
+                                value={targetShift}
+                                onChange={setTargetShift}
+                                disabled={isGenerating}
+                                placeholder="Chọn ca..."
+                                options={[
+                                    { value: "sang", label: "Ca Sáng" },
+                                    { value: "trua", label: "Ca Trưa" },
+                                    { value: "toi", label: "Ca Tối" }
+                                ]}
+                                compact
+                            />
+                             <Combobox
+                                value={targetSection}
+                                onChange={setTargetSection}
+                                disabled={isGenerating}
+                                placeholder="Chọn mục..."
+                                options={[
+                                    { value: "Đầu ca", label: "Đầu ca" },
+                                    { value: "Trong ca", label: "Trong ca" },
+                                    { value: "Cuối ca", label: "Cuối ca" }
+                                ]}
+                                compact
+                            />
                             <Button onClick={handleGenerateSort} disabled={isGenerating || !targetShift || !targetSection || !sortInstruction.trim()} className="w-full sm:w-auto">
                                 {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                                 Sắp xếp bằng AI
@@ -653,23 +657,22 @@ export default function TaskListsPage() {
                                           autoFocus
                                           className="text-sm h-9 flex-1"
                                       />
-                                      <Select 
-                                          value={editingTask.newType} 
-                                          onValueChange={(value) => {
+                                      <Combobox
+                                          value={editingTask.newType}
+                                          onChange={(value) => {
                                               if (editingTask) {
                                                   setEditingTask({...editingTask, newType: value as Task['type']});
                                               }
                                           }}
-                                      >
-                                          <SelectTrigger className="h-9 w-full sm:w-[220px]">
-                                              <SelectValue />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                              <SelectItem value="photo">Hình ảnh</SelectItem>
-                                              <SelectItem value="boolean">Đảm bảo / Không đảm bảo</SelectItem>
-                                              <SelectItem value="opinion">Ý kiến</SelectItem>
-                                          </SelectContent>
-                                      </Select>
+                                          options={[
+                                              { value: "photo", label: "Hình ảnh" },
+                                              { value: "boolean", label: "Đảm bảo / Không đảm bảo" },
+                                              { value: "opinion", label: "Ý kiến" }
+                                          ]}
+                                          className="h-9 w-full sm:w-[220px]"
+                                          compact
+                                          searchable={false}
+                                      />
                                       <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground" onClick={handleUpdateTask}>
                                         <Check className="h-4 w-4 text-green-500" />
                                       </Button>
@@ -720,19 +723,18 @@ export default function TaskListsPage() {
                                 />
                                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                                   <div className="flex items-center space-x-2">
-                                    <Select 
-                                      value={newTask[shiftKey]?.[section.title]?.type || 'photo'} 
-                                      onValueChange={(value) => handleNewTaskChange(shiftKey, section.title, 'type', value as Task['type'])}
-                                    >
-                                      <SelectTrigger className="h-9 w-auto">
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="photo">Hình ảnh</SelectItem>
-                                        <SelectItem value="boolean">Đảm bảo / Không đảm bảo</SelectItem>
-                                        <SelectItem value="opinion">Ý kiến</SelectItem>
-                                      </SelectContent>
-                                    </Select>
+                                    <Combobox
+                                      value={newTask[shiftKey]?.[section.title]?.type || 'photo'}
+                                      onChange={(value) => handleNewTaskChange(shiftKey, section.title, 'type', value as Task['type'])}
+                                      options={[
+                                          { value: "photo", label: "Hình ảnh" },
+                                          { value: "boolean", label: "Đảm bảo / Không đảm bảo" },
+                                          { value: "opinion", label: "Ý kiến" }
+                                      ]}
+                                      className="h-9 w-auto"
+                                      compact
+                                      searchable={false}
+                                    />
                                   </div>
                                     <div className="flex items-center space-x-2">
                                     <Checkbox

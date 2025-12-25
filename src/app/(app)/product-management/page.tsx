@@ -20,7 +20,7 @@ import { cn, normalizeSearchString } from '@/lib/utils';
 import isEqual from 'lodash.isequal';
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/combobox';
 
 
 type CategorizedProducts = {
@@ -401,20 +401,17 @@ export default function ProductManagementPage() {
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input placeholder="Tìm theo tên mặt hàng..." className="pl-8" value={filter} onChange={(e) => setFilter(e.target.value)} />
               </div>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger>
-                  <div className="flex items-center gap-2">
-                    <Filter className="h-4 w-4" />
-                    <SelectValue placeholder="Lọc theo nhóm..." />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả danh mục</SelectItem>
-                  {allCategories.map(cat => (
-                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Combobox
+                value={categoryFilter}
+                onChange={setCategoryFilter}
+                options={[
+                  { value: "all", label: "Tất cả danh mục" },
+                  ...allCategories.map(cat => ({ value: cat, label: cat }))
+                ]}
+                placeholder="Lọc theo nhóm..."
+                compact
+                searchable={false}
+              />
             </div>
         </CardHeader>
         <CardContent>

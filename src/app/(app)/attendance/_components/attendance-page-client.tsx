@@ -24,7 +24,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn, generateShortName } from '@/lib/utils';
 import SalaryManagementDialog from './salary-management-dialog';
 import AttendanceTimeline from './attendance-timeline';
-import { UserMultiSelect } from '@/components/user-multi-select';
+import { Combobox } from '@/components/combobox';
 import { Timestamp } from 'firebase/firestore';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useLightbox } from '@/contexts/lightbox-context';
@@ -332,10 +332,27 @@ export default function AttendancePageComponent() {
                     <CardContent className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {/* Employee Filter */}
-                            <UserMultiSelect
-                                users={allUsers}
-                                selectedUsers={selectedUsers}
-                                onChange={handleUserSelectionChange}
+                            <Combobox
+                                options={allUsers
+                                    .filter(u => u.role !== 'Chủ nhà hàng')
+                                    .map(u => ({ value: u.uid, label: u.displayName }))}
+                                multiple
+                                value={selectedUsers.map(u => u.uid)}
+                                onChange={(next) => {
+                                    const nextIds = Array.isArray(next)
+                                        ? next
+                                        : typeof next === 'string' && next
+                                            ? [next]
+                                            : [];
+                                    handleUserSelectionChange(
+                                        nextIds
+                                            .map(id => allUsers.find(u => u.uid === id))
+                                            .filter((u): u is ManagedUser => !!u)
+                                    );
+                                }}
+                                placeholder="Chọn nhân viên..."
+                                searchPlaceholder="Tìm nhân viên..."
+                                emptyText="Không tìm thấy nhân viên."
                                 className="w-full"
                             />
 

@@ -26,10 +26,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { SupplierCombobox } from '@/components/supplier-combobox';
-import { UnitCombobox } from '@/components/unit-combobox';
+import { Combobox } from '@/components/combobox';
 import { toast } from '@/components/ui/pro-toast';
 import isEqual from 'lodash.isequal';
 import type { InventoryItem, UnitDefinition, GlobalUnit } from '@/lib/types';
@@ -54,6 +52,22 @@ function AddUnitSimple({
     const [newUnitQty, setNewUnitQty] = useState<number | ''>(1);
     const [baseUnitQty, setBaseUnitQty] = useState<number | ''>('');
 
+    const unitOptions = React.useMemo(() => globalUnits.map(u => ({ value: u.name, label: u.name })), [globalUnits]);
+
+    const handleCreateUnit = (name: string) => {
+         const newUnit: GlobalUnit = { id: `unit-${Date.now()}`, name: name };
+         const newUnits = [...globalUnits, newUnit].sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+         onGlobalUnitsChange(newUnits);
+         setNewUnitName(name);
+    }
+
+    const handleDeleteUnitGlobal = (name: string) => {
+        if (!canManageUnits) return;
+        const newUnits = globalUnits.filter(u => u.name !== name);
+        onGlobalUnitsChange(newUnits);
+        if (newUnitName === name) setNewUnitName('');
+    }
+
     const handleAdd = () => {
         if (!newUnitName.trim() || !newUnitQty || !baseUnitQty) {
             toast.error("Vui lòng điền đầy đủ thông tin quy đổi.");
@@ -72,28 +86,50 @@ function AddUnitSimple({
     return (
         <div className="space-y-2 pt-4 mt-4 border-t border-dashed">
             <p className="text-sm font-medium">Thêm quy đổi đơn vị mới</p>
-             <div className="flex items-center gap-2">
-                <Input type="number" placeholder="SL" value={newUnitQty} onChange={e => setNewUnitQty(Number(e.target.value))} className="h-9 w-20" />
-                <UnitCombobox 
-                    units={globalUnits}
-                    value={newUnitName}
-                    onChange={setNewUnitName}
-                    onUnitsChange={onGlobalUnitsChange}
-                    canManage={canManageUnits}
-                    placeholder="Tên ĐV mới"
-                    className="flex-1"
-                />
-                <span className="font-bold">=</span>
-                <Input type="number" placeholder="SL" value={baseUnitQty} onChange={e => setBaseUnitQty(Number(e.target.value))} className="h-9 w-20" />
-                <span className="font-semibold text-sm">{baseUnitName}</span>
+             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <div className="flex items-center gap-2 flex-1">
+                    <Input type="number" placeholder="SL" value={newUnitQty} onChange={e => setNewUnitQty(Number(e.target.value))} className="h-9 w-16 sm:w-20" />
+                    <Combobox 
+                        options={unitOptions}
+                        value={newUnitName}
+                        onChange={setNewUnitName}
+                        onCreate={canManageUnits ? handleCreateUnit : undefined}
+                        onDelete={canManageUnits ? handleDeleteUnitGlobal : undefined}
+                        confirmDelete
+                        deleteMessage="Bạn có chắc chắn muốn xóa đơn vị này không?"
+                        placeholder="Tên ĐV"
+                        searchPlaceholder="Tìm đơn vị..."
+                        emptyText="Không tìm thấy."
+                        className="flex-1 min-w-0"
+                    />
+                </div>
+                <div className="flex items-center gap-2 justify-center sm:justify-start">
+                    <span className="font-bold text-muted-foreground">=</span>
+                    <Input type="number" placeholder="SL" value={baseUnitQty} onChange={e => setBaseUnitQty(Number(e.target.value))} className="h-9 w-16 sm:w-20" />
+                    <span className="font-semibold text-sm truncate max-w-[100px]" title={baseUnitName}>{baseUnitName}</span>
+                </div>
              </div>
-             <Button size="sm" onClick={handleAdd} className="w-full h-9">Thêm đơn vị</Button>
+             <Button size="sm" onClick={handleAdd} className="w-full h-9 mt-2 sm:mt-0">Thêm đơn vị</Button>
         </div>
     );
 }
 
 function UnitEditor({ units, onUnitsChange, globalUnits, onGlobalUnitsChange, canManageUnits }: { units: UnitDefinition[], onUnitsChange: (newUnits: UnitDefinition[]) => void, globalUnits: GlobalUnit[], onGlobalUnitsChange: (newUnits: GlobalUnit[]) => void, canManageUnits: boolean }) {
     
+    const unitOptions = React.useMemo(() => globalUnits.map(u => ({ value: u.name, label: u.name })), [globalUnits]);
+
+    const handleCreateUnitGlobal = (name: string) => {
+         const newUnit: GlobalUnit = { id: `unit-${Date.now()}`, name: name };
+         const newUnits = [...globalUnits, newUnit].sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+         onGlobalUnitsChange(newUnits);
+    }
+
+    const handleDeleteUnitGlobal = (name: string) => {
+        if (!canManageUnits) return;
+        const newUnits = globalUnits.filter(u => u.name !== name);
+        onGlobalUnitsChange(newUnits);
+    }
+
     const handleAddUnit = (newUnit: UnitDefinition) => {
         if (units.some(u => u.name.toLowerCase() === newUnit.name.toLowerCase())) {
             toast.error(`Đơn vị "${newUnit.name}" đã tồn tại.`);
@@ -167,47 +203,56 @@ function UnitEditor({ units, onUnitsChange, globalUnits, onGlobalUnitsChange, ca
 
 
                 return (
-                <div key={index} className="grid grid-cols-12 gap-2 items-center p-2 border rounded-md">
+                <div key={index} className="flex flex-col sm:grid sm:grid-cols-12 gap-3 sm:gap-2 items-start sm:items-center p-3 sm:p-2 border rounded-md relative bg-card/50">
                      {units.length === 1 ? (
                         <>
-                            <div className="col-span-8">
-                                <Label htmlFor={`unit-name-${index}`} className="text-xs text-muted-foreground">Tên đơn vị</Label>
-                                 <UnitCombobox 
-                                    units={globalUnits} 
+                            <div className="w-full sm:col-span-8">
+                                <Label htmlFor={`unit-name-${index}`} className="text-xs text-muted-foreground mb-1.5 block">Tên đơn vị</Label>
+                                 <Combobox 
+                                    options={unitOptions} 
                                     value={unit.name}
                                     onChange={(val) => handleUpdateUnit(index, 'name', val)}
-                                    onUnitsChange={onGlobalUnitsChange}
-                                    canManage={canManageUnits}
+                                    onCreate={canManageUnits ? (val) => {
+                                        handleCreateUnitGlobal(val);
+                                        handleUpdateUnit(index, 'name', val);
+                                    } : undefined}
+                                    onDelete={canManageUnits ? handleDeleteUnitGlobal : undefined}
+                                    confirmDelete
+                                    deleteMessage="Bạn có chắc chắn muốn xóa đơn vị này không?"
+                                    placeholder="Chọn đơn vị..."
+                                    searchPlaceholder="Tìm đơn vị..."
+                                    emptyText="Không tìm thấy đơn vị."
+                                    className="w-full"
                                 />
                             </div>
-                            <div className="col-span-2 flex flex-col items-center justify-center pt-4">
-                                <Switch id={`unit-isBase-${index}`} checked={unit.isBaseUnit} onCheckedChange={c => handleUpdateUnit(index, 'isBaseUnit', c)} />
-                                <Label htmlFor={`unit-isBase-${index}`} className="text-xs mt-1">Cơ sở</Label>
+                            <div className="flex items-center justify-between w-full sm:w-auto sm:col-span-2 sm:flex-col sm:justify-center sm:pt-4">
+                                <Label htmlFor={`unit-isBase-${index}`} className="text-sm sm:text-xs sm:mt-1 order-2 sm:order-2">Cơ sở</Label>
+                                <Switch id={`unit-isBase-${index}`} checked={unit.isBaseUnit} onCheckedChange={c => handleUpdateUnit(index, 'isBaseUnit', c)} className="order-1 sm:order-1"/>
                             </div>
-                            <div className="col-span-2 flex items-center justify-center pt-5">
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteUnit(index)}><Trash2 className="h-4 w-4" /></Button>
+                            <div className="absolute top-2 right-2 sm:static sm:col-span-2 sm:flex sm:items-center sm:justify-center sm:pt-5">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive/90 hover:bg-destructive/10" onClick={() => handleDeleteUnit(index)}><Trash2 className="h-4 w-4" /></Button>
                             </div>
                         </>
                      ) : (
                         <>
-                            <div className="col-span-4">
-                                <Label htmlFor={`unit-name-${index}`} className="text-xs text-muted-foreground">Tên đơn vị</Label>
-                                <p className="font-semibold text-sm h-9 flex items-center">{unit.name}</p>
+                            <div className="w-full sm:col-span-4">
+                                <Label htmlFor={`unit-name-${index}`} className="text-xs text-muted-foreground mb-1 block">Tên đơn vị</Label>
+                                <p className="font-semibold text-sm h-9 flex items-center px-1">{unit.name}</p>
                             </div>
-                             <div className="col-span-5">
-                                <Label htmlFor={`unit-rate-${index}`} className="text-xs text-muted-foreground">
+                             <div className="w-full sm:col-span-5">
+                                <Label htmlFor={`unit-rate-${index}`} className="text-xs text-muted-foreground mb-1.5 block truncate" title={isBase ? 'Đơn vị cơ sở' : conversionDescription}>
                                     {isBase ? 'Đơn vị cơ sở' : conversionDescription}
                                 </Label>
                                 {!isBase && (
-                                     <Input id={`unit-rate-${index}`} type="number" value={unit.conversionRate} onChange={e => handleUpdateUnit(index, 'conversionRate', Number(e.target.value))} />
+                                     <Input id={`unit-rate-${index}`} type="number" value={unit.conversionRate} onChange={e => handleUpdateUnit(index, 'conversionRate', Number(e.target.value))} className="w-full" />
                                 )}
                             </div>
-                             <div className="col-span-2 flex flex-col items-center justify-center pt-4">
-                                <Switch id={`unit-isBase-${index}`} checked={unit.isBaseUnit} onCheckedChange={c => handleUpdateUnit(index, 'isBaseUnit', c)} />
-                                <Label htmlFor={`unit-isBase-${index}`} className="text-xs mt-1">Cơ sở</Label>
+                             <div className="flex items-center justify-between w-full sm:w-auto sm:col-span-2 sm:flex-col sm:justify-center sm:pt-4">
+                                <Label htmlFor={`unit-isBase-${index}`} className="text-sm sm:text-xs sm:mt-1 order-2 sm:order-2">Cơ sở</Label>
+                                <Switch id={`unit-isBase-${index}`} checked={unit.isBaseUnit} onCheckedChange={c => handleUpdateUnit(index, 'isBaseUnit', c)} className="order-1 sm:order-1"/>
                             </div>
-                            <div className="col-span-1 flex items-center justify-center pt-5">
-                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteUnit(index)}><Trash2 className="h-4 w-4" /></Button>
+                            <div className="absolute top-2 right-2 sm:static sm:col-span-1 sm:flex sm:items-center sm:justify-center sm:pt-5">
+                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive/90 hover:bg-destructive/10" onClick={() => handleDeleteUnit(index)}><Trash2 className="h-4 w-4" /></Button>
                             </div>
                         </>
                      )}
@@ -341,14 +386,14 @@ export default function ItemEditPopover({
     return (
         <Dialog open={isOpen} onOpenChange={handleCloseDialog}>
             <DialogTrigger asChild>{children}</DialogTrigger>
-            <DialogContent className="max-w-2xl bg-card">
-                <DialogHeader>
+            <DialogContent className="w-full h-full max-w-none sm:max-w-2xl sm:h-auto sm:rounded-lg p-0 gap-0 bg-card flex flex-col">
+                <DialogHeader className="p-6 pb-2 flex-shrink-0">
                     <DialogTitle>Chỉnh sửa: {initialItem.name}</DialogTitle>
                     <DialogDescription>
                         Kho &gt; {initialItem.category} &gt; {initialItem.name}
                     </DialogDescription>
                 </DialogHeader>
-                 <ScrollArea className="max-h-[70vh] -mx-6 px-6">
+                 <ScrollArea className="flex-1 px-6">
                     <div className="space-y-6 py-4 px-1">
                         
                         <div className="space-y-4">
@@ -368,7 +413,15 @@ export default function ItemEditPopover({
                                 </div>
                                 <div className="space-y-1">
                                     <Label htmlFor={`supplier-${item.id}`} className="text-xs text-muted-foreground">Nhà cung cấp</Label>
-                                    <SupplierCombobox suppliers={suppliers} value={item.supplier} onChange={(val) => handleFieldChange('supplier', val)} />
+                                    <Combobox
+                                        options={suppliers.map(s => ({ value: s, label: s }))}
+                                        value={item.supplier}
+                                        onChange={(val) => handleFieldChange('supplier', val as string)}
+                                        placeholder="Chọn NCC"
+                                        searchPlaceholder="Tìm hoặc thêm mới..."
+                                        emptyText="Không tìm thấy NCC."
+                                        onCreate={(val) => handleFieldChange('supplier', val)}
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -391,36 +444,38 @@ export default function ItemEditPopover({
                                 </div>
                                 <div className="space-y-1">
                                     <Label className="text-xs text-muted-foreground">Gợi ý đặt hàng</Label>
-                                    <div className="flex gap-2">
+                                    <div className="flex items-center gap-2">
                                         <Input 
                                             type="number" 
                                             value={orderSuggestionQty}
                                             onChange={e => setOrderSuggestionQty(e.target.value)}
-                                            className="rounded-lg w-2/3"
-                                            placeholder="Số lượng"
+                                            className="rounded-lg flex-1 sm:flex-0"
+                                            placeholder="SL"
                                         />
-                                        <Select value={orderSuggestionUnit} onValueChange={setOrderSuggestionUnit}>
-                                            <SelectTrigger className="w-1/3 rounded-lg">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {item.units.filter(u => u.name).map(u => (
-                                                    <SelectItem key={u.name} value={u.name}>{u.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <Combobox
+                                            value={orderSuggestionUnit}
+                                            onChange={setOrderSuggestionUnit}
+                                            options={item.units.filter(u => u.name).map(u => ({ value: u.name, label: u.name }))}
+                                            className="flex-1 sm:flex-0 w-full"
+                                            compact
+                                            searchable={false}
+                                            placeholder="Đơn vị"
+                                        />
                                     </div>
                                 </div>
                             </div>
                             <div className="space-y-1">
                                 <Label htmlFor={`dataType-${item.id}`} className="text-xs text-muted-foreground">Kiểu dữ liệu tồn kho</Label>
-                                <Select value={item.dataType} onValueChange={(v) => handleFieldChange('dataType', v as 'number' | 'list')}>
-                                    <SelectTrigger className="rounded-lg"><SelectValue/></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="number">Số lượng (Number)</SelectItem>
-                                        <SelectItem value="list">Danh sách (List)</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                <Combobox
+                                    value={item.dataType}
+                                    onChange={(v) => handleFieldChange('dataType', v as 'number' | 'list')}
+                                    options={[
+                                        { value: "number", label: "Số lượng (Number)" },
+                                        { value: "list", label: "Danh sách (List)" },
+                                    ]}
+                                    compact
+                                    searchable={false}
+                                />
                             </div>
                             {item.dataType === 'list' && (
                                 <div className="space-y-1">
@@ -454,7 +509,7 @@ export default function ItemEditPopover({
 
                     </div>
                  </ScrollArea>
-                <DialogFooter>
+                <DialogFooter className="p-6 pt-2 flex-shrink-0 gap-2">
                     <Button variant="outline" onClick={() => handleCloseDialog(false)}>Hủy</Button>
                     <Button onClick={handleSave}>Lưu thay đổi</Button>
                 </DialogFooter>

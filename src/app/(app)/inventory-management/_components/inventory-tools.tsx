@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { callGenerateInventoryList, callUpdateInventoryItems, callSortTasks } from '@/lib/ai-service';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { diffChars } from 'diff';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/combobox';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import isEqual from 'lodash.isequal';
 import SupplierManagementDialog from './supplier-management-dialog';
@@ -432,10 +432,15 @@ export default function InventoryTools({
                         <TabsContent value="sort" className="mt-4 space-y-4">
                             <Textarea placeholder="Nhập yêu cầu sắp xếp, ví dụ: 'ưu tiên các loại siro đào lên đầu'" rows={2} value={sortInstruction} onChange={(e) => setSortInstruction(e.target.value)} disabled={isGenerating} />
                             <div className="flex flex-col sm:flex-row gap-2">
-                                <Select onValueChange={setSortTargetCategory} value={sortTargetCategory} disabled={isGenerating}>
-                                    <SelectTrigger><SelectValue placeholder="Chọn nhóm để sắp xếp..." /></SelectTrigger>
-                                    <SelectContent>{uniqueCategories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}</SelectContent>
-                                </Select>
+                                <Combobox
+                                    onChange={setSortTargetCategory}
+                                    value={sortTargetCategory}
+                                    options={uniqueCategories.map(cat => ({ value: cat, label: cat }))}
+                                    placeholder="Chọn nhóm để sắp xếp..."
+                                    disabled={isGenerating}
+                                    compact
+                                    searchable={false}
+                                />
                                 <Button onClick={handleGenerateSort} disabled={isGenerating || !sortTargetCategory || !sortInstruction.trim()} className="h-10 w-full sm:w-auto"><Sparkles className="mr-2 h-4 w-4" />Sắp xếp</Button>
                             </div>
                         </TabsContent>

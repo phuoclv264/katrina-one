@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/combobox';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'; // Keep this import
 import { dataStore } from '@/lib/data-store';
 import type { ManagedUser, ShiftReport, Violation, AttendanceRecord, TasksByShift, TaskSection, ComprehensiveTaskSection, CompletionRecord } from '@/lib/types';
@@ -536,18 +536,18 @@ export default function MonthlyStaffReportDialog({ isOpen, onOpenChange }: Month
 
                     <div className="flex items-center justify-between gap-4 py-4 border-y">
                         <div className="flex items-center gap-2">
-                            <Select value={format(currentMonth, 'yyyy-MM')} onValueChange={(val) => setCurrentMonth(parseISO(val))}>
-                                <SelectTrigger className="w-[180px]">
-                                    <SelectValue placeholder="Chọn tháng" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {availableMonths.map(month => (
-                                        <SelectItem key={month} value={month}>
-                                            Tháng {format(parseISO(`${month}-01`), 'MM/yyyy', { locale: vi })}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Combobox
+                                value={format(currentMonth, 'yyyy-MM')}
+                                onChange={(val) => setCurrentMonth(parseISO(val as string))}
+                                options={availableMonths.map(month => ({
+                                    value: month,
+                                    label: `Tháng ${format(parseISO(`${month}-01`), 'MM/yyyy', { locale: vi })}`
+                                }))}
+                                placeholder="Chọn tháng"
+                                compact
+                                searchable={false}
+                                className="w-[180px]"
+                            />
                         </div>
                         <div className="flex items-center space-x-2">
                             <Users className="h-5 w-5 text-muted-foreground" />

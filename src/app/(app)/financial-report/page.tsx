@@ -24,7 +24,7 @@ import type { RevenueStats, ExpenseSlip, ExpenseItem } from '@/lib/types';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/combobox';
 import { Badge } from '@/components/ui/badge';
 
 
@@ -274,11 +274,30 @@ function FinancialReportPageContent() {
 
         const dataMap = new Map<string, any>();
 
-        const days = isWeeklyView
-            ? Array.from({ length: 7 }, (_, i) => format(addDays(startOfWeek(from, { weekStartsOn: 1 }), i), 'EEEE', { locale: vi }))
-            : eachDayOfInterval({start: from, end: to}).map(d => format(d, 'd'));
-        
-        days.forEach(day => dataMap.set(day, { name: day, main_revenue: 0, main_expense: 0, comp_revenue: 0, comp_expense: 0, main_at_store: 0, main_shopeefood: 0, main_grabfood: 0, comp_at_store: 0, comp_shopeefood: 0, comp_grabfood: 0 }));
+      // Build chart buckets from the exact selected period (no forced full-week buckets)
+      const daysInRange = eachDayOfInterval({ start: from, end: to });
+
+      daysInRange.forEach(dayDate => {
+        const key = format(dayDate, 'yyyy-MM-dd');
+        const label = isWeeklyView
+          ? format(dayDate, 'EEEE', { locale: vi })
+          : format(dayDate, 'd');
+
+        dataMap.set(key, {
+          name: label,
+          main_fullDate: dayDate,
+          main_revenue: 0,
+          main_expense: 0,
+          comp_revenue: 0,
+          comp_expense: 0,
+          main_at_store: 0,
+          main_shopeefood: 0,
+          main_grabfood: 0,
+          comp_at_store: 0,
+          comp_shopeefood: 0,
+          comp_grabfood: 0,
+        });
+      });
 
         const processPeriodData = (periodData: typeof mainPeriodData, keyPrefix: 'main_' | 'comp_') => {
             let dateOffset = 0;
@@ -287,37 +306,38 @@ function FinancialReportPageContent() {
                   dateOffset = dateRange.from!.getTime() - comparisonPeriod.from!.getTime();
               }
             }
-        
-            periodData.revenue.forEach(stat => {
-                let statDate = parseISO(stat.date);
-                let key;
-                if (isWeeklyView) {
-                    key = format(statDate, 'EEEE', { locale: vi });
-                } else {
-                    key = format(statDate, 'd');
-                }
-                
-                const entry = dataMap.get(key);
-                if (!entry) return;
-        
-                entry[`${keyPrefix}fullDate`] = statDate;
-                entry[`${keyPrefix}revenue`] = (entry[`${keyPrefix}revenue`] || 0) + stat.netRevenue;
-                const atStore = (stat.revenueByPaymentMethod.cash || 0) + (stat.revenueByPaymentMethod.techcombankVietQrPro || 0) + (stat.revenueByPaymentMethod.bankTransfer || 0);
-                entry[`${keyPrefix}at_store`] = (entry[`${keyPrefix}at_store`] || 0) + atStore;
-                entry[`${keyPrefix}shopeefood`] = (entry[`${keyPrefix}shopeefood`] || 0) + (stat.revenueByPaymentMethod.shopeeFood || 0);
-                entry[`${keyPrefix}grabfood`] = (entry[`${keyPrefix}grabfood`] || 0) + (stat.revenueByPaymentMethod.grabFood || 0);
-            });
+
+          // Only use the latest revenue stat for each day to avoid duplication
+          const latestDailyStats: { [date: string]: RevenueStats } = {};
+          periodData.revenue.forEach(stat => {
+            const existing = latestDailyStats[stat.date];
+            if (!existing || new Date(stat.createdAt as string) > new Date(existing.createdAt as string)) {
+              latestDailyStats[stat.date] = stat;
+            }
+          });
+
+          Object.values(latestDailyStats).forEach(stat => {
+            let statDate = parseISO(stat.date);
+            if (dateOffset !== 0) statDate = new Date(statDate.getTime() + dateOffset);
+            const key = format(statDate, 'yyyy-MM-dd');
+
+            const entry = dataMap.get(key);
+            if (!entry) return;
+
+            entry[`${keyPrefix}fullDate`] = statDate;
+            entry[`${keyPrefix}revenue`] = (entry[`${keyPrefix}revenue`] || 0) + stat.netRevenue;
+            const atStore = (stat.revenueByPaymentMethod.cash || 0) + (stat.revenueByPaymentMethod.techcombankVietQrPro || 0) + (stat.revenueByPaymentMethod.bankTransfer || 0);
+            entry[`${keyPrefix}at_store`] = (entry[`${keyPrefix}at_store`] || 0) + atStore;
+            entry[`${keyPrefix}shopeefood`] = (entry[`${keyPrefix}shopeefood`] || 0) + (stat.revenueByPaymentMethod.shopeeFood || 0);
+            entry[`${keyPrefix}grabfood`] = (entry[`${keyPrefix}grabfood`] || 0) + (stat.revenueByPaymentMethod.grabFood || 0);
+          });
         
             periodData.expenses.forEach(slip => {
-                let slipDate = parseISO(slip.date);
-                 let key;
-                if (isWeeklyView) {
-                    key = format(slipDate, 'EEEE', { locale: vi });
-                } else {
-                    key = format(slipDate, 'd');
-                }
-                
-                const entry = dataMap.get(key);
+              let slipDate = parseISO(slip.date);
+              if (dateOffset !== 0) slipDate = new Date(slipDate.getTime() + dateOffset);
+              const key = format(slipDate, 'yyyy-MM-dd');
+
+              const entry = dataMap.get(key);
                  if (!entry) return;
                 
                 if (!entry[`${keyPrefix}fullDate`]) entry[`${keyPrefix}fullDate`] = slipDate;
@@ -383,17 +403,19 @@ function FinancialReportPageContent() {
       <Card className="mb-8">
         <CardContent className="p-4 flex flex-col md:flex-row items-center gap-4">
            <div className="grid grid-cols-2 md:flex md:items-center gap-2 w-full md:w-auto">
-             <Select onValueChange={setDatePreset}>
-                <SelectTrigger className="w-full md:w-[150px]">
-                    <SelectValue placeholder="Chọn nhanh..." />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="this_week">Tuần này</SelectItem>
-                    <SelectItem value="last_week">Tuần trước</SelectItem>
-                    <SelectItem value="this_month">Tháng này</SelectItem>
-                    <SelectItem value="last_month">Tháng trước</SelectItem>
-                </SelectContent>
-             </Select>
+             <Combobox
+                onChange={setDatePreset}
+                options={[
+                    { value: "this_week", label: "Tuần này" },
+                    { value: "last_week", label: "Tuần trước" },
+                    { value: "this_month", label: "Tháng này" },
+                    { value: "last_month", label: "Tháng trước" },
+                ]}
+                placeholder="Chọn nhanh..."
+                className="w-full md:w-[150px]"
+                compact
+                searchable={false}
+             />
 
               <Popover>
                 <PopoverTrigger asChild>
@@ -426,23 +448,26 @@ function FinancialReportPageContent() {
                     defaultMonth={dateRange?.from}
                     selected={dateRange}
                     onSelect={setDateRange}
-                    numberOfMonths={2}
+                    numberOfMonths={1}
                   />
                 </PopoverContent>
               </Popover>
            </div>
            <div className="flex items-center space-x-2 w-full md:w-auto justify-start md:justify-end">
-              <Select value={compareMode} onValueChange={setCompareMode}>
-                <SelectTrigger className="w-full md:w-[220px]">
-                  <SelectValue placeholder="So sánh..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Không so sánh</SelectItem>
-                  <SelectItem value="previous">So với kỳ liền trước</SelectItem>
-                  <SelectItem value="last_month">So với cùng kỳ tháng trước</SelectItem>
-                  <SelectItem value="last_year">So với cùng kỳ năm trước</SelectItem>
-                </SelectContent>
-              </Select>
+              <Combobox
+                value={compareMode}
+                onChange={setCompareMode}
+                options={[
+                    { value: "none", label: "Không so sánh" },
+                    { value: "previous", label: "So với kỳ liền trước" },
+                    { value: "last_month", label: "So với cùng kỳ tháng trước" },
+                    { value: "last_year", label: "So với cùng kỳ năm trước" },
+                ]}
+                placeholder="So sánh..."
+                className="w-full md:w-[220px]"
+                compact
+                searchable={false}
+              />
             </div>
             {compareMode !== 'none' && comparisonPeriod && (
                 <div className="text-sm text-muted-foreground">

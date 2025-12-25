@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -10,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import type { IncidentReport, IncidentCategory, AuthUser, ManagedUser, PaymentMethod, AssignedUser, SimpleUser } from '@/lib/types';
 import { Loader2, Camera, Trash2, X } from 'lucide-react';
 import { toast } from '@/components/ui/pro-toast';
-import { IncidentCategoryCombobox } from '@/components/incident-category-combobox';
+import { Combobox } from '@/components/combobox';
 import CameraDialog from '@/components/camera-dialog';
 import { v4 as uuidv4 } from 'uuid';
 import Image from 'next/image';
@@ -66,7 +65,9 @@ export default function IncidentReportDialog({
         return reporter?.userName || '...'; // Fallback for new incidents
     }, [reporter, incidentToEdit]);
 
-
+    const categoryOptions = useMemo(() => 
+        (categories || []).map(c => ({ value: c.name, label: c.name })), 
+    [categories]);
 
     useEffect(() => {
         if (open) {
@@ -92,6 +93,25 @@ export default function IncidentReportDialog({
         }
     }, [open, incidentToEdit, reporter]);
 
+
+    const handleCreateCategory = (name: string) => {
+        if (!canManageCategories) return;
+        const newCategory: IncidentCategory = { id: `cat-${Date.now()}`, name: name };
+        const newCategories = [...(categories || []), newCategory].sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+        onCategoriesChange(newCategories);
+        setSelectedCategory(name);
+    }
+
+    const handleDeleteCategory = (name: string) => {
+        if (!canManageCategories) return;
+        const categoryToDelete = (categories || []).find(c => c.name === name);
+        if (!categoryToDelete) return;
+        const newCategories = (categories || []).filter(c => c.name !== name);
+        onCategoriesChange(newCategories);
+        if (selectedCategory === name) {
+            setSelectedCategory('');
+        }
+    }
 
     const handleSave = () => {
         if (!reporter) {
@@ -189,13 +209,17 @@ export default function IncidentReportDialog({
                                 Loại sự cố
                                 </Label>
                                 <div className="col-span-3">
-                                <IncidentCategoryCombobox
-                                    categories={categories || []}
+                                <Combobox
+                                    options={categoryOptions}
                                     value={selectedCategory}
                                     onChange={setSelectedCategory}
-                                    onCategoriesChange={onCategoriesChange}
-                                    canManage={canManageCategories}
+                                    onCreate={canManageCategories ? handleCreateCategory : undefined}
+                                    onDelete={canManageCategories ? handleDeleteCategory : undefined}
+                                    confirmDelete
+                                    deleteMessage="Bạn có chắc chắn muốn xóa loại sự cố này không?"
                                     placeholder="Chọn loại sự cố..."
+                                    searchPlaceholder="Tìm loại sự cố..."
+                                    emptyText="Không tìm thấy loại sự cố."
                                 />
                                 </div>
                             </div>

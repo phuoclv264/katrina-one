@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +17,7 @@ import { Timestamp } from 'firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
 import SalaryRecordAccordionItem from './salary-record-accordion-item';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { UserMultiSelect } from '@/components/user-multi-select';
+import { Combobox } from '@/components/combobox';
 
 type SalaryManagementDialogProps = {
     isOpen: boolean;
@@ -325,25 +324,42 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers }: Sa
                 <div className="px-4 py-2 border-b">
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
-                            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                                <SelectTrigger className="w-[160px] sm:w-[180px]">
-                                    <SelectValue placeholder="Chọn tháng" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {availableMonths.map(month => (
-                                        <SelectItem key={month} value={month}>
-                                            Tháng {format(parseISO(`${month}-01`), 'MM/yyyy')}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Combobox
+                                value={selectedMonth}
+                                onChange={setSelectedMonth}
+                                options={availableMonths.map(month => ({
+                                    value: month,
+                                    label: `Tháng ${format(parseISO(`${month}-01`), 'MM/yyyy')}`
+                                }))}
+                                className="w-[160px] sm:w-[180px]"
+                                placeholder="Chọn tháng"
+                                compact
+                                searchable={false}
+                            />
                         </div>
                         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                             <div className="w-full sm:w-[300px]">
-                                <UserMultiSelect
-                                    users={allUsers}
-                                    selectedUsers={selectedUsers}
-                                    onChange={setSelectedUsers}
+                                <Combobox
+                                    options={allUsers
+                                        .filter(u => u.role !== 'Chủ nhà hàng')
+                                        .map(u => ({ value: u.uid, label: u.displayName }))}
+                                    multiple
+                                    value={selectedUsers.map(u => u.uid)}
+                                    onChange={(next) => {
+                                        const nextIds = Array.isArray(next)
+                                            ? next
+                                            : typeof next === 'string' && next
+                                                ? [next]
+                                                : [];
+                                        setSelectedUsers(
+                                            nextIds
+                                                .map(id => allUsers.find(u => u.uid === id))
+                                                .filter((u): u is ManagedUser => !!u)
+                                        );
+                                    }}
+                                    placeholder="Chọn nhân viên..."
+                                    searchPlaceholder="Tìm nhân viên..."
+                                    emptyText="Không tìm thấy nhân viên."
                                     className="w-full"
                                 />
                             </div>

@@ -12,8 +12,8 @@ import { Camera, Loader2, Upload } from 'lucide-react';
 import type { ManagedUser, Violation, ViolationCategory } from '@/lib/types';
 import CameraDialog from '@/components/camera-dialog';
 import { Badge } from '@/components/ui/badge';
-import { ViolationCategoryCombobox } from '@/components/violation-category-combobox';
-import { UserMultiSelect } from '@/components/user-multi-select';
+import { Combobox } from '@/components/combobox';
+
 import { Input } from '@/components/ui/input';
 import { photoStore } from '@/lib/photo-store';
 import { v4 as uuidv4 } from 'uuid';
@@ -174,11 +174,19 @@ export function ViolationDialog({
               <Label htmlFor="user" className="text-right pt-2">
                 Nhân viên
               </Label>
-              <UserMultiSelect
-                  users={users}
-                  selectedUsers={selectedUsers}
-                  onChange={setSelectedUsers}
+              <Combobox
+                  options={users.map(u => ({ value: u.uid, label: u.displayName }))}
+                  value={selectedUsers.map(u => u.uid)}
+                  onChange={(vals) => {
+                      const selectedIds = vals as string[];
+                      const selected = users.filter(u => selectedIds.includes(u.uid));
+                      setSelectedUsers(selected);
+                  }}
+                  multiple={true}
                   disabled={isSelfConfession}
+                  placeholder="Chọn nhân viên..."
+                  searchPlaceholder="Tìm nhân viên..."
+                  emptyText="Không tìm thấy nhân viên."
                   className="col-span-3"
               />
             </div>
@@ -195,16 +203,38 @@ export function ViolationDialog({
               Loại vi phạm
             </Label>
             <div className="col-span-3">
-              <ViolationCategoryCombobox
-                categories={categories}
+              <Combobox
+                options={categories.map(c => ({ value: c.name, label: c.name }))}
                 value={selectedCategory?.name || ''}
                 onChange={(val) => {
                     const newCat = categories.find(c => c.name === val);
                     setSelectedCategoryId(newCat ? newCat.id : '');
                 }}
-                onCategoriesChange={onCategoriesChange}
-                canManage={canManage}
                 placeholder="Chọn loại vi phạm..."
+                searchPlaceholder="Tìm loại vi phạm..."
+                emptyText="Không tìm thấy loại vi phạm."
+                onCreate={canManage ? (val) => {
+                    const newCategory: ViolationCategory = {
+                        id: `cat-${Date.now()}`, name: val, severity: 'low', fineAmount: 0,
+                        calculationType: "fixed",
+                        finePerUnit: null,
+                        unitLabel: null
+                    };
+                    const newCategories = [...categories, newCategory].sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+                    onCategoriesChange(newCategories);
+                    setSelectedCategoryId(newCategory.id);
+                } : undefined}
+                onDelete={canManage ? (val) => {
+                    const categoryToDelete = categories.find(c => c.name === val);
+                    if (!categoryToDelete) return;
+                    const newCategories = categories.filter(c => c.id !== categoryToDelete.id);
+                    onCategoriesChange(newCategories);
+                    if (selectedCategory?.id === categoryToDelete.id) {
+                        setSelectedCategoryId('');
+                    }
+                } : undefined}
+                confirmDelete={true}
+                deleteMessage="Bạn có chắc chắn muốn xóa loại vi phạm này không?"
               />
             </div>
           </div>
