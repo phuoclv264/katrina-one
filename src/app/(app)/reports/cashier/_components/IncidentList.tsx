@@ -2,10 +2,12 @@
 'use client';
 import React from 'react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Edit, Trash2, Eye, Loader2 } from 'lucide-react';
 import type { IncidentReport } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
+import { format } from 'date-fns';
 
 type IncidentListProps = {
     incidents: IncidentReport[];
@@ -24,32 +26,53 @@ const IncidentList = React.memo(({ incidents, onEdit, onDelete, onOpenLightbox, 
                 const isProcessing = processingItemId === incident.id;
                 const highlightKey = `incident-${incident.id}`;
                 return (
-                    <div key={incident.id} className="border-t first:border-t-0 pt-3 first:pt-0 relative" ref={el => {
-                        if (el) itemRefs.current.set(highlightKey, el); else itemRefs.current.delete(highlightKey);
-                    }}>
-                        <div className="flex justify-between items-start gap-2">
-                            <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                    <p className="font-semibold text-sm sm:text-base truncate">{incident.content}</p>
-                                    <Badge variant="secondary" className="text-[10px] h-4 px-1">{incident.category}</Badge>
+                    <Card 
+                        key={incident.id} 
+                        ref={el => {
+                            if (el) itemRefs.current.set(highlightKey, el); else itemRefs.current.delete(highlightKey);
+                        }}
+                        className="bg-card relative shadow-sm border-slate-200 dark:border-slate-800 overflow-hidden"
+                    >
+                        <CardContent className="p-3">
+                            <div className="flex justify-between items-start gap-3 mb-2">
+                                <div className="space-y-1 min-w-0 flex-1">
+                                    <div className="font-semibold text-sm leading-tight">
+                                        <span className="line-clamp-2">{incident.content}</span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1">
+                                        <Badge variant="secondary" className="text-[10px] h-5 px-1.5 font-normal border-slate-100">{incident.category}</Badge>
+                                    </div>
                                 </div>
-                                <p className="text-[10px] sm:text-xs text-muted-foreground">bởi {incident.createdBy.userName} lúc {new Date(incident.createdAt as string).toLocaleString('vi-VN')}</p>
+                                <div className="text-right shrink-0">
+                                    <p className="font-bold text-base text-amber-600">{incident.cost > 0 ? `${incident.cost.toLocaleString('vi-VN')}đ` : ''}</p>
+                                </div>
                             </div>
-                            <p className="text-base sm:text-xl font-bold text-amber-600 shrink-0">{incident.cost > 0 ? `${incident.cost.toLocaleString('vi-VN')}đ` : ''}</p>
-                        </div>
-                        <div className="flex justify-end gap-1 mt-2">
-                            {incident.photos && incident.photos.length > 0 && <Button variant="secondary" size="sm" onClick={() => onOpenLightbox(incident.photos, 0)} className="h-7 text-[10px] px-2">Xem ảnh</Button>}
-                            <Button variant="outline" size="sm" onClick={() => onEdit(incident)} className="h-7 text-[10px] px-2">Chi tiết</Button>
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-7 w-7"><Trash2 className="h-3.5 w-3.5"/></Button></AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader><AlertDialogTitle>Xóa sự cố?</AlertDialogTitle></AlertDialogHeader>
-                                    <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => onDelete(incident.id)}>Xóa</AlertDialogAction></AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        </div>
-                         {isProcessing && (<div className="absolute inset-0 bg-white/80 dark:bg-black/80 flex items-center justify-center rounded-md"><Loader2 className="h-6 w-6 animate-spin text-destructive"/><span className="ml-2 text-sm font-medium text-destructive">Đang xóa...</span></div>)}
-                    </div>
+
+                            <div className="flex items-center justify-between mt-3 pt-2 border-t border-dashed border-slate-100 dark:border-slate-800">
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <span className="font-medium">{incident.createdBy.userName}</span>
+                                    <span>•</span>
+                                    <span>{format(new Date(incident.createdAt as string), 'HH:mm')}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    {incident.photos && incident.photos.length > 0 && (
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => onOpenLightbox(incident.photos, 0)}><Eye className="h-4 w-4" /></Button>
+                                    )}
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => onEdit(incident)}><Edit className="h-4 w-4" /></Button>
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/70 hover:text-destructive hover:bg-destructive/10" disabled={isProcessing}><Trash2 className="h-4 w-4" /></Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader><AlertDialogTitle>Xóa sự cố?</AlertDialogTitle></AlertDialogHeader>
+                                            <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => onDelete(incident.id)}>Xóa</AlertDialogAction></AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                </div>
+                            </div>
+                        </CardContent>
+                         {isProcessing && (<div className="absolute inset-0 bg-white/80 dark:bg-black/80 flex items-center justify-center z-10"><Loader2 className="h-6 w-6 animate-spin text-destructive"/><span className="ml-2 text-sm font-medium text-destructive">Đang xóa...</span></div>)}
+                    </Card>
                 );
             })}
         </div>

@@ -62,8 +62,8 @@ const DailyReportAccordionItem = React.memo(({
 
   return (
     <AccordionItem value={date} key={date} className="border rounded-xl shadow-sm bg-white dark:bg-card overflow-hidden">
-      <AccordionTrigger className="p-3 sm:p-4 text-base font-semibold hover:no-underline">
-        <div className="w-full flex items-start gap-3">
+      <AccordionTrigger className="p-2 sm:p-4 text-base font-semibold hover:no-underline">
+        <div className="w-full flex items-start gap-2 sm:gap-3">
           <div className="mt-1 shrink-0">
             {isShiftFinalized ? (
               <div className="bg-green-100 dark:bg-green-900/30 p-1.5 rounded-full">

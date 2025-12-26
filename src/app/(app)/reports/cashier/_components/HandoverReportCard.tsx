@@ -37,11 +37,11 @@ const HandoverReportCard = React.memo(({
     }
 
     return (
-        <Card className="border-slate-500/50 rounded-lg shadow-sm">
-            <CardHeader className="p-4 pb-2">
+        <Card className="border-slate-500/50 rounded-lg shadow-none bg-transparent">
+            <CardHeader className="p-3 sm:p-4 pb-2">
                 <CardTitle className="text-base flex items-center gap-2 text-slate-800 dark:text-slate-300"><ClipboardCheck /> Bàn giao ca</CardTitle>
             </CardHeader>
-            <CardContent className="p-4 pt-0 relative">
+            <CardContent className="p-3 sm:p-4 pt-0 relative">
                 <div className="space-y-3">
                     {cashHandovers.filter(handover => handover.createdAt).map(handover => {
                         const isProcessing = processingItemId === handover.id;
@@ -59,39 +59,60 @@ const HandoverReportCard = React.memo(({
                         const discrepancy = handover.actualCashCounted - expectedCash;
 
                         return (
-                            <div key={handover.id} className="border-t first:border-t-0 pt-3 first:pt-0 relative" ref={el => {
-                                if (el) itemRefs.current.set(highlightKey, el); else itemRefs.current.delete(highlightKey);
-                            }}
+                            <Card 
+                                key={handover.id} 
+                                ref={el => {
+                                    if (el) itemRefs.current.set(highlightKey, el); else itemRefs.current.delete(highlightKey);
+                                }}
+                                className="bg-card relative shadow-sm border-slate-200 dark:border-slate-800 overflow-hidden"
                             >
-                                <div className="flex justify-between items-start gap-2">
-                                    <div className="min-w-0 flex-1">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            <p className="font-semibold text-sm sm:text-base truncate">Kiểm kê bởi {handover.createdBy.userName}</p>
-                                            {handover.finalHandoverDetails && <Badge variant="default" className="bg-primary/100 text-[10px] h-4 px-1"><FileSignature className="h-3 w-3 mr-1"/>Bàn giao</Badge>}
+                                <CardContent className="p-3">
+                                    <div className="flex justify-between items-start gap-3 mb-2">
+                                        <div className="space-y-1 min-w-0 flex-1">
+                                            <div className="font-semibold text-sm leading-tight">
+                                                Kiểm kê bởi {handover.createdBy.userName}
+                                            </div>
+                                            <div className="flex flex-wrap gap-1">
+                                                {handover.finalHandoverDetails && <Badge variant="default" className="bg-primary/100 text-[10px] h-5 px-1.5 font-normal"><FileSignature className="h-3 w-3 mr-1"/>Bàn giao</Badge>}
+                                            </div>
                                         </div>
-                                        <p className="text-[10px] sm:text-xs text-muted-foreground">lúc {format((handover.createdAt as Timestamp).toDate(), 'HH:mm')}</p>
-                                        {discrepancy !== 0 && <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 italic line-clamp-1">Lý do: {handover.discrepancyReason || 'Không có'}</p>}
+                                        <div className="text-right shrink-0">
+                                            <p className="text-base sm:text-lg font-bold">{handover.actualCashCounted.toLocaleString('vi-VN')}đ</p>
+                                            {discrepancy !== 0 && <p className={cn("text-[11px] sm:text-sm font-semibold", discrepancy > 0 ? "text-green-600" : "text-red-600")}>{discrepancy > 0 ? '+' : ''}{discrepancy.toLocaleString('vi-VN')}đ</p>}
+                                        </div>
                                     </div>
-                                    <div className="text-right shrink-0">
-                                        <p className="text-base sm:text-lg font-bold">{handover.actualCashCounted.toLocaleString('vi-VN')}đ</p>
-                                        {discrepancy !== 0 && <p className={cn("text-[11px] sm:text-sm font-semibold", discrepancy > 0 ? "text-green-600" : "text-red-600")}>{discrepancy > 0 ? '+' : ''}{discrepancy.toLocaleString('vi-VN')}đ</p>}
-                                    </div>
-                                </div>
-                                <div className="flex justify-end items-center gap-1 mt-2">
-                                    {handover.finalHandoverDetails && (
-                                        <Button variant="default" size="sm" onClick={() => onViewFinalHandover(handover)} className="h-7 text-[10px] px-2 bg-primary/100 hover:bg-primary/80"><FileSignature className="h-3.5 w-3.5 mr-1.5"/>Xem bàn giao</Button>
+
+                                    {discrepancy !== 0 && (
+                                        <div className="px-3 py-2 bg-red-50 dark:bg-red-900/10 -mx-3 border-t border-red-100 dark:border-red-900/30 text-xs text-red-600 dark:text-red-400">
+                                            <span className="font-semibold">Lệch: </span>{handover.discrepancyReason || 'Không có lý do'}
+                                        </div>
                                     )}
-                                    <Button variant="outline" size="sm" onClick={() => onEditCashHandover(handover)} className="h-7 text-[10px] px-2">Chi tiết</Button>
-                                    <AlertDialog>
-                                        <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-7 w-7"><Trash2 className="h-3.5 w-3.5"/></Button></AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader><AlertDialogTitle>Xóa biên bản này?</AlertDialogTitle></AlertDialogHeader>
-                                            <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => onDeleteCashHandover(handover.id)}>Xóa</AlertDialogAction></AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                </div>
-                                {isProcessing && (<div className="absolute inset-0 bg-white/80 dark:bg-black/80 flex items-center justify-center rounded-md"><Loader2 className="h-6 w-6 animate-spin text-destructive"/><span className="ml-2 text-sm font-medium text-destructive">Đang xóa...</span></div>)}
-                            </div>
+
+                                    <div className="flex items-center justify-between mt-3 pt-2 border-t border-dashed border-slate-100 dark:border-slate-800">
+                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                            <span className="font-medium">{handover.createdBy.userName}</span>
+                                            <span>•</span>
+                                            <span>{format((handover.createdAt as Timestamp).toDate(), 'HH:mm')}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            {handover.finalHandoverDetails && (
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10" onClick={() => onViewFinalHandover(handover)}><FileSignature className="h-4 w-4" /></Button>
+                                            )}
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => onEditCashHandover(handover)}><Edit className="h-4 w-4" /></Button>
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/70 hover:text-destructive hover:bg-destructive/10" disabled={isProcessing}><Trash2 className="h-4 w-4" /></Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader><AlertDialogTitle>Xóa biên bản này?</AlertDialogTitle></AlertDialogHeader>
+                                                    <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => onDeleteCashHandover(handover.id)}>Xóa</AlertDialogAction></AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                                {isProcessing && (<div className="absolute inset-0 bg-white/80 dark:bg-black/80 flex items-center justify-center z-10"><Loader2 className="h-6 w-6 animate-spin text-destructive"/><span className="ml-2 text-sm font-medium text-destructive">Đang xóa...</span></div>)}
+                            </Card>
                         )
                     })}
                 </div>

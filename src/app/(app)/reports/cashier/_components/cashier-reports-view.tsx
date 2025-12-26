@@ -589,13 +589,13 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
 
   return (
     <>
-      <div className={cn("container mx-auto p-4 sm:p-6 md:p-8", !isStandalone && "p-0 sm:p-0 md:p-0")}>
+      <div className={cn("container mx-auto p-1 sm:p-6 md:p-8", !isStandalone && "p-0 sm:p-0 md:p-0")}>
         {isStandalone && (
-            <header className="mb-6">
-            <Button variant="ghost" size="sm" className="-ml-2 mb-4" onClick={() => router.back()}>
+            <header className="mb-4 sm:mb-6">
+            <Button variant="ghost" size="sm" className="-ml-2 mb-2 sm:mb-4" onClick={() => router.back()}>
                 <ArrowLeft className="mr-2 h-4 w-4" />Quay lại
             </Button>
-            <div className="flex flex-col lg:flex-row justify-between lg:items-start gap-6">
+            <div className="flex flex-col lg:flex-row justify-between lg:items-start gap-4 sm:gap-6">
                 <div className="flex-1">
                 <h1 className="text-2xl sm:text-3xl font-bold font-headline flex items-center gap-3"><Banknote className="h-8 w-8 text-primary" /> Báo cáo Thu ngân</h1>
                 <p className="text-muted-foreground mt-1 text-sm sm:text-base">Tổng hợp báo cáo doanh thu, phiếu chi và sự cố do thu ngân gửi.</p>
@@ -630,15 +630,24 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
                 <div className="flex items-center justify-between">
                     <h1 className="text-2xl font-bold font-headline flex items-center gap-2"><Banknote className="h-6 w-6" /> Thu ngân</h1>
                     <div className="flex items-center gap-2">
-                        <Button variant="outline" size="icon" onClick={() => handleMonthChange('prev')}><ChevronLeft className="h-4 w-4" /></Button>
+                        <Button variant="tile" size="icon" onClick={() => handleMonthChange('prev')}><ChevronLeft className="h-4 w-4" /></Button>
                         <span className="text-sm font-medium w-20 text-center">{format(currentMonth, 'MM/yyyy')}</span>
-                        <Button variant="outline" size="icon" onClick={() => handleMonthChange('next')} disabled={isNextMonthButtonDisabled}><ChevronRight className="h-4 w-4" /></Button>
+                        <Button variant="tile" size="icon" onClick={() => handleMonthChange('next')} disabled={isNextMonthButtonDisabled}><ChevronRight className="h-4 w-4" /></Button>
                     </div>
                 </div>
-                <div className="flex gap-2 overflow-x-auto pb-2">
-                    <Button variant="outline" size="sm" onClick={() => setIsAddDocumentDialogOpen(true)} className="whitespace-nowrap"><FilePlus className="mr-2 h-4 w-4"/>Bổ sung</Button>
-                    <Button variant="outline" size="sm" onClick={() => setIsOtherCostCategoryDialogOpen(true)} className="whitespace-nowrap">Chi phí khác</Button>
-                    <Button variant="outline" size="sm" onClick={() => setIsIncidentCategoryDialogOpen(true)} className="whitespace-nowrap">Loại sự cố</Button>
+                <div className="grid grid-cols-3 gap-2 pb-2">
+                    <Button variant="tile" size="sm" onClick={() => setIsAddDocumentDialogOpen(true)} className="h-auto py-2 px-1 text-xs flex flex-col gap-1 items-center justify-center whitespace-normal text-center">
+                        <FilePlus className="h-4 w-4"/>
+                        <span>Bổ sung</span>
+                    </Button>
+                    <Button variant="tile" size="sm" onClick={() => setIsOtherCostCategoryDialogOpen(true)} className="h-auto py-2 px-1 text-xs flex flex-col gap-1 items-center justify-center whitespace-normal text-center">
+                        <Settings className="h-4 w-4"/>
+                        <span>Chi phí khác</span>
+                    </Button>
+                    <Button variant="tile" size="sm" onClick={() => setIsIncidentCategoryDialogOpen(true)} className="h-auto py-2 px-1 text-xs flex flex-col gap-1 items-center justify-center whitespace-normal text-center">
+                        <Settings className="h-4 w-4"/>
+                        <span>Loại sự cố</span>
+                    </Button>
                 </div>
             </div>
         )}
@@ -646,7 +655,7 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
         {sortedDatesInMonth.length === 0 ? (
           <Card><CardContent className="py-16 text-center text-muted-foreground">Chưa có báo cáo nào trong tháng {format(currentMonth, 'MM/yyyy')}.</CardContent></Card>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <MonthlySummary 
               currentMonth={currentMonth}
               revenueStats={monthlyRevenueStats}

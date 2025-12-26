@@ -71,10 +71,10 @@ const MonthlySummary = React.memo(({ currentMonth, revenueStats, expenseSlips, i
 
   return (
     <Card className="border-primary/50 shadow-sm overflow-hidden">
-      <CardHeader className="bg-primary/5 p-4">
+      <CardHeader className="bg-primary/5 p-3 sm:p-4">
         <CardTitle className="text-lg sm:text-xl">Tổng quan Tháng {format(currentMonth, 'MM/yyyy')}</CardTitle>
       </CardHeader>
-      <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 p-4 sm:p-6">
+      <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6 p-3 sm:p-6">
         <div className="space-y-3 p-3 rounded-lg bg-green-50/50 dark:bg-green-950/10 border border-green-100 dark:border-green-900/30">
           <div className="flex flex-col">
             <span className="text-xs font-bold uppercase tracking-wider text-green-600 dark:text-green-400">Tổng Doanh thu</span>
