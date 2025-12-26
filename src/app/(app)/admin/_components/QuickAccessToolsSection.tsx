@@ -85,19 +85,19 @@ export function QuickAccessToolsSection({ onNavigate }: QuickAccessToolsSectionP
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
       <h3 className="font-bold text-gray-900 dark:text-white mb-4">Truy cập nhanh</h3>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-4">
         {tools.map((tool) => {
           const Icon = tool.icon;
           return (
             <button
               key={tool.path}
               onClick={() => handleClick(tool.path)}
-              className={`p-3 rounded-xl border border-gray-100 dark:border-gray-700 ${tool.hoverColor} transition group flex flex-col items-center text-center`}
+              className={`p-4 rounded-xl border border-gray-100 dark:border-gray-700 ${tool.hoverColor} transition group flex flex-col items-center text-center`}
             >
-              <div className={`w-10 h-10 rounded-full ${tool.bgColor} ${tool.iconColor} flex items-center justify-center mb-2 group-hover:scale-110 transition-transform`}>
-                <Icon className="h-5 w-5" />
+              <div className={`w-12 h-12 rounded-full ${tool.bgColor} ${tool.iconColor} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
+                <Icon className="h-6 w-6" />
               </div>
-              <span className="text-xs font-bold text-gray-700 dark:text-gray-200">{tool.label}</span>
+              <span className="text-sm font-bold text-gray-700 dark:text-gray-200">{tool.label}</span>
             </button>
           );
         })}

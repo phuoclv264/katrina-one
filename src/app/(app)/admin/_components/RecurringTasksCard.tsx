@@ -270,13 +270,13 @@ export function RecurringTasksCard({ monthlyTasks, taskAssignments, staffDirecto
   };
 
   return (
-    <div className="bg-gradient-to-br from-indigo-600 to-blue-700 dark:from-indigo-700 dark:to-blue-800 rounded-2xl shadow-lg p-5 text-white relative overflow-hidden">
+    <div className="bg-gradient-to-br from-indigo-600 to-blue-700 dark:from-indigo-700 dark:to-blue-800 rounded-2xl shadow-lg p-6 text-white relative overflow-hidden">
       <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
       <div className="absolute -left-4 -bottom-4 w-32 h-32 bg-white/10 rounded-full blur-xl"></div>
       <div className="relative">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="font-bold flex items-center gap-2 text-sm">
-            <CheckCircle className="h-4 w-4" />
+        <div className="flex justify-between items-center mb-5">
+          <h3 className="font-bold flex items-center gap-2 text-base">
+            <CheckCircle className="h-5 w-5" />
             Công việc định kỳ hôm nay
           </h3>
           <span className="text-sm bg-white/20 px-2 py-0.5 rounded">
