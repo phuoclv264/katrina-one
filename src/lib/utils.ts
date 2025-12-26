@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { format } from 'date-fns';
+import { RevenueStats } from "./types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -78,3 +79,51 @@ export function toDateSafe(v: any): Date | null {
   if (typeof v === 'object' && typeof v.toDate === 'function') return v.toDate();
   return new Date(String(v));
 };
+
+function revenueStatTimestampMs(stat: RevenueStats): number {
+  const createdAt = toDateSafe(stat.createdAt);
+  if (createdAt && !Number.isNaN(createdAt.getTime())) return createdAt.getTime();
+  const reportAt = toDateSafe(stat.reportTimestamp);
+  if (reportAt && !Number.isNaN(reportAt.getTime())) return reportAt.getTime();
+  return 0;
+}
+
+export function selectLatestRevenueStats(stats: RevenueStats[]): RevenueStats[] {
+  if (!stats || stats.length <= 1) return stats || [];
+
+  const dateKeys = new Set<string>();
+  for (const stat of stats) {
+    const key = stat.date || stat.id;
+    if (key) dateKeys.add(key);
+  }
+
+  // If all stats are for a single day, keep only the latest one.
+  if (dateKeys.size <= 1) {
+    let latest: RevenueStats | null = null;
+    let latestMs = -1;
+    for (const stat of stats) {
+      const ms = revenueStatTimestampMs(stat);
+      if (!latest || ms > latestMs) {
+        latest = stat;
+        latestMs = ms;
+      }
+    }
+    return latest ? [latest] : [];
+  }
+
+  // If stats span multiple days, keep the latest stat for each day.
+  const latestByDate = new Map<string, { stat: RevenueStats; ms: number }>();
+  for (const stat of stats) {
+    const key = stat.date || stat.id;
+    if (!key) continue;
+    const ms = revenueStatTimestampMs(stat);
+    const current = latestByDate.get(key);
+    if (!current || ms > current.ms) {
+      latestByDate.set(key, { stat, ms });
+    }
+  }
+
+  return Array.from(latestByDate.values())
+    .map((v) => v.stat)
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+}

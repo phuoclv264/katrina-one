@@ -306,9 +306,13 @@ export async function updateOtherCostCategories(newCategories: OtherCostCategory
     await setDoc(docRef, { list: newCategories });
 }
 
-export function subscribeToDailyRevenueStats(date: string, callback: (stats: RevenueStats[]) => void): () => void {
+export function subscribeToDailyRevenueStats(date: string, callback: (stats: RevenueStats[]) => void, shouldGetAllStats: boolean = false): () => void {
     // Only return the newest stat for the given date (limit 1 ordered by createdAt desc)
-    const q = query(collection(db, 'revenue_stats'), where('date', '==', date), orderBy('createdAt', 'desc'), limit(1));
+    let q = query(collection(db, 'revenue_stats'), where('date', '==', date), orderBy('createdAt', 'desc'), limit(1));
+
+    if (shouldGetAllStats)
+        q = query(collection(db, 'revenue_stats'), where('date', '==', date), orderBy('createdAt', 'desc'));
+
     return onSnapshot(q, (snapshot) => {
         const stats = snapshot.docs.map(doc => ({
             id: doc.id,
@@ -390,11 +394,28 @@ export function subscribeToDailyExpenseSlips(date: string, callback: (slips: Exp
     });
 }
 
-export function subscribeToRevenueStatsForDateRange(fromDate: string, toDate: string, callback: (stats: RevenueStats[]) => void): () => void {
+export function subscribeToRevenueStatsForDateRange(fromDate: string, toDate: string, callback: (stats: RevenueStats[]) => void, shouldGetAllStats: boolean = false): () => void {
     // Query revenue_stats documents where date is between fromDate and toDate (inclusive)
     // Order by date ascending so client can render trend across the range
     const q = query(collection(db, 'revenue_stats'), where('date', '>=', fromDate), where('date', '<=', toDate), orderBy('date', 'asc'));
     return onSnapshot(q, (snapshot) => {
+        if (shouldGetAllStats) {
+            // Return all stats in the period (no reduction to newest-per-date)
+            const stats = snapshot.docs
+                .map(d => {
+                    const data = d.data();
+                    return {
+                        id: d.id,
+                        ...data,
+                        createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                    } as RevenueStats;
+                })
+                // ensure deterministic ordering by date (and leave created order as-is for same-date entries)
+                .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+            callback(stats);
+            return;
+        }
+
         // Pick the newest stat for each date within the range
         const latestByDate = new Map<string, { doc: any; createdAtMs: number }>();
         snapshot.docs.forEach((d) => {

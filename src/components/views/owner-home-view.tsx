@@ -46,7 +46,7 @@ import { TodaysScheduleSection } from '@/app/(app)/admin/_components/TodaysSched
 import { CashierDataDialog } from '@/app/(app)/admin/_components/CashierDataDialog';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { findNearestAttendanceRecord } from '@/lib/attendance-utils';
-import { toDateSafe, cn } from '@/lib/utils';
+import { toDateSafe, cn, selectLatestRevenueStats } from '@/lib/utils';
 
 interface OwnerHomeViewProps {
     isStandalone?: boolean;
@@ -101,7 +101,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
 
       const unsubs = [
         // Subscribe to revenue stats across the week
-        dataStore.subscribeToRevenueStatsForDateRange(startStr, endStr, setRevenueStats),
+        dataStore.subscribeToRevenueStatsForDateRange(startStr, endStr, setRevenueStats, true),
         dataStore.subscribeToAttendanceRecordsForDateRange({ from: start, to: end }, setAttendanceRecords),
         dataStore.subscribeToSchedule(weekId, setTodaysSchedule),
         dataStore.subscribeToReportFeed(setComplaints),
@@ -130,7 +130,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
     const targetWeekId = `${getISOWeekYear(targetDate)}-W${getISOWeek(targetDate)}`;
 
     const unsubs = [
-      dataStore.subscribeToDailyRevenueStats(todayStr, setRevenueStats),
+      dataStore.subscribeToDailyRevenueStats(todayStr, setRevenueStats, true),
       dataStore.subscribeToAttendanceRecordsForDateRange({ from: dayStart, to: dayEnd }, setAttendanceRecords),
       dataStore.subscribeToSchedule(targetWeekId, setTodaysSchedule),
       dataStore.subscribeToReportsForDay(todayStr, setShiftReports),
@@ -167,9 +167,15 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
 
   useDataRefresher(handleReconnect);
 
+  const effectiveRevenueStats = useMemo(() => {
+    return selectLatestRevenueStats(revenueStats);
+  }, [revenueStats]);
+
   const cashierOverview = useMemo(() => {
-    // Aggregate across the revenueStats array so weekly ranges work as well as single-day
-    const revenueByMethod = revenueStats.reduce((acc, stat) => {
+    // revenueStats may include multiple snapshots for a day.
+    // - If a single day: use only the latest stat.
+    // - If multiple days: use the latest stat per day.
+    const revenueByMethod = effectiveRevenueStats.reduce((acc, stat) => {
       const rb = stat.revenueByPaymentMethod || {};
       Object.entries(rb).forEach(([k, v]) => {
         acc[k] = (acc[k] || 0) + (v || 0);
@@ -190,7 +196,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
       {} as Record<string, number>
     );
 
-    const totalRevenue = revenueStats.reduce((sum, s) => sum + (s.netRevenue || 0), 0);
+    const totalRevenue = effectiveRevenueStats.reduce((sum, s) => sum + (s.netRevenue || 0), 0);
     const totalExpense = Object.values(expenseByMethod).reduce((sum, amount) => sum + amount, 0);
     const profit = totalRevenue - totalExpense;
 
@@ -201,7 +207,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
       revenueByMethod: revenueByMethod as RevenueStats['revenueByPaymentMethod'],
       expenseByMethod,
     };
-  }, [revenueStats, dailySlips]);
+  }, [effectiveRevenueStats, dailySlips]);
 
   useEffect(() => {
     // Recalculate trend (compare to previous period) whenever date filter or current totals change
