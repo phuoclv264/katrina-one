@@ -31,7 +31,7 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { cn, normalizeSearchString } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/combobox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -81,13 +81,16 @@ function RuleEditor({ rule, onUpdate, onDelete, isEditing, onMove, canMoveUp, ca
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                     <Label className="text-xs">Điều kiện</Label>
-                    <Select value={rule.condition} onValueChange={(v) => onUpdate({ ...rule, condition: v as FineRule['condition'] })}>
-                        <SelectTrigger><SelectValue/></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="repeat_in_month">Lặp lại trong tháng</SelectItem>
-                            <SelectItem value="is_flagged">Bị gắn cờ</SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <Combobox
+                        value={rule.condition}
+                        onChange={(v) => onUpdate({ ...rule, condition: v as FineRule['condition'] })}
+                        options={[
+                            { value: "repeat_in_month", label: "Lặp lại trong tháng" },
+                            { value: "is_flagged", label: "Bị gắn cờ" }
+                        ]}
+                        compact
+                        searchable={false}
+                    />
                 </div>
                  {rule.condition === 'repeat_in_month' && (
                     <div className="space-y-1">
@@ -100,13 +103,16 @@ function RuleEditor({ rule, onUpdate, onDelete, isEditing, onMove, canMoveUp, ca
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                  <div className="space-y-1">
                     <Label className="text-xs">Hành động</Label>
-                    <Select value={rule.action} onValueChange={(v) => onUpdate({ ...rule, action: v as FineRule['action'] })}>
-                        <SelectTrigger><SelectValue/></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="multiply">Nhân tiền phạt</SelectItem>
-                            <SelectItem value="add">Cộng thêm tiền phạt</SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <Combobox
+                        value={rule.action}
+                        onChange={(v) => onUpdate({ ...rule, action: v as FineRule['action'] })}
+                        options={[
+                            { value: "multiply", label: "Nhân tiền phạt" },
+                            { value: "add", label: "Cộng thêm tiền phạt" }
+                        ]}
+                        compact
+                        searchable={false}
+                    />
                 </div>
                  <div className="space-y-1">
                     <Label className="text-xs">Giá trị</Label>
@@ -115,17 +121,17 @@ function RuleEditor({ rule, onUpdate, onDelete, isEditing, onMove, canMoveUp, ca
             </div>
              <div className="space-y-1">
                 <Label className="text-xs">Hành động phụ</Label>
-                <Select
+                <Combobox
                     value={rule.severityAction || 'none'}
-                    onValueChange={(v) => onUpdate({ ...rule, severityAction: v === 'none' ? null : (v as FineRule['severityAction']) })}
-                >
-                    <SelectTrigger><SelectValue/></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="none">Không thực hiện</SelectItem>
-                        <SelectItem value="increase">Gia tăng mức độ vi phạm</SelectItem>
-                        <SelectItem value="set_to_high">Chuyển sang vi phạm nghiêm trọng</SelectItem>
-                    </SelectContent>
-                </Select>
+                    onChange={(v) => onUpdate({ ...rule, severityAction: v === 'none' ? null : (v as FineRule['severityAction']) })}
+                    options={[
+                        { value: "none", label: "Không thực hiện" },
+                        { value: "increase", label: "Gia tăng mức độ vi phạm" },
+                        { value: "set_to_high", label: "Chuyển sang vi phạm nghiêm trọng" }
+                    ]}
+                    compact
+                    searchable={false}
+                />
             </div>
         </div>
     )
@@ -376,14 +382,17 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
                             />
                             <div className="space-y-2">
                                 <Label className="text-xs">Mức độ</Label>
-                                <Select value={currentEditingValues.severity} onValueChange={(val) => handleEditingValueChange('severity', val)}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem key="low" value="low">Nhẹ</SelectItem>
-                                        <SelectItem key="medium" value="medium">Trung bình</SelectItem>
-                                        <SelectItem key="high" value="high">Nghiêm trọng</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                <Combobox
+                                    value={currentEditingValues.severity}
+                                    onChange={(val) => handleEditingValueChange('severity', val)}
+                                    options={[
+                                        { value: "low", label: "Nhẹ" },
+                                        { value: "medium", label: "Trung bình" },
+                                        { value: "high", label: "Nghiêm trọng" }
+                                    ]}
+                                    compact
+                                    searchable={false}
+                                />
                             </div>
                             <div className="space-y-2">
                                <Label className="text-xs">Kiểu tính phạt</Label>

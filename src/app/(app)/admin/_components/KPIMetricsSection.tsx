@@ -3,6 +3,7 @@
 import React from 'react';
 import { TrendingDown, TrendingUp, Wallet, Users } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { Button } from '@/components/ui/button';
 
 interface KPIMetric {
   label: string;
@@ -18,6 +19,7 @@ interface KPIMetric {
 
 interface KPIMetricsSectionProps {
   metrics: KPIMetric[];
+  onViewDetails?: () => void;
 }
 
 const colorMap = {
@@ -27,16 +29,24 @@ const colorMap = {
   purple: 'text-purple-600 dark:text-purple-400',
 };
 
-export function KPIMetricsSection({ metrics }: KPIMetricsSectionProps) {
+export function KPIMetricsSection({ metrics, onViewDetails }: KPIMetricsSectionProps) {
   return (
     <>
       {/* Mobile: show all metrics inside a single card */}
-      <div className="sm:hidden mb-4">
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
-          <div className="flex items-center justify-between mb-3">
+      <div className="sm:hidden">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-4">
             <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Tổng quan</h4>
+            {onViewDetails && (
+              <button 
+                onClick={onViewDetails}
+                className="text-xs font-medium text-primary hover:text-primary/80 transition-colors px-2 py-1 rounded-md hover:bg-primary/10"
+              >
+                Xem chi tiết
+              </button>
+            )}
           </div>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {metrics.map((metric, idx) => (
               <div key={idx} className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -85,7 +95,14 @@ export function KPIMetricsSection({ metrics }: KPIMetricsSectionProps) {
       </div>
 
       {/* Desktop / tablet: original grid of separate metric cards */}
-      <section className="hidden sm:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-8">
+      <div className="hidden sm:flex items-center justify-end mb-4">
+        {onViewDetails && (
+          <Button variant="outline" size="sm" onClick={onViewDetails}>
+            Xem chi tiết dữ liệu
+          </Button>
+        )}
+      </div>
+      <section className="hidden sm:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
         {metrics.map((metric, index) => (
           <motion.div
             key={index}

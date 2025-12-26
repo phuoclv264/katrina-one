@@ -16,7 +16,7 @@ import { toast } from '@/components/ui/pro-toast';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/combobox';
 import { Toggle } from '@/components/ui/toggle';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -174,37 +174,37 @@ function EditTaskForm({
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label>Tuần trong tháng</Label>
-                            <Select
+                            <Combobox
                                 value={String(occurrence.week)}
-                                onValueChange={v => handleScheduleDetailChange('occurrences', [{ ...occurrence, week: parseInt(v) }])}
-                            >
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="1">Tuần đầu tiên</SelectItem>
-                                    <SelectItem value="2">Tuần thứ 2</SelectItem>
-                                    <SelectItem value="3">Tuần thứ 3</SelectItem>
-                                    <SelectItem value="4">Tuần thứ 4</SelectItem>
-                                    <SelectItem value="-1">Tuần cuối cùng</SelectItem>
-                                </SelectContent>
-                            </Select>
+                                onChange={v => handleScheduleDetailChange('occurrences', [{ ...occurrence, week: parseInt(v) }])}
+                                options={[
+                                    { value: "1", label: "Tuần đầu tiên" },
+                                    { value: "2", label: "Tuần thứ 2" },
+                                    { value: "3", label: "Tuần thứ 3" },
+                                    { value: "4", label: "Tuần thứ 4" },
+                                    { value: "-1", label: "Tuần cuối cùng" },
+                                ]}
+                                compact
+                                searchable={false}
+                            />
                         </div>
                         <div className="space-y-2">
                             <Label>Ngày trong tuần</Label>
-                            <Select
+                            <Combobox
                                 value={String(occurrence.day)}
-                                onValueChange={v => handleScheduleDetailChange('occurrences', [{ ...occurrence, day: parseInt(v) }])}
-                            >
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="1">Thứ Hai</SelectItem>
-                                    <SelectItem value="2">Thứ Ba</SelectItem>
-                                    <SelectItem value="3">Thứ Tư</SelectItem>
-                                    <SelectItem value="4">Thứ Năm</SelectItem>
-                                    <SelectItem value="5">Thứ Sáu</SelectItem>
-                                    <SelectItem value="6">Thứ Bảy</SelectItem>
-                                    <SelectItem value="0">Chủ Nhật</SelectItem>
-                                </SelectContent>
-                            </Select>
+                                onChange={v => handleScheduleDetailChange('occurrences', [{ ...occurrence, day: parseInt(v) }])}
+                                options={[
+                                    { value: "1", label: "Thứ Hai" },
+                                    { value: "2", label: "Thứ Ba" },
+                                    { value: "3", label: "Thứ Tư" },
+                                    { value: "4", label: "Thứ Năm" },
+                                    { value: "5", label: "Thứ Sáu" },
+                                    { value: "6", label: "Thứ Bảy" },
+                                    { value: "0", label: "Chủ Nhật" },
+                                ]}
+                                compact
+                                searchable={false}
+                            />
                         </div>
                     </div>
                 );
@@ -213,17 +213,17 @@ function EditTaskForm({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label>Chu kỳ</Label>
-                            <Select
+                            <Combobox
                                 value={schedule.period}
-                                onValueChange={v => handleScheduleDetailChange('period', v)}
-                            >
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="week">Mỗi tuần</SelectItem>
-                                    <SelectItem value="month">Mỗi tháng</SelectItem>
-                                    <SelectItem value="custom_days">N ngày</SelectItem>
-                                </SelectContent>
-                            </Select>
+                                onChange={v => handleScheduleDetailChange('period', v)}
+                                options={[
+                                    { value: "week", label: "Mỗi tuần" },
+                                    { value: "month", label: "Mỗi tháng" },
+                                    { value: "custom_days", label: "N ngày" },
+                                ]}
+                                compact
+                                searchable={false}
+                            />
                         </div>
                         <div className="space-y-2">
                             <Label>Số lần / chu kỳ</Label>
@@ -332,31 +332,35 @@ function EditTaskForm({
             </div>
             <div className="space-y-2">
                 <Label>Áp dụng cho vai trò</Label>
-                <Select value={localTask.appliesToRole} onValueChange={(v) => handleFieldChange('appliesToRole', v)}>
-                    <SelectTrigger>
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="Tất cả">Tất cả vai trò</SelectItem>
-                        <SelectItem value="Phục vụ">Phục vụ</SelectItem>
-                        <SelectItem value="Pha chế">Pha chế</SelectItem>
-                        <SelectItem value="Quản lý">Quản lý</SelectItem>
-                    </SelectContent>
-                </Select>
+                <Combobox
+                    value={localTask.appliesToRole}
+                    onChange={(v) => handleFieldChange('appliesToRole', v)}
+                    options={[
+                        { value: "Tất cả", label: "Tất cả vai trò" },
+                        { value: "Phục vụ", label: "Phục vụ" },
+                        { value: "Pha chế", label: "Pha chế" },
+                        { value: "Quản lý", label: "Quản lý" },
+                    ]}
+                    compact
+                    searchable={false}
+                />
             </div>
             <div className="p-3 border bg-background rounded-md space-y-3">
                 <div className="space-y-2">
                     <Label>Loại lịch trình</Label>
-                    <Select value={localTask.schedule.type} onValueChange={handleScheduleTypeChange}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="weekly">Hàng tuần</SelectItem>
-                            <SelectItem value="interval">Theo chu kỳ (N ngày)</SelectItem>
-                            <SelectItem value="monthly_date">Theo ngày trong tháng</SelectItem>
-                            <SelectItem value="monthly_weekday">Theo thứ trong tháng</SelectItem>
-                            <SelectItem value="random">Ngẫu nhiên</SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <Combobox
+                        value={localTask.schedule.type}
+                        onChange={handleScheduleTypeChange}
+                        options={[
+                            { value: "weekly", label: "Hàng tuần" },
+                            { value: "interval", label: "Theo chu kỳ (N ngày)" },
+                            { value: "monthly_date", label: "Theo ngày trong tháng" },
+                            { value: "monthly_weekday", label: "Theo thứ trong tháng" },
+                            { value: "random", label: "Ngẫu nhiên" },
+                        ]}
+                        compact
+                        searchable={false}
+                    />
                 </div>
                 <div className="space-y-2">
                     {renderScheduleInputs()}

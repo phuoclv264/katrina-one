@@ -53,9 +53,9 @@ export function RevenueAnalyticsSection({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
         {/* Pie Chart */}
-        <div className="flex flex-col items-center justify-center relative min-h-[200px]">
+        <div className="flex flex-col items-center justify-center relative min-h-[220px]">
           {/* add padding so thick strokes don't get clipped by container edges */}
-          <div className="relative w-40 h-40">
+          <div className="relative w-48 h-48">
             <svg className="w-full h-full transform -rotate-90 overflow-visible" viewBox="0 0 36 36" role="img" aria-hidden>
               <path className="text-gray-100 dark:text-gray-700" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="6"></path>
 
@@ -89,8 +89,8 @@ export function RevenueAnalyticsSection({
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
               <span className="text-xs text-gray-400">Tổng doanh thu</span>
-              <span className="text-sm font-bold text-gray-900 dark:text-white">{totalRevenue.toLocaleString('vi-VN')}đ</span>
-              <span className="text-xs text-gray-400 mt-1">{total.toFixed(1)}%</span>
+              <span className="text-base font-bold text-gray-900 dark:text-white">{totalRevenue.toLocaleString('vi-VN')}đ</span>
+              <span className="text-sm text-gray-400 mt-1">{total.toFixed(1)}%</span>
             </div>
           </div>
         </div>

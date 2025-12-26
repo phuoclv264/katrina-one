@@ -8,12 +8,11 @@ import { toast } from '@/components/ui/pro-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingPage } from '@/components/loading/LoadingPage';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShieldX, Plus, FilterX, BadgeInfo, Settings, UserSearch, Camera } from 'lucide-react';
 import type { ManagedUser, Violation, ViolationCategory, ViolationUser, ViolationCategoryData, MediaAttachment } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
-import { ViolationCategoryCombobox } from '@/components/violation-category-combobox';
+import { Combobox } from '@/components/combobox';
 import { collection, doc, getDocs, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import ViolationCategoryManagementDialog from './_components/violation-category-management-dialog';
@@ -21,7 +20,7 @@ import ViolationInfoDialog from './_components/violation-info-dialog';
 import { ViolationDialog } from './_components/violation-dialog';
 import { ViolationCard } from './_components/violation-card';
 import { generateSmartAbbreviations } from '@/lib/violations-utils';
-import { UserMultiSelect } from '@/components/user-multi-select';
+
 import { useRouter } from 'nextjs-toploader/app';
 import { useSearchParams } from 'next/navigation';
 import { SubmitAllDialog } from './_components/submit-all-dialog';
@@ -454,19 +453,27 @@ function ViolationsView() {
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
-              <UserMultiSelect
-                users={displayUsers}
-                selectedUsers={filterUsers}
-                onChange={setFilterUsers}
+              <Combobox
+                options={displayUsers.map(u => ({ value: u.uid, label: u.displayName }))}
+                value={filterUsers.map(u => u.uid)}
+                onChange={(vals) => {
+                   const selectedIds = vals as string[];
+                   const selected = displayUsers.filter(u => selectedIds.includes(u.uid));
+                   setFilterUsers(selected);
+                }}
+                multiple={true}
+                placeholder="Chọn nhân viên..."
+                searchPlaceholder="Tìm nhân viên..."
+                emptyText="Không tìm thấy nhân viên."
                 className="w-full"
               />
-              <ViolationCategoryCombobox
-                categories={categoryData.list}
+              <Combobox
+                options={categoryData.list.map(c => ({ value: c.name, label: c.name }))}
                 value={filterCategoryName}
-                onChange={setFilterCategoryName}
-                onCategoriesChange={handleCategoriesChange}
-                canManage={false}
+                onChange={(val) => setFilterCategoryName(val as string)}
                 placeholder="Lọc theo loại vi phạm..."
+                searchPlaceholder="Tìm loại vi phạm..."
+                emptyText="Không tìm thấy loại vi phạm."
               />
             </div>
           </CardHeader>

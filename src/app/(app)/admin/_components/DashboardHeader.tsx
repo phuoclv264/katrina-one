@@ -35,7 +35,7 @@ export function DashboardHeader({ userName = 'Admin User', userRole = 'Chá»§ cá»
   }, [selectedDateFilter]);
 
   return (
-  <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 md:sticky md:top-0 z-30">
+  <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 md:sticky md:top-0 md:z-30">
       <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           {/* Left side: Greeting */}

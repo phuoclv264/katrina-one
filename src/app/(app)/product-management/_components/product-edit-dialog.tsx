@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
 import type { Product, ProductIngredient, InventoryItem, UnitDefinition, GlobalUnit } from '@/lib/types';
 import { Plus, Trash2, Box, Beaker, Loader2, X, Settings, SlidersHorizontal, ToggleRight, Star, ChevronsRight, Search, ArrowLeft, AlertTriangle } from 'lucide-react';
@@ -23,7 +22,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter }
 import isEqual from 'lodash.isequal';
 import { toast } from '@/components/ui/pro-toast';
 import { cn, normalizeSearchString } from '@/lib/utils';
-import { UnitCombobox } from '@/components/unit-combobox';
+import { Combobox } from '@/components/combobox';
 
 
 function AddUnitSimple({
@@ -42,6 +41,22 @@ function AddUnitSimple({
     const [newUnitName, setNewUnitName] = useState('');
     const [newUnitQty, setNewUnitQty] = useState<number | ''>(1);
     const [baseUnitQty, setBaseUnitQty] = useState<number | ''>('');
+
+    const unitOptions = React.useMemo(() => globalUnits.map(u => ({ value: u.name, label: u.name })), [globalUnits]);
+
+    const handleCreateUnit = (name: string) => {
+         const newUnit: GlobalUnit = { id: `unit-${Date.now()}`, name: name };
+         const newUnits = [...globalUnits, newUnit].sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+         onGlobalUnitsChange(newUnits);
+         setNewUnitName(name);
+    }
+
+    const handleDeleteUnitGlobal = (name: string) => {
+        if (!canManageUnits) return;
+        const newUnits = globalUnits.filter(u => u.name !== name);
+        onGlobalUnitsChange(newUnits);
+        if (newUnitName === name) setNewUnitName('');
+    }
 
     const handleAdd = () => {
         if (!newUnitName.trim() || !newUnitQty || !baseUnitQty) {
@@ -63,13 +78,17 @@ function AddUnitSimple({
             <p className="text-sm font-medium">Thêm quy đổi đơn vị mới</p>
              <div className="flex items-center gap-2">
                 <Input type="number" placeholder="SL" value={newUnitQty} onChange={e => setNewUnitQty(Number(e.target.value))} className="h-9 w-20" onFocus={(e) => e.target.select()} />
-                 <UnitCombobox 
-                    units={globalUnits}
+                 <Combobox 
+                    options={unitOptions}
                     value={newUnitName}
                     onChange={setNewUnitName}
-                    onUnitsChange={onGlobalUnitsChange}
-                    canManage={canManageUnits}
+                    onCreate={canManageUnits ? handleCreateUnit : undefined}
+                    onDelete={canManageUnits ? handleDeleteUnitGlobal : undefined}
+                    confirmDelete
+                    deleteMessage="Bạn có chắc chắn muốn xóa đơn vị này không?"
                     placeholder="Tên ĐV mới"
+                    searchPlaceholder="Tìm đơn vị..."
+                    emptyText="Không tìm thấy đơn vị."
                     className="flex-1"
                 />
                 <span className="font-bold">=</span>
@@ -262,16 +281,15 @@ function AddIngredientDialog({
                            </div>
                            <div className="space-y-2">
                               <Label className="text-base">Đơn vị sử dụng</Label>
-                               <Select value={selectedUnit} onValueChange={setSelectedUnit}>
-                                  <SelectTrigger className="h-12 text-base">
-                                      <SelectValue placeholder="Chọn đơn vị..." />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                      {availableUnits.map(unit => (
-                                          <SelectItem key={unit} value={unit}>{unit}</SelectItem>
-                                      ))}
-                                  </SelectContent>
-                               </Select>
+                               <Combobox
+                                  value={selectedUnit}
+                                  onChange={(val) => setSelectedUnit(val as string)}
+                                  options={availableUnits.map(unit => ({ value: unit, label: unit }))}
+                                  placeholder="Chọn đơn vị..."
+                                  compact
+                                  searchable={false}
+                                  className="h-12 text-base w-full"
+                               />
                            </div>
                            {ingredientSource === 'inventory' && 'baseUnit' in selectedItem && (
                               <div className="pt-4 mt-4 border-t">
@@ -539,16 +557,14 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
                                 />
                                 </TableCell>
                                 <TableCell>
-                                    <Select value={ing.unit} onValueChange={(val) => handleIngredientChange(index, 'unit', val)}>
-                                        <SelectTrigger className="h-8">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {availableUnits.map(unit => (
-                                                <SelectItem key={unit} value={unit}>{unit}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <Combobox
+                                        value={ing.unit}
+                                        onChange={(val) => handleIngredientChange(index, 'unit', val as string)}
+                                        options={availableUnits.map(unit => ({ value: unit, label: unit }))}
+                                        compact
+                                        searchable={false}
+                                        className="h-8 w-full"
+                                    />
                                 </TableCell>
                                 <TableCell className="text-right">
                                     <TooltipProvider>

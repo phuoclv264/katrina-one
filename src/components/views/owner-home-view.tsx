@@ -15,6 +15,8 @@ import type {
   ExpenseSlip,
   MonthlyTaskAssignment,
   MonthlyTask,
+  IncidentReport,
+  InventoryItem,
 } from '@/lib/types';
 import {
   format,
@@ -30,6 +32,7 @@ import {
   addDays,
   parse,
   differenceInMinutes,
+  isSameDay,
 } from 'date-fns';
 import { DashboardHeader } from '@/app/(app)/admin/_components/DashboardHeader';
 import { KPIMetricsSection } from '@/app/(app)/admin/_components/KPIMetricsSection';
@@ -40,6 +43,7 @@ import MonthlyStaffReportDialog from '@/app/(app)/reports/_components/MonthlySta
 import SalaryManagementDialog from '@/app/(app)/attendance/_components/salary-management-dialog';
 import { RecurringTasksCard } from '@/app/(app)/admin/_components/RecurringTasksCard';
 import { TodaysScheduleSection } from '@/app/(app)/admin/_components/TodaysScheduleSection';
+import { CashierDataDialog } from '@/app/(app)/admin/_components/CashierDataDialog';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { findNearestAttendanceRecord } from '@/lib/attendance-utils';
 import { toDateSafe, cn } from '@/lib/utils';
@@ -58,12 +62,15 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
   const [shiftReports, setShiftReports] = useState<ShiftReport[]>([]);
   const [complaints, setComplaints] = useState<WhistleblowingReport[]>([]);
   const [dailySlips, setDailySlips] = useState<ExpenseSlip[]>([]);
+  const [incidents, setIncidents] = useState<IncidentReport[]>([]);
+  const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
   const [allUsers, setAllUsers] = useState<ManagedUser[]>([]);
   const [monthlyTasks, setMonthlyTasks] = useState<MonthlyTask[]>([]);
   const [taskAssignments, setTaskAssignments] = useState<MonthlyTaskAssignment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isMonthlyReportOpen, setIsMonthlyReportOpen] = useState(false);
   const [isSalaryDialogOpen, setIsSalaryDialogOpen] = useState(false);
+  const [isCashierDataDialogOpen, setIsCashierDataDialogOpen] = useState(false);
   const [todaysSchedule, setTodaysSchedule] = useState<Schedule | null>(null);
 
   useEffect(() => {
@@ -101,6 +108,8 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
         dataStore.subscribeToUsers(setAllUsers),
         dataStore.subscribeToMonthlyTasks(setMonthlyTasks),
         dataStore.subscribeToMonthlyTasksForDate(new Date(startStr), setTaskAssignments),
+        dataStore.subscribeToAllIncidents(setIncidents),
+        dataStore.subscribeToInventoryList(setInventoryList),
       ];
 
       // For reports and expense slips we currently have range getters; fetch them once for the week
@@ -130,6 +139,8 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
       dataStore.subscribeToUsers(setAllUsers),
       dataStore.subscribeToMonthlyTasks(setMonthlyTasks),
       dataStore.subscribeToMonthlyTasksForDate(new Date(todayStr), setTaskAssignments),
+      dataStore.subscribeToAllIncidents(setIncidents),
+      dataStore.subscribeToInventoryList(setInventoryList),
     ];
 
     return () => {
@@ -436,6 +447,21 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
     );
   }, [attendanceOverview, dateFilter]);
 
+  const filteredIncidents = useMemo(() => {
+    if (dateFilter === 'week') {
+      const start = startOfWeek(new Date(), { weekStartsOn: 1 });
+      const end = endOfWeek(new Date(), { weekStartsOn: 1 });
+      return incidents.filter((i) => {
+        const date = parse(i.date, 'yyyy-MM-dd', new Date());
+        return isWithinInterval(date, { start, end });
+      });
+    } else {
+      const targetDate = dateFilter === 'yesterday' ? addDays(new Date(), -1) : new Date();
+      const targetDateStr = format(targetDate, 'yyyy-MM-dd');
+      return incidents.filter((i) => i.date === targetDateStr);
+    }
+  }, [incidents, dateFilter]);
+
   if (authLoading || isLoading) {
     return <LoadingPage />;
   }
@@ -473,44 +499,59 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
       />
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 scroll-smooth">
-        {/* KPI Metrics */}
-        <KPIMetricsSection metrics={kpiMetrics} />
+      <main className="flex-1 overflow-y-auto px-1 py-3 md:p-6 lg:p-8 scroll-smooth">
+        <div className="flex flex-col gap-4 md:gap-6 pb-20 md:pb-8">
+          {/* KPI Metrics */}
+          <KPIMetricsSection 
+            metrics={kpiMetrics} 
+            onViewDetails={() => setIsCashierDataDialogOpen(true)}
+          />
 
-        {/* Main content grid: Analytics + Cards */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
-          {/* Left: Revenue Analytics (2 cols) */}
-          <div className="xl:col-span-2">
-            <RevenueAnalyticsSection
-              revenueByMethod={cashierOverview.revenueByMethod}
-              totalRevenue={cashierOverview.totalRevenue}
-            />
-            {/* Schedule */}
-            <TodaysScheduleSection shifts={todayShifts} />
+          {/* Main content grid: Analytics + Cards */}
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 md:gap-6">
+            {/* Left: Revenue Analytics (2 cols) */}
+            <div className="xl:col-span-2 flex flex-col gap-4 md:gap-6">
+              <RevenueAnalyticsSection
+                revenueByMethod={cashierOverview.revenueByMethod}
+                totalRevenue={cashierOverview.totalRevenue}
+              />
+              {/* Schedule */}
+              <TodaysScheduleSection shifts={todayShifts} />
+            </div>
+
+            {/* Right column: Quick access + Tasks (1 col) */}
+            <div className="flex flex-col gap-4 md:gap-6">
+              <QuickAccessToolsSection onNavigate={(path) => {
+                if (path === 'create-monthly-report') {
+                  setIsMonthlyReportOpen(true);
+                } else if (path === 'salary-management') {
+                  setIsSalaryDialogOpen(true);
+                } else {
+                  router.push(path);
+                }
+              }} />
+              <MonthlyStaffReportDialog isOpen={isMonthlyReportOpen} onOpenChange={(open: boolean) => setIsMonthlyReportOpen(open)} />
+              <SalaryManagementDialog isOpen={isSalaryDialogOpen} onClose={() => setIsSalaryDialogOpen(false)} allUsers={allUsers} />
+              <RecurringTasksCard monthlyTasks={monthlyTasks} taskAssignments={taskAssignments} staffDirectory={allUsers} />
+            </div>
           </div>
 
-          {/* Right column: Quick access + Tasks (1 col) */}
-          <div className="space-y-6">
-            <QuickAccessToolsSection onNavigate={(path) => {
-              if (path === 'create-monthly-report') {
-                setIsMonthlyReportOpen(true);
-              } else if (path === 'salary-management') {
-                setIsSalaryDialogOpen(true);
-              } else {
-                router.push(path);
-              }
-            }} />
-            <MonthlyStaffReportDialog isOpen={isMonthlyReportOpen} onOpenChange={(open: boolean) => setIsMonthlyReportOpen(open)} />
-            <SalaryManagementDialog isOpen={isSalaryDialogOpen} onClose={() => setIsSalaryDialogOpen(false)} allUsers={allUsers} />
-            <RecurringTasksCard monthlyTasks={monthlyTasks} taskAssignments={taskAssignments} staffDirectory={allUsers} />
+          {/* Reports */}
+          <div>
+            <RecentReportsCard shiftReports={shiftReports} />
           </div>
-        </div>
-
-        {/* Reports */}
-        <div className="mb-8">
-          <RecentReportsCard shiftReports={shiftReports} />
         </div>
       </main>
+
+      <CashierDataDialog 
+        isOpen={isCashierDataDialogOpen}
+        onOpenChange={setIsCashierDataDialogOpen}
+        dateLabel={dateFilter === 'today' ? 'Hôm nay' : dateFilter === 'yesterday' ? 'Hôm qua' : 'Tuần này'}
+        revenueStats={revenueStats}
+        expenseSlips={dailySlips}
+        incidents={filteredIncidents}
+        inventoryList={inventoryList}
+      />
     </div>
   );
 }

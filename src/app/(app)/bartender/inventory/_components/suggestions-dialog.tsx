@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { InventoryOrderSuggestion, OrderItem, InventoryItem } from '@/lib/types';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from "@/components/combobox";
 
 type SuggestionsDialogProps = {
     isOpen: boolean;
@@ -188,18 +188,15 @@ export function SuggestionsDialog({
                                                                 placeholder="SL"
                                                                 onFocus={(e) => e.target.select()}
                                                             />
-                                                            <Select
+                                                            <Combobox
                                                                 value={currentUnit}
-                                                                onValueChange={(value) => handleFieldChange(supplier, itemId, 'unit', value)}
+                                                                onChange={(value) => handleFieldChange(supplier, itemId, 'unit', value)}
                                                                 disabled={!isChecked}
-                                                            >
-                                                                <SelectTrigger className="h-8 w-[80px]">
-                                                                    <SelectValue />
-                                                                </SelectTrigger>
-                                                                <SelectContent>
-                                                                    {fullItem.units.map(u => <SelectItem key={u.name} value={u.name}>{u.name}</SelectItem>)}
-                                                                </SelectContent>
-                                                            </Select>
+                                                                options={fullItem.units.map(u => ({ value: u.name, label: u.name }))}
+                                                                className="h-8 w-[80px]"
+                                                                compact
+                                                                searchable={false}
+                                                            />
                                                         </div>
                                                     </Label>
                                                 );

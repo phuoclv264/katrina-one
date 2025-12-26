@@ -50,43 +50,52 @@ const ExpenseList = React.memo(({ expenses, onEdit, onDelete, processingItemId, 
                             if (el) itemRefs.current.set(highlightKey, el);
                             else itemRefs.current.delete(highlightKey);
                         }}
-                        className="bg-background relative"
+                        className="bg-card relative shadow-sm border-slate-200 dark:border-slate-800 overflow-hidden"
                     >
                         <CardContent className="p-3">
-                            <div className="flex justify-between items-start mb-2">
-                                <div className="space-y-1 pr-2">
-                                    <div className="font-semibold text-sm flex items-center gap-2 flex-wrap">
-                                      <p>{getSlipContentName(slip.items[0])}{slip.items.length > 1 && ` và ${slip.items.length - 1} mục khác`}</p>
-                                       {slip.isAiGenerated && <Badge className="bg-blue-100 text-blue-800">AI</Badge>}
-                                       {slip.lastModifiedBy && <Badge variant="outline">Đã sửa</Badge>}
-                                       {slip.associatedHandoverReportId && <Badge variant="outline">Tự động</Badge>}
+                            <div className="flex justify-between items-start gap-3 mb-2">
+                                <div className="space-y-1 min-w-0 flex-1">
+                                    <div className="font-semibold text-sm leading-tight">
+                                      <span className="line-clamp-2">{getSlipContentName(slip.items[0])}{slip.items.length > 1 && ` +${slip.items.length - 1} mục`}</span>
                                     </div>
-                                    <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1">
-                                        <span>{slip.createdBy.userName}</span>
+                                    <div className="flex flex-wrap gap-1">
+                                       {slip.isAiGenerated && <Badge variant="secondary" className="bg-blue-50 text-blue-700 hover:bg-blue-50 text-[10px] h-5 px-1.5 font-normal border-blue-100">AI</Badge>}
+                                       {slip.lastModifiedBy && <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-normal text-muted-foreground">Đã sửa</Badge>}
+                                       {slip.associatedHandoverReportId && <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-normal text-muted-foreground">Tự động</Badge>}
+                                    </div>
+                                </div>
+                                <div className="text-right shrink-0">
+                                    <p className="font-bold text-base text-red-600">-{actualAmount.toLocaleString('vi-VN')}đ</p>
+                                </div>
+                            </div>
+                            
+                            <div className="flex items-center justify-between mt-3 pt-2 border-t border-dashed border-slate-100 dark:border-slate-800">
+                                <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
+                                    <div className="flex items-center gap-1.5">
+                                        {slip.paymentMethod === 'cash' ? <Wallet className="h-3 w-3"/> : <LandPlot className="h-3 w-3"/>}
+                                        <span>{slip.paymentMethod === 'cash' ? 'Tiền mặt' : 'CK'}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <span className="font-medium">{slip.createdBy.userName}</span>
                                         <span>•</span>
                                         <span>{slip.lastModified ? format(new Date(slip.lastModified as string), 'HH:mm') : format(new Date(slip.createdAt as string), 'HH:mm')}</span>
                                     </div>
                                 </div>
-                                <div className="text-right">
-                                    <p className="font-bold text-base text-red-600">-{actualAmount.toLocaleString('vi-VN')}đ</p>
-                                    <div className="flex items-center justify-end gap-2 text-sm mt-1">
-                                        {slip.paymentMethod === 'cash' ? <Wallet className="h-4 w-4"/> : <LandPlot className="h-4 w-4"/>}
-                                        <span>{slip.paymentMethod === 'cash' ? 'Tiền mặt' : 'CK'}</span>
-                                    </div>
+                                <div className="flex items-center gap-1">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => onEdit(slip)} disabled={isProcessing}><Edit className="h-4 w-4" /></Button>
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/70 hover:text-destructive hover:bg-destructive/10" disabled={isProcessing}><Trash2 className="h-4 w-4" /></Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                          <AlertDialogHeader><AlertDialogTitle>Xác nhận xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader>
+                                          <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => onDelete(slip.id)}>Xóa</AlertDialogAction></AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
                                 </div>
                             </div>
-                            <div className="flex justify-end gap-2 mt-2 border-t pt-2">
-                                <Button variant="ghost" size="sm" onClick={() => onEdit(slip)} disabled={isProcessing}><Edit className="mr-2 h-4 w-4" />Chi tiết</Button>
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild><Button variant="ghost" size="sm" className="text-destructive" disabled={isProcessing}><Trash2 className="mr-2 h-4 w-4" />Xóa</Button></AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                      <AlertDialogHeader><AlertDialogTitle>Xác nhận xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader>
-                                      <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => onDelete(slip.id)}>Xóa</AlertDialogAction></AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                            </div>
                         </CardContent>
-                         {isProcessing && (<div className="absolute inset-0 bg-white/80 dark:bg-black/80 flex items-center justify-center rounded-lg"><Loader2 className="h-6 w-6 animate-spin text-destructive"/><span className="ml-2 text-sm font-medium text-destructive">Đang xóa...</span></div>)}
+                         {isProcessing && (<div className="absolute inset-0 bg-white/80 dark:bg-black/80 flex items-center justify-center z-10"><Loader2 className="h-6 w-6 animate-spin text-destructive"/><span className="ml-2 text-sm font-medium text-destructive">Đang xử lý...</span></div>)}
                     </Card>
                 )
             })}

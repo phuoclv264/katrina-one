@@ -6,7 +6,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -25,7 +24,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Undo2, Redo2, Plus } from 'lucide-react';
 import ConditionSummary from './condition-summary';
 import AddConditionSheet from './add-condition-sheet';
-import { UserMultiSelect } from '@/components/user-multi-select';
+import { Combobox } from '@/components/combobox';
 
 type TabConfig = { value: string; label: string; types?: string[] };
 
@@ -405,16 +404,14 @@ export default function AutoScheduleDialog({
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
               {/* Mobile: compact select + add button */}
               <div className="m-4 sm:hidden flex items-center gap-2">
-                <Select value={activeTab} onValueChange={setActiveTab}>
-                  <SelectTrigger className="w-full h-8 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TABS.map(tab => (
-                      <SelectItem key={tab.value} value={tab.value}>{tab.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  value={activeTab}
+                  onChange={(val) => setActiveTab(val as string)}
+                  options={TABS.map(tab => ({ value: tab.value, label: tab.label }))}
+                  compact
+                  searchable={false}
+                  className="w-full h-8 text-sm"
+                />
 
                 <Button variant="secondary" size="sm" onClick={() => setShowAddCondition(true)} className="flex-shrink-0">
                   <Plus className="h-4 w-4 mr-1" />
@@ -524,11 +521,19 @@ export default function AutoScheduleDialog({
                           <div className="flex items-center gap-2">
                             <Label className="text-xs font-semibold">Tất cả điều kiện</Label>
                             <div className="ml-auto w-48">
-                              <UserMultiSelect
-                                users={allUsers}
-                                selectedUsers={employeeFilter}
-                                onChange={setEmployeeFilter}
-                                selectionMode="single"
+                              <Combobox
+                                options={allUsers
+                                  .filter(u => u.role !== 'Chủ nhà hàng')
+                                  .map(u => ({ value: u.uid, label: u.displayName }))}
+                                value={employeeFilter[0]?.uid ?? ''}
+                                onChange={(next) => {
+                                  const nextId = typeof next === 'string' ? next : '';
+                                  const selected = allUsers.find(u => u.uid === nextId);
+                                  setEmployeeFilter(selected ? [selected] : []);
+                                }}
+                                placeholder="Tất cả nhân viên"
+                                searchPlaceholder="Tìm nhân viên..."
+                                emptyText="Không tìm thấy nhân viên."
                               />
                             </div>
                           </div>

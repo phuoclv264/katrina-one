@@ -17,7 +17,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { callGenerateBartenderTasks, callSortTasks  } from '@/lib/ai-service';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/combobox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { diffChars } from 'diff';
 
@@ -227,16 +227,15 @@ function AiAssistant({
                             disabled={isGenerating}
                         />
                         <div className="flex flex-col sm:flex-row gap-2">
-                             <Select onValueChange={setTargetSection} value={targetSection} disabled={isGenerating || sections.length === 0}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Chọn khu vực để sắp xếp..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {sections.map(section => (
-                                        <SelectItem key={section.title} value={section.title}>{section.title}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                             <Combobox
+                                onChange={setTargetSection}
+                                value={targetSection}
+                                disabled={isGenerating || sections.length === 0}
+                                options={sections.map(section => ({ value: section.title, label: section.title }))}
+                                placeholder="Chọn khu vực để sắp xếp..."
+                                compact
+                                searchable={false}
+                            />
                             <Button onClick={handleGenerateSort} disabled={isGenerating || !targetSection || !sortInstruction.trim()} className="w-full sm:w-auto">
                                 {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                                 Sắp xếp bằng AI
@@ -617,23 +616,22 @@ export default function BartenderTasksPage() {
                                         autoFocus
                                         className="text-sm h-9 flex-1"
                                     />
-                                    <Select 
-                                        value={editingTask.newType} 
-                                        onValueChange={(value) => {
+                                    <Combobox
+                                        value={editingTask.newType}
+                                        onChange={(value) => {
                                             if (editingTask) {
                                                 setEditingTask({...editingTask, newType: value as Task['type']});
                                             }
                                         }}
-                                    >
-                                        <SelectTrigger className="h-9 w-full sm:w-[220px]">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="photo">Hình ảnh</SelectItem>
-                                            <SelectItem value="boolean">Đảm bảo / Không đảm bảo</SelectItem>
-                                            <SelectItem value="opinion">Ý kiến</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                        options={[
+                                            { value: "photo", label: "Hình ảnh" },
+                                            { value: "boolean", label: "Đảm bảo / Không đảm bảo" },
+                                            { value: "opinion", label: "Ý kiến" }
+                                        ]}
+                                        className="h-9 w-full sm:w-[220px]"
+                                        compact
+                                        searchable={false}
+                                    />
                                     <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground" onClick={handleUpdateTask}>
                                         <Check className="h-4 w-4 text-green-500" />
                                     </Button>
@@ -688,16 +686,18 @@ export default function BartenderTasksPage() {
                             onKeyDown={(e) => e.key === 'Enter' && handleAddTask(section.title)}
                         />
                         <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
-                            <Select value={newTaskType} onValueChange={(value) => setNewTaskType(value as Task['type'])}>
-                                <SelectTrigger className="w-full sm:w-auto">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="photo">Hình ảnh</SelectItem>
-                                    <SelectItem value="boolean">Đảm bảo / Không đảm bảo</SelectItem>
-                                    <SelectItem value="opinion">Ý kiến</SelectItem>
-                                </SelectContent>
-                            </Select>
+                            <Combobox
+                                value={newTaskType}
+                                onChange={(value) => setNewTaskType(value as Task['type'])}
+                                options={[
+                                    { value: "photo", label: "Hình ảnh" },
+                                    { value: "boolean", label: "Đảm bảo / Không đảm bảo" },
+                                    { value: "opinion", label: "Ý kiến" }
+                                ]}
+                                className="w-full sm:w-auto"
+                                compact
+                                searchable={false}
+                            />
                             <Button onClick={() => handleAddTask(section.title)} className="w-full sm:w-auto"><Plus className="mr-2 h-4 w-4"/> Thêm</Button>
                         </div>
                     </div>

@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { useDebouncedCallback } from 'use-debounce';
 import { Camera, X, AlertTriangle } from 'lucide-react';
 import Image from 'next/image';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from "@/components/combobox";
 
 
 type ItemStatus = 'ok' | 'low' | 'out';
@@ -158,21 +158,19 @@ const InventoryItemRowComponent = ({
                         onClick={(e) => e.stopPropagation()}
                     />
                ) : (
-                    <Select 
-                        value={String(localStockValue)} 
-                        onValueChange={(v) => handleSelectChange(v === '_clear_' ? '' : v)} 
+                    <Combobox
+                        value={String(localStockValue)}
+                        onChange={(v) => handleSelectChange(v === '_clear_' ? '' : v)}
                         disabled={isProcessing}
-                    >
-                        <SelectTrigger className="w-full h-auto min-h-9 whitespace-normal [&>span]:flex [&>span]:items-center [&>span]:justify-end [&>span]:text-right">
-                            <SelectValue placeholder="Chọn..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                             <SelectItem value="_clear_">Bỏ chọn</SelectItem>
-                            {(item.listOptions || ['hết', 'gần hết', 'còn đủ', 'dư xài']).map(option => (
-                                <SelectItem key={option} value={option}>{option}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                        options={[
+                            { value: "_clear_", label: "Bỏ chọn" },
+                            ...(item.listOptions || ['hết', 'gần hết', 'còn đủ', 'dư xài']).map(option => ({ value: option, label: option }))
+                        ]}
+                        className="w-full h-auto min-h-9 whitespace-normal"
+                        placeholder="Chọn..."
+                        compact
+                        searchable={false}
+                    />
                )}
             </div>
         </div>

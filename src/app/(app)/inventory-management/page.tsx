@@ -18,8 +18,7 @@ import isEqual from 'lodash.isequal';
 import InventoryTools from './_components/inventory-tools';
 import ItemEditPopover from './_components/item-edit-popover';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { SupplierCombobox } from '@/components/supplier-combobox';
+import { Combobox } from '@/components/combobox';
 
 
 type CategorizedList = {
@@ -323,23 +322,28 @@ export default function InventoryManagementPage() {
                                 <Input placeholder="Tìm theo tên mặt hàng..." className="pl-8" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Tìm kiếm mặt hàng" />
                             </div>
                             <div className="sm:col-span-1">
-                                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                                    <SelectTrigger className="w-full">
-                                        <div className="flex items-center gap-2">
-                                            <Filter className="h-4 w-4" />
-                                            <SelectValue placeholder="Lọc theo nhóm..." />
-                                        </div>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Tất cả các nhóm</SelectItem>
-                                        {allCategories.map(cat => (
-                                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <Combobox
+                                    value={categoryFilter}
+                                    onChange={setCategoryFilter}
+                                    options={[
+                                        { value: "all", label: "Tất cả các nhóm" },
+                                        ...allCategories.map(cat => ({ value: cat, label: cat }))
+                                    ]}
+                                    placeholder="Lọc theo nhóm..."
+                                    compact
+                                    searchable={false}
+                                    className="w-full"
+                                />
                             </div>
                              <div className="sm:col-span-1">
-                                <SupplierCombobox suppliers={suppliers} value={supplierFilter} onChange={setSupplierFilter} />
+                                <Combobox
+                                    options={suppliers.map(s => ({ value: s, label: s }))}
+                                    value={supplierFilter}
+                                    onChange={(val) => setSupplierFilter(val as string)}
+                                    placeholder="Lọc theo NCC"
+                                    searchPlaceholder="Tìm NCC..."
+                                    emptyText="Không tìm thấy NCC."
+                                />
                             </div>
                         </div>
                     </CardHeader>

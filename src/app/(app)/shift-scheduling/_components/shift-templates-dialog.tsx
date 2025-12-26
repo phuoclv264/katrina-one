@@ -16,7 +16,7 @@ import { Trash2, Plus, Edit, Loader2, Check, Users } from 'lucide-react';
 import type { ShiftTemplate, UserRole } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { toast } from '@/components/ui/pro-toast';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/combobox';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Badge } from '@/components/ui/badge';
 
@@ -134,15 +134,19 @@ export default function ShiftTemplatesDialog({ isOpen, onClose }: { isOpen: bool
                                 </div>
                                 <div className="space-y-2">
                                      <Label htmlFor={`role-${item.id}`}>Vai trò</Label>
-                                    <Select value={item.role} onValueChange={(val) => handleFieldChange('role', val as UserRole | 'Bất kỳ')}>
-                                        <SelectTrigger id={`role-${item.id}`}><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="Bất kỳ">Bất kỳ</SelectItem>
-                                            <SelectItem value="Phục vụ">Phục vụ</SelectItem>
-                                            <SelectItem value="Pha chế">Pha chế</SelectItem>
-                                            <SelectItem value="Quản lý">Quản lý</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                    <Combobox
+                                        value={item.role}
+                                        onChange={(val) => handleFieldChange('role', val as UserRole | 'Bất kỳ')}
+                                        options={[
+                                            { value: "Bất kỳ", label: "Bất kỳ" },
+                                            { value: "Phục vụ", label: "Phục vụ" },
+                                            { value: "Pha chế", label: "Pha chế" },
+                                            { value: "Quản lý", label: "Quản lý" },
+                                        ]}
+                                        compact
+                                        searchable={false}
+                                        className="w-full"
+                                    />
                                 </div>
                            </div>
                            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">

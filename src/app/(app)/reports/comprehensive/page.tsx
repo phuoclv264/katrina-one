@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import type { ShiftReport, CompletionRecord, ComprehensiveTaskSection } from '@/lib/types';
 import { LoadingPage } from '@/components/loading/LoadingPage';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/combobox';
 import { useAuth } from '@/hooks/use-auth';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useToast } from '@/components/ui/use-toast';
@@ -201,16 +201,16 @@ function ComprehensiveReportView() {
                 </CardHeader>
                 <CardContent className="p-3 pt-0">
                     <div className="flex items-center gap-2">
-                        <Select onValueChange={setSelectedReportId} value={selectedReportId || ''} disabled={isProcessing}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Chọn một quản lý..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {reports.map(r => (
-                                    <SelectItem key={r.id} value={r.id}>{r.staffName}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <Combobox
+                            value={selectedReportId || ''}
+                            onChange={(val) => setSelectedReportId(val as string)}
+                            options={reports.map(r => ({ value: r.id, label: r.staffName }))}
+                            placeholder="Chọn một quản lý..."
+                            compact
+                            searchable={false}
+                            disabled={isProcessing}
+                            className="w-full"
+                        />
                         {selectedReportId && (
                              <AlertDialog>
                                 <AlertDialogTrigger asChild>

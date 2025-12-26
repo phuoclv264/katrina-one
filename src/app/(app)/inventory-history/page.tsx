@@ -14,8 +14,7 @@ import { LoadingPage } from '@/components/loading/LoadingPage';
 import { ArrowLeft, Filter, History, ShoppingCart, TestTube2, ArrowUp, ArrowDown } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { SupplierCombobox } from '@/components/supplier-combobox';
+import { Combobox } from '@/components/combobox';
 import { Input } from '@/components/ui/input';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -311,15 +310,26 @@ function InventoryHistoryView() {
                             value={filterItemName}
                             onChange={(e) => setFilterItemName(e.target.value)}
                         />
-                        <SupplierCombobox suppliers={suppliers} value={filterSupplier} onChange={setFilterSupplier} />
-                        <Select value={filterType} onValueChange={setFilterType}>
-                            <SelectTrigger><SelectValue placeholder="Lọc theo loại sự kiện..." /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Tất cả sự kiện</SelectItem>
-                                <SelectItem value="Nhập hàng">Nhập hàng</SelectItem>
-                                <SelectItem value="Kiểm kê">Kiểm kê</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <Combobox
+                            options={suppliers.map(s => ({ value: s, label: s }))}
+                            value={filterSupplier}
+                            onChange={(val) => setFilterSupplier(val as string)}
+                            placeholder="Lọc theo NCC"
+                            searchPlaceholder="Tìm NCC..."
+                            emptyText="Không tìm thấy NCC."
+                        />
+                        <Combobox
+                            value={filterType}
+                            onChange={setFilterType}
+                            options={[
+                                { value: "all", label: "Tất cả sự kiện" },
+                                { value: "Nhập hàng", label: "Nhập hàng" },
+                                { value: "Kiểm kê", label: "Kiểm kê" },
+                            ]}
+                            placeholder="Lọc theo loại sự kiện..."
+                            compact
+                            searchable={false}
+                        />
                         <Button variant="outline" onClick={() => { setFilterItemName(''); setFilterSupplier(''); setFilterType('all'); }}>Xóa bộ lọc</Button>
                     </div>
                 </CardHeader>

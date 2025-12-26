@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { UserMultiSelect } from '@/components/user-multi-select';
+import { Combobox } from '@/components/combobox';
 import { Loader2, Wand2, Paperclip, Camera, X, File as FileIcon } from 'lucide-react';
 import type { ManagedUser, WhistleblowingReport, Attachment } from '@/lib/types';
 import { callRefineText } from '@/lib/ai-service';
@@ -166,7 +166,36 @@ export default function ReportDialog({ isOpen, onClose, onSave, allUsers, report
                     <div className="grid gap-4">
                         <div className="space-y-2">
                             <Label>Người bị tố cáo</Label>
-                            <UserMultiSelect users={shouldShowAllUsers ? allUsers : allUsers.filter(u => u.role !== 'Chủ nhà hàng' && !u.displayName.includes('Không chọn'))} selectedUsers={accusedUsers} onChange={setAccusedUsers} />
+                            <Combobox
+                                options={(shouldShowAllUsers
+                                    ? allUsers
+                                    : allUsers.filter(u => u.role !== 'Chủ nhà hàng' && !u.displayName.includes('Không chọn'))
+                                )
+                                    .filter(u => u.role !== 'Chủ nhà hàng')
+                                    .map(u => ({ value: u.uid, label: u.displayName }))}
+                                multiple
+                                value={accusedUsers.map(u => u.uid)}
+                                onChange={(next) => {
+                                    const nextIds = Array.isArray(next)
+                                        ? next
+                                        : typeof next === 'string' && next
+                                            ? [next]
+                                            : [];
+                                    const candidateUsers = (shouldShowAllUsers
+                                        ? allUsers
+                                        : allUsers.filter(u => u.role !== 'Chủ nhà hàng' && !u.displayName.includes('Không chọn'))
+                                    ).filter(u => u.role !== 'Chủ nhà hàng');
+
+                                    setAccusedUsers(
+                                        nextIds
+                                            .map(id => candidateUsers.find(u => u.uid === id))
+                                            .filter((u): u is ManagedUser => !!u)
+                                    );
+                                }}
+                                placeholder="Chọn nhân viên..."
+                                searchPlaceholder="Tìm nhân viên..."
+                                emptyText="Không tìm thấy nhân viên."
+                            />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="title">Tiêu đề</Label>

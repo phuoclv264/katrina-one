@@ -11,11 +11,16 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
-import { UserMultiSelect } from '@/components/user-multi-select';
+import { Combobox } from '@/components/combobox';
 import type { ScheduleCondition, ShiftTemplate, ManagedUser, UserRole } from '@/lib/types';
+
+function mapUserIdsToUsers(ids: string[], users: ManagedUser[]) {
+  return ids
+    .map((id) => users.find((u) => u.uid === id))
+    .filter((u): u is ManagedUser => !!u);
+}
 
 type ConditionType = 'WorkloadLimit' | 'DailyShiftLimit' | 'ShiftStaffing' | 'StaffPriority' | 'StaffShiftLink' | 'StaffExclusion' | 'AvailabilityStrictness';
 
@@ -278,23 +283,25 @@ export default function AddConditionSheet({
           {/* Type Selection */}
           <div className="space-y-2">
             <Label className="text-sm font-semibold">Loại điều kiện</Label>
-            <Select value={type} onValueChange={(v) => {
-              setType(v as ConditionType);
-              resetForm();
-            }}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="WorkloadLimit">Định mức giờ/ca</SelectItem>
-                <SelectItem value="DailyShiftLimit">Max Ca/Ngày</SelectItem>
-                <SelectItem value="ShiftStaffing">Nhu cầu ca</SelectItem>
-                <SelectItem value="StaffPriority">Ưu tiên nhân viên</SelectItem>
-                <SelectItem value="StaffShiftLink">Ràng buộc nhân viên↔ca</SelectItem>
-                <SelectItem value="StaffExclusion">Không ghép chung</SelectItem>
-                <SelectItem value="AvailabilityStrictness">Thời gian rảnh</SelectItem>
-              </SelectContent>
-            </Select>
+            <Combobox
+              value={type}
+              onChange={(v) => {
+                setType(v as ConditionType);
+                resetForm();
+              }}
+              options={[
+                { value: "WorkloadLimit", label: "Định mức giờ/ca" },
+                { value: "DailyShiftLimit", label: "Max Ca/Ngày" },
+                { value: "ShiftStaffing", label: "Nhu cầu ca" },
+                { value: "StaffPriority", label: "Ưu tiên nhân viên" },
+                { value: "StaffShiftLink", label: "Ràng buộc nhân viên↔ca" },
+                { value: "StaffExclusion", label: "Không ghép chung" },
+                { value: "AvailabilityStrictness", label: "Thời gian rảnh" },
+              ]}
+              compact
+              searchable={false}
+              className="w-full"
+            />
           </div>
 
           {/* Type-specific fields */}
@@ -422,25 +429,35 @@ function WorkloadLimitForm({ scope, setScope, selectedUser, setSelectedUser, all
     <div className="space-y-3">
       <div className="space-y-2">
         <Label className="text-xs font-semibold">Phạm vi</Label>
-        <Select value={scope} onValueChange={(v) => setScope(v as 'global' | 'user')}>
-          <SelectTrigger className="h-8">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="global">Toàn cục</SelectItem>
-            <SelectItem value="user">Từng nhân viên</SelectItem>
-          </SelectContent>
-        </Select>
+        <Combobox
+          value={scope}
+          onChange={(v) => setScope(v as 'global' | 'user')}
+          options={[
+            { value: "global", label: "Toàn cục" },
+            { value: "user", label: "Từng nhân viên" },
+          ]}
+          compact
+          searchable={false}
+          className="h-8 w-full"
+        />
       </div>
 
       {scope === 'user' && (
         <div className="space-y-2">
           <Label className="text-xs font-semibold">Chọn nhân viên</Label>
-          <UserMultiSelect
-            selectionMode="single"
-            users={allUsers}
-            selectedUsers={selectedUser}
-            onChange={setSelectedUser}
+          <Combobox
+            options={allUsers
+              .filter(u => u.role !== 'Chủ nhà hàng')
+              .map(u => ({ value: u.uid, label: u.displayName }))}
+            value={selectedUser[0]?.uid ?? ''}
+            onChange={(next) => {
+              const nextId = typeof next === 'string' ? next : '';
+              const selected = allUsers.find(u => u.uid === nextId);
+              setSelectedUser(selected ? [selected] : []);
+            }}
+            placeholder="Chọn nhân viên..."
+            searchPlaceholder="Tìm nhân viên..."
+            emptyText="Không tìm thấy nhân viên."
           />
         </div>
       )}
@@ -506,11 +523,19 @@ function DailyLimitForm({ selectedUser, setSelectedUser, allUsers, maxDaily, set
     <div className="space-y-3">
       <div className="space-y-2">
         <Label className="text-xs font-semibold">Chọn nhân viên (tùy chọn - để trống cho toàn cục)</Label>
-        <UserMultiSelect
-          selectionMode="single"
-          users={allUsers}
-          selectedUsers={selectedUser}
-          onChange={setSelectedUser}
+        <Combobox
+          options={allUsers
+            .filter(u => u.role !== 'Chủ nhà hàng')
+            .map(u => ({ value: u.uid, label: u.displayName }))}
+          value={selectedUser[0]?.uid ?? ''}
+          onChange={(next) => {
+            const nextId = typeof next === 'string' ? next : '';
+            const selected = allUsers.find(u => u.uid === nextId);
+            setSelectedUser(selected ? [selected] : []);
+          }}
+          placeholder="Chọn nhân viên..."
+          searchPlaceholder="Tìm nhân viên..."
+          emptyText="Không tìm thấy nhân viên."
         />
       </div>
       <div className="space-y-1">
@@ -543,33 +568,34 @@ function StaffingForm({ selectedTemplate, setSelectedTemplate, shiftTemplates, s
     <div className="space-y-3">
       <div className="space-y-2">
         <Label className="text-xs font-semibold">Chọn ca</Label>
-        <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-          <SelectTrigger className="h-8">
-            <SelectValue placeholder="Chọn ca" />
-          </SelectTrigger>
-          <SelectContent>
-            {shiftTemplates.map(t => (
-              <SelectItem key={t.id} value={t.id}>{t.label} ({t.timeSlot.start}-{t.timeSlot.end})</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Combobox
+          value={selectedTemplate}
+          onChange={(val) => setSelectedTemplate(val as string)}
+          options={shiftTemplates.map(t => ({ value: t.id, label: `${t.label} (${t.timeSlot.start}-${t.timeSlot.end})` }))}
+          placeholder="Chọn ca"
+          compact
+          searchable={false}
+          className="h-8 w-full"
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1">
           <Label className="text-xs font-semibold">Vai trò</Label>
-          <Select value={staffingRole} onValueChange={(v) => setStaffingRole(v as UserRole | 'Bất kỳ')}>
-            <SelectTrigger className="h-8">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Bất kỳ">Bất kỳ</SelectItem>
-              <SelectItem value="Phục vụ">Phục vụ</SelectItem>
-              <SelectItem value="Pha chế">Pha chế</SelectItem>
-              <SelectItem value="Thu ngân">Thu ngân</SelectItem>
-              <SelectItem value="Quản lý">Quản lý</SelectItem>
-            </SelectContent>
-          </Select>
+          <Combobox
+            value={staffingRole}
+            onChange={(v) => setStaffingRole(v as UserRole | 'Bất kỳ')}
+            options={[
+              { value: "Bất kỳ", label: "Bất kỳ" },
+              { value: "Phục vụ", label: "Phục vụ" },
+              { value: "Pha chế", label: "Pha chế" },
+              { value: "Thu ngân", label: "Thu ngân" },
+              { value: "Quản lý", label: "Quản lý" },
+            ]}
+            compact
+            searchable={false}
+            className="h-8 w-full"
+          />
         </div>
         <div className="space-y-1">
           <Label className="text-xs font-semibold">Số lượng</Label>
@@ -613,40 +639,45 @@ function PriorityForm({ selectedUser, setSelectedUser, allUsers, selectedTemplat
     <div className="space-y-3">
       <div className="space-y-2">
         <Label className="text-xs font-semibold">Chọn nhân viên</Label>
-        <UserMultiSelect
-          selectionMode="single"
-          users={allUsers}
-          selectedUsers={selectedUser}
-          onChange={setSelectedUser}
+        <Combobox
+          options={allUsers
+            .filter(u => u.role !== 'Chủ nhà hàng')
+            .map(u => ({ value: u.uid, label: u.displayName }))}
+          value={selectedUser[0]?.uid ?? ''}
+          onChange={(next) => {
+            const nextId = typeof next === 'string' ? next : '';
+            const selected = allUsers.find(u => u.uid === nextId);
+            setSelectedUser(selected ? [selected] : []);
+          }}
+          placeholder="Chọn nhân viên..."
+          searchPlaceholder="Tìm nhân viên..."
+          emptyText="Không tìm thấy nhân viên."
         />
       </div>
 
       <div className="space-y-2">
         <Label className="text-xs font-semibold">Chọn ca</Label>
-        <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-          <SelectTrigger className="h-8">
-            <SelectValue placeholder="Chọn ca" />
-          </SelectTrigger>
-          <SelectContent>
-            {shiftTemplates.map(t => (
-              <SelectItem key={t.id} value={t.id}>{t.label} ({t.timeSlot.start}-{t.timeSlot.end})</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Combobox
+          value={selectedTemplate}
+          onChange={(val) => setSelectedTemplate(val as string)}
+          options={shiftTemplates.map(t => ({ value: t.id, label: `${t.label} (${t.timeSlot.start}-${t.timeSlot.end})` }))}
+          placeholder="Chọn ca"
+          compact
+          searchable={false}
+          className="h-8 w-full"
+        />
       </div>
 
       <div className="space-y-1">
         <Label className="text-xs font-semibold">Trọng số (0-5)</Label>
-        <Select value={priorityWeight} onValueChange={setPriorityWeight}>
-          <SelectTrigger className="h-8">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {[0, 1, 2, 3, 4, 5].map(n => (
-              <SelectItem key={n} value={String(n)}>{n}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Combobox
+          value={priorityWeight}
+          onChange={(val) => setPriorityWeight(val as string)}
+          options={[0, 1, 2, 3, 4, 5].map(n => ({ value: String(n), label: String(n) }))}
+          compact
+          searchable={false}
+          className="h-8 w-full"
+        />
       </div>
 
       <div className="flex items-center gap-2">
@@ -676,39 +707,48 @@ function LinkForm({ selectedUser, setSelectedUser, allUsers, selectedTemplate, s
     <div className="space-y-3">
       <div className="space-y-2">
         <Label className="text-xs font-semibold">Chọn nhân viên</Label>
-        <UserMultiSelect
-          selectionMode="single"
-          users={allUsers}
-          selectedUsers={selectedUser}
-          onChange={setSelectedUser}
+        <Combobox
+          options={allUsers
+            .filter(u => u.role !== 'Chủ nhà hàng')
+            .map(u => ({ value: u.uid, label: u.displayName }))}
+          value={selectedUser[0]?.uid ?? ''}
+          onChange={(next) => {
+            const nextId = typeof next === 'string' ? next : '';
+            const selected = allUsers.find(u => u.uid === nextId);
+            setSelectedUser(selected ? [selected] : []);
+          }}
+          placeholder="Chọn nhân viên..."
+          searchPlaceholder="Tìm nhân viên..."
+          emptyText="Không tìm thấy nhân viên."
         />
       </div>
 
       <div className="space-y-2">
         <Label className="text-xs font-semibold">Chọn ca</Label>
-        <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-          <SelectTrigger className="h-8">
-            <SelectValue placeholder="Chọn ca" />
-          </SelectTrigger>
-          <SelectContent>
-            {shiftTemplates.map(t => (
-              <SelectItem key={t.id} value={t.id}>{t.label} ({t.timeSlot.start}-{t.timeSlot.end})</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Combobox
+          value={selectedTemplate}
+          onChange={(val) => setSelectedTemplate(val as string)}
+          options={shiftTemplates.map(t => ({ value: t.id, label: `${t.label} (${t.timeSlot.start}-${t.timeSlot.end})` }))}
+          placeholder="Chọn ca"
+          compact
+          searchable={false}
+          className="h-8 w-full"
+        />
       </div>
 
       <div className="space-y-2">
         <Label className="text-xs font-semibold">Loại ràng buộc</Label>
-        <Select value={linkType} onValueChange={(v) => setLinkType(v as 'force' | 'ban')}>
-          <SelectTrigger className="h-8">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="force">Bắt buộc (nhân viên phải có ca này)</SelectItem>
-            <SelectItem value="ban">Cấm (nhân viên không được có ca này)</SelectItem>
-          </SelectContent>
-        </Select>
+        <Combobox
+          value={linkType}
+          onChange={(val) => setLinkType(val as 'force' | 'ban')}
+          options={[
+            { value: "force", label: "Bắt buộc (nhân viên phải có ca này)" },
+            { value: "ban", label: "Cấm (nhân viên không được có ca này)" },
+          ]}
+          compact
+          searchable={false}
+          className="h-8 w-full"
+        />
       </div>
     </div>
   );
@@ -737,41 +777,60 @@ function ExclusionForm({
     <div className="space-y-3">
       <div className="space-y-2">
         <Label className="text-xs font-semibold">Nhân viên chính</Label>
-        <UserMultiSelect
-          selectionMode="single"
-          users={allUsers}
-          selectedUsers={selectedUser}
-          onChange={setSelectedUser}
+        <Combobox
+          options={allUsers
+            .filter(u => u.role !== 'Chủ nhà hàng')
+            .map(u => ({ value: u.uid, label: u.displayName }))}
+          value={selectedUser[0]?.uid ?? ''}
+          onChange={(next) => {
+            const nextId = typeof next === 'string' ? next : '';
+            const selected = allUsers.find(u => u.uid === nextId);
+            setSelectedUser(selected ? [selected] : []);
+          }}
+          placeholder="Chọn nhân viên..."
+          searchPlaceholder="Tìm nhân viên..."
+          emptyText="Không tìm thấy nhân viên."
         />
       </div>
 
       <div className="space-y-2">
         <Label className="text-xs font-semibold">Cấm làm chung với</Label>
-        <UserMultiSelect
-          selectionMode="multiple"
-          users={allUsers.filter(u => selectedUser.length === 0 || u.uid !== selectedUser[0].uid)}
-          selectedUsers={blockedUsers}
-          onChange={setBlockedUsers}
+        <Combobox
+          options={allUsers
+            .filter(u => u.role !== 'Chủ nhà hàng')
+            .filter(u => selectedUser.length === 0 || u.uid !== selectedUser[0].uid)
+            .map(u => ({ value: u.uid, label: u.displayName }))}
+          multiple
+          value={blockedUsers.map(u => u.uid)}
+          onChange={(next) => {
+            const nextIds = Array.isArray(next)
+              ? next
+              : typeof next === 'string' && next
+                ? [next]
+                : [];
+            setBlockedUsers(mapUserIdsToUsers(nextIds, allUsers));
+          }}
+          placeholder="Chọn nhân viên..."
+          searchPlaceholder="Tìm nhân viên..."
+          emptyText="Không tìm thấy nhân viên."
         />
         <p className="text-[11px] text-muted-foreground">Những người này sẽ không được xếp chung ca với nhân viên trên.</p>
       </div>
 
       <div className="space-y-2">
         <Label className="text-xs font-semibold">Áp dụng cho ca (tùy chọn)</Label>
-        <Select
+        <Combobox
           value={selectedTemplate || 'ALL'}
-          onValueChange={(val) => setSelectedTemplate(val === 'ALL' ? '' : val)}
-        >
-          <SelectTrigger className="h-8">
-            <SelectValue placeholder="Tất cả ca" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">Tất cả ca</SelectItem>
-            {shiftTemplates.map(t => (
-              <SelectItem key={t.id} value={t.id}>{t.label} ({t.timeSlot.start}-{t.timeSlot.end})</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          onChange={(val) => setSelectedTemplate(val === 'ALL' ? '' : val as string)}
+          options={[
+            { value: "ALL", label: "Tất cả ca" },
+            ...shiftTemplates.map(t => ({ value: t.id, label: `${t.label} (${t.timeSlot.start}-${t.timeSlot.end})` }))
+          ]}
+          placeholder="Tất cả ca"
+          compact
+          searchable={false}
+          className="h-8 w-full"
+        />
       </div>
     </div>
   );

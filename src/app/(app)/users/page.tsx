@@ -18,10 +18,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Users2, Trash2, Edit, Loader2, Settings, StickyNote, Search } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
-import { UserMultiSelect } from '@/components/user-multi-select';
+import { Combobox } from '@/components/combobox';
 import { Badge } from '@/components/ui/badge';
 import { normalizeSearchString } from '@/lib/utils';
 
@@ -76,27 +75,47 @@ function EditUserDialog({ user, onSave, onOpenChange, open }: { user: ManagedUse
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="role" className="text-right">Vai trò chính</Label>
-                         <Select value={role} onValueChange={(value) => setRole(value as UserRole)}>
-                            <SelectTrigger className="col-span-3">
-                                <SelectValue placeholder="Chọn vai trò" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="Phục vụ">Phục vụ</SelectItem>
-                                <SelectItem value="Pha chế">Pha chế</SelectItem>
-                                <SelectItem value="Thu ngân">Thu ngân</SelectItem>
-                                <SelectItem value="Quản lý">Quản lý</SelectItem>
-                                <SelectItem value="Chủ nhà hàng">Chủ nhà hàng</SelectItem>
-                            </SelectContent>
-                        </Select>
+                         <Combobox
+                            className="col-span-3"
+                            value={role}
+                            onChange={(value) => setRole(value as UserRole)}
+                            placeholder="Chọn vai trò"
+                            options={[
+                                { value: "Phục vụ", label: "Phục vụ" },
+                                { value: "Pha chế", label: "Pha chế" },
+                                { value: "Thu ngân", label: "Thu ngân" },
+                                { value: "Quản lý", label: "Quản lý" },
+                                { value: "Chủ nhà hàng", label: "Chủ nhà hàng" },
+                            ]}
+                        />
                     </div>
                     <div className="grid grid-cols-4 items-start gap-4">
                         <Label htmlFor="secondary-roles" className="text-right pt-2">
                         Vai trò phụ
                         </Label>
-                        <UserMultiSelect
-                            users={roleOptions.filter(r => r.role !== role)}
-                            selectedUsers={secondaryRoles}
-                            onChange={setSecondaryRoles}
+                        <Combobox
+                            options={roleOptions
+                                .filter(r => r.role !== role)
+                                .map(r => ({ value: r.role, label: r.displayName }))}
+                            multiple
+                            value={secondaryRoles.map(r => r.role)}
+                            onChange={(next) => {
+                                const nextRoles = Array.isArray(next)
+                                    ? next
+                                    : typeof next === 'string' && next
+                                        ? [next]
+                                        : [];
+
+                                const nextUsers = nextRoles.map((roleValue) => {
+                                    const existing = roleOptions.find(r => r.role === roleValue);
+                                    if (existing) return existing;
+                                    return { uid: roleValue, displayName: roleValue, email: '', role: roleValue as UserRole } as ManagedUser;
+                                });
+                                setSecondaryRoles(nextUsers);
+                            }}
+                            placeholder="Chọn vai trò phụ..."
+                            searchPlaceholder="Tìm vai trò..."
+                            emptyText="Không tìm thấy vai trò."
                             className="col-span-3"
                         />
                     </div>
