@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { ArrowLeft, UserCheck, RefreshCw, Loader2, DollarSign, LayoutGrid, GanttChartSquare, X, Calendar as CalendarIcon, Calculator } from 'lucide-react';
 import { dataStore } from '@/lib/data-store';
-import type { AttendanceRecord, ManagedUser, Schedule, ShiftTemplate, UserRole } from '@/lib/types';
+import type { AttendanceRecord, ManagedUser, Schedule, ShiftTemplate, UserRole, SpecialPeriod } from '@/lib/types';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, isSameMonth, startOfToday, endOfToday, getISOWeek, getISOWeekYear, getYear, getDay, parse, differenceInMinutes } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -24,6 +24,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn, generateShortName } from '@/lib/utils';
 import SalaryManagementDialog from './salary-management-dialog';
 import AttendanceTimeline from './attendance-timeline';
+import SpecialPeriodsDialog from './special-periods-dialog';
 import { Combobox } from '@/components/combobox';
 import { Timestamp } from 'firebase/firestore';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
@@ -40,6 +41,7 @@ export default function AttendancePageComponent() {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [allUsers, setAllUsers] = useState<ManagedUser[]>([]);
     const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+    const [specialPeriods, setSpecialPeriods] = useState<SpecialPeriod[]>([]);
     const [schedules, setSchedules] = useState<Record<string, Schedule>>({});
     const [isLoading, setIsLoading] = useState(true);
     const [recordToEdit, setRecordToEdit] = useState<AttendanceRecord | null>(null);
@@ -47,7 +49,19 @@ export default function AttendancePageComponent() {
     const [isBulkSalaryDialogOpen, setIsBulkSalaryDialogOpen] = useState(false);
     const [isSalaryManagementDialogOpen, setIsSalaryManagementDialogOpen] = useState(false);
     const [isManualAttendanceDialogOpen, setIsManualAttendanceDialogOpen] = useState(false);
+    const [isSpecialPeriodsDialogOpen, setIsSpecialPeriodsDialogOpen] = useState(false);
     const [isSavingSalaries, setIsSavingSalaries] = useState(false);
+
+    const handleCreateSpecialPeriod = useCallback(
+        async (payload: Omit<SpecialPeriod, 'id' | 'createdAt' | 'updatedAt'>) => {
+            await dataStore.createSpecialPeriod(payload);
+        },
+        []
+    );
+
+    const handleDeleteSpecialPeriod = useCallback(async (id: string) => {
+        await dataStore.deleteSpecialPeriod(id);
+    }, []);
 
     // New state for filters and view
     const [viewMode, setViewMode] = useState<'table' | 'timeline'>('table');
@@ -85,11 +99,13 @@ export default function AttendancePageComponent() {
         });
         
         const unsubRecords = dataStore.subscribeToAttendanceRecordsForDateRange(dateRange, setAttendanceRecords);
+        const unsubSpecialPeriods = dataStore.subscribeToSpecialPeriods(setSpecialPeriods);
 
         return () => {
             unsubUsers();
             unsubRecords();
             unsubSchedules();
+            unsubSpecialPeriods();
         };
     }, [user, dateRange, refreshTrigger]);
 
@@ -291,9 +307,9 @@ export default function AttendancePageComponent() {
         'Phục vụ': 5,
     };
 
-    if (isLoading || authLoading) {
-        return <LoadingPage />;
-    }
+    // if (isLoading || authLoading) {
+    //     return <LoadingPage />;
+    // }
     
     return (
         <>
@@ -308,6 +324,10 @@ export default function AttendancePageComponent() {
                         <p className="text-muted-foreground mt-2">Xem lại lịch sử chấm công và chi phí lương của nhân viên.</p>
                     </div>
                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                         <Button variant="outline" onClick={() => setIsSpecialPeriodsDialogOpen(true)}>
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            Giai đoạn đặc biệt
+                         </Button>
                          <Button variant="outline" onClick={() => setIsBulkSalaryDialogOpen(true)}>
                             <DollarSign className="mr-2 h-4 w-4" />
                             Quản lý Lương
@@ -509,6 +529,15 @@ export default function AttendancePageComponent() {
                 isOpen={isSalaryManagementDialogOpen}
                 onClose={() => setIsSalaryManagementDialogOpen(false)}
                 allUsers={allUsers}
+            />
+
+            <SpecialPeriodsDialog
+                isOpen={isSpecialPeriodsDialogOpen}
+                onClose={() => setIsSpecialPeriodsDialogOpen(false)}
+                specialPeriods={specialPeriods}
+                users={allUsers}
+                onCreateSpecialPeriod={handleCreateSpecialPeriod}
+                onDeleteSpecialPeriod={handleDeleteSpecialPeriod}
             />
         </>
     )

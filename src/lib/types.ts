@@ -943,6 +943,13 @@ export type AttendanceRecord = {
   totalHours?: number;
   salary?: number;
   hourlyRate?: number;
+  /** Base hourly rate before any special period multiplier is applied. */
+  baseHourlyRate?: number;
+  /** Multiplier applied to baseHourlyRate when a special period is in effect. */
+  salaryMultiplierApplied?: number;
+  /** Special period metadata applied to this record (if any). */
+  specialPeriodAppliedId?: string | null;
+  specialPeriodAppliedName?: string | null;
   isOffShift?: boolean;
   offShiftReason?: string;
   estimatedLateMinutes?: number;
@@ -955,6 +962,18 @@ export type AttendanceRecord = {
 };
 
 // --- Salary Management Types ---
+
+export type SpecialPeriod = {
+  id: string;
+  name: string;
+  startDate: string | Timestamp;
+  endDate: string | Timestamp;
+  multiplier: number;
+  /** If omitted/empty, applies to all users. */
+  targetUserIds?: string[];
+  createdAt: string | Timestamp;
+  updatedAt: string | Timestamp;
+};
 
 export type SalaryRecord = {
   userId: string;
