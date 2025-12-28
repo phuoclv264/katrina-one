@@ -6,7 +6,7 @@ import type { Task, TasksByShift, TaskSection, ParsedServerTask, GenerateServerT
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, ListTodo, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon, Star, Shuffle, Check, Pencil, AlertCircle, Sparkles, CheckSquare, MessageSquare, Download } from 'lucide-react';
+import { Trash2, Plus, ListTodo, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon, Star, Shuffle, Check, Pencil, AlertCircle, Sparkles, CheckSquare, MessageSquare, Download, MapPin } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -338,11 +338,22 @@ export default function TaskListsPage() {
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSorting, setIsSorting] = useState(false);
-  const [newTask, setNewTask] = useState<{ [shiftKey: string]: { [sectionTitle: string]: { text: string; isCritical: boolean; type: Task['type'] } } }>({});
-  const [editingTask, setEditingTask] = useState<{ shiftKey: string; sectionTitle: string; taskId: string; newText: string; newType: Task['type'] } | null>(null);
+  const [newTask, setNewTask] = useState<{ [shiftKey: string]: { [sectionTitle: string]: { text: string; isCritical: boolean; type: Task['type']; area: string } } }>({});
+  const [editingTask, setEditingTask] = useState<{ shiftKey: string; sectionTitle: string; taskId: string; newText: string; newType: Task['type']; newArea: string } | null>(null);
 
 
   const [openSections, setOpenSections] = useState<{ [shiftKey: string]: string[] }>({});
+
+  const getAvailableAreas = (shiftKey: string) => {
+      if (!tasksByShift || !tasksByShift[shiftKey]) return [];
+      const areas = new Set<string>();
+      tasksByShift[shiftKey].sections.forEach(section => {
+          section.tasks.forEach(task => {
+              if (task.area) areas.add(task.area);
+          });
+      });
+      return Array.from(areas).map(a => ({ value: a, label: a }));
+  };
 
   const handleDataRefresh = useCallback(() => {
     setRefreshTrigger(prev => prev + 1);
@@ -444,6 +455,7 @@ export default function TaskListsPage() {
       text: taskDetails.text.trim(),
       isCritical: taskDetails.isCritical,
       type: taskDetails.type,
+      area: taskDetails.area?.trim(),
     };
 
     const newTasksState = JSON.parse(JSON.stringify(tasksByShift));
@@ -460,6 +472,7 @@ export default function TaskListsPage() {
          newTasksInputState[shiftKey][sectionTitle].text = '';
          newTasksInputState[shiftKey][sectionTitle].isCritical = false;
          newTasksInputState[shiftKey][sectionTitle].type = 'photo';
+         newTasksInputState[shiftKey][sectionTitle].area = '';
       }
       return newTasksInputState;
     });
@@ -471,7 +484,7 @@ export default function TaskListsPage() {
         return;
     }
 
-    const { shiftKey, sectionTitle, taskId, newText, newType } = editingTask;
+    const { shiftKey, sectionTitle, taskId, newText, newType, newArea } = editingTask;
     const newTasksState = JSON.parse(JSON.stringify(tasksByShift));
     const section = newTasksState[shiftKey]?.sections.find((s: TaskSection) => s.title === sectionTitle);
     if (section) {
@@ -479,6 +492,7 @@ export default function TaskListsPage() {
         if (task) {
             task.text = newText.trim();
             task.type = newType;
+            task.area = newArea?.trim();
         }
     }
     handleUpdateAndSave(newTasksState);
@@ -522,11 +536,11 @@ export default function TaskListsPage() {
       handleUpdateAndSave(newTasksState, false);
   }
 
-  const handleNewTaskChange = (shiftKey: string, sectionTitle: string, field: 'text' | 'isCritical' | 'type', value: string | boolean | Task['type']) => {
+  const handleNewTaskChange = (shiftKey: string, sectionTitle: string, field: 'text' | 'isCritical' | 'type' | 'area', value: string | boolean | Task['type']) => {
     setNewTask(current => {
       const newState = JSON.parse(JSON.stringify(current));
       if (!newState[shiftKey]) newState[shiftKey] = {};
-      if (!newState[shiftKey][sectionTitle]) newState[shiftKey][sectionTitle] = { text: '', isCritical: false, type: 'photo' };
+      if (!newState[shiftKey][sectionTitle]) newState[shiftKey][sectionTitle] = { text: '', isCritical: false, type: 'photo', area: '' };
       (newState[shiftKey][sectionTitle] as any)[field] = value;
       return newState;
     });
@@ -658,6 +672,24 @@ export default function TaskListsPage() {
                                           className="text-sm h-9 flex-1"
                                       />
                                       <Combobox
+                                          value={editingTask.newArea}
+                                          onChange={(value) => {
+                                              if (editingTask) {
+                                                  setEditingTask({...editingTask, newArea: value});
+                                              }
+                                          }}
+                                          onCreate={(value) => {
+                                              if (editingTask) {
+                                                  setEditingTask({...editingTask, newArea: value});
+                                              }
+                                          }}
+                                          options={getAvailableAreas(shiftKey)}
+                                          placeholder="Khu vực..."
+                                          className="h-9 w-full sm:w-[150px]"
+                                          compact
+                                          searchable
+                                      />
+                                      <Combobox
                                           value={editingTask.newType}
                                           onChange={(value) => {
                                               if (editingTask) {
@@ -669,7 +701,7 @@ export default function TaskListsPage() {
                                               { value: "boolean", label: "Đảm bảo / Không đảm bảo" },
                                               { value: "opinion", label: "Ý kiến" }
                                           ]}
-                                          className="h-9 w-full sm:w-[220px]"
+                                          className="h-9 w-full sm:w-[180px]"
                                           compact
                                           searchable={false}
                                       />
@@ -678,11 +710,19 @@ export default function TaskListsPage() {
                                       </Button>
                                     </div>
                                 ) : (
-                                   <p className="flex-1 text-sm flex items-center gap-2">
-                                     {task.isCritical && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
-                                     {getTaskTypeIcon(task.type)}
-                                     {task.text}
-                                   </p>
+                                   <div className="flex-1 flex flex-col sm:flex-row sm:items-center gap-2">
+                                     <p className="text-sm flex items-center gap-2 flex-1">
+                                       {task.isCritical && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
+                                       {getTaskTypeIcon(task.type)}
+                                       {task.text}
+                                     </p>
+                                     {task.area && (
+                                         <Badge variant="secondary" className="w-fit text-xs font-normal">
+                                             <MapPin className="mr-1 h-3 w-3" />
+                                             {task.area}
+                                         </Badge>
+                                     )}
+                                   </div>
                                 )}
 
                                 {isSorting ? (
@@ -699,7 +739,7 @@ export default function TaskListsPage() {
                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleToggleCritical(shiftKey, section.title, task.id)}>
                                             <Star className={`h-4 w-4 ${task.isCritical ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground'}`} />
                                         </Button>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingTask({ shiftKey, sectionTitle: section.title, taskId: task.id, newText: task.text, newType: task.type })}>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingTask({ shiftKey, sectionTitle: section.title, taskId: task.id, newText: task.text, newType: task.type, newArea: task.area || '' })}>
                                             <Pencil className="h-4 w-4" />
                                         </Button>
                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteTask(shiftKey, section.title, task.id)}>
@@ -722,7 +762,17 @@ export default function TaskListsPage() {
                                   onKeyDown={e => e.key === 'Enter' && handleAddTask(shiftKey, section.title)}
                                 />
                                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                                  <div className="flex items-center space-x-2">
+                                  <div className="flex items-center space-x-2 w-full sm:w-auto">
+                                    <Combobox
+                                      value={newTask[shiftKey]?.[section.title]?.area || ''}
+                                      onChange={(value) => handleNewTaskChange(shiftKey, section.title, 'area', value)}
+                                      onCreate={(value) => handleNewTaskChange(shiftKey, section.title, 'area', value)}
+                                      options={getAvailableAreas(shiftKey)}
+                                      placeholder="Khu vực..."
+                                      className="h-9 w-full sm:w-[150px]"
+                                      compact
+                                      searchable
+                                    />
                                     <Combobox
                                       value={newTask[shiftKey]?.[section.title]?.type || 'photo'}
                                       onChange={(value) => handleNewTaskChange(shiftKey, section.title, 'type', value as Task['type'])}

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Camera, Clock, X, Trash2, AlertCircle, FilePlus2, ThumbsDown, ThumbsUp, FilePen, ChevronDown, ChevronUp, Star } from 'lucide-react';
+import { Camera, Clock, X, Trash2, AlertCircle, FilePlus2, ThumbsDown, ThumbsUp, FilePen, ChevronDown, ChevronUp, Star, MapPin } from 'lucide-react';
 import type { Task, CompletionRecord } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { photoStore } from '@/lib/photo-store';
@@ -111,9 +111,15 @@ const TaskItemComponent = ({
   return (
     <div className={cn('rounded-md border p-4 transition-colors', isCompletedOnce ? 'bg-accent/20' : '')}>
       <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-        <p className="font-semibold flex-1 flex items-center gap-2">
+        <p className="font-semibold flex-1 flex items-center gap-2 flex-wrap">
             {task.isCritical && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
             {task.text}
+            {task.area && (
+                 <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 font-normal whitespace-nowrap">
+                     <MapPin className="mr-1 h-3 w-3" />
+                     {task.area}
+                 </Badge>
+             )}
         </p>
         <div className="flex items-center gap-2 w-full sm:w-auto flex-shrink-0">
           {task.type === 'photo' && (

@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Check, Camera, MessageSquareWarning, Clock, X, Image as ImageIcon, Sunrise, Activity, Sunset, CheckCircle, Users, Trash2, Loader2, AlertCircle, FilePen, Info, ListTodo, UserCheck, ListX, Eye, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { ArrowLeft, Check, Camera, MessageSquareWarning, Clock, X, Image as ImageIcon, Sunrise, Activity, Sunset, CheckCircle, Users, Trash2, Loader2, AlertCircle, FilePen, Info, ListTodo, UserCheck, ListX, Eye, ThumbsUp, ThumbsDown, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import type { ShiftReport, CompletionRecord, TasksByShift, Shift, Schedule, ManagedUser } from '@/lib/types';
@@ -120,6 +120,7 @@ function ShiftSummaryCard({
                 .map(task => ({
                     taskText: task.text,
                     taskType: task.type,
+                    taskArea: task.area,
                     completions: allCompletedTasks.get(task.id) || [],
                 }))
                 .filter(item => item.completions.length > 0);
@@ -155,7 +156,15 @@ function ShiftSummaryCard({
          <div className="space-y-3">
             {completedTasks.map(item => (
                 <div key={item.taskText} className="p-3 bg-card rounded-md border">
-                    <p className="font-medium mb-2">{item.taskText}</p>
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <p className="font-medium">{item.taskText}</p>
+                        {item.taskArea && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 font-normal whitespace-nowrap">
+                                <MapPin className="mr-1 h-3 w-3" />
+                                {item.taskArea}
+                            </Badge>
+                        )}
+                    </div>
                     <ul className="space-y-2">
                         {item.completions.map((comp, index) => (
                             <li key={index} className="flex items-start gap-2 text-sm text-muted-foreground">
@@ -255,7 +264,17 @@ function ShiftSummaryCard({
                                     <p className="text-sm italic">Toàn bộ các công việc đầu ca chưa được thực hiện.</p>
                                 ) : (
                                     <ul className="list-disc pl-5 space-y-1 text-sm">
-                                        {summary.uncompletedStartShiftTasks.map(task => <li key={task.id}>{task.text}</li>)}
+                                        {summary.uncompletedStartShiftTasks.map(task => (
+                                            <li key={task.id} className="flex items-center gap-2 flex-wrap">
+                                                <span>{task.text}</span>
+                                                {task.area && (
+                                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 font-normal whitespace-nowrap">
+                                                        <MapPin className="mr-1 h-3 w-3" />
+                                                        {task.area}
+                                                    </Badge>
+                                                )}
+                                            </li>
+                                        ))}
                                     </ul>
                                 )}
                             </div>
@@ -264,7 +283,17 @@ function ShiftSummaryCard({
                             <div className="p-3 bg-card rounded-md border">
                                 <p className="font-medium text-sm mb-1 text-muted-foreground">Trong ca:</p>
                                 <ul className="list-disc pl-5 space-y-1 text-sm">
-                                    {summary.uncompletedInShiftTasks.map(task => <li key={task.id}>{task.text}</li>)}
+                                    {summary.uncompletedInShiftTasks.map(task => (
+                                        <li key={task.id} className="flex items-center gap-2 flex-wrap">
+                                            <span>{task.text}</span>
+                                            {task.area && (
+                                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 font-normal whitespace-nowrap">
+                                                    <MapPin className="mr-1 h-3 w-3" />
+                                                    {task.area}
+                                                </Badge>
+                                            )}
+                                        </li>
+                                    ))}
                                 </ul>
                             </div>
                         )}
@@ -275,7 +304,17 @@ function ShiftSummaryCard({
                                     <p className="text-sm italic">Toàn bộ các công việc cuối ca chưa được thực hiện.</p>
                                 ) : (
                                     <ul className="list-disc pl-5 space-y-1 text-sm">
-                                        {summary.uncompletedEndShiftTasks.map(task => <li key={task.id}>{task.text}</li>)}
+                                        {summary.uncompletedEndShiftTasks.map(task => (
+                                            <li key={task.id} className="flex items-center gap-2 flex-wrap">
+                                                <span>{task.text}</span>
+                                                {task.area && (
+                                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 font-normal whitespace-nowrap">
+                                                        <MapPin className="mr-1 h-3 w-3" />
+                                                        {task.area}
+                                                    </Badge>
+                                                )}
+                                            </li>
+                                        ))}
                                     </ul>
                                 )}
                             </div>

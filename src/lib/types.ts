@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { Timestamp, FieldValue } from 'firebase/firestore';
@@ -36,6 +35,7 @@ export type Task = {
   text: string;
   isCritical?: boolean;
   type: 'photo' | 'boolean' | 'opinion';
+  area?: string;
 };
 
 // Type for AI-parsed server tasks
