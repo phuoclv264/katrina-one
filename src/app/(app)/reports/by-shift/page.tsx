@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
 import Image from 'next/image';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import { getQueryParamWithMobileHashFallback } from '@/lib/url-params';
 import { Badge } from '@/components/ui/badge';
@@ -19,7 +19,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { getISOWeek, getISOWeekYear } from 'date-fns';
 import { useLightbox } from '@/contexts/lightbox-context';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
-import { useRouter } from 'next/router';
+
 
 const mainShiftTimeFrames: { [key: string]: { start: string; end: string } } = {
   sang: { start: '05:30', end: '12:00' },
@@ -561,7 +561,7 @@ function ReportView() {
         <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
             <h1 className="text-2xl font-bold">Lỗi truy cập.</h1>
             <p className="text-muted-foreground">URL không hợp lệ. Vui lòng quay lại và thử lại.</p>
-             <Button asChild variant="link" className="mt-4 -ml-4" onClick={() => router.back()}>
+             <Button variant="link" className="mt-4 -ml-4" onClick={() => router.back()}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Quay lại tất cả báo cáo
             </Button>
