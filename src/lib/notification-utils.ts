@@ -125,10 +125,11 @@ export const getNotificationDetails = (notification: Notification, currentUserId
             const hrefBase = '/monthly-task-reports';
             const qs: string[] = [];
             const completionId: string | undefined = payload?.completionId;
-            if (completionId) {
+            const taskId: string | undefined = payload?.taskId;
+            if (completionId && taskId) {
                 const ym = completionId.slice(0, 7);
                 qs.push(`month=${ym}`);
-                qs.push(`highlight=${completionId}`);
+                qs.push(`highlight=${completionId}_${taskId}`);
             } else if (payload?.assignedDate) {
                 const ym = (payload.assignedDate as string).slice(0, 7);
                 qs.push(`month=${ym}`);

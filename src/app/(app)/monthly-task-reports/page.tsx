@@ -265,7 +265,6 @@ function MonthlyTaskReportsView() {
     const scroll = () => {
       const el = reportCardRefs.current.get(pendingScrollKey)
       if (el) {
-        console.log("Scrolling to:", pendingScrollKey)
         setTimeout(() => {
           el.scrollIntoView({ behavior: "smooth", block: "center" })
           el.classList.add("ring-2", "ring-primary")
@@ -320,7 +319,7 @@ function MonthlyTaskReportsView() {
 
     setPendingScrollKey(anchor)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, completions, viewMode])
+  }, [searchParams, completions, viewMode, window.location.hash])
 
   if (authLoading) {
     return <LoadingPage />
