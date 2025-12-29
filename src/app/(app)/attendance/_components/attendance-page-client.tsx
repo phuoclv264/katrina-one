@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'nextjs-toploader/app';
 import { Button } from '@/components/ui/button';
@@ -147,6 +147,42 @@ export default function AttendancePageComponent() {
     const totalSalary = useMemo(() => {
         return filteredRecords.reduce((total, record) => total + (record.salary || 0), 0);
     }, [filteredRecords]);
+
+    // Pagination / incremental loading for performance: show first N records and load more when user
+    // scrolls to bottom. This slices the records passed into child list components.
+    const PAGE_SIZE = 50;
+    const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+    const sentinelRef = useRef<HTMLDivElement | null>(null);
+    const isFetchingRef = useRef(false);
+
+    // Reset visible count when filters or underlying records change
+    useEffect(() => {
+        setVisibleCount(PAGE_SIZE);
+    }, [filteredRecords]);
+
+    const visibleRecords = useMemo(() => filteredRecords.slice(0, visibleCount), [filteredRecords, visibleCount]);
+
+    useEffect(() => {
+        const el = sentinelRef.current;
+        if (!el) return;
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting && filteredRecords.length > visibleCount && !isFetchingRef.current) {
+                    // simple debounce/lock to avoid rapid multiple increments
+                    isFetchingRef.current = true;
+                    // small timeout to allow UI to update smoothly
+                    setTimeout(() => {
+                        setVisibleCount(prev => Math.min(prev + PAGE_SIZE, filteredRecords.length));
+                        isFetchingRef.current = false;
+                    }, 150);
+                }
+            });
+        }, { root: null, rootMargin: '200px', threshold: 0.1 });
+
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, [filteredRecords.length, visibleCount]);
     
     const todaysSummary = useMemo(() => {
         const today = new Date();
@@ -475,7 +511,7 @@ export default function AttendancePageComponent() {
 
                 {viewMode === 'timeline' && dateRange?.from && dateRange?.to ? (
                     <AttendanceTimeline
-                        records={filteredRecords}
+                        records={visibleRecords}
                         users={allUsers}
                         schedules={schedules}
                         dateRange={{ from: dateRange.from, to: dateRange.to }}
@@ -484,7 +520,7 @@ export default function AttendancePageComponent() {
                     />
                 ) : isMobile ? (
                     <AttendanceCards 
-                        records={filteredRecords} 
+                        records={visibleRecords} 
                         users={allUsers} 
                         schedules={schedules} 
                         onEdit={handleEditRecord}
@@ -493,13 +529,18 @@ export default function AttendancePageComponent() {
                     />
                 ) : (
                     <AttendanceTable 
-                        records={filteredRecords} 
+                        records={visibleRecords} 
                         users={allUsers} 
                         schedules={schedules} 
                         onEdit={handleEditRecord}
                         onDelete={handleDeleteRecord}
                         onOpenLightbox={openLightbox}
                     />
+                )}
+
+                {/* Sentinel to trigger loading more records when scrolled into view */}
+                {visibleCount < filteredRecords.length && (
+                    <div ref={sentinelRef} className="text-center p-4 text-sm text-muted-foreground">Đang tải thêm...</div>
                 )}
             </div>
 
