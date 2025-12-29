@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'nextjs-toploader/app';
 import { useSearchParams } from 'next/navigation';
+import { getQueryParamWithMobileHashFallback } from '@/lib/url-params';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useAuth } from '@/hooks/use-auth';
 import { dataStore } from '@/lib/data-store';
@@ -29,6 +30,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 import { useLightbox } from '@/contexts/lightbox-context';
 import { LoadingPage } from '@/components/loading/LoadingPage';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 
 function AddDocumentDialog({
@@ -131,6 +133,7 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
   const routerRef = useRef(router);
   const searchParams = useSearchParams();
   const isInitialLoad = useRef(true);
+  const isMobile = useIsMobile();
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const handleDataRefresh = useCallback(() => {
@@ -303,7 +306,11 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
   }, [revenueStats, expenseSlips, incidents, cashHandoverReports]);
 
   useEffect(() => {
-    const highlightId = searchParams.get('highlight');
+    const highlightId = getQueryParamWithMobileHashFallback({
+      param: 'highlight',
+      searchParams,
+      hash: typeof window !== 'undefined' ? window.location.hash : '',
+    });
     if (!highlightId || sortedDatesInMonth.length === 0 || processingItemId) return;
     const [type, id] = highlightId.split('-');
     let itemDate: string | undefined;
@@ -327,7 +334,8 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
       setTimeout(() => {
         el.classList.remove('highlight-animation');
       }, 2500);
-      routerRef.current.replace('/reports/cashier', { scroll: false });
+      if (!isMobile)
+        routerRef.current.replace('/reports/cashier', { scroll: false });
       return true;
     };
 

@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState, useCallback } from 'react';
 import { CheckCircle, AlertCircle, Circle, ChevronDown, Eye } from 'lucide-react';
-import { useRouter } from 'nextjs-toploader/app';
+import { useAppNavigation } from '@/contexts/app-navigation-context';
 import type { MonthlyTask, MonthlyTaskAssignment, TaskCompletionRecord, ManagedUser } from '@/lib/types';
 import { useLightbox } from '@/contexts/lightbox-context';
 import { formatTime } from '@/lib/utils';
@@ -34,7 +34,7 @@ type TaskSummary = {
 };
 
 export function RecurringTasksCard({ monthlyTasks, taskAssignments, staffDirectory = [] }: RecurringTasksCardProps) {
-  const router = useRouter();
+  const navigation = useAppNavigation();
   const { openLightbox } = useLightbox();
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
 
@@ -192,7 +192,7 @@ export function RecurringTasksCard({ monthlyTasks, taskAssignments, staffDirecto
           </div>
           <p className="text-sm opacity-80">Không có nhiệm vụ hôm nay</p>
           <button
-            onClick={() => router.push('/task-lists')}
+            onClick={() => navigation.push('/task-lists')}
             className="w-full mt-3 py-2 text-sm font-semibold text-white hover:bg-white/10 rounded-lg border border-white/20 transition"
           >
             Xem tất cả công việc
@@ -435,7 +435,7 @@ export function RecurringTasksCard({ monthlyTasks, taskAssignments, staffDirecto
         </div>
 
         <button
-          onClick={() => router.push('/monthly-tasks')}
+          onClick={() => navigation.push('/monthly-tasks')}
           className="w-full mt-3 py-2 text-sm font-semibold text-white hover:bg-white/10 rounded-lg border border-white/20 transition"
         >
           Xem chi tiết tất cả công việc

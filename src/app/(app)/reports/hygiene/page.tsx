@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
+import { getQueryParamWithMobileHashFallback } from '@/lib/url-params';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Check, Camera, MessageSquareWarning, Clock, X, Droplets, UtensilsCrossed, Wind, Users, Trash2, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -27,7 +28,11 @@ function HygieneReportView() {
   const router = useRouter();
   const { toast } = useToast();
   const searchParams = useSearchParams();
-  const date = searchParams.get('date');
+  const date = getQueryParamWithMobileHashFallback({
+    param: 'date',
+    searchParams,
+    hash: typeof window !== 'undefined' ? window.location.hash : '',
+  });
   const shiftKey = 'bartender_hygiene';
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);

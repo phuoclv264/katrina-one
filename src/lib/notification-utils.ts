@@ -18,6 +18,32 @@ import {
 import type { Notification } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
 
+function normalizeInternalHref(input: unknown, fallback: string): string {
+    if (typeof input !== 'string') return fallback;
+    const href = input.trim();
+    if (!href) return fallback;
+
+    // Already a hash navigation target (rare, but support it)
+    if (href.startsWith('#')) return href;
+
+    // Normal app-relative path
+    if (href.startsWith('/')) return href;
+
+    // Absolute URL: keep only the path/search/hash so mobile hash-nav works.
+    if (href.startsWith('http://') || href.startsWith('https://')) {
+        try {
+            const url = new URL(href);
+            const path = `${url.pathname}${url.search}${url.hash}`;
+            return path.startsWith('/') ? path : `/${path}`;
+        } catch {
+            return fallback;
+        }
+    }
+
+    // Relative path missing leading slash
+    return href.startsWith('/') ? href : `/${href}`;
+}
+
 export const getNotificationDetails = (notification: Notification, currentUserId: string, currentUserRole: string) => {
     const { payload, type: notificationType, status, messageTitle, messageBody } = notification;
 
@@ -93,7 +119,7 @@ export const getNotificationDetails = (notification: Notification, currentUserId
                 icon: ClipboardCheck,
                 title: messageTitle,
                 description: messageBody,
-                href: payload.url || '/reports',
+                href: normalizeInternalHref(payload.url, '/reports'),
             };
         case 'new_monthly_task_report': {
             const hrefBase = '/monthly-task-reports';
@@ -154,7 +180,7 @@ export const getNotificationDetails = (notification: Notification, currentUserId
                 icon: MailQuestion,
                 title: messageTitle || 'Thông báo mới',
                 description: messageBody || 'Bạn có một thông báo mới.',
-                href: '/',
+                href: normalizeInternalHref('/', '/'),
             };
     }
 }

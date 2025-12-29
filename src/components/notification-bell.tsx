@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { Button } from './ui/button';
@@ -9,14 +8,14 @@ import NotificationSheet from './notification-sheet';
 import { showToast } from './ui/pro-toast';
 import { getNotificationDetails } from '@/lib/notification-utils';
 import { dataStore } from '@/lib/data-store';
-import { useRouter } from 'nextjs-toploader/app';
+import { useAppNavigation } from '@/contexts/app-navigation-context';
 
 export function NotificationBell() {
     const { user, notifications, unreadNotificationCount } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
     const processedNotifications = useRef(new Set());
 
-    const router = useRouter();
+    const nav = useAppNavigation();
 
     useEffect(() => {
         if (!user || !notifications) return;
@@ -46,7 +45,7 @@ export function NotificationBell() {
                         await dataStore.markNotificationAsRead(notification.id, user.uid);
                     }
                     if (details.href) {
-                        router.push(details.href);
+                        nav.push(details.href);
                     }
                 },
             });

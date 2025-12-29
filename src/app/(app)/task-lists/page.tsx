@@ -15,7 +15,7 @@ import { Sun, Moon, Sunset } from 'lucide-react';
 import { toast } from '@/components/ui/pro-toast';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'nextjs-toploader/app';
+import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { Textarea } from '@/components/ui/textarea';
 import { callGenerateServerTasks, callSortTasks } from '@/lib/ai-service';
 import { Combobox } from '@/components/combobox';
@@ -23,6 +23,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { diffChars } from 'diff';
 import { Badge } from '@/components/ui/badge';
+import { useRouter } from 'nextjs-toploader/app';
 
 
 function AiAssistant({
@@ -336,6 +337,7 @@ export default function TaskListsPage() {
   const router = useRouter();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
+  const navigation = useAppNavigation();
   const [isLoading, setIsLoading] = useState(true);
   const [isSorting, setIsSorting] = useState(false);
   const [newTask, setNewTask] = useState<{ [shiftKey: string]: { [sectionTitle: string]: { text: string; isCritical: boolean; type: Task['type']; area: string } } }>({});

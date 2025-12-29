@@ -1,9 +1,9 @@
-
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
+import { getQueryParamWithMobileHashFallback } from '@/lib/url-params';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Check, Camera, MessageSquareWarning, Clock, X, Image as ImageIcon, Sunrise, Activity, Sunset, CheckCircle, Users, Trash2, Loader2, AlertCircle, FilePen, Info, ListTodo, UserCheck, ListX, Eye, ThumbsUp, ThumbsDown, MapPin } from 'lucide-react';
@@ -18,7 +18,8 @@ import { useToast } from '@/components/ui/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
 import { getISOWeek, getISOWeekYear } from 'date-fns';
 import { useLightbox } from '@/contexts/lightbox-context';
-import { useRouter } from 'nextjs-toploader/app';
+import { useAppNavigation } from '@/contexts/app-navigation-context';
+import { useRouter } from 'next/router';
 
 const mainShiftTimeFrames: { [key: string]: { start: string; end: string } } = {
   sang: { start: '05:30', end: '12:00' },
@@ -357,10 +358,19 @@ function ReportView() {
   const { openLightbox } = useLightbox();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const navigation = useAppNavigation();
   const { toast } = useToast();
   const searchParams = useSearchParams();
-  const date = searchParams.get('date');
-  const shiftKey = searchParams.get('shiftKey');
+    const date = getQueryParamWithMobileHashFallback({
+        param: 'date',
+        searchParams,
+        hash: typeof window !== 'undefined' ? window.location.hash : '',
+    });
+    const shiftKey = getQueryParamWithMobileHashFallback({
+        param: 'shiftKey',
+        searchParams,
+        hash: typeof window !== 'undefined' ? window.location.hash : '',
+    });
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const handleDataRefresh = useCallback(() => {

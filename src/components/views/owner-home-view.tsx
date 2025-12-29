@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
-import { useRouter } from 'nextjs-toploader/app';
 import { dataStore } from '@/lib/data-store';
 import type {
   RevenueStats,
@@ -47,6 +46,7 @@ import { CashierDataDialog } from '@/app/(app)/admin/_components/CashierDataDial
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { findNearestAttendanceRecord } from '@/lib/attendance-utils';
 import { toDateSafe, cn, selectLatestRevenueStats } from '@/lib/utils';
+import { useAppNavigation } from '@/contexts/app-navigation-context';
 
 interface OwnerHomeViewProps {
     isStandalone?: boolean;
@@ -54,7 +54,7 @@ interface OwnerHomeViewProps {
 
 export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const nav = useAppNavigation();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const [revenueStats, setRevenueStats] = useState<RevenueStats[]>([]);
@@ -75,9 +75,9 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
 
   useEffect(() => {
     if (!authLoading && user?.role !== 'Chủ nhà hàng') {
-      router.replace('/');
+      nav.replace('/');
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, nav]);
 
   const handleReconnect = useCallback(() => {
     setRefreshTrigger((prev) => prev + 1);
@@ -533,7 +533,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
                 } else if (path === 'salary-management') {
                   setIsSalaryDialogOpen(true);
                 } else {
-                  router.push(path);
+                  nav.push(path);
                 }
               }} />
               <MonthlyStaffReportDialog isOpen={isMonthlyReportOpen} onOpenChange={(open: boolean) => setIsMonthlyReportOpen(open)} />

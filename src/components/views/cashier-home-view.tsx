@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'nextjs-toploader/app';
+import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { LoadingPage } from '@/components/loading/LoadingPage'; 
@@ -135,6 +136,7 @@ function CashierDashboardPageComponent({ isStandalone = false }: CashierDashboar
   const { openLightbox } = useLightbox();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+    const nav = useAppNavigation();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   
   const expenseSlipsRef = useRef<HTMLDivElement>(null);
@@ -263,9 +265,9 @@ function CashierDashboardPageComponent({ isStandalone = false }: CashierDashboar
 
   useEffect(() => {
     if (!authLoading && user && user.role !== 'Thu ngân' && !user.secondaryRoles?.includes('Thu ngân')) {
-      router.replace('/');
+            nav.replace('/');
     }
-  }, [user, authLoading, router]);
+    }, [user, authLoading, nav]);
   
   const handleReconnect = useCallback(() => {
     setRefreshTrigger(prev => prev + 1);

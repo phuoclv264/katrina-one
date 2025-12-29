@@ -45,6 +45,8 @@ import { getAssignmentsForMonth } from "@/lib/schedule-utils"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { vi } from "date-fns/locale"
+import { getQueryParamWithMobileHashFallback } from "@/lib/url-params"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 type DailyAssignment = {
   date: string
@@ -62,6 +64,7 @@ function MonthlyTaskReportsView() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const routerRef = useRef(router)
+  const isMobile = useIsMobile()
   const searchParams = useSearchParams()
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [completions, setCompletions] = useState<TaskCompletionRecord[]>([])
@@ -225,7 +228,11 @@ function MonthlyTaskReportsView() {
 
   // Initialize month and scroll to a specific report via URL params
   useEffect(() => {
-    const monthParam = searchParams.get("month")
+    const monthParam = getQueryParamWithMobileHashFallback({
+      param: "month",
+      searchParams,
+      hash: typeof window !== "undefined" ? window.location.hash : "",
+    })
     if (monthParam) {
       const [y, m] = monthParam.split("-").map((v) => Number(v))
       if (!Number.isNaN(y) && !Number.isNaN(m)) {
@@ -243,28 +250,63 @@ function MonthlyTaskReportsView() {
 
   const reportCardRefs = useRef<Map<string, HTMLDivElement | null>>(new Map())
   const [pendingScrollKey, setPendingScrollKey] = useState<string | null>(null)
+
   const setReportCardRef = useCallback((key: string, el: HTMLDivElement | null) => {
-    if (!el) return
-    reportCardRefs.current.set(key, el)
-    if (pendingScrollKey === key) {
-      setTimeout(() => {
-        el.scrollIntoView({ behavior: "smooth", block: "center" })
-        el.classList.add("ring-2", "ring-primary")
-        setTimeout(() => {
-          el.classList.remove("ring-2", "ring-primary")
-        }, 1600)
-        routerRef.current.replace("/monthly-task-reports", { scroll: false })
-      }, 300)
-      setPendingScrollKey(null)
+    if (el) {
+      reportCardRefs.current.set(key, el)
+    } else {
+      reportCardRefs.current.delete(key)
     }
-  }, [pendingScrollKey])
+  }, [])
 
   useEffect(() => {
-    const anchor = searchParams.get("highlight")
+    if (!pendingScrollKey) return
+
+    const scroll = () => {
+      const el = reportCardRefs.current.get(pendingScrollKey)
+      if (el) {
+        console.log("Scrolling to:", pendingScrollKey)
+        setTimeout(() => {
+          el.scrollIntoView({ behavior: "smooth", block: "center" })
+          el.classList.add("ring-2", "ring-primary")
+          setTimeout(() => {
+            el.classList.remove("ring-2", "ring-primary")
+          }, 2000)
+
+          if (!isMobile) {
+            const url = new URL(window.location.href)
+            url.searchParams.delete("highlight")
+            window.history.replaceState({}, "", url.toString())
+          }
+        }, 600)
+        setPendingScrollKey(null)
+        return true
+      }
+      return false
+    }
+
+    if (!scroll()) {
+      const interval = setInterval(() => {
+        if (scroll()) clearInterval(interval)
+      }, 100)
+      const timeout = setTimeout(() => clearInterval(interval), 3000)
+      return () => {
+        clearInterval(interval)
+        clearTimeout(timeout)
+      }
+    }
+  }, [pendingScrollKey, isMobile])
+
+  useEffect(() => {
+    const anchor = getQueryParamWithMobileHashFallback({
+      param: "highlight",
+      searchParams,
+      hash: typeof window !== "undefined" ? window.location.hash : "",
+    })
     if (!anchor || completions.length === 0) return
 
-    const matchedRecord = completions.find((rec) => 
-      rec.completionId === anchor || 
+    const matchedRecord = completions.find((rec) =>
+      rec.completionId === anchor ||
       (rec.completionId && anchor && rec.completionId.startsWith(anchor + "_"))
     )
     if (!matchedRecord) return
@@ -373,11 +415,11 @@ function MonthlyTaskReportsView() {
                                       const { date, assignedUsers, completions: records } = assignment
                                       const totalCompletions = records.length
                                       const completionPercentage = assignedUsers.length > 0 ? Math.round((totalCompletions / assignedUsers.length) * 100) : 0
-                                      
+
                                       const reportedUsersWithRecords = records.map((record) => {
                                         const assignedUser = assignedUsers.find((u) => u.userId === record.completedBy?.userId)
-                                        return { 
-                                          user: assignedUser || record.completedBy, 
+                                        return {
+                                          user: assignedUser || record.completedBy,
                                           record,
                                           isOffShift: !assignedUser
                                         }
@@ -401,11 +443,10 @@ function MonthlyTaskReportsView() {
                                               const shiftInfo = assignment.assignedUsersByShift.find((s) => s.users.some((u) => u.userId === reportedUser?.userId))
                                               return (
                                                 <Card key={reportedUser?.userId || record.completionId} className={`relative group/card overflow-hidden border transition-all hover:shadow-md ${isOffShift ? "bg-amber-50/30 dark:bg-amber-900/5 border-amber-200/50 dark:border-amber-900/30" : "bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-200/50 dark:border-emerald-900/50"}`} ref={(el) => {
-                                                  if (!el) return
+                                                  setReportCardRef(`monthly-${record.taskId}-${record.assignedDate}`, el)
                                                   if (record.completionId) {
                                                     setReportCardRef(record.completionId, el)
                                                   }
-                                                  setReportCardRef(`monthly-${record.taskId}-${record.assignedDate}`, el)
                                                 }}>
                                                   <CardContent className="p-5 space-y-4">
                                                     <div className="flex items-start justify-between gap-2">

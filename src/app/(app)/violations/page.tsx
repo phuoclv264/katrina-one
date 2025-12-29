@@ -24,6 +24,8 @@ import { generateSmartAbbreviations } from '@/lib/violations-utils';
 import { useRouter } from 'nextjs-toploader/app';
 import { useSearchParams } from 'next/navigation';
 import { SubmitAllDialog } from './_components/submit-all-dialog';
+import { getQueryParamWithMobileHashFallback } from '@/lib/url-params';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 /**
  * Type guard to check if an item is a MediaAttachment.
@@ -39,6 +41,7 @@ function ViolationsView() {
   const router = useRouter();
   const routerRef = useRef(router);
   const searchParams = useSearchParams();
+  const isMobile = useIsMobile();
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const handleDataRefresh = useCallback(() => {
@@ -115,7 +118,11 @@ function ViolationsView() {
 
   // Effect to scroll to and highlight a violation from URL param
   useEffect(() => {
-    const highlightId = searchParams.get('highlight');
+    const highlightId = getQueryParamWithMobileHashFallback({
+      param: 'highlight',
+      searchParams,
+      hash: typeof window !== 'undefined' ? window.location.hash : '',
+    });
     if (!highlightId || violations.length === 0) return;
 
     const tryScroll = () => {
@@ -126,7 +133,9 @@ function ViolationsView() {
       setTimeout(() => {
         el.classList.remove('highlight-animation');
       }, 2500);
-      routerRef.current.replace('/violations', { scroll: false });
+      if (!isMobile) {
+        routerRef.current.replace('/violations', { scroll: false });
+      }
       return true;
     };
 

@@ -17,7 +17,7 @@ import { MailQuestion, Check, CalendarCheck, ShieldAlert, CheckCircle2, XCircle,
 import type { Notification, AuthUser } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'nextjs-toploader/app';
+import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -37,7 +37,7 @@ export default function NotificationSheet({
     notifications,
 }: NotificationSheetProps) {
     const { user } = useAuth();
-    const router = useRouter();
+    const nav = useAppNavigation();
     const { registerDialog, unregisterDialog } = useDialogContext();
 
     useEffect(() => {
@@ -64,7 +64,7 @@ export default function NotificationSheet({
         onOpenChange(false);
 
         // Navigate
-        router.push(details.href);
+        nav.push(details.href);
     };
 
     if (!user) return null;

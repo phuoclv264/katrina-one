@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Loader2 } from 'lucide-react';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction } from '@/components/ui/alert-dialog';
-import { useRouter } from 'nextjs-toploader/app';
+import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { getHomePathForRole } from '@/lib/navigation';
 import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
 
@@ -15,7 +15,7 @@ type WorkShiftGuardProps = {
 
 export default function WorkShiftGuard({ children, redirectPath }: WorkShiftGuardProps) {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const nav = useAppNavigation();
   const { isCheckedIn } = useCheckInCardPlacement();
   const [isReady, setIsReady] = useState(false);
 
@@ -48,7 +48,7 @@ export default function WorkShiftGuard({ children, redirectPath }: WorkShiftGuar
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogAction onClick={() => router.replace(getHomePathForRole(user?.role))}>Đã hiểu</AlertDialogAction>
+            <AlertDialogAction onClick={() => nav.replace(getHomePathForRole(user?.role))}>Đã hiểu</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

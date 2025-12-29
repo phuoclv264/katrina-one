@@ -13,12 +13,15 @@ import { BackButtonHandler } from '@/components/back-button-handler';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MobileLayout } from '@/components/mobile-layout';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { AppNavigationProvider } from '@/contexts/app-navigation-context';
 
 export default function AppLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const isMobile = useIsMobile();
+
   return (
     <LightboxProvider>
       <SidebarProvider>
@@ -38,10 +41,12 @@ export default function AppLayout({
           <NextTopLoader speed={1000} />
           
           {/* Render only the view for the current device to avoid mounting both views */}
-          {useIsMobile() ? (
+          {isMobile ? (
             <MobileLayout>{children}</MobileLayout>
           ) : (
-            <div className="hidden md:block">{children}</div>
+            <div className="hidden md:block">
+              <AppNavigationProvider>{children}</AppNavigationProvider>
+            </div>
           )}
           
         </SidebarInset>

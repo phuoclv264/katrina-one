@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useRouter } from 'nextjs-toploader/app';
+import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { CheckCircle2, Box, DollarSign, History, Calendar, Calculator } from 'lucide-react';
 
 interface QuickAccessToolsSectionProps {
@@ -9,7 +9,7 @@ interface QuickAccessToolsSectionProps {
 }
 
 export function QuickAccessToolsSection({ onNavigate }: QuickAccessToolsSectionProps) {
-  const router = useRouter();
+  const navigation = useAppNavigation();
 
   const tools = [
     {
@@ -77,9 +77,10 @@ export function QuickAccessToolsSection({ onNavigate }: QuickAccessToolsSectionP
   const handleClick = (path: string) => {
     if (onNavigate) {
       onNavigate(path);
-    } else {
-      router.push(path);
+      return;
     }
+
+    navigation.push(path);
   };
 
   return (
@@ -94,7 +95,9 @@ export function QuickAccessToolsSection({ onNavigate }: QuickAccessToolsSectionP
               onClick={() => handleClick(tool.path)}
               className={`p-4 rounded-xl border border-gray-100 dark:border-gray-700 ${tool.hoverColor} transition group flex flex-col items-center text-center`}
             >
-              <div className={`w-12 h-12 rounded-full ${tool.bgColor} ${tool.iconColor} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
+              <div
+                className={`w-12 h-12 rounded-full ${tool.bgColor} ${tool.iconColor} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}
+              >
                 <Icon className="h-6 w-6" />
               </div>
               <span className="text-sm font-bold text-gray-700 dark:text-gray-200">{tool.label}</span>

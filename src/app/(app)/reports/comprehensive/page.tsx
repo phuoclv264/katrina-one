@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
+import { getQueryParamWithMobileHashFallback } from '@/lib/url-params';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Check, Camera, MessageSquareWarning, Clock, X, Building, ThumbsUp, ThumbsDown, CheckCircle, Users, FilePen, Trash2, Loader2, AlertCircle } from 'lucide-react';
@@ -28,7 +29,11 @@ function ComprehensiveReportView() {
   const router = useRouter();
   const { toast } = useToast();
   const searchParams = useSearchParams();
-  const date = searchParams.get('date');
+  const date = getQueryParamWithMobileHashFallback({
+    param: 'date',
+    searchParams,
+    hash: typeof window !== 'undefined' ? window.location.hash : '',
+  });
   const shiftKey = 'manager_comprehensive';
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
