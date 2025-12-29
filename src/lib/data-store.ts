@@ -1418,6 +1418,87 @@ export const dataStore = {
     };
   },
 
+  subscribeToViolationsForMonth(targetMonth: Date, callback: (violations: Violation[]) => void): () => void {
+    const start = startOfMonth(targetMonth);
+    const end = endOfMonth(targetMonth);
+    const startTs = Timestamp.fromDate(start);
+    const endTs = Timestamp.fromDate(end);
+
+    const violationsQuery = query(collection(db, 'violations'), where('createdAt', '>=', startTs), where('createdAt', '<=', endTs), orderBy('createdAt', 'desc'));
+    const categoriesDocRef = doc(db, 'app-data', 'violationCategories');
+
+    let cachedCategories: ViolationCategoryData | null = null;
+    let cachedViolations: Violation[] = [];
+
+    const processAndCallback = async () => {
+      if (!cachedCategories) {
+        // If categories not yet loaded, return current cachedViolations (may be empty)
+        callback(cachedViolations);
+        return;
+      }
+
+      // cachedViolations already contains only violations in the requested month (query-scoped)
+      const updatedViolationsMap = new Map(cachedViolations.map(v => [v.id, v]));
+      const batch = writeBatch(db);
+      let hasUpdates = false;
+
+      for (const violation of cachedViolations) {
+        const { cost: newCost, severity: newSeverity, userCosts: newUserCosts } = violationsService.calculateViolationCost(violation, cachedCategories!, cachedViolations);
+        const currentViolationState = updatedViolationsMap.get(violation.id)!;
+        if (currentViolationState.cost !== newCost || currentViolationState.severity !== newSeverity || !isEqual(currentViolationState.userCosts, newUserCosts)) {
+          const docRef = doc(db, 'violations', violation.id);
+          batch.update(docRef, { cost: newCost, severity: newSeverity, userCosts: newUserCosts });
+          updatedViolationsMap.set(violation.id, { ...currentViolationState, cost: newCost, severity: newSeverity, userCosts: newUserCosts });
+          hasUpdates = true;
+        }
+      }
+
+      const finalViolationList = Array.from(updatedViolationsMap.values());
+      if (hasUpdates) {
+        callback(finalViolationList);
+        try {
+          await batch.commit();
+        } catch (err) {
+          console.error("Error batch updating violation costs (monthly):", err);
+        }
+      } else {
+        callback(finalViolationList);
+      }
+    };
+
+    const unsubCategories = onSnapshot(categoriesDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        cachedCategories = docSnap.data() as ViolationCategoryData;
+        processAndCallback();
+      }
+    }, (error) => {
+      console.warn(`[Firestore Read Error] Could not read violation categories: ${error.code}`);
+      callback([]);
+    });
+
+    const unsubViolations = onSnapshot(violationsQuery, (violationsSnapshot) => {
+      cachedViolations = violationsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        const createdAt = data.createdAt ? (data.createdAt as Timestamp).toDate().toISOString() : new Date(0).toISOString();
+        return {
+          id: doc.id,
+          ...data,
+          createdAt,
+          penaltySubmittedAt: data.penaltySubmittedAt ? (data.penaltySubmittedAt as Timestamp).toDate().toISOString() : undefined,
+        } as unknown as Violation;
+      });
+      processAndCallback();
+    }, (error) => {
+      console.warn(`[Firestore Read Error] Could not read monthly violations: ${error.code}`);
+      callback([]);
+    });
+
+    return () => {
+      unsubCategories();
+      unsubViolations();
+    };
+  },
+
   async recalculateViolationsForCurrentMonth(): Promise<void> {
     return violationsService.recalculateViolationsForCurrentMonth();
   },

@@ -8,7 +8,7 @@ import { toast } from '@/components/ui/pro-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingPage } from '@/components/loading/LoadingPage';
-import { ShieldX, Plus, FilterX, BadgeInfo, Settings, UserSearch, Camera } from 'lucide-react';
+import { ShieldX, Plus, FilterX, BadgeInfo, Settings, UserSearch, Camera, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { ManagedUser, Violation, ViolationCategory, ViolationUser, ViolationCategoryData, MediaAttachment } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
@@ -51,6 +51,10 @@ function ViolationsView() {
   const [violations, setViolations] = useState<Violation[]>([]);
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [categoryData, setCategoryData] = useState<ViolationCategoryData>({ list: [], generalRules: [] });
+  const [currentMonth, setCurrentMonth] = useState<Date>(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingViolationId, setProcessingViolationId] = useState<string | null>(null);
@@ -93,16 +97,20 @@ function ViolationsView() {
     if (!user) return;
     // Wire up retry logic for pending penalty submissions on app startup
     dataStore.retryPendingPenaltySubmissions();
-    const unsubViolations = dataStore.subscribeToViolations(setViolations);
+
+    // Subscribe to users and categories as before
     const unsubUsers = dataStore.subscribeToUsers(setUsers);
     const unsubCategories = dataStore.subscribeToViolationCategories(setCategoryData);
 
+    // Subscribe to violations for the selected month (see monthly navigation below)
+    const unsubMonthly = dataStore.subscribeToViolationsForMonth(currentMonth, setViolations);
+
     return () => {
-      unsubViolations();
+      unsubMonthly();
       unsubUsers();
       unsubCategories();
     };
-  }, [user, refreshTrigger]);
+  }, [user, refreshTrigger, currentMonth]);
 
   useEffect(() => {
     if (isLoading && (violations.length > 0)) {
@@ -377,6 +385,58 @@ function ViolationsView() {
 
   const userAbbreviations = useMemo(() => generateSmartAbbreviations(users), [users]);
 
+  // Summaries should reflect the currently filtered violations (month + filters)
+  const monthSummary = useMemo(() => {
+    const totalCount = filteredViolations.length;
+    const totalCost = filteredViolations.reduce((sum, v) => sum + (v.cost || 0), 0);
+    const severityCounts = { low: 0, medium: 0, high: 0 } as Record<string, number>;
+    filteredViolations.forEach(v => {
+      const sev = (v.severity as string) || 'low';
+      severityCounts[sev] = (severityCounts[sev] || 0) + 1;
+    });
+    return { totalCount, totalCost, severityCounts };
+  }, [filteredViolations]);
+
+  const perUserSummary = useMemo(() => {
+    const map = new Map<string, { userId: string; name: string; total: number; unpaid: number }>();
+    for (const v of filteredViolations) {
+      const submissions = v.penaltySubmissions || [];
+      const waived = !!v.isPenaltyWaived;
+      const userCosts = v.userCosts || [];
+      for (const uc of userCosts) {
+        const uid = uc.userId;
+        // Prefer display name from users list if available
+        const managed = users.find(mu => mu.uid === uid);
+        const userNameFromViolation = managed?.displayName ?? (v.users || []).find(u => u.id === uid)?.name;
+        const userRecord = map.get(uid) ?? { userId: uid, name: userNameFromViolation || uid, total: 0, unpaid: 0 };
+        userRecord.total += uc.cost || 0;
+        const paid = waived || submissions.some(s => s.userId === uid);
+        if (!paid) userRecord.unpaid += uc.cost || 0;
+        map.set(uid, userRecord);
+      }
+    }
+    const arr = Array.from(map.values());
+    arr.sort((a, b) => b.total - a.total);
+    const totalUnpaid = arr.reduce((s, u) => s + (u.unpaid || 0), 0);
+    return { list: arr, totalUnpaid };
+  }, [filteredViolations, users]);
+
+  const isAtCurrentMonth = useMemo(() => {
+    const now = new Date();
+    return now.getFullYear() === currentMonth.getFullYear() && now.getMonth() === currentMonth.getMonth();
+  }, [currentMonth]);
+
+  const setToCurrentMonth = () => {
+    const now = new Date();
+    setCurrentMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+  };
+
+  // Button classes for chevrons
+  const prevBtnClass = 'bg-white/20 text-white rounded-full p-2 shadow-sm hover:bg-white/30 focus:ring-2 focus:ring-white/40';
+  const nextBtnClass = isAtCurrentMonth
+    ? 'rounded-full p-2 shadow-sm bg-white/10 text-white/60 cursor-not-allowed'
+    : 'bg-white/20 text-white rounded-full p-2 shadow-sm hover:bg-white/30 focus:ring-2 focus:ring-white/40';
+
   const staffPendingViolations = useMemo(() => {
     if (!user || user.role === 'Chủ nhà hàng') return [];
     return violations.filter(v => v.users.some(u => u.id === user.uid) && !(v.penaltySubmissions || []).some(s => s.userId === user.uid));
@@ -488,68 +548,130 @@ function ViolationsView() {
             </div>
           </CardHeader>
           <CardContent>
-            {Object.keys(groupedViolations).length === 0 ? (
+            <div className="mb-6 grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+              <div className="lg:col-span-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl p-6 shadow-md">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm opacity-80">Tổng quan tháng</div>
+                    <div className="flex items-center gap-1 mt-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+                        aria-label="Previous month"
+                        className={prevBtnClass}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <div className="text-2xl font-bold">{currentMonth.toLocaleString('vi-VN', { month: 'long', year: 'numeric' })}</div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+                        aria-label="Next month"
+                        disabled={isAtCurrentMonth}
+                        className={nextBtnClass}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm opacity-80">Tổng vi phạm</div>
+                    <div className="text-3xl font-extrabold">{monthSummary.totalCount}</div>
+                  </div>
+                </div>
+                <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="bg-white/10 rounded-md p-3">
+                    <div className="text-xs opacity-80">Tổng tiền phạt</div>
+                    <div className="text-lg font-semibold mt-1">{monthSummary.totalCost.toLocaleString('vi-VN')}</div>
+                  </div>
+                  <div className="bg-white/10 rounded-md p-3">
+                    <div className="text-xs opacity-80">Chưa nộp</div>
+                    <div className="text-lg font-semibold mt-1 text-amber-100">{perUserSummary.totalUnpaid.toLocaleString('vi-VN')}</div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white rounded-xl p-2 shadow-md">
+                <Accordion type="single" collapsible>
+                  <AccordionItem value="top-staff">
+                    <AccordionTrigger className="px-4 py-3 flex items-center justify-between">
+                      <div className="text-sm font-medium">Top nhân viên ưu tú</div>
+                      <div className="text-sm text-muted-foreground">{perUserSummary.list.length} nhân viên</div>
+                    </AccordionTrigger>
+                    <AccordionContent className="p-4">
+                      <div className="space-y-2 max-h-72 overflow-auto">
+                        {perUserSummary.list.map(u => (
+                          <div key={u.userId} className="flex items-center justify-between px-2 py-1">
+                            <div className="text-sm font-medium">{u.name}</div>
+                            <div className="text-sm text-muted-foreground">Tổng: {u.total.toLocaleString('vi-VN')} — Chưa: {u.unpaid.toLocaleString('vi-VN')}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-4 border-t pt-3 text-sm text-right font-semibold">Tổng chưa nộp: <span className="text-amber-600">{perUserSummary.totalUnpaid.toLocaleString('vi-VN')}</span></div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </div>
+            </div>
+            {filteredViolations.length === 0 ? (
               <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-4">
                 <FilterX className="h-12 w-12" />
                 <p>Không tìm thấy vi phạm nào khớp với bộ lọc.</p>
               </div>
             ) : (
-              <Accordion type="multiple" defaultValue={Object.keys(groupedViolations)} className="space-y-4">
-                {Object.entries(groupedViolations).map(([month, violationsInMonth]) => (
-                  <AccordionItem key={month} value={month}>
-                    <AccordionTrigger className="text-lg font-medium">Tháng {month}</AccordionTrigger>
-                    <AccordionContent className="space-y-4 pt-2">
-                      {violationsInMonth.map(v => (
-                        <ViolationCard
-                          ref={(el) => {
-                            if (el) violationRefs.current.set(v.id, el);
-                            else violationRefs.current.delete(v.id);
-                          }}
-                          key={v.id}
-                          violation={v}
-                          currentUser={user}
-                          categoryData={categoryData}
-                          userAbbreviations={userAbbreviations}
-                          processingViolationId={processingViolationId}
-                          openCommentSectionIds={openCommentSectionIds}
-                          onToggleFlag={handleToggleFlag}
-                          onToggleWaivePenalty={handleToggleWaivePenalty}
-                          onEdit={(violation) => { setViolationToEdit(violation); setIsSelfConfessMode(false); setIsDialogOpen(true); }}
-                          onDelete={handleDeleteViolation}
-                          onPenaltySubmit={async (violation, user, mode) => {
-                            if (mode === 'manual') {
-                                if (confirm(`Xác nhận ${user.name} đã nộp phạt?`)) {
-                                    setProcessingViolationId(violation.id);
-                                    try {
-                                        await dataStore.markPenaltyAsSubmitted(violation.id, { userId: user.id, userName: user.name });
-                                        toast.success(`Đã xác nhận ${user.name} nộp phạt.`);
-                                    } catch (error) {
-                                        console.error("Failed to mark penalty as submitted:", error);
-                                        toast.error('Không thể xác nhận nộp phạt.');
-                                    } finally {
-                                        setProcessingViolationId(null);
-                                    }
-                                }
-                            } else {
-                                setActiveViolationForPenalty(violation);
-                                setActiveUserForPenalty(user);
-                                setPenaltyCaptureMode(mode);
-                                setIsPenaltyCameraOpen(true);
+              <>
+                {/* Render full violation list (no accordion) */}
+                <div className="space-y-4">
+                  {filteredViolations.map(v => (
+                    <ViolationCard
+                      ref={(el) => {
+                        if (el) violationRefs.current.set(v.id, el);
+                        else violationRefs.current.delete(v.id);
+                      }}
+                      key={v.id}
+                      violation={v}
+                      currentUser={user!}
+                      categoryData={categoryData}
+                      userAbbreviations={userAbbreviations}
+                      processingViolationId={processingViolationId}
+                      openCommentSectionIds={openCommentSectionIds}
+                      onToggleFlag={handleToggleFlag}
+                      onToggleWaivePenalty={handleToggleWaivePenalty}
+                      onEdit={(violation) => { setViolationToEdit(violation); setIsSelfConfessMode(false); setIsDialogOpen(true); }}
+                      onDelete={handleDeleteViolation}
+                      onPenaltySubmit={async (violation, user, mode) => {
+                        if (mode === 'manual') {
+                          if (confirm(`Xác nhận ${user.name} đã nộp phạt?`)) {
+                            setProcessingViolationId(violation.id);
+                            try {
+                              await dataStore.markPenaltyAsSubmitted(violation.id, { userId: user.id, userName: user.name });
+                              toast.success(`Đã xác nhận ${user.name} nộp phạt.`);
+                            } catch (error) {
+                              console.error("Failed to mark penalty as submitted:", error);
+                              toast.error('Không thể xác nhận nộp phạt.');
+                            } finally {
+                              setProcessingViolationId(null);
                             }
-                          }}
-                          onCommentSubmit={handleCommentSubmit}
-                          onCommentEdit={handleCommentEdit}
-                          onCommentDelete={handleCommentDelete}
-                          onToggleCommentSection={toggleCommentSection}
-                          setActiveViolationForPenalty={setActiveViolationForPenalty}
-                          setActiveUserForPenalty={setActiveUserForPenalty}
-                          setIsPenaltyCameraOpen={setIsPenaltyCameraOpen}
-                        />
-                      ))}
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
+                          }
+                        } else {
+                          setActiveViolationForPenalty(violation);
+                          setActiveUserForPenalty(user);
+                          setPenaltyCaptureMode(mode);
+                          setIsPenaltyCameraOpen(true);
+                        }
+                      }}
+                      onCommentSubmit={handleCommentSubmit}
+                      onCommentEdit={handleCommentEdit}
+                      onCommentDelete={handleCommentDelete}
+                      onToggleCommentSection={toggleCommentSection}
+                      setActiveViolationForPenalty={setActiveViolationForPenalty}
+                      setActiveUserForPenalty={setActiveUserForPenalty}
+                      setIsPenaltyCameraOpen={setIsPenaltyCameraOpen}
+                    />
+                  ))}
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
