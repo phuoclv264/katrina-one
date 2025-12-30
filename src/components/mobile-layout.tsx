@@ -213,7 +213,6 @@ function getPageFromHash(hash: string): string | null {
 function setPageHash(href: string, mode: 'push' | 'replace' = 'push') {
   if (typeof window === 'undefined') return;
   const nextHash = `${PAGE_HASH_PREFIX}${encodeURIComponent(href)}`;
-  console.log('Setting page hash to', nextHash);
   if (window.location.hash === nextHash) return;
 
   const nextUrl = `${window.location.pathname}${window.location.search}${nextHash}`;
