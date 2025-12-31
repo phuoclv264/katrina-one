@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
-import { CheckCircle2, Box, DollarSign, History, Calendar, Calculator } from 'lucide-react';
+import { CheckCircle2, Box, DollarSign, History, Calendar, Calculator, Megaphone } from 'lucide-react';
 
 interface QuickAccessToolsSectionProps {
   onNavigate?: (path: string) => void;
@@ -41,6 +41,16 @@ export function QuickAccessToolsSection({ onNavigate }: QuickAccessToolsSectionP
       iconColor: 'text-teal-600 dark:text-teal-400',
       borderColor: 'border-teal-500',
       hoverColor: 'hover:border-teal-500 dark:hover:border-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/10',
+    },
+    {
+      icon: Megaphone,
+      label: 'Quản lý Sự kiện',
+      color: 'rose',
+      path: '/admin/events',
+      bgColor: 'bg-rose-100 dark:bg-rose-900/30',
+      iconColor: 'text-rose-600 dark:text-rose-400',
+      borderColor: 'border-rose-500',
+      hoverColor: 'hover:border-rose-500 dark:hover:border-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/10',
     },
     {
       icon: Box,

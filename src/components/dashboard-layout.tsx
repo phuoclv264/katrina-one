@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import CheckInCard from '@/app/(app)/_components/check-in-card';
 import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
 import SecondaryRoleCard from '@/components/secondary-role-card';
+import QuickEventsCard from './events/QuickEventsCard';
 
 export interface DashboardLayoutProps {
   title: React.ReactNode;
@@ -23,6 +24,7 @@ export default function DashboardLayout({ title, description, top, children, cla
         {showCheckInCardOnTop && <CheckInCard />}
 
         {top}
+        <QuickEventsCard />
 
         <Card>
           <CardHeader>

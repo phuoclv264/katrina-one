@@ -377,7 +377,7 @@ export type EmployeeAttendance = {
   checkOutTime: Date | null;
   lateMinutes: number | null;
   lateReason: string | null;
-  /** If the user requested to be late, this is the estimated minutes */
+  /** If the user requested to be late, this is the estimated late minutes */
   estimatedLateMinutes?: number | null;
 };
 
@@ -1013,7 +1013,7 @@ export type TaskSchedule =
   | {
     type: 'interval';
     intervalDays: number; // e.g., 3 for "every 3 days"
-    startDate: string; // YYYY-MM-DD, the anchor date for the interval
+    startDate: string; // YYYY-MM-DD
   }
   | {
     type: 'monthly_date';
@@ -1077,3 +1077,95 @@ export type MonthlyTaskAssignment = {
   completions: TaskCompletionRecord[];
   otherCompletions: TaskCompletionRecord[];
 };
+
+// --- Event Feature Types ---
+export type EventType = 'vote' | 'multi-vote' | 'review' | 'ballot';
+export type EventStatus = 'draft' | 'active' | 'closed';
+
+export type EventCandidate = {
+  id: string; // Can be userId or a custom ID for an option
+  name: string;
+  avatarUrl?: string;
+  meta?: Record<string, any>; // For extra details like role, etc.
+};
+
+export type Event = {
+  id: string;
+  title: string;
+  description: string;
+  type: EventType;
+  status: EventStatus;
+  ownerId: string; // UID of the owner who created it
+  startAt: Timestamp;
+  endAt: Timestamp;
+  
+  // Eligibility
+  eligibleRoles: UserRole[];
+  
+  // Content
+  candidates: EventCandidate[]; // For staff-based events
+  options?: EventCandidate[]; // For non-staff choices
+  allowComments: boolean;
+  anonymousResults: boolean;
+  
+  // Voting Rules
+  maxVotesPerUser?: number; // For multi-vote
+  prize?: {
+    name: string;
+    description: string;
+    imageUrl?: string;
+  };
+};
+
+export type EventVote = {
+  id: string; // Typically the userId to enforce one vote per user per event
+  eventId: string;
+  userId: string;
+  userDisplay: UserNameWithRole;
+  createdAt: Timestamp;
+
+  // Data fields depending on event type
+  votes?: string[]; // Array of candidate/option IDs for vote/multi-vote/ballot
+  ratings?: { [candidateId: string]: number }; // For review
+  comments?: { [candidateId: string]: string }; // For review
+};
+
+export type UserNameWithRole = {
+  name: string;
+  role: UserRole;
+};
+
+export type PrizeDrawResult = {
+  id: string;
+  eventId: string;
+  drawnAt: Timestamp;
+  winners: {
+    userId: string;
+    userName: string;
+  }[];
+};
+
+
+export type VoteResult = {
+    id: string;
+    name: string;
+    votes: number;
+    voters: string[];
+    avgRating: number;
+    ratingCount: number;
+    comments: ReviewComment[];
+};
+
+export type ReviewComment = { text: string; author: string };
+
+export type ReviewResult = {
+    id: string;
+    name: string;
+    voters: string[];
+    avgRating: number;
+    ratingCount: number;
+    comments: ReviewComment[];
+};
+
+export type EventResult = VoteResult | ReviewResult;
+
