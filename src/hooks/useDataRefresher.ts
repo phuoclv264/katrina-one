@@ -17,6 +17,8 @@ export type DataRefresherOptions = {
   minIntervalMs?: number;
   /** If the app was backgrounded longer than this, refresh on return */
   refreshOnReturnAfterMs?: number;
+  /** In addition to Firestore reconnection, refresh when the browser reports network online */
+  refreshOnBrowserOnline?: boolean;
 };
 
 export function useDataRefresher(onReconnect: () => void, options?: DataRefresherOptions) {
@@ -25,10 +27,13 @@ export function useDataRefresher(onReconnect: () => void, options?: DataRefreshe
   const optsRef = useRef<DataRefresherOptions>({
     minIntervalMs: options?.minIntervalMs ?? 8_000,
     refreshOnReturnAfterMs: options?.refreshOnReturnAfterMs ?? 5_000,
+    refreshOnBrowserOnline: options?.refreshOnBrowserOnline ?? true,
   });
 
   const lastRefreshAtRef = useRef<number>(0);
   const lastHiddenAtRef = useRef<number | null>(null);
+  // Count consecutive offline snapshots to avoid flapping.
+  const offlineStreakRef = useRef<number>(0);
   const wasOnlineRef = useRef<boolean | null>(null);
 
   useEffect(() => {
@@ -36,113 +41,72 @@ export function useDataRefresher(onReconnect: () => void, options?: DataRefreshe
     optsRef.current = {
       minIntervalMs: options?.minIntervalMs ?? 8_000,
       refreshOnReturnAfterMs: options?.refreshOnReturnAfterMs ?? 5_000,
+      refreshOnBrowserOnline: options?.refreshOnBrowserOnline ?? true,
     };
-  }, [options?.minIntervalMs, options?.refreshOnReturnAfterMs]);
+  }, [options?.minIntervalMs, options?.refreshOnReturnAfterMs, options?.refreshOnBrowserOnline]);
 
   const tryRefresh = (reason: string) => {
     const now = Date.now();
     const { minIntervalMs } = optsRef.current;
 
-    if (now - lastRefreshAtRef.current < (minIntervalMs ?? 0)) {
+    const sinceLast = now - lastRefreshAtRef.current;
+    const min = minIntervalMs ?? 0;
+
+    if (sinceLast < min) {
+      console.log(
+        `[useDataRefresher] Skipping refresh (throttled). reason=${reason} sinceLast=${sinceLast}ms minIntervalMs=${min} isVisible=${isVisible} wasOnline=${wasOnlineRef.current}`
+      );
       return;
     }
 
     lastRefreshAtRef.current = now;
-    // Useful when debugging real devices; safe to keep low-noise.
-    // console.log(`[useDataRefresher] Refreshing data (${reason})`);
+    console.log(`[useDataRefresher] Refreshing data (${reason})`);
     onReconnect();
   };
 
-  // Refresh when user returns to the app (visibility/focus/resume)
+  // When the app becomes visible again, refresh only if we previously detected
+  // a connectivity problem (offline or error). Do NOT use `fromCache` as the
+  // signal because Firestore often emits cache-first snapshots while online.
   useEffect(() => {
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
-
-    const handleReturnToApp = (reason: string) => {
-      const now = Date.now();
-      const lastHiddenAt = lastHiddenAtRef.current;
-      const { refreshOnReturnAfterMs } = optsRef.current;
-
-      // Only refresh on return if we were actually hidden, and for long enough.
-      const shouldRefreshForDuration = lastHiddenAt && now - lastHiddenAt >= (refreshOnReturnAfterMs ?? 0);
-      const shouldRefreshForOffline = wasOnlineRef.current === false;
-
-      if (shouldRefreshForDuration || shouldRefreshForOffline) {
-        tryRefresh(reason);
-      }
-    };
 
     const onVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         lastHiddenAtRef.current = Date.now();
+        return;
       }
 
-      if (document.visibilityState === 'visible') {
-        handleReturnToApp('visibility');
-      }
-    };
-
-    const onFocus = () => {
-      if (document.visibilityState === 'visible') {
-        handleReturnToApp('focus');
-      }
-    };
-
-    const onOnline = () => {
-      if (document.visibilityState === 'visible') {
-        tryRefresh('online');
+      // document.visibilityState === 'visible'
+      // Only refresh when we previously detected a connectivity issue.
+      if (wasOnlineRef.current === false) {
+        tryRefresh('visibility-after-connectivity-issue');
       }
     };
 
     document.addEventListener('visibilitychange', onVisibilityChange);
-    window.addEventListener('focus', onFocus);
-    window.addEventListener('online', onOnline);
 
     return () => {
       document.removeEventListener('visibilitychange', onVisibilityChange);
-      window.removeEventListener('focus', onFocus);
-      window.removeEventListener('online', onOnline);
     };
   }, [onReconnect]);
 
-  // Capacitor: refresh on native app resume/background transitions
+  // Browser network signal: when coming online while visible, refresh.
+  // This is more reliable for "connection lost" than Firestore `fromCache`.
   useEffect(() => {
-    let removeListener: (() => void) | undefined;
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
-    const attach = async () => {
-      try {
-        // Only attempt if we're actually in a Capacitor environment.
-        if (typeof window === 'undefined') return;
-        const w = window as any;
-        if (!w?.Capacitor) return;
+    const onOnline = () => {
+      if (!optsRef.current.refreshOnBrowserOnline) return;
+      if (document.visibilityState !== 'visible') return;
 
-        const mod = await import('@capacitor/app');
-        removeListener = (await mod.App.addListener('appStateChange', ({ isActive }) => {
-          if (!isActive) {
-            lastHiddenAtRef.current = Date.now();
-            return;
-          }
-
-          // When returning to foreground, treat it like "return to app".
-          const now = Date.now();
-          const lastHiddenAt = lastHiddenAtRef.current;
-          const { refreshOnReturnAfterMs } = optsRef.current;
-
-          const shouldRefreshForDuration = lastHiddenAt && now - lastHiddenAt >= (refreshOnReturnAfterMs ?? 0);
-          const shouldRefreshForOffline = wasOnlineRef.current === false;
-
-          if (shouldRefreshForDuration || shouldRefreshForOffline) {
-            tryRefresh('capacitor-resume');
-          }
-        })).remove;
-      } catch {
-        // Ignore if capacitor plugin isn't available in the current runtime.
-      }
+      // Mark that we have connectivity again.
+      wasOnlineRef.current = true;
+      tryRefresh('browser-online');
     };
 
-    attach();
-
+    window.addEventListener('online', onOnline);
     return () => {
-      removeListener?.();
+      window.removeEventListener('online', onOnline);
     };
   }, [onReconnect]);
 
@@ -156,27 +120,21 @@ export function useDataRefresher(onReconnect: () => void, options?: DataRefreshe
       _check_collection,
       { includeMetadataChanges: true }, // Important to get offline status
       (snapshot) => {
-        // `snapshot.metadata.fromCache` is true when offline and data is served from cache.
-        // When connection is restored, it becomes false.
-        const currentlyOnline = !snapshot.metadata.fromCache;
-
-        // If we detect an offline -> online transition while the app is visible,
-        // force a refresh to re-run subscriptions / queries.
-        if (wasOnlineRef.current !== null && wasOnlineRef.current === false && currentlyOnline && isVisible) {
-          tryRefresh('firestore-reconnect');
-        }
-
-        wasOnlineRef.current = currentlyOnline;
-
-        if (!currentlyOnline) {
-          // console.log('Firestore connection is offline. Serving from cache.');
-        }
+        // Snapshot callback: do not infer offline/online from cache-first behavior.
+        // We only use this listener's ERROR callback to mark a connectivity issue.
+        // If you want to see metadata for debugging, keep this log.
+        // console.log(
+        //   `[useDataRefresher] Firestore connection check snapshot: fromCache=${snapshot.metadata.fromCache} hasPendingWrites=${snapshot.metadata.hasPendingWrites}`
+        // );
       },
       (error) => {
-        // console.error('Firestore connection check error:', error);
+        console.error('Firestore connection check error:', error);
 
         if (isVisible) {
-          console.log('Firestore connection error while tab is visible. Refreshing data...');
+          console.log('[useDataRefresher] Firestore listener error while visible -> triggering refresh', error);
+          // Mark that we had a connectivity issue; when we come back online/visible,
+          // we will refresh subscriptions.
+          wasOnlineRef.current = false;
           tryRefresh('firestore-error');
         }
       }
