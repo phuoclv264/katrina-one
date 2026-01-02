@@ -309,6 +309,7 @@ When adding features:
 1. Read the relevant sections of `TESTING_PLAN.md` for context
 2. Understand the role-based access requirements
 3. Check `src/lib/types.ts` for data structure definitions
+4. If you create a new page (route/component), register the page component with the mobile layout and update any notification links that should point to the new page (see "Adding New Routes" and "Adding New Components" below for placement guidance).
 
 ### Development Workflow
 1. **Clean start:**
