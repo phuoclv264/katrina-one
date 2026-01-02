@@ -79,19 +79,21 @@ export default function VoteModal({ isOpen, onClose, event, currentUser }: VoteM
 
   const handleMultiVoteChange = (candidateId: string, checked: boolean) => {
     setSelectedCandidates(prev => {
-      const newSelection = new Set(prev);
-      if (checked) {
-        newSelection.add(candidateId);
-      } else {
-        newSelection.delete(candidateId);
-      }
-      
       const maxVotes = event.maxVotesPerUser || 1;
-      if (newSelection.size > maxVotes) {
-        toast.warning(`Bạn chỉ có thể chọn tối đa ${maxVotes} lựa chọn.`);
-        return prev;
+      if (checked) {
+        // If already selected, no change
+        if (prev.includes(candidateId)) return prev;
+        // If under limit, append
+        if (prev.length < maxVotes) {
+          return [...prev, candidateId];
+        }
+        // At limit: replace the oldest selection with the new one
+        const newSelection = [...prev.slice(1), candidateId];
+        return newSelection;
+      } else {
+        // Unchecking: remove the candidate
+        return prev.filter(id => id !== candidateId);
       }
-      return Array.from(newSelection);
     });
   };
 
