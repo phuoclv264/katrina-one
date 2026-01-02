@@ -591,7 +591,7 @@ export default function ScheduleView() {
                                                                         <p className="text-sm">{shift.timeSlot.start} - {shift.timeSlot.end}</p>
                                                                     </div>
                                                                     {!isPastShift && (
-                                                                        <DropdownMenu>
+                                                                        <DropdownMenu modal={false}>
                                                                             <DropdownMenuTrigger asChild>
                                                                                 <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary/80 hover:text-primary-foreground h-8 w-8">
                                                                                     <MoreVertical className="h-5 w-5" />

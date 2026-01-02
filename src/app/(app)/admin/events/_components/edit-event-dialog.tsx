@@ -12,6 +12,7 @@ import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { toast } from '@/components/ui/pro-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Timestamp } from 'firebase/firestore';
+import { timestampToString, toDateSafe } from '@/lib/utils';
 
 interface EditEventDialogProps {
     isOpen: boolean;
@@ -69,8 +70,8 @@ export default function EditEventDialog({ isOpen, onClose, eventToEdit, onSave, 
         try {
             const finalData = {
                 ...eventData,
-                startAt: Timestamp.fromDate(new Date(eventData.startAt as string)),
-                endAt: Timestamp.fromDate(new Date(eventData.endAt as string)),
+                startAt: Timestamp.fromDate(toDateSafe(eventData.startAt) ?? new Date()),
+                endAt: Timestamp.fromDate(toDateSafe(eventData.endAt) ?? new Date()),
             };
             await onSave(finalData as Omit<Event, 'id'>, eventToEdit?.id);
             onClose();
@@ -123,11 +124,11 @@ export default function EditEventDialog({ isOpen, onClose, eventToEdit, onSave, 
                      <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="startAt">Thời gian bắt đầu</Label>
-                            <Input id="startAt" type="datetime-local" value={eventData.startAt as string || ''} onChange={e => handleFieldChange('startAt', e.target.value)} />
+                            <Input id="startAt" type="datetime-local" value={timestampToString(eventData.startAt)} onChange={e => handleFieldChange('startAt', e.target.value)} />
                         </div>
                          <div className="space-y-2">
                             <Label htmlFor="endAt">Thời gian kết thúc</Label>
-                            <Input id="endAt" type="datetime-local" value={eventData.endAt as string || ''} onChange={e => handleFieldChange('endAt', e.target.value)} />
+                            <Input id="endAt" type="datetime-local" value={timestampToString(eventData.endAt)} onChange={e => handleFieldChange('endAt', e.target.value)} />
                         </div>
                     </div>
                     <div className="space-y-2">

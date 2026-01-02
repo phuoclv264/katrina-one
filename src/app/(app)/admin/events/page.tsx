@@ -156,13 +156,13 @@ function EventsPageComponent() {
                       {formatTimestamp(event.startAt)} - {formatTimestamp(event.endAt)}
                     </TableCell>
                     <TableCell className="text-right">
-                       <DropdownMenu>
+                       <DropdownMenu modal={false}>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon" disabled={!!isProcessing}><MoreHorizontal className="h-4 w-4"/></Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent>
-                                <DropdownMenuItem onClick={() => handleOpenResultsDialog(event)}><BarChart2 className="mr-2 h-4 w-4"/>Xem kết quả</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleOpenFormDialog(event)}><Edit className="mr-2 h-4 w-4"/>Sửa</DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => handleOpenResultsDialog(event)}><BarChart2 className="mr-2 h-4 w-4"/>Xem kết quả</DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => handleOpenFormDialog(event)}><Edit className="mr-2 h-4 w-4"/>Sửa</DropdownMenuItem>
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
                                         <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4"/>Xóa</DropdownMenuItem>
