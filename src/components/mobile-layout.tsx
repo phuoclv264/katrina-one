@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import UserMenuView from '@/components/user-menu-view';
+import usePreserveScroll from '@/hooks/use-preserve-scroll';
 import { cn } from '@/lib/utils';
 import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
 import { MobileNavigationProvider } from '@/contexts/mobile-navigation-context';
@@ -77,6 +78,7 @@ const BartenderPage = dynamic(() => import('@/app/(app)/bartender/page'), { ssr:
 const CashierPage = dynamic(() => import('@/app/(app)/cashier/page'), { ssr: false, loading: () => <LoadingPage /> });
 const ManagerPage = dynamic(() => import('@/app/(app)/manager/page'), { ssr: false, loading: () => <LoadingPage /> });
 const AdminPage = dynamic(() => import('@/app/(app)/admin/page'), { ssr: false, loading: () => <LoadingPage /> });
+const AdminEventsPage = dynamic(() => import('@/app/(app)/admin/events/page'), { ssr: false, loading: () => <LoadingPage /> });
 const ReportsPage = dynamic(() => import('@/app/(app)/reports/page'), { ssr: false, loading: () => <LoadingPage /> });
 const FinancialReportPage = dynamic(() => import('@/app/(app)/financial-report/page'), { ssr: false, loading: () => <LoadingPage /> });
 const ShiftSchedulingPage = dynamic(() => import('@/app/(app)/shift-scheduling/page'), { ssr: false, loading: () => <LoadingPage /> });
@@ -220,6 +222,8 @@ function setPageHash(href: string, mode: 'push' | 'replace' = 'push') {
   else window.history.pushState(null, '', nextUrl);
 }
 
+// usePreserveScroll moved to src/hooks/use-preserve-scroll.ts
+
 export function MobileLayout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const { isCheckedIn } = useCheckInCardPlacement();
@@ -227,6 +231,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
   const [activeTab, setActiveTab] = useState('home');
   const [isTabContent, setIsTabContent] = useState(true);
   const [virtualHref, setVirtualHref] = useState<string | null>(null);
+  const { restore: restoreScroll, persist: persistScroll } = usePreserveScroll();
 
   const tabs = useMemo(() => buildTabs(user, isCheckedIn), [user, isCheckedIn]);
 
@@ -271,15 +276,23 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
     }
   }, [pathname, virtualHref]);
 
+  // When our virtual route changes (or the active tab/pathname changes), attempt to restore
+  useEffect(() => {
+    // call restore; hook will no-op on server
+    try { restoreScroll(); } catch {}
+  }, [virtualHref, activeTab, pathname, restoreScroll]);
+
   const mobileNavApi = useMemo(
     () => ({
       push: (href: string) => {
+        try { persistScroll(); } catch {}
         setActiveTab((prev) => (prev === 'menu' ? 'home' : prev));
         setIsTabContent(true);
         setVirtualHref(href);
         setPageHash(href, 'push');
       },
       replace: (href: string) => {
+        try { persistScroll(); } catch {}
         setActiveTab((prev) => (prev === 'menu' ? 'home' : prev));
         setIsTabContent(true);
         setVirtualHref(href);
@@ -364,6 +377,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
 
     if (currentIsQuick && !quickTabVisible) {
       // Move back to home and navigate to the role's home path if needed
+      try { persistScroll(); } catch {}
       setActiveTab('home');
       setIsTabContent(true);
       setVirtualHref(null);
@@ -375,6 +389,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
   if (!user) return null;
 
   const handleTabChange = (tabId: string) => {
+    try { persistScroll(); } catch {}
     if (tabId === 'menu') {
       // Show the user menu page (mobile-friendly) instead of opening the drawer
       setActiveTab('menu');
@@ -423,6 +438,8 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
         return <ManagerPage />;
       case '/admin':
         return <AdminPage />;
+      case '/admin/events':
+        return <AdminEventsPage />;
       case '/schedule':
         return <ScheduleView />;
       case '/reports':
