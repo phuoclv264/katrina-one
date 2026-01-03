@@ -193,3 +193,12 @@ export async function getEventDraws(eventId: string): Promise<PrizeDrawResult[]>
         ...doc.data()
     } as PrizeDrawResult));
 }
+
+/**
+ * Deletes a specific user's vote document for an event.
+ * Useful for admins/owners to remove invalid or inappropriate votes.
+ */
+export async function deleteVote(eventId: string, userId: string): Promise<void> {
+    const voteRef = doc(db, `events/${eventId}/votes`, userId);
+    await deleteDoc(voteRef);
+}
