@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { onSnapshot, collection } from 'firebase/firestore';
+import { onSnapshot, collection, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { usePageVisibility } from './usePageVisibility';
 
@@ -35,6 +35,11 @@ export function useDataRefresher(onReconnect: () => void, options?: DataRefreshe
   // Count consecutive offline snapshots to avoid flapping.
   const offlineStreakRef = useRef<number>(0);
   const wasOnlineRef = useRef<boolean | null>(null);
+  // Rate limit server probes so we don't spam network while retrying
+  const lastProbeAtRef = useRef<number>(0);
+  const OFFLINE_STREAK_THRESHOLD = 3;
+  const MIN_PROBE_INTERVAL_MS = 10_000; // 10s
+
 
   useEffect(() => {
     // Keep latest option values without retriggering effects.
@@ -120,23 +125,75 @@ export function useDataRefresher(onReconnect: () => void, options?: DataRefreshe
       _check_collection,
       { includeMetadataChanges: true }, // Important to get offline status
       (snapshot) => {
-        // Snapshot callback: do not infer offline/online from cache-first behavior.
-        // We only use this listener's ERROR callback to mark a connectivity issue.
-        // If you want to see metadata for debugging, keep this log.
-        // console.log(
-        //   `[useDataRefresher] Firestore connection check snapshot: fromCache=${snapshot.metadata.fromCache} hasPendingWrites=${snapshot.metadata.hasPendingWrites}`
-        // );
+        // Use metadata pattern to detect degraded connectivity when the onSnapshot
+        // error callback doesn't fire (common for transient network drops).
+        try {
+          const fromCache = !!snapshot?.metadata?.fromCache;
+          if (fromCache) {
+            offlineStreakRef.current = (offlineStreakRef.current || 0) + 1;
+            // If we see several consecutive cached snapshots, treat this as a likely
+            // connectivity degradation and attempt a refresh (rate-limited).
+            if (offlineStreakRef.current >= OFFLINE_STREAK_THRESHOLD) {
+              if (wasOnlineRef.current !== false) {
+                console.warn('[useDataRefresher] Detected repeated cache-only snapshots -> possible offline');
+                wasOnlineRef.current = false;
+                tryRefresh('fromCache-streak');
+              }
+
+              const now = Date.now();
+              if (now - lastProbeAtRef.current > MIN_PROBE_INTERVAL_MS) {
+                lastProbeAtRef.current = now;
+                // Probe the server to confirm reachability. If probe fails, trigger a refresh.
+                (async () => {
+                  try {
+                    // Small doc used only to test server reachability; create it if you like.
+                    const probeDocRef = doc(db, 'app-data', 'connectionProbe');
+                    await getDoc(probeDocRef);
+                    // Probe succeeded; reset offline indicators.
+                    offlineStreakRef.current = 0;
+                    wasOnlineRef.current = true;
+                    console.log('[useDataRefresher] Server probe succeeded after cached snapshot streak');
+                  } catch (probeErr) {
+                    console.warn('[useDataRefresher] Server probe failed after cached snapshot streak', probeErr);
+                    if (document.visibilityState === 'visible') tryRefresh('server-probe-failed');
+                  }
+                })();
+              }
+            }
+          } else {
+            // healthy snapshot from server
+            offlineStreakRef.current = 0;
+            wasOnlineRef.current = true;
+          }
+        } catch (e) {
+          // Safely ignore unanticipated metadata shapes
+          console.debug('[useDataRefresher] Failed to interpret snapshot metadata', e);
+        }
       },
       (error) => {
         console.error('Firestore connection check error:', error);
 
-        if (isVisible) {
-          console.log('[useDataRefresher] Firestore listener error while visible -> triggering refresh', error);
-          // Mark that we had a connectivity issue; when we come back online/visible,
-          // we will refresh subscriptions.
-          wasOnlineRef.current = false;
-          tryRefresh('firestore-error');
-        }
+        console.log('[useDataRefresher] Detected Firestore connectivity issue (error callback), isVisible=', isVisible);
+
+        // Mark that we had a connectivity issue; when we come back online/visible,
+        // we will refresh subscriptions.
+        wasOnlineRef.current = false;
+
+        // Also attempt a server probe to confirm the error indicates an unreachable server
+        (async () => {
+          try {
+            const probeDocRef = doc(db, 'app-data', 'connectionProbe');
+            await getDoc(probeDocRef);
+            // If probe succeeded, we likely had a transient issue - mark online.
+            wasOnlineRef.current = true;
+            console.log('[useDataRefresher] Server probe succeeded despite onSnapshot error');
+            // still trigger a refresh to be safe
+            if (isVisible) tryRefresh('firestore-error-probe-succeeded');
+          } catch (probeErr) {
+            console.warn('[useDataRefresher] Server probe failed after onSnapshot error', probeErr);
+            if (isVisible) tryRefresh('firestore-error');
+          }
+        })();
       }
     );
 
