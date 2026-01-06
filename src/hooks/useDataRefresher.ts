@@ -130,10 +130,17 @@ export function useDataRefresher(onReconnect: () => void, options?: DataRefreshe
         try {
           const fromCache = !!snapshot?.metadata?.fromCache;
           if (fromCache) {
-            offlineStreakRef.current = (offlineStreakRef.current || 0) + 1;
+            const newStreak = (offlineStreakRef.current || 0) + 1;
+            offlineStreakRef.current = newStreak;
+            console.log(`[useDataRefresher] Snapshot from cache detected (streak=${newStreak})`);
+
             // If we see several consecutive cached snapshots, treat this as a likely
             // connectivity degradation and attempt a refresh (rate-limited).
             if (offlineStreakRef.current >= OFFLINE_STREAK_THRESHOLD) {
+              console.log(
+                `[useDataRefresher] Offline streak ${offlineStreakRef.current} >= threshold ${OFFLINE_STREAK_THRESHOLD}`
+              );
+
               if (wasOnlineRef.current !== false) {
                 console.warn('[useDataRefresher] Detected repeated cache-only snapshots -> possible offline');
                 wasOnlineRef.current = false;
@@ -143,6 +150,8 @@ export function useDataRefresher(onReconnect: () => void, options?: DataRefreshe
               const now = Date.now();
               if (now - lastProbeAtRef.current > MIN_PROBE_INTERVAL_MS) {
                 lastProbeAtRef.current = now;
+                console.log('[useDataRefresher] Scheduling server probe to confirm reachability');
+
                 // Probe the server to confirm reachability. If probe fails, trigger a refresh.
                 (async () => {
                   try {
@@ -155,7 +164,10 @@ export function useDataRefresher(onReconnect: () => void, options?: DataRefreshe
                     console.log('[useDataRefresher] Server probe succeeded after cached snapshot streak');
                   } catch (probeErr) {
                     console.warn('[useDataRefresher] Server probe failed after cached snapshot streak', probeErr);
-                    if (document.visibilityState === 'visible') tryRefresh('server-probe-failed');
+                    if (document.visibilityState === 'visible') {
+                      console.log('[useDataRefresher] Probe failed while visible — triggering refresh');
+                      tryRefresh('server-probe-failed');
+                    }
                   }
                 })();
               }
@@ -164,6 +176,7 @@ export function useDataRefresher(onReconnect: () => void, options?: DataRefreshe
             // healthy snapshot from server
             offlineStreakRef.current = 0;
             wasOnlineRef.current = true;
+            console.log('[useDataRefresher] Snapshot from server — connectivity healthy');
           }
         } catch (e) {
           // Safely ignore unanticipated metadata shapes

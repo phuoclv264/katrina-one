@@ -168,7 +168,6 @@ export default function CommentDialog({
             <Dialog open={isOpen} onOpenChange={onClose}>
                 <DialogContent 
                     className="max-w-2xl h-[90vh] flex flex-col p-0 bg-white dark:bg-card rounded-xl shadow-lg"
-                     onInteractOutside={(e) => e.preventDefault()}
                 >
                      <div id="comment-lightbox-container"></div>
                     <DialogHeader className="p-4 sm:p-6 pb-2 border-b shrink-0">

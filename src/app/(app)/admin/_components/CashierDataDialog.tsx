@@ -128,12 +128,7 @@ export function CashierDataDialog({
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent
-                className="max-w-4xl h-[85vh] flex flex-col p-0 gap-0 bg-gray-50 dark:bg-gray-900 rounded-lg overflow-hidden"
-                // Prevent interacting with outside elements while dialog is open
-                onInteractOutside={(e: any) => e.preventDefault()}
-                onPointerDownOutside={(e: any) => e.preventDefault()}
-                onFocusOutside={(e: any) => e.preventDefault()}
-            >
+                className="max-w-4xl h-[85vh] flex flex-col p-0 gap-0 bg-gray-50 dark:bg-gray-900 rounded-lg overflow-hidden">
                 <DialogClose asChild>
                     <Button
                         type="button"

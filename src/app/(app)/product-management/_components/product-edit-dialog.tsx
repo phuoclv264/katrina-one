@@ -217,7 +217,6 @@ function AddIngredientDialog({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent 
         className="max-w-4xl p-0 h-full md:h-[90vh] flex flex-col bg-background rounded-xl shadow-lg"
-        onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader className="p-4 sm:p-6 pb-4 border-b">
           <DialogTitle>Thêm nguyên liệu</DialogTitle>
@@ -448,7 +447,6 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleAttemptClose()}>
       <DialogContent 
         className="max-w-3xl flex flex-col h-[90vh] p-0 bg-card rounded-xl shadow-lg"
-        onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader className="p-6 pb-4 border-b">
           <DialogTitle>{productToEdit ? 'Chỉnh sửa mặt hàng' : 'Thêm mặt hàng mới'}</DialogTitle>

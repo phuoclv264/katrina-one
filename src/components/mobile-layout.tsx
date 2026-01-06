@@ -543,6 +543,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
         tabs={tabs} 
         activeTab={activeTab} 
         onTabChange={handleTabChange} 
+        watchValue={isCheckedIn}
       />
     </div>
   );
