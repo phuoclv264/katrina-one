@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { AlertTriangle, Banknote, Eye, Receipt, X } from 'lucide-react';
-import type { RevenueStats, ExpenseSlip, IncidentReport, InventoryItem } from '@/lib/types';
+import type { RevenueStats, ExpenseSlip, IncidentReport, InventoryItem, CashHandoverReport } from '@/lib/types';
 import { generateShortName } from '@/lib/utils';
 import { useLightbox } from '@/contexts/lightbox-context';
 
@@ -20,6 +20,7 @@ interface CashierDataDialogProps {
     expenseSlips: ExpenseSlip[];
     incidents: IncidentReport[];
     inventoryList: InventoryItem[];
+    handoverByDate?: Record<string, CashHandoverReport[] | null>;
 }
 
 export function CashierDataDialog({
@@ -30,6 +31,7 @@ export function CashierDataDialog({
     expenseSlips,
     incidents,
     inventoryList,
+    handoverByDate,
 }: CashierDataDialogProps) {
     const [activeTab, setActiveTab] = useState('revenue');
     const { openLightbox } = useLightbox();
@@ -79,6 +81,8 @@ export function CashierDataDialog({
         return { sortedRevenueStats: sorted, prevWithinDayById, statMs };
     }, [revenueStats]);
 
+
+
     const getShortItemName = (name: string) => {
         const base = name.split('(')[0]?.split(' - ')[0]?.trim() || name.trim();
         if (base.length <= 18) return base;
@@ -124,12 +128,7 @@ export function CashierDataDialog({
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent
-                className="max-w-4xl h-[85vh] flex flex-col p-0 gap-0 bg-gray-50 dark:bg-gray-900 rounded-lg overflow-hidden"
-                // Prevent interacting with outside elements while dialog is open
-                onInteractOutside={(e: any) => e.preventDefault()}
-                onPointerDownOutside={(e: any) => e.preventDefault()}
-                onFocusOutside={(e: any) => e.preventDefault()}
-            >
+                className="max-w-4xl h-[85vh] flex flex-col p-0 gap-0 bg-gray-50 dark:bg-gray-900 rounded-lg overflow-hidden">
                 <DialogClose asChild>
                     <Button
                         type="button"
@@ -191,6 +190,34 @@ export function CashierDataDialog({
                                         const updatedAt = formatTime(stat.createdAt) || formatTime(stat.reportTimestamp);
                                         const createdByName = stat.createdBy?.userName || '';
 
+                                        // Find associated handover report (prefer linked report) for this stat's date (provided via prop)
+                                        const handoversForDate = handoverByDate?.[stat.date] ?? null;
+                                        const associatedHandover = handoversForDate
+                                            ? (handoversForDate.find(h => h.linkedRevenueStatsId === stat.id) ?? handoversForDate[handoversForDate.length - 1])
+                                            : null;
+
+                                        // Compute expected cash: prefer explicit expectedCash, otherwise derive from linked revenue stat and linked expense slips, fallback to receipt-derived values
+                                        const receipt = associatedHandover?.finalHandoverDetails?.receiptData;
+
+                                        // linked revenue stat referenced by the handover report (if any)
+                                        const linkedRevenueStat = associatedHandover?.linkedRevenueStatsId ? revenueStats.find((s) => s.id === associatedHandover.linkedRevenueStatsId) : null;
+
+                                        // collect linked expense slips using the slip IDs stored on the handover report
+                                        const linkedExpenseSlips = Array.isArray(associatedHandover?.linkedExpenseSlipIds) ? associatedHandover!.linkedExpenseSlipIds.map((id) => expenseSlips.find((s) => s.id === id)).filter(Boolean) as ExpenseSlip[] : [];
+
+                                        // sum only cash-paid amounts from linked slips
+                                        const totalLinkedExpenseCash = linkedExpenseSlips.reduce((sum, slip) => {
+                                            const amt = (slip.actualPaidAmount ?? slip.totalAmount ?? 0);
+                                            return sum + (slip.paymentMethod === 'cash' ? amt : 0);
+                                        }, 0);
+
+                                        const expectedFromLinked = linkedRevenueStat ? ((linkedRevenueStat.revenueByPaymentMethod?.cash ?? 0) - totalLinkedExpenseCash + (associatedHandover?.startOfDayCash ?? 0)) : null;
+
+                                        const expectedCash: number | null = receipt?.expectedCash ?? (expectedFromLinked !== null ? expectedFromLinked : (receipt ? ((receipt.cashRevenue ?? 0) - (receipt.cashExpense ?? 0)) : null));
+
+                                        const diff: number | null = (expectedCash !== null && associatedHandover) ? (associatedHandover.actualCashCounted - expectedCash) : null;
+                                        const diffClass = diff === null ? 'text-muted-foreground' : diff > 0 ? 'text-green-700 dark:text-green-400' : diff < 0 ? 'text-red-700 dark:text-red-400' : 'text-muted-foreground';
+
                                         return (
                                         <React.Fragment key={stat.id}>
                                             {isNewDay && (
@@ -235,7 +262,7 @@ export function CashierDataDialog({
                                                         )}
                                                     </div>
                                                 </CardHeader>
-                                                <CardContent className="p-3 grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                                                <CardContent className="p-3 grid grid-cols-2 sm:grid-cols-6 gap-4 text-sm">
                                                     <div>
                                                         <p className="text-muted-foreground text-xs">Tiền mặt</p>
                                                         <p className="font-medium">{formatCurrency(stat.revenueByPaymentMethod?.cash || 0)}</p>
@@ -252,7 +279,48 @@ export function CashierDataDialog({
                                                         <p className="text-muted-foreground text-xs">ShopeeFood</p>
                                                         <p className="font-medium">{formatCurrency(stat.revenueByPaymentMethod?.shopeeFood || 0)}</p>
                                                     </div>
-                                                </CardContent>
+                                                    <div>
+                                                        <p className="text-muted-foreground text-xs">TCB VietQR</p>
+                                                        <p className="font-medium">{formatCurrency(stat.revenueByPaymentMethod?.techcombankVietQrPro || 0)}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-muted-foreground text-xs">Tiền mặt thực tế</p>
+                                                        <div className="text-sm">
+                                                            {associatedHandover ? (
+                                                                <>
+                                                                    <div className="font-medium">{formatCurrency(associatedHandover.actualCashCounted)}</div>
+                                                                    {diff !== null && (
+                                                                        <div>
+                                                                            <div className="text-xs mt-0.5 text-muted-foreground">
+                                                                                Chênh lệch: <span className={diffClass}>
+                                                                                    {formatCurrency(diff!)}
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                    {associatedHandover.discrepancyReason && (
+                                                                        <div className="text-xs mt-0.5 text-muted-foreground">Lý do: {associatedHandover.discrepancyReason}</div>
+                                                                    )}
+                                                                    {associatedHandover.discrepancyProofPhotos && associatedHandover.discrepancyProofPhotos.length > 0 && (
+                                                                        <div className="mt-1">
+                                                                            <Button
+                                                                                type="button"
+                                                                                variant="secondary"
+                                                                                size="sm"
+                                                                                className="h-6 px-2 rounded-full bg-gray-100/80 hover:bg-gray-200 dark:bg-gray-900/40 dark:hover:bg-gray-900/60 text-gray-800 dark:text-gray-300 border-none flex items-center gap-1 transition-colors"
+                                                                                onClick={() => openLightbox(associatedHandover.discrepancyProofPhotos!.map(p => ({ src: p })), 0)}
+                                                                            >
+                                                                                <Eye className="h-3 w-3" />
+                                                                                <span className="text-[10px] font-bold uppercase tracking-wider">Xem chứng từ</span>
+                                                                            </Button>
+                                                                        </div>
+                                                                    )}
+                                                                </>
+                                                            ) : (
+                                                                <div className="text-muted-foreground">Chưa có</div>
+                                                            )}
+                                                        </div>
+                                                    </div>                                                </CardContent>
                                             </Card>
                                         </React.Fragment>
                                         );

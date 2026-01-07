@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useRouter } from 'nextjs-toploader/app';
+import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { AssignedShift } from '@/lib/types';
@@ -19,7 +19,7 @@ interface TodaysScheduleSectionProps {
 }
 
 export function TodaysScheduleSection({ shifts, onViewDetails }: TodaysScheduleSectionProps) {
-  const router = useRouter();
+  const navigation = useAppNavigation();
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 flex-1">
@@ -32,7 +32,7 @@ export function TodaysScheduleSection({ shifts, onViewDetails }: TodaysScheduleS
             if (onViewDetails) {
               onViewDetails();
             } else {
-              router.push('/schedule');
+              navigation.push('/schedule');
             }
           }}
           className="text-xs text-blue-600 hover:text-blue-700 h-auto p-0"

@@ -189,7 +189,7 @@ export default function IncidentReportDialog({
     return (
         <>
             <Dialog open={open} onOpenChange={(open) => !open && onOpenChange(false)}>
-                <DialogContent className="sm:max-w-md bg-card flex flex-col h-[90vh] p-0" onInteractOutside={(e) => e.preventDefault()}>
+                <DialogContent className="sm:max-w-md bg-card flex flex-col h-[90vh] p-0">
                     <DialogHeader className="shrink-0 p-6 pb-4 border-b bg-muted/30">
                         <DialogTitle>{dialogTitle}</DialogTitle>
                         <DialogDescription>

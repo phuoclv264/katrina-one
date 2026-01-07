@@ -10,7 +10,7 @@ import { dataStore } from '@/lib/data-store';
 import { unregisterNotifications } from '@/lib/firebase-messaging';
 import { useDataRefresher } from './useDataRefresher';
 import { isUserOnActiveShift, getActiveShifts } from '@/lib/schedule-utils';
-import type { Schedule, AssignedShift, Notification } from '@/lib/types';
+import type { Schedule, AssignedShift, Notification, ManagedUser } from '@/lib/types';
 import { getISOWeek, getISOWeekYear, format } from 'date-fns';
 
 export type UserRole = 'Phục vụ' | 'Pha chế' | 'Quản lý' | 'Chủ nhà hàng' | 'Thu ngân';
@@ -29,6 +29,7 @@ export const useAuth = () => {
   const [activeShifts, setActiveShifts] = useState<AssignedShift[]>([]);
   const [todaysShifts, setTodaysShifts] = useState<AssignedShift[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [users, setUsers] = useState<ManagedUser[]>([]);
   const router = useRouter();
   const pathname = usePathname();
   const loadingTimer = useRef<NodeJS.Timeout | null>(null);
@@ -157,6 +158,7 @@ export const useAuth = () => {
       setActiveShifts([]);
       setTodaysShifts([]);
       setNotifications([]);
+      setUsers([]);
       return;
     };
 
@@ -170,9 +172,14 @@ export const useAuth = () => {
       setNotifications(newNotifications);
     });
 
+    const unsubscribeUsers = dataStore.subscribeToUsers((newUsers) => {
+      setUsers(newUsers);
+    });
+
     return () => {
       unsubscribeSchedule();
       unsubcribeRelevantNotifications();
+      unsubscribeUsers();
     };
   }, [user, checkUserShift, refreshTrigger]);
 
@@ -266,6 +273,7 @@ export const useAuth = () => {
     activeShifts,
     todaysShifts,
     notifications,
+    users,
     unreadNotificationCount,
     login,
     register,

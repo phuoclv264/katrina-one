@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 // By default, deny all reads and writes
@@ -137,6 +138,27 @@ service cloud.firestore {
         allow read, create: if isSignedIn();
         // Allow user to update/delete their own comment, or owner to delete any comment.
         allow update, delete: if isSignedIn() && (resource.data.authorId == request.auth.uid || isOwner());
+      }
+    }
+
+    // Event Feature Collections
+    match /events/{eventId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isOwner();
+
+      match /votes/{voteId} {
+        allow read: if isSignedIn(); // Allow reading votes for result aggregation, UI will filter
+        allow create: if isSignedIn()
+                      && request.auth.uid == voteId // User can only write to their own vote doc
+                      && get(/databases/$(database)/documents/events/$(eventId)).data.status == 'active'
+                      && request.time >= get(/databases/$(database)/documents/events/$(eventId)).data.startAt
+                      && request.time <= get(/databases/$(database)/documents/events/$(eventId)).data.endAt;
+        allow update, delete: if isOwner(); // Owner can moderate
+      }
+      
+       match /draws/{drawId} {
+        allow read: if isSignedIn();
+        allow create, update, delete: if isOwner();
       }
     }
   }

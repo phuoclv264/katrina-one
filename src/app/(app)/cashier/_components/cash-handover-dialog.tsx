@@ -195,7 +195,7 @@ export default function CashHandoverDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md h-full md:h-auto md:max-h-[90vh] flex flex-col p-0" onInteractOutside={(e) => e.preventDefault()}>
+        <DialogContent className="max-w-md h-full md:h-auto md:max-h-[90vh] flex flex-col p-0">
           <DialogHeader className="p-6 pb-4 border-b shrink-0 bg-muted/30">
             <DialogTitle className="text-2xl flex items-center gap-2"><Wallet /> {dialogTitle}</DialogTitle>
             <DialogDescription>Kiểm đếm và nhập số tiền mặt thực tế trong quầy.</DialogDescription>

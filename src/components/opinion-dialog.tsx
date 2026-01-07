@@ -17,17 +17,18 @@ type OpinionDialogProps = {
   onClose: () => void;
   onSubmit: (opinionText: string) => void;
   taskText: string;
+  initialValue?: string;
 };
 
-const OpinionDialog = ({ isOpen, onClose, onSubmit, taskText }: OpinionDialogProps) => {
-  const [opinionText, setOpinionText] = useState('');
+const OpinionDialog = ({ isOpen, onClose, onSubmit, taskText, initialValue = '' }: OpinionDialogProps) => {
+  const [opinionText, setOpinionText] = useState(initialValue);
 
   // Reset text when dialog is opened for a new task
   useEffect(() => {
     if (isOpen) {
-      setOpinionText('');
+      setOpinionText(initialValue);
     }
-  }, [isOpen]);
+  }, [isOpen, initialValue]);
 
   const handleSubmit = () => {
     onSubmit(opinionText);

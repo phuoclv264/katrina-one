@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'nextjs-toploader/app';
+import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -18,11 +18,12 @@ import { cn } from '@/lib/utils';
 
 interface UserMenuViewProps {
   onNavigateToHome?: () => void;
+  onNavigate?: (href: string) => void;
 }
 
-export default function UserMenuView({ onNavigateToHome }: UserMenuViewProps) {
+export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuViewProps) {
   const { user, logout, loading, isOnActiveShift } = useAuth();
-  const router = useRouter();
+  const nav = useAppNavigation();
 
   if (!user) return null;
 
@@ -108,12 +109,14 @@ export default function UserMenuView({ onNavigateToHome }: UserMenuViewProps) {
 
   const handleNavigate = (href: string) => {
     // Check if this is a "Home" link (Dashboard/Overview)
-    const isHomeLink = ['/shifts', '/bartender', '/cashier', '/manager', '/admin'].includes(href);
+    const isHomeLink = ['/shifts', '/bartender', '/manager', '/admin'].includes(href);
     
     if (isHomeLink && onNavigateToHome) {
       onNavigateToHome();
+    } else if (onNavigate) {
+      onNavigate(href);
     } else {
-      router.push(href);
+      nav.push(href);
     }
   }
 

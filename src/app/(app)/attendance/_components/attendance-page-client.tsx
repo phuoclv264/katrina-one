@@ -1,12 +1,12 @@
 'use client';
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'nextjs-toploader/app';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { ArrowLeft, UserCheck, RefreshCw, Loader2, DollarSign, LayoutGrid, GanttChartSquare, X, Calendar as CalendarIcon, Calculator } from 'lucide-react';
 import { dataStore } from '@/lib/data-store';
-import type { AttendanceRecord, ManagedUser, Schedule, ShiftTemplate, UserRole } from '@/lib/types';
+import type { AttendanceRecord, ManagedUser, Schedule, ShiftTemplate, UserRole, SpecialPeriod } from '@/lib/types';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, isSameMonth, startOfToday, endOfToday, getISOWeek, getISOWeekYear, getYear, getDay, parse, differenceInMinutes } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -24,6 +24,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn, generateShortName } from '@/lib/utils';
 import SalaryManagementDialog from './salary-management-dialog';
 import AttendanceTimeline from './attendance-timeline';
+import SpecialPeriodsDialog from './special-periods-dialog';
 import { Combobox } from '@/components/combobox';
 import { Timestamp } from 'firebase/firestore';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
@@ -40,6 +41,7 @@ export default function AttendancePageComponent() {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [allUsers, setAllUsers] = useState<ManagedUser[]>([]);
     const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+    const [specialPeriods, setSpecialPeriods] = useState<SpecialPeriod[]>([]);
     const [schedules, setSchedules] = useState<Record<string, Schedule>>({});
     const [isLoading, setIsLoading] = useState(true);
     const [recordToEdit, setRecordToEdit] = useState<AttendanceRecord | null>(null);
@@ -47,7 +49,19 @@ export default function AttendancePageComponent() {
     const [isBulkSalaryDialogOpen, setIsBulkSalaryDialogOpen] = useState(false);
     const [isSalaryManagementDialogOpen, setIsSalaryManagementDialogOpen] = useState(false);
     const [isManualAttendanceDialogOpen, setIsManualAttendanceDialogOpen] = useState(false);
+    const [isSpecialPeriodsDialogOpen, setIsSpecialPeriodsDialogOpen] = useState(false);
     const [isSavingSalaries, setIsSavingSalaries] = useState(false);
+
+    const handleCreateSpecialPeriod = useCallback(
+        async (payload: Omit<SpecialPeriod, 'id' | 'createdAt' | 'updatedAt'>) => {
+            await dataStore.createSpecialPeriod(payload);
+        },
+        []
+    );
+
+    const handleDeleteSpecialPeriod = useCallback(async (id: string) => {
+        await dataStore.deleteSpecialPeriod(id);
+    }, []);
 
     // New state for filters and view
     const [viewMode, setViewMode] = useState<'table' | 'timeline'>('table');
@@ -85,11 +99,13 @@ export default function AttendancePageComponent() {
         });
         
         const unsubRecords = dataStore.subscribeToAttendanceRecordsForDateRange(dateRange, setAttendanceRecords);
+        const unsubSpecialPeriods = dataStore.subscribeToSpecialPeriods(setSpecialPeriods);
 
         return () => {
             unsubUsers();
             unsubRecords();
             unsubSchedules();
+            unsubSpecialPeriods();
         };
     }, [user, dateRange, refreshTrigger]);
 
@@ -131,6 +147,42 @@ export default function AttendancePageComponent() {
     const totalSalary = useMemo(() => {
         return filteredRecords.reduce((total, record) => total + (record.salary || 0), 0);
     }, [filteredRecords]);
+
+    // Pagination / incremental loading for performance: show first N records and load more when user
+    // scrolls to bottom. This slices the records passed into child list components.
+    const PAGE_SIZE = 50;
+    const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+    const sentinelRef = useRef<HTMLDivElement | null>(null);
+    const isFetchingRef = useRef(false);
+
+    // Reset visible count when filters or underlying records change
+    useEffect(() => {
+        setVisibleCount(PAGE_SIZE);
+    }, [filteredRecords]);
+
+    const visibleRecords = useMemo(() => filteredRecords.slice(0, visibleCount), [filteredRecords, visibleCount]);
+
+    useEffect(() => {
+        const el = sentinelRef.current;
+        if (!el) return;
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting && filteredRecords.length > visibleCount && !isFetchingRef.current) {
+                    // simple debounce/lock to avoid rapid multiple increments
+                    isFetchingRef.current = true;
+                    // small timeout to allow UI to update smoothly
+                    setTimeout(() => {
+                        setVisibleCount(prev => Math.min(prev + PAGE_SIZE, filteredRecords.length));
+                        isFetchingRef.current = false;
+                    }, 150);
+                }
+            });
+        }, { root: null, rootMargin: '200px', threshold: 0.1 });
+
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, [filteredRecords.length, visibleCount]);
     
     const todaysSummary = useMemo(() => {
         const today = new Date();
@@ -291,9 +343,9 @@ export default function AttendancePageComponent() {
         'Phục vụ': 5,
     };
 
-    if (isLoading || authLoading) {
-        return <LoadingPage />;
-    }
+    // if (isLoading || authLoading) {
+    //     return <LoadingPage />;
+    // }
     
     return (
         <>
@@ -308,6 +360,10 @@ export default function AttendancePageComponent() {
                         <p className="text-muted-foreground mt-2">Xem lại lịch sử chấm công và chi phí lương của nhân viên.</p>
                     </div>
                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                         <Button variant="outline" onClick={() => setIsSpecialPeriodsDialogOpen(true)}>
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            Giai đoạn đặc biệt
+                         </Button>
                          <Button variant="outline" onClick={() => setIsBulkSalaryDialogOpen(true)}>
                             <DollarSign className="mr-2 h-4 w-4" />
                             Quản lý Lương
@@ -455,7 +511,7 @@ export default function AttendancePageComponent() {
 
                 {viewMode === 'timeline' && dateRange?.from && dateRange?.to ? (
                     <AttendanceTimeline
-                        records={filteredRecords}
+                        records={visibleRecords}
                         users={allUsers}
                         schedules={schedules}
                         dateRange={{ from: dateRange.from, to: dateRange.to }}
@@ -464,7 +520,7 @@ export default function AttendancePageComponent() {
                     />
                 ) : isMobile ? (
                     <AttendanceCards 
-                        records={filteredRecords} 
+                        records={visibleRecords} 
                         users={allUsers} 
                         schedules={schedules} 
                         onEdit={handleEditRecord}
@@ -473,13 +529,18 @@ export default function AttendancePageComponent() {
                     />
                 ) : (
                     <AttendanceTable 
-                        records={filteredRecords} 
+                        records={visibleRecords} 
                         users={allUsers} 
                         schedules={schedules} 
                         onEdit={handleEditRecord}
                         onDelete={handleDeleteRecord}
                         onOpenLightbox={openLightbox}
                     />
+                )}
+
+                {/* Sentinel to trigger loading more records when scrolled into view */}
+                {visibleCount < filteredRecords.length && (
+                    <div ref={sentinelRef} className="text-center p-4 text-sm text-muted-foreground">Đang tải thêm...</div>
                 )}
             </div>
 
@@ -509,6 +570,15 @@ export default function AttendancePageComponent() {
                 isOpen={isSalaryManagementDialogOpen}
                 onClose={() => setIsSalaryManagementDialogOpen(false)}
                 allUsers={allUsers}
+            />
+
+            <SpecialPeriodsDialog
+                isOpen={isSpecialPeriodsDialogOpen}
+                onClose={() => setIsSpecialPeriodsDialogOpen(false)}
+                specialPeriods={specialPeriods}
+                users={allUsers}
+                onCreateSpecialPeriod={handleCreateSpecialPeriod}
+                onDeleteSpecialPeriod={handleDeleteSpecialPeriod}
             />
         </>
     )

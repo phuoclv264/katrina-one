@@ -4,7 +4,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { ClipboardList, Archive, ShieldX, CalendarDays, CheckSquare, FileSearch, Banknote, Loader2, Info, ClockIcon, MessageSquare } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'nextjs-toploader/app';
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { Separator } from '@/components/ui/separator';
@@ -17,10 +16,11 @@ import { dataStore } from '@/lib/data-store';
 import { format } from 'date-fns';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { DashboardActionCard } from '@/components/dashboard-action-card';
+import { useAppNavigation } from '@/contexts/app-navigation-context';
 
 export function BartenderHomeView() {
   const { user, loading, todaysShifts } = useAuth();
-  const router = useRouter();
+  const nav = useAppNavigation();
   const { showCheckInCardOnTop, isCheckedIn } = useCheckInCardPlacement();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [todaysMonthlyAssignments, setTodaysMonthlyAssignments] = useState<MonthlyTaskAssignment[]>([]);
@@ -28,9 +28,9 @@ export function BartenderHomeView() {
 
   useEffect(() => {
     if (!loading && user && (user.role !== 'Pha chế' && !user.secondaryRoles?.includes('Pha chế'))) {
-      router.replace('/');
+      nav.replace('/');
     }
-  }, [user, loading, router]);
+  }, [user, loading, nav]);
   
   const handleReconnect = useCallback(() => {
     setRefreshTrigger(prev => prev + 1);
@@ -71,7 +71,7 @@ export function BartenderHomeView() {
             label="Vệ sinh quầy"
             subLabel="Hàng ngày"
             icon={ClipboardList}
-            onClick={() => router.push('/bartender/hygiene-report')}
+            onClick={() => nav.push('/bartender/hygiene-report')}
             color="emerald"
             variant="primary"
           />
@@ -79,7 +79,7 @@ export function BartenderHomeView() {
             label="Kiểm kê kho"
             subLabel="Cuối ca"
             icon={Archive}
-            onClick={() => router.push('/bartender/inventory')}
+            onClick={() => nav.push('/bartender/inventory')}
             color="purple"
             variant="primary"
           />

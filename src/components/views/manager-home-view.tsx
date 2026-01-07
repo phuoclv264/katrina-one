@@ -4,7 +4,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { FileSearch, ClipboardList, Archive, ShieldX, CalendarDays, CheckSquare, Banknote, Loader2, Info, UserCog, ClockIcon, MessageSquare, CalendarCheck } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'nextjs-toploader/app';
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { Separator } from '@/components/ui/separator';
@@ -16,10 +15,11 @@ import type { MonthlyTaskAssignment, ShiftTemplate } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { DashboardActionCard } from '@/components/dashboard-action-card';
+import { useAppNavigation } from '@/contexts/app-navigation-context';
 
 export function ManagerHomeView() {
   const { user, loading, todaysShifts } = useAuth();
-  const router = useRouter();
+  const nav = useAppNavigation();
   const { showCheckInCardOnTop, isCheckedIn } = useCheckInCardPlacement();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [todaysMonthlyAssignments, setTodaysMonthlyAssignments] = useState<MonthlyTaskAssignment[]>([]);
@@ -27,9 +27,9 @@ export function ManagerHomeView() {
 
   useEffect(() => {
     if (!loading && user && (user.role !== 'Quản lý' && user.role !== 'Chủ nhà hàng' && !user.secondaryRoles?.includes('Quản lý'))) {
-      router.replace('/');
+      nav.replace('/');
     }
-  }, [user, loading, router]);
+  }, [user, loading, nav]);
 
   const handleReconnect = useCallback(() => {
     setRefreshTrigger(prev => prev + 1);
@@ -66,7 +66,7 @@ export function ManagerHomeView() {
             label="Phiếu kiểm tra toàn diện"
             subLabel="Định kỳ"
             icon={FileSearch}
-            onClick={() => router.push('/manager/comprehensive-report')}
+            onClick={() => nav.push('/manager/comprehensive-report')}
             color="orange"
             className="col-span-2"
             variant="primary"
@@ -75,7 +75,7 @@ export function ManagerHomeView() {
             label="Xem Báo cáo"
             subLabel="Quản lý"
             icon={CheckSquare}
-            onClick={() => router.push('/reports')}
+            onClick={() => nav.push('/reports')}
             color="blue"
             variant="primary"
           />
@@ -96,7 +96,7 @@ export function ManagerHomeView() {
             label="Xem Báo cáo"
             subLabel="Quản lý"
             icon={CheckSquare}
-            onClick={() => router.push('/reports')}
+            onClick={() => nav.push('/reports')}
             color="blue"
           />
         </div>

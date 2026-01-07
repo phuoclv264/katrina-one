@@ -126,13 +126,20 @@ export function IndividualTask({ assignment, shiftTemplates }: TaskReportingCard
         [],
         noteContent,
       )
-      toast.success("Đã gửi báo cáo sự cố.")
+      toast.success("Đã gửi báo cáo.")
       setIsNoteDialogOpen(false)
     } catch (error) {
-      toast.error("Không thể gửi báo cáo sự cố.")
+      toast.error("Không thể gửi báo cáo.")
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const handleNoteDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      setNoteContent("")
+    }
+    setIsNoteDialogOpen(open)
   }
 
   const createLightboxSlides = (media: MediaAttachment[]) =>
@@ -250,18 +257,73 @@ export function IndividualTask({ assignment, shiftTemplates }: TaskReportingCard
           </div>
         )}
 
-        <div className="px-4 py-4 flex flex-wrap items-center gap-3">
+        {currentUserCompletion?.note && (
+          <div className="px-4 py-1 border-b border-gray-100 dark:border-slate-800">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+              <p
+                className="text-sm text-amber-600 dark:text-amber-400 italic"
+                title={currentUserCompletion.note}
+              >
+                {currentUserCompletion.note}
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="px-4 py-2 flex flex-wrap items-center gap-3">
           {currentUserCompletion ? (
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => setIsCameraOpen(true)}
-              disabled={isSubmitting}
-              className="h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium transition-all active:scale-95"
-            >
-              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-              Thêm ảnh/video
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setIsCameraOpen(true)}
+                disabled={isSubmitting}
+                className="h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium transition-all active:scale-95"
+              >
+                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+                Thêm ảnh/video
+              </Button>
+
+              <Dialog open={isNoteDialogOpen} onOpenChange={handleNoteDialogOpenChange}>
+                <DialogTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={isSubmitting}
+                    onClick={() => setNoteContent(currentUserCompletion?.note || "")}
+                    className="h-10 border-amber-200 text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:border-amber-900 dark:text-amber-500 dark:hover:bg-amber-900/20 rounded-xl font-medium transition-all active:scale-95"
+                  >
+                    <AlertCircle className="mr-2 h-4 w-4" />
+                    Báo cáo
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Báo cáo</DialogTitle>
+                    <DialogDescription>Lý do không thực hiện công việc, hoặc vấn đề phát sinh</DialogDescription>
+                  </DialogHeader>
+                  <Textarea
+                    value={noteContent}
+                    onChange={(e) => setNoteContent(e.target.value)}
+                    placeholder="Nhập nội dung báo cáo..."
+                    rows={3}
+                    className="text-sm"
+                  />
+                  <DialogFooter>
+                    <DialogClose asChild>
+                      <Button variant="outline" size="sm">
+                        Hủy
+                      </Button>
+                    </DialogClose>
+                    <Button size="sm" onClick={handleNoteSubmit} disabled={isSubmitting}>
+                      {isSubmitting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                      Gửi báo cáo
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
           ) : (
             <>
               <Button
@@ -271,24 +333,25 @@ export function IndividualTask({ assignment, shiftTemplates }: TaskReportingCard
                 className="h-10 flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-md shadow-emerald-100 dark:shadow-none font-semibold transition-all active:scale-95"
               >
                 {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
-                Chụp ảnh báo cáo
+                Bằng chứng
               </Button>
-              <Dialog open={isNoteDialogOpen} onOpenChange={setIsNoteDialogOpen}>
+
+              <Dialog open={isNoteDialogOpen} onOpenChange={handleNoteDialogOpenChange}>
                 <DialogTrigger asChild>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    disabled={isSubmitting} 
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={isSubmitting}
                     className="h-10 border-amber-200 text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:border-amber-900 dark:text-amber-500 dark:hover:bg-amber-900/20 rounded-xl font-medium transition-all active:scale-95"
                   >
                     <AlertCircle className="mr-2 h-4 w-4" />
-                    Báo cáo sự cố
+                    Báo cáo
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Báo cáo sự cố</DialogTitle>
-                    <DialogDescription>Vui lòng cho biết lý do không thể thực hiện công việc này</DialogDescription>
+                    <DialogTitle>Báo cáo</DialogTitle>
+                    <DialogDescription>Lý do không thực hiện công việc, hoặc vấn đề phát sinh</DialogDescription>
                   </DialogHeader>
                   <Textarea
                     value={noteContent}
@@ -314,15 +377,15 @@ export function IndividualTask({ assignment, shiftTemplates }: TaskReportingCard
           )}
 
           <div className="ml-auto">
-             <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setExpandedCompletions(!expandedCompletions)}
-                className="text-xs text-muted-foreground h-8"
-              >
-                {expandedCompletions ? "Thu gọn" : "Lịch sử"} 
-                <ChevronDown className={`ml-1 h-3 w-3 transition-transform ${expandedCompletions ? "rotate-180" : ""}`} />
-              </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setExpandedCompletions(!expandedCompletions)}
+              className="text-xs text-muted-foreground h-8"
+            >
+              {expandedCompletions ? "Thu gọn" : "Lịch sử"}
+              <ChevronDown className={`ml-1 h-3 w-3 transition-transform ${expandedCompletions ? "rotate-180" : ""}`} />
+            </Button>
           </div>
         </div>
 
@@ -339,7 +402,7 @@ export function IndividualTask({ assignment, shiftTemplates }: TaskReportingCard
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-slate-700 flex items-center justify-center">
-                                <User className="h-3 w-3 text-muted-foreground" />
+                              <User className="h-3 w-3 text-muted-foreground" />
                             </div>
                             <span className="font-medium">{responsibleUser.userName}</span>
                           </div>
@@ -353,19 +416,27 @@ export function IndividualTask({ assignment, shiftTemplates }: TaskReportingCard
                                 <Eye className="h-3.5 w-3.5" />
                               </button>
                             )}
-                            {completion?.completedAt ? (
+                            {completion?.completedAt && (
                               <Badge variant="outline" className="h-5 px-1.5 text-[10px] border-emerald-200 text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-400">
                                 {format(completion.completedAt.toDate(), "HH:mm")}
                               </Badge>
-                            ) : completion?.note ? (
-                              <Badge variant="outline" className="h-5 px-1.5 text-[10px] border-amber-200 text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-400">
-                                Báo cáo
-                              </Badge>
-                            ) : (
+                            )}
+                            {!completion?.completedAt && !completion?.note && (
                               <span className="text-muted-foreground text-[10px] italic">Chưa làm</span>
                             )}
                           </div>
                         </div>
+                        {completion?.note && (
+                          <div className="mt-1 flex items-start gap-2">
+                            <AlertCircle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                            <span
+                              className="text-amber-600 dark:text-amber-400 text-[10px] italic"
+                              title={completion.note}
+                            >
+                              {completion.note}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     )
                   })}
@@ -380,30 +451,40 @@ export function IndividualTask({ assignment, shiftTemplates }: TaskReportingCard
                   {assignment.otherCompletions.map((completion, idx) => (
                     <div
                       key={completion.completionId || `${completion.completedBy?.userId || 'unknown'}-${idx}`}
-                      className="text-xs flex items-center justify-between"
+                      className="text-xs"
                     >
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-slate-700 flex items-center justify-center">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-slate-700 flex items-center justify-center">
                             <User className="h-3 w-3 text-muted-foreground" />
+                          </div>
+                          <span className="font-medium">{completion.completedBy?.userName || "Unknown"}</span>
                         </div>
-                        <span className="font-medium">{completion.completedBy?.userName || "Unknown"}</span>
+                        <div className="flex items-center gap-2">
+                          {completion.media && completion.media.length > 0 && (
+                            <button onClick={() => handleOpenLightbox(completion.media!, 0)} className="text-muted-foreground hover:text-primary p-1 hover:bg-muted rounded-full transition-colors" title="Xem bằng chứng">
+                              <Eye className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          {completion.completedAt && (
+                            <Badge variant="outline" className="h-5 px-1.5 text-[10px] border-emerald-200 text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-400">
+                              {format(completion.completedAt.toDate(), "HH:mm")}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {completion.media && completion.media.length > 0 && (
-                          <button onClick={() => handleOpenLightbox(completion.media!, 0)} className="text-muted-foreground hover:text-primary p-1 hover:bg-muted rounded-full transition-colors" title="Xem bằng chứng">
-                            <Eye className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                        {completion.completedAt ? (
-                           <Badge variant="outline" className="h-5 px-1.5 text-[10px] border-emerald-200 text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-400">
-                                {format(completion.completedAt.toDate(), "HH:mm")}
-                           </Badge>
-                        ) : (
-                           <Badge variant="outline" className="h-5 px-1.5 text-[10px] border-amber-200 text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-400">
-                                Báo cáo
-                           </Badge>
-                        )}
-                      </div>
+
+                      {completion?.note && (
+                        <div className="mt-1 flex items-start gap-2">
+                          <AlertCircle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                          <span
+                            className="text-amber-600 dark:text-amber-400 text-[10px] italic"
+                            title={completion.note}
+                          >
+                            {completion.note}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -413,7 +494,7 @@ export function IndividualTask({ assignment, shiftTemplates }: TaskReportingCard
         )}
       </div>
 
-      <CameraDialog isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onSubmit={handleMediaSubmit} />
+      <CameraDialog isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onSubmit={handleMediaSubmit} captureMode="both" />
     </>
   )
 }
@@ -432,8 +513,8 @@ export default function TodaysTasksCard({ assignments, shiftTemplates }: TodaysT
 
   const getStatusClasses = (assignment: MonthlyTaskAssignment) => {
     if (!user) return "border-l-slate-200 dark:border-l-slate-800";
-    
-    const completion = 
+
+    const completion =
       assignment.completions.find((c) => c.completedBy?.userId === user.uid) ||
       assignment.otherCompletions.find((c) => c.completedBy?.userId === user.uid);
 

@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { format } from 'date-fns';
+import { format, type Locale } from 'date-fns';
 import { RevenueStats } from "./types";
 
 export function cn(...inputs: ClassValue[]) {
@@ -79,6 +79,25 @@ export function toDateSafe(v: any): Date | null {
   if (typeof v === 'object' && typeof v.toDate === 'function') return v.toDate();
   return new Date(String(v));
 };
+
+/**
+ * Convert a Date/number/string/Firestore Timestamp-like object to a formatted string.
+ * Returns 'N/A' when the value is missing or invalid.
+ *
+ * @param value - Date | number | string | Firestore Timestamp-like
+ * @param formatStr - date-fns format string (default: 'dd/MM/yy HH:mm')
+ * @param locale - optional date-fns Locale (e.g., vi)
+ */
+export function timestampToString(value?: unknown, formatStr: string = 'dd/MM/yy HH:mm', locale?: Locale): string {
+  if (!value) return 'N/A';
+  const d = toDateSafe(value);
+  if (!d || Number.isNaN(d.getTime())) return 'N/A';
+  try {
+    return format(d, formatStr, locale ? { locale } : undefined);
+  } catch (e) {
+    return 'N/A';
+  }
+}
 
 function revenueStatTimestampMs(stat: RevenueStats): number {
   const createdAt = toDateSafe(stat.createdAt);

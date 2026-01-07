@@ -18,6 +18,32 @@ import {
 import type { Notification } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
 
+function normalizeInternalHref(input: unknown, fallback: string): string {
+    if (typeof input !== 'string') return fallback;
+    const href = input.trim();
+    if (!href) return fallback;
+
+    // Already a hash navigation target (rare, but support it)
+    if (href.startsWith('#')) return href;
+
+    // Normal app-relative path
+    if (href.startsWith('/')) return href;
+
+    // Absolute URL: keep only the path/search/hash so mobile hash-nav works.
+    if (href.startsWith('http://') || href.startsWith('https://')) {
+        try {
+            const url = new URL(href);
+            const path = `${url.pathname}${url.search}${url.hash}`;
+            return path.startsWith('/') ? path : `/${path}`;
+        } catch {
+            return fallback;
+        }
+    }
+
+    // Relative path missing leading slash
+    return href.startsWith('/') ? href : `/${href}`;
+}
+
 export const getNotificationDetails = (notification: Notification, currentUserId: string, currentUserRole: string) => {
     const { payload, type: notificationType, status, messageTitle, messageBody } = notification;
 
@@ -93,16 +119,17 @@ export const getNotificationDetails = (notification: Notification, currentUserId
                 icon: ClipboardCheck,
                 title: messageTitle,
                 description: messageBody,
-                href: payload.url || '/reports',
+                href: normalizeInternalHref(payload.url, '/reports'),
             };
         case 'new_monthly_task_report': {
             const hrefBase = '/monthly-task-reports';
             const qs: string[] = [];
             const completionId: string | undefined = payload?.completionId;
-            if (completionId) {
+            const taskId: string | undefined = payload?.taskId;
+            if (completionId && taskId) {
                 const ym = completionId.slice(0, 7);
                 qs.push(`month=${ym}`);
-                qs.push(`highlight=${completionId}`);
+                qs.push(`highlight=${completionId}_${taskId}`);
             } else if (payload?.assignedDate) {
                 const ym = (payload.assignedDate as string).slice(0, 7);
                 qs.push(`month=${ym}`);
@@ -154,7 +181,7 @@ export const getNotificationDetails = (notification: Notification, currentUserId
                 icon: MailQuestion,
                 title: messageTitle || 'Thông báo mới',
                 description: messageBody || 'Bạn có một thông báo mới.',
-                href: '/',
+                href: normalizeInternalHref('/', '/'),
             };
     }
 }

@@ -12,6 +12,7 @@ import { toast } from '@/components/ui/pro-toast';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'nextjs-toploader/app';
+import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { cn, normalizeSearchString } from '@/lib/utils';
 import isEqual from 'lodash.isequal';
@@ -30,6 +31,7 @@ type CategorizedList = {
 export default function InventoryManagementPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const navigation = useAppNavigation();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [inventoryList, setInventoryList] = useState<InventoryItem[] | null>(null);
   const [suppliers, setSuppliers] = useState<Suppliers | null>(null);
@@ -304,7 +306,7 @@ export default function InventoryManagementPage() {
                                 </CardDescription>
                             </div>
                             <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
-                                <Button variant="outline" size="sm" className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors" onClick={() => router.push('/inventory-history')}>
+                                <Button variant="outline" size="sm" className="h-10 px-3 rounded-md inline-flex items-center gap-2 transition-colors" onClick={() => navigation.push('/inventory-history')}>
                                     <History className="mr-2 h-4 w-4" />Lịch sử Kho
                                 </Button>
                                 <Button variant="outline" size="sm" onClick={handleExport} className="h-10 px-3 rounded-md">Xuất văn bản</Button>

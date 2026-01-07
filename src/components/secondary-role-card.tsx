@@ -1,13 +1,13 @@
 'use client';
 
 import React from 'react';
-import { useRouter } from 'nextjs-toploader/app';
 import { useAuth } from '@/hooks/use-auth';
 import { Sparkles, Package, Receipt, FileSearch, CheckSquare, Sun, Moon, Sunset } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { UserRole } from '@/lib/types';
 import { useMemo } from 'react';
 import { DashboardActionCard } from './dashboard-action-card';
+import { useAppNavigation } from '@/contexts/app-navigation-context';
 
 interface RoleAction {
   label: string;
@@ -82,7 +82,7 @@ const ROLE_CONFIGS: Partial<Record<UserRole, RoleConfig>> = {
 
 export default function SecondaryRoleCard() {
   const { user } = useAuth();
-  const router = useRouter();
+  const nav = useAppNavigation();
 
   const activeMainShiftKeys = useMemo(() => {
     const now = new Date();
@@ -146,7 +146,9 @@ export default function SecondaryRoleCard() {
             label={action.label}
             subLabel={action.subLabel}
             icon={action.icon}
-            onClick={() => router.push(action.href)}
+            onClick={() => {
+              nav.push(action.href);
+            }}
             color={action.color}
           />
         ))}
