@@ -15,6 +15,7 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import NotificationHandler from '@/components/notification-handler';
 import { MobileLayout } from '@/components/mobile-layout';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { AppNavigationProvider } from '@/contexts/app-navigation-context';
 
 export default function AppLayout({
   children,
@@ -32,6 +33,7 @@ export default function AppLayout({
       }
     })();
   }, []);
+  const isMobile = useIsMobile();
 
   return (
     <LightboxProvider>
@@ -53,10 +55,12 @@ export default function AppLayout({
           <NextTopLoader speed={1000} />
           
           {/* Render only the view for the current device to avoid mounting both views */}
-          {useIsMobile() ? (
+          {isMobile ? (
             <MobileLayout>{children}</MobileLayout>
           ) : (
-            <div className="hidden md:block">{children}</div>
+            <div className="hidden md:block">
+              <AppNavigationProvider>{children}</AppNavigationProvider>
+            </div>
           )}
           
         </SidebarInset>

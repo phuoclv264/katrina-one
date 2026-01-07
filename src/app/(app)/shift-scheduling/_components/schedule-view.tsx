@@ -63,6 +63,7 @@ import PassRequestsDialog from '../../schedule/_components/pass-requests-dialog'
 import UserDetailsDialog from './user-details-dialog';
 import { isUserAvailable, hasTimeConflict } from '@/lib/schedule-utils';
 import { useSearchParams } from 'next/navigation';
+import { getQueryParamWithMobileHashFallback } from '@/lib/url-params';
 import { useRouter } from 'nextjs-toploader/app';
 import { Label } from '@/components/ui/label';
 import AutoScheduleDialog from './auto-schedule-dialog';
@@ -248,9 +249,17 @@ export default function ScheduleView() {
     }, [user, weekId, canManage]);
 
     useEffect(() => {
-        if (searchParams.get('openPassRequest') === 'true') {
+        const openPassRequest = getQueryParamWithMobileHashFallback({
+            param: 'openPassRequest',
+            searchParams,
+            hash: typeof window !== 'undefined' ? window.location.hash : '',
+        });
+
+        if (openPassRequest === 'true') {
             setIsPassRequestsDialogOpen(true);
-            routerRef.current.replace('/shift-scheduling', { scroll: false });
+            if (!isMobile) {
+                routerRef.current.replace('/shift-scheduling', { scroll: false });
+            }
         }
     }, [searchParams]);
 

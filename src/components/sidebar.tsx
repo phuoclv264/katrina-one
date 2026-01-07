@@ -20,20 +20,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { toast } from "react-hot-toast";
-import { useRouter } from 'nextjs-toploader/app';
+import { useAppNavigation } from '@/contexts/app-navigation-context';
 
 export function AppSidebar() {
   const { user, logout, loading, isOnActiveShift } = useAuth();
   const { setOpenMobile, state: sidebarState } = useSidebar();
   const pathname = usePathname();
-  const router = useRouter();
+  const nav = useAppNavigation();
   
   const handleLinkClick = () => {
     setOpenMobile(false);
   }
 
   const navigate = (href: string) => {
-        router.push(href);
+      nav.push(href);
         handleLinkClick();
       }
 
@@ -126,7 +126,7 @@ export function AppSidebar() {
   }
 
   const navigateHome = () => {
-    router.push(getHomeLink());
+    nav.push(getHomeLink());
     handleLinkClick();
   }
 

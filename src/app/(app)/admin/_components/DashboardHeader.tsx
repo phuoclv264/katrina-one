@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { MessageSquareWarning } from 'lucide-react';
-import { useRouter } from 'nextjs-toploader/app';
+import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { Button } from '@/components/ui/button';
 import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -22,7 +22,7 @@ type DashboardHeaderPropsEx = DashboardHeaderProps & {
 
 export function DashboardHeader({ userName = 'Admin User', userRole = 'Chủ cửa hàng', complaintsCount = 0, selectedDateFilter, onDateFilterChange }: DashboardHeaderPropsEx) {
   const [localFilter, setLocalFilter] = useState<DateFilter>(selectedDateFilter ?? 'today');
-  const router = useRouter();
+  const navigation = useAppNavigation();
   const now = new Date();
   const dateText = format(now, 'EEEE, dd MMMM yyyy', { locale: vi });
   const weekStart = format(startOfWeek(now, { weekStartsOn: 1 }), 'dd MMM');
@@ -135,7 +135,7 @@ export function DashboardHeader({ userName = 'Admin User', userRole = 'Chủ c�
 
             {/* Notifications */}
             <button
-              onClick={() => router.push('/reports-feed')}
+                onClick={() => navigation.push('/reports-feed')}
               aria-label="Xem tố cáo"
               className="relative p-2 text-orange-500 hover:text-orange-600 transition rounded-lg hover:bg-orange-50 dark:hover:bg-orange-800"
             >

@@ -249,14 +249,14 @@ export default function AttendanceTable({
                   {/* Hành động */}
                   <TableCell className="align-top text-right">
                     <AlertDialog>
-                      <DropdownMenu>
+                      <DropdownMenu modal={false}>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon">
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => onEdit(record)}>
+                          <DropdownMenuItem onSelect={() => onEdit(record)}>
                             <Edit2 className="mr-2 h-4 w-4" /> Chỉnh sửa
                           </DropdownMenuItem>
                           <AlertDialogTrigger asChild>

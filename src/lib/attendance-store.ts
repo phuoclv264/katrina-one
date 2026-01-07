@@ -9,6 +9,7 @@ import {
   query,
   updateDoc,
   deleteDoc,
+  setDoc,
   serverTimestamp,
   Timestamp,
   where,
@@ -21,7 +22,7 @@ import {
 } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
 import { ref } from 'firebase/storage';
-import type { AssignedShift, AttendanceRecord, AuthUser, Schedule } from './types';
+import type { AssignedShift, AttendanceRecord, AuthUser, Schedule, SpecialPeriod } from './types';
 import { getISOWeek, getISOWeekYear, startOfMonth, endOfMonth, format, startOfToday, endOfToday, differenceInMinutes, parse } from 'date-fns';
 import * as violationsService from './violations-service';
 import { getActiveShifts } from './schedule-utils';
@@ -551,4 +552,40 @@ export function subscribeToUserCheckInStatus(userId: string, callback: (isChecke
         console.error(`[Firestore Read Error] Could not read user check-in status: ${error}`);
         callback(false);
     });
+}
+
+// --- Special Periods ---
+export function subscribeToSpecialPeriods(callback: (periods: SpecialPeriod[]) => void): () => void {
+  const q = query(collection(db, 'special_periods'), orderBy('startDate', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SpecialPeriod));
+    callback(periods);
+  });
+}
+
+export async function getSpecialPeriods(): Promise<SpecialPeriod[]> {
+  const q = query(collection(db, 'special_periods'), orderBy('startDate', 'desc'));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SpecialPeriod));
+}
+
+export async function createSpecialPeriod(period: Omit<SpecialPeriod, 'id' | 'createdAt' | 'updatedAt'>): Promise<void> {
+  const docRef = doc(collection(db, 'special_periods'));
+  await setDoc(docRef, {
+    ...period,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function updateSpecialPeriod(id: string, period: Partial<Omit<SpecialPeriod, 'id' | 'createdAt' | 'updatedAt'>>): Promise<void> {
+  const docRef = doc(db, 'special_periods', id);
+  await updateDoc(docRef, {
+    ...period,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function deleteSpecialPeriod(id: string): Promise<void> {
+  await deleteDoc(doc(db, 'special_periods', id));
 }

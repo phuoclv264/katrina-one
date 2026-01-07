@@ -41,6 +41,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { hasTimeConflict } from '@/lib/schedule-utils';
 import ShiftInfoDialog from './shift-info-dialog';
 import WeekScheduleDialog from './week-schedule-dialog';
+import { getQueryParamWithMobileHashFallback } from '@/lib/url-params';
 
 
 function ScheduleViewComponent() {
@@ -48,6 +49,7 @@ function ScheduleViewComponent() {
     const router = useRouter();
     const routerRef = useRef(router);
     const searchParams = useSearchParams();
+    const isMobile = useIsMobile();
 
     const [currentDate, setCurrentDate] = useState(new Date());
     const [schedule, setSchedule] = useState<Schedule | null>(null);
@@ -175,10 +177,17 @@ function ScheduleViewComponent() {
     }, [user, authLoading, weekId, canManage]);
 
     useEffect(() => {
-        if (searchParams.get('openPassRequest') === 'true') {
+        const openPassRequest = getQueryParamWithMobileHashFallback({
+            param: 'openPassRequest',
+            searchParams,
+            hash: typeof window !== 'undefined' ? window.location.hash : '',
+        });
+
+        if (openPassRequest === 'true') {
             setIsPassRequestsDialogOpen(true);
-            // Optional: remove the query param from URL without reloading
-            routerRef.current.replace('/schedule', { scroll: false });
+            if (!isMobile)
+                // Optional: remove the query param from URL without reloading
+                routerRef.current.replace('/schedule', { scroll: false });
         }
     }, [searchParams]);
 
@@ -260,7 +269,7 @@ function ScheduleViewComponent() {
 
         try {
             const acceptingUser: SimpleUser = { userId: user.uid, userName: user.displayName || 'N/A' };
-            
+
             await dataStore.acceptPassShift(notification.id, notification.payload, acceptingUser, allUsers, schedule);
 
             // Optimistic update UI
@@ -582,7 +591,7 @@ function ScheduleViewComponent() {
                                                                         <p className="text-sm">{shift.timeSlot.start} - {shift.timeSlot.end}</p>
                                                                     </div>
                                                                     {!isPastShift && (
-                                                                        <DropdownMenu>
+                                                                        <DropdownMenu modal={false}>
                                                                             <DropdownMenuTrigger asChild>
                                                                                 <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary/80 hover:text-primary-foreground h-8 w-8">
                                                                                     <MoreVertical className="h-5 w-5" />

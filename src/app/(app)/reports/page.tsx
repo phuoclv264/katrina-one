@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'nextjs-toploader/app';
+import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { useAuth } from '@/hooks/use-auth';
 import { dataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
@@ -172,6 +173,7 @@ function AdminTools() {
 export default function ReportsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const navigation = useAppNavigation();
   
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const handleDataRefresh = useCallback(() => {
@@ -366,7 +368,7 @@ export default function ReportsPage() {
                                                 return (
                                                     <TableRow
                                                         key={`${date}-${key}`}
-                                                        onClick={() => router.push(getReportLink(date, key))}
+                                                        onClick={() => navigation.push(getReportLink(date, key))}
                                                         className="cursor-pointer"
                                                     >
                                                         <TableCell className="font-semibold capitalize">{reportName}</TableCell>

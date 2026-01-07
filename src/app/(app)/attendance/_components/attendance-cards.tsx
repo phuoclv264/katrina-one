@@ -113,14 +113,14 @@ export default function AttendanceCards({
                             {statusInfo.text}
                         </div>
                         <AlertDialog>
-                            <DropdownMenu>
+                            <DropdownMenu modal={false}>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="icon" className="h-8 w-8">
                                         <MoreVertical className="h-4 w-4" />
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent>
-                                    <DropdownMenuItem onClick={() => onEdit(record)}><Edit2 className="mr-2 h-4 w-4" /> Chỉnh sửa</DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => onEdit(record)}><Edit2 className="mr-2 h-4 w-4" /> Chỉnh sửa</DropdownMenuItem>
                                     <AlertDialogTrigger asChild>
                                         <DropdownMenuItem className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Xóa</DropdownMenuItem>
                                     </AlertDialogTrigger>

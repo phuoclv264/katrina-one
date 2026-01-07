@@ -45,6 +45,7 @@ export default function CheckInCard() {
     const [lateReasonPhotoUrl, setLateReasonPhotoUrl] = useState<string | null>(null);
 
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+    const [isWorkHistoryOpen, setIsWorkHistoryOpen] = useState(false);
     const [checkInPhotoUrl, setCheckInPhotoUrl] = useState<string | null>(null);
 
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -384,6 +385,20 @@ export default function CheckInCard() {
                                     {hasPendingLateRequest ? 'Đã xin trễ' : 'Xin đi trễ'}
                                 </Button>
                             )}
+
+                            <Button 
+                                variant="outline" 
+                                className={cn(
+                                    "w-full h-12 rounded-xl border transition-colors",
+                                    isCheckedIn 
+                                        ? "bg-white/10 border-white/20 text-white hover:bg-white/20" 
+                                        : "border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                                )}
+                                onClick={() => setIsWorkHistoryOpen(true)}
+                            >
+                                <History className="mr-2 h-4 w-4" />
+                                Lịch sử làm việc
+                            </Button>
                         </div>
 
                         {/* Recent History List */}
@@ -609,6 +624,14 @@ export default function CheckInCard() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {user && (
+                <WorkHistoryDialog 
+                    isOpen={isWorkHistoryOpen} 
+                    onClose={() => setIsWorkHistoryOpen(false)} 
+                    user={user} 
+                />
+            )}
         </>
     );
 }

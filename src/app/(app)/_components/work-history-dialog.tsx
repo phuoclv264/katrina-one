@@ -201,15 +201,45 @@ export default function WorkHistoryDialog({ isOpen, onClose, user }: WorkHistory
                 const recordDate = (record.checkInTime as Timestamp).toDate();
                 const shifts = findShiftForRecord(record, schedules);
                 const statusInfo = getStatusInfo(record, shifts);
+                const isWithinSpecialPeriod =
+                  (record.specialPeriodAppliedId ?? null) !== null ||
+                  (typeof record.salaryMultiplierApplied === 'number' && record.salaryMultiplierApplied !== 1);
                 return (
-                  <Card key={record.id}>
+                  <Card 
+                    key={record.id}
+                    className={cn(
+                      "transition-colors",
+                      isWithinSpecialPeriod && "border-amber-400 bg-amber-50/40 dark:border-amber-500/50 dark:bg-amber-950/20"
+                    )}
+                  >
                     <CardHeader className="pb-2">
                       <div className="flex justify-between items-start">
                         <div>
-                          <CardTitle className="text-base">{format(recordDate, 'eeee, dd/MM/yyyy', { locale: vi })}</CardTitle>
+                          <CardTitle className={cn("text-base", isWithinSpecialPeriod && "text-amber-700 dark:text-amber-400")}>
+                            {format(recordDate, 'eeee, dd/MM/yyyy', { locale: vi })}
+                          </CardTitle>
                           <div className="text-xs text-muted-foreground">
                             {shifts.length > 0 ? shifts.map(s => s.label).join(', ') : (record.isOffShift ? 'Ngoài giờ' : 'N/A')}
                           </div>
+                          {isWithinSpecialPeriod && typeof record.hourlyRate === 'number' && (
+                            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                              <Badge 
+                                variant="secondary" 
+                                className={cn(
+                                  "text-xs",
+                                  isWithinSpecialPeriod && "bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/50 dark:text-amber-200"
+                                )}
+                              >
+                                {typeof record.salaryMultiplierApplied === 'number' && record.salaryMultiplierApplied !== 1
+                                  ? `x${record.salaryMultiplierApplied}`
+                                  : 'Đặc biệt'}
+                              </Badge>
+                              <span>Lương giờ: {record.hourlyRate.toLocaleString('vi-VN')}đ/giờ</span>
+                              {record.specialPeriodAppliedName ? (
+                                <span className="truncate">({record.specialPeriodAppliedName})</span>
+                              ) : null}
+                            </div>
+                          )}
                         </div>
                         <Badge variant="outline" className={cn("border-none text-xs", statusInfo.color)}>{statusInfo.text}</Badge>
                       </div>
@@ -253,15 +283,34 @@ export default function WorkHistoryDialog({ isOpen, onClose, user }: WorkHistory
                     const recordDate = (record.checkInTime as Timestamp).toDate();
                     const shifts = findShiftForRecord(record, schedules);
                     const statusInfo = getStatusInfo(record, shifts);
+                    const isWithinSpecialPeriod =
+                      (record.specialPeriodAppliedId ?? null) !== null ||
+                      (typeof record.salaryMultiplierApplied === 'number' && record.salaryMultiplierApplied !== 1);
                     return (
-                      <TableRow key={record.id}>
+                      <TableRow 
+                        key={record.id}
+                        className={cn(
+                          isWithinSpecialPeriod && "bg-amber-50/50 hover:bg-amber-100/50 dark:bg-amber-950/20 dark:hover:bg-amber-900/30"
+                        )}
+                      >
                         <TableCell>{format(recordDate, 'dd/MM/yyyy')}</TableCell>
                         <TableCell>{shifts.length > 0 ? shifts.map(s => s.label).join(', ') : (record.isOffShift ? 'Ngoài giờ' : 'N/A')}</TableCell>
                         <TableCell>{format(recordDate, 'HH:mm')}</TableCell>
                         <TableCell>{record.checkOutTime ? format((record.checkOutTime as Timestamp).toDate(), 'HH:mm') : 'N/A'}</TableCell>
                         <TableCell className="text-center"><Badge variant="outline" className={cn("border-none", statusInfo.color)}>{statusInfo.text}</Badge></TableCell>
                         <TableCell className="text-center">{record.totalHours?.toFixed(2) ?? 'N/A'}</TableCell>
-                        <TableCell className="text-right font-medium">{record.salary?.toLocaleString('vi-VN')}đ</TableCell>
+                        <TableCell className="text-right font-medium">
+                          <div>{record.salary?.toLocaleString('vi-VN')}đ</div>
+                          {isWithinSpecialPeriod && typeof record.hourlyRate === 'number' && (
+                            <div className="text-xs text-muted-foreground">
+                              {typeof record.salaryMultiplierApplied === 'number' && record.salaryMultiplierApplied !== 1
+                                ? `x${record.salaryMultiplierApplied} · `
+                                : ''}
+                              {record.hourlyRate.toLocaleString('vi-VN')}đ/giờ
+                              {record.specialPeriodAppliedName ? ` · ${record.specialPeriodAppliedName}` : ''}
+                            </div>
+                          )}
+                        </TableCell>
                       </TableRow>
                     );
                   }) : (

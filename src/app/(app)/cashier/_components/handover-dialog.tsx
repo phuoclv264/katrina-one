@@ -514,7 +514,7 @@ export default function HandoverDialog({
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-xl h-[95vh] flex flex-col p-0" onInteractOutside={(e) => e.preventDefault()}>
+                <DialogContent className="max-w-xl h-[95vh] flex flex-col p-0">
                     <DialogHeader className="shrink-0 p-6 pb-4 border-b bg-muted/30">
                         <DialogTitle>{dialogTitle}</DialogTitle>
                         <DialogDescription>{dialogDescription}</DialogDescription>

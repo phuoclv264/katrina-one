@@ -193,7 +193,7 @@ function AiPreviewDialog({
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-4xl" onInteractOutside={(e) => e.preventDefault()}>
+                <DialogContent className="max-w-4xl">
                     <DialogHeader>
                         <DialogTitle>Kết quả quét hóa đơn</DialogTitle>
                         <DialogDescription>AI đã phân tích và nhóm các hóa đơn. Vui lòng kiểm tra và xác nhận các mặt hàng được tìm thấy. Các mặt hàng không khớp sẽ được bỏ qua.</DialogDescription>
@@ -653,7 +653,6 @@ export default function ExpenseSlipDialog({
                 <DialogContent
                     ref={dialogRef}
                     className="max-w-4xl p-0 h-[90vh] flex flex-col"
-                    onInteractOutside={(e) => e.preventDefault()}
                 >
                     <DialogHeader className="p-6 pb-4 border-b bg-muted/30">
                         <DialogTitle>{slipToEdit ? (isOwnerView ? 'Chi tiết Phiếu chi' : 'Chỉnh sửa Phiếu chi') : 'Tạo Phiếu chi'}</DialogTitle>

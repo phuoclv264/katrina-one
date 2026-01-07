@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Sun, Moon, Sunset, ShieldX, CalendarDays, Loader2, Info, CheckSquare, ClipboardList, Archive, FileSearch, Banknote, Coffee, UserCog, ClockIcon, MessageSquare } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'nextjs-toploader/app';
 import { useEffect, useMemo, useCallback } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -19,6 +18,7 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import { DashboardActionCard } from '@/components/dashboard-action-card';
 import { LoadingPage } from '../loading/LoadingPage';
+import { useAppNavigation } from '@/contexts/app-navigation-context';
 
 const mainShiftInfo: { [key: string]: { name: string, icon: React.ElementType, href: string } } = {
     sang: { name: "Báo cáo ca sáng", icon: Sun, href: "/checklist/sang" },
@@ -34,7 +34,7 @@ const mainShiftTimeFrames: { [key in "sang" | "trua" | "toi"]: { start: number; 
 
 export function ServerHomeView() {
   const { user, loading: authLoading, activeShifts, todaysShifts } = useAuth();
-  const router = useRouter();
+  const nav = useAppNavigation();
   const { showCheckInCardOnTop, isCheckedIn } = useCheckInCardPlacement();
   const [todaysMonthlyAssignments, setTodaysMonthlyAssignments] = useState<MonthlyTaskAssignment[]>([]);
   const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
@@ -46,9 +46,9 @@ export function ServerHomeView() {
 
   useEffect(() => {
     if (!authLoading && user && (user.role !== 'Phục vụ' && !user.secondaryRoles?.includes('Phục vụ'))) {
-      router.replace('/');
+      nav.replace('/');
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, nav]);
 
   useEffect(() => {
     if (user) {
@@ -99,6 +99,9 @@ export function ServerHomeView() {
   }
 
   const shiftsText = todaysShifts.map(s => `${s.label} (${s.timeSlot.start}-${s.timeSlot.end})`).join(', ');
+  const handleNavigate = (href: string) => {
+    nav.push(href);
+  };
 
   return (
     <DashboardLayout
@@ -117,7 +120,7 @@ export function ServerHomeView() {
                 label={info.name}
                 subLabel="Báo cáo ca"
                 icon={info.icon}
-                onClick={() => router.push(info.href)}
+                onClick={() => handleNavigate(info.href)}
                 color="blue"
                 variant="primary"
               />

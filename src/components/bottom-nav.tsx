@@ -37,11 +37,16 @@ interface BottomNavProps {
   tabs: NavTab[];
   activeTab: string;
   onTabChange: (id: string) => void;
+  /** Optional value to watch; when it changes the nav will reveal briefly */
+  watchValue?: unknown;
+  /** Time (ms) of inactivity before auto-hide. Defaults to 4000 */
+  autoHideMs?: number;
 }
 
-export function BottomNav({ tabs, activeTab, onTabChange }: BottomNavProps) {
+export function BottomNav({ tabs, activeTab, onTabChange, watchValue, autoHideMs = 4000 }: BottomNavProps) {
   const scrollDirection = useScrollDirection();
   const [isVisible, setIsVisible] = useState(true);
+  const [isInteracting, setIsInteracting] = useState(false);
 
   useEffect(() => {
     if (scrollDirection === 'down') {
@@ -51,12 +56,42 @@ export function BottomNav({ tabs, activeTab, onTabChange }: BottomNavProps) {
     }
   }, [scrollDirection]);
 
+  // Auto-hide timer when visible and not interacting
+  useEffect(() => {
+    if (!isVisible) return;
+    if (isInteracting) return;
+
+    const id = setTimeout(() => {
+      setIsVisible(false);
+    }, autoHideMs);
+
+    return () => clearTimeout(id);
+  }, [isVisible, isInteracting, activeTab, autoHideMs]);
+
+  // Make sure the nav becomes visible whenever activeTab changes
+  useEffect(() => {
+    setIsVisible(true);
+  }, [activeTab]);
+
+  // Reveal the nav briefly whenever the visible tabs or a watched value (e.g. check-in state)
+  // changes, so users immediately see updated tab content.
+  useEffect(() => {
+    setIsVisible(true);
+    // ensure auto-hide will run by marking not-interacting
+    setIsInteracting(false);
+  }, [tabs, watchValue]);
+
   return (
-    <div 
+    <div
       className={cn(
         "fixed bottom-0 left-0 right-0 z-50 border-t bg-background transition-transform duration-300 md:hidden",
         !isVisible ? "translate-y-full" : "translate-y-0"
       )}
+      // Pause auto-hide on interaction
+      onMouseEnter={() => setIsInteracting(true)}
+      onMouseLeave={() => setIsInteracting(false)}
+      onTouchStart={() => { setIsInteracting(true); setIsVisible(true); }}
+      onTouchEnd={() => setIsInteracting(false)}
     >
       <nav className="flex h-16 items-center justify-around px-2">
         {tabs.map((tab) => {
@@ -66,6 +101,8 @@ export function BottomNav({ tabs, activeTab, onTabChange }: BottomNavProps) {
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
+              onFocus={() => setIsInteracting(true)}
+              onBlur={() => setIsInteracting(false)}
               className={cn(
                 "flex flex-col items-center justify-center gap-1 rounded-md px-3 py-2 text-xs font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
                 isActive ? "text-primary" : "text-muted-foreground"

@@ -45,7 +45,6 @@ export default function HandoverComparisonDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent 
             className="max-w-md md:max-w-4xl h-full md:h-auto md:max-h-[90vh] flex flex-col p-0 rounded-lg"
-            onInteractOutside={(e) => e.preventDefault()}
         >
           <DialogHeader className={cn(
             "p-4 md:p-6 flex flex-row items-center gap-4 space-y-0 shrink-0 rounded-t-lg",

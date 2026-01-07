@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
-import { useRouter } from 'nextjs-toploader/app';
 import { dataStore } from '@/lib/data-store';
 import type {
   RevenueStats,
@@ -16,8 +15,7 @@ import type {
   MonthlyTaskAssignment,
   MonthlyTask,
   IncidentReport,
-  InventoryItem,
-} from '@/lib/types';
+  InventoryItem,  CashHandoverReport,} from '@/lib/types';
 import {
   format,
   startOfToday,
@@ -35,6 +33,7 @@ import {
   isSameDay,
 } from 'date-fns';
 import { DashboardHeader } from '@/app/(app)/admin/_components/DashboardHeader';
+import { subscribeToHandoverReport } from '@/lib/cashier-store';
 import { KPIMetricsSection } from '@/app/(app)/admin/_components/KPIMetricsSection';
 import { RevenueAnalyticsSection } from '@/app/(app)/admin/_components/RevenueAnalyticsSection';
 import { RecentReportsCard } from '@/app/(app)/admin/_components/RecentReportsCard';
@@ -47,6 +46,7 @@ import { CashierDataDialog } from '@/app/(app)/admin/_components/CashierDataDial
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { findNearestAttendanceRecord } from '@/lib/attendance-utils';
 import { toDateSafe, cn, selectLatestRevenueStats } from '@/lib/utils';
+import { useAppNavigation } from '@/contexts/app-navigation-context';
 
 interface OwnerHomeViewProps {
     isStandalone?: boolean;
@@ -54,7 +54,7 @@ interface OwnerHomeViewProps {
 
 export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const nav = useAppNavigation();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const [revenueStats, setRevenueStats] = useState<RevenueStats[]>([]);
@@ -72,12 +72,13 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
   const [isSalaryDialogOpen, setIsSalaryDialogOpen] = useState(false);
   const [isCashierDataDialogOpen, setIsCashierDataDialogOpen] = useState(false);
   const [todaysSchedule, setTodaysSchedule] = useState<Schedule | null>(null);
+  const [handoverByDate, setHandoverByDate] = useState<Record<string, CashHandoverReport[] | null>>({});
 
   useEffect(() => {
     if (!authLoading && user?.role !== 'Chủ nhà hàng') {
-      router.replace('/');
+      nav.replace('/');
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, nav]);
 
   const handleReconnect = useCallback(() => {
     setRefreshTrigger((prev) => prev + 1);
@@ -147,6 +148,23 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
       unsubs.forEach((unsub) => unsub());
     };
   }, [user, refreshTrigger, dateFilter]);
+
+  // Subscribe to cash handover reports for dates represented in the current revenueStats so the dialog
+  // can display 'Tiền mặt thực tế' and discrepancy details without subscribing itself.
+  useEffect(() => {
+    const dates = Array.from(new Set(revenueStats.map((s) => s.date)));
+    const unsubs = dates.map((d) => subscribeToHandoverReport(d, (reports) => {
+      // normalize callback input to either an array or null
+      let normalized: CashHandoverReport[] | null = null;
+      if (reports) {
+        normalized = Array.isArray(reports) ? reports : [reports];
+      }
+      setHandoverByDate((prev) => ({ ...prev, [d]: normalized }));
+    }));
+    return () => {
+      unsubs.forEach((u) => u && typeof u === 'function' && u());
+    };
+  }, [revenueStats]);
 
   useEffect(() => {
     if (
@@ -533,7 +551,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
                 } else if (path === 'salary-management') {
                   setIsSalaryDialogOpen(true);
                 } else {
-                  router.push(path);
+                  nav.push(path);
                 }
               }} />
               <MonthlyStaffReportDialog isOpen={isMonthlyReportOpen} onOpenChange={(open: boolean) => setIsMonthlyReportOpen(open)} />
@@ -557,6 +575,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
         expenseSlips={dailySlips}
         incidents={filteredIncidents}
         inventoryList={inventoryList}
+        handoverByDate={handoverByDate}
       />
     </div>
   );
