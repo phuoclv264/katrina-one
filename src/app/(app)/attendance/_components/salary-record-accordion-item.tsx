@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,6 +33,8 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
         const [localAdvanceAmount, setLocalAdvanceAmount] = useState<string>(
             record.salaryAdvance?.toString() ?? ''
         );
+        // Container ref to mount the alert dialog portal inside the accordion item to preserve stacking/context
+        const containerRef = useRef<HTMLDivElement | null>(null);
         const [localBonusAmount, setLocalBonusAmount] = useState<string>(
             record.bonus?.toString() ?? ''
         );
@@ -42,6 +44,17 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
         const [isUpdatingPaymentStatus, setIsUpdatingPaymentStatus] = useState(false);
         const [isPayDialogOpen, setIsPayDialogOpen] = useState(false);
         const [actualPaidInput, setActualPaidInput] = useState<string>('');
+        // Numeric value (used for submit) kept separate from the formatted display
+        const [actualPaidNumber, setActualPaidNumber] = useState<number | null>(null);
+        // Ref for the payment input so we can focus it when the dialog opens
+        const inputRef = useRef<HTMLInputElement | null>(null);
+
+        useEffect(() => {
+            if (!isPayDialogOpen) return;
+            // Delay focus slightly to ensure the portal/content is mounted
+            const id = window.setTimeout(() => inputRef.current?.focus(), 0);
+            return () => clearTimeout(id);
+        }, [isPayDialogOpen]);
 
         useEffect(() => {
             // Update local state if record.salaryAdvance changes from outside (e.g., recalculate)
@@ -101,7 +114,9 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
 
             const newStatus = record.paymentStatus === 'paid' ? 'unpaid' : 'paid';
             if (newStatus === 'paid') {
-                setActualPaidInput(String(Math.max(0, record.totalSalary - (record.salaryAdvance || 0) + (record.bonus || 0))));
+                const defaultAmount = Math.max(0, record.totalSalary - (record.salaryAdvance || 0) + (record.bonus || 0));
+                setActualPaidNumber(defaultAmount);
+                setActualPaidInput(new Intl.NumberFormat('vi-VN').format(defaultAmount));
                 setIsPayDialogOpen(true);
                 return;
             }
@@ -122,8 +137,24 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
             return record.totalSalary - (record.salaryAdvance || 0) + (record.bonus || 0);
         }, [record.totalSalary, record.salaryAdvance, record.bonus]);
 
+        const violationPenaltyTotals = useMemo(() => {
+            let paid = 0;
+            let unpaid = 0;
+            for (const v of record.violationRecords || []) {
+                const userCost = v.userCosts?.find((uc) => uc.userId === record.userId)?.cost || 0;
+                const isPaid = v.isPenaltyWaived || (v.penaltySubmissions?.some((ps) => ps.userId === record.userId)) || v.penaltyPhotos;
+                if (userCost > 0) {
+                    if (isPaid) paid += userCost;
+                    else unpaid += userCost;
+                }
+            }
+            return { paid, unpaid };
+        }, [record.violationRecords, record.userId]);
+
+        const totalPenalty = violationPenaltyTotals.paid + violationPenaltyTotals.unpaid;
+
         return (
-            <AccordionItem value={record.userId} key={record.userId}>
+            <AccordionItem ref={containerRef} value={record.userId} key={record.userId}>
                 <AccordionTrigger className="p-4 bg-muted/30 rounded-lg hover:no-underline border shadow-sm">
                     <div className="flex justify-between items-center w-full">
                         <div className="text-left flex-1">
@@ -351,21 +382,67 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
                     </div>
                 </AccordionContent>
                 <AlertDialog open={isPayDialogOpen} onOpenChange={setIsPayDialogOpen}>
-                    <AlertDialogContent>
+                    <AlertDialogContent portalContainer={containerRef.current}>
                         <AlertDialogHeader>
                             <AlertDialogTitle>Xác nhận trả lương</AlertDialogTitle>
                             <AlertDialogDescription>
                                 Số tiền đề xuất: {finalTakeHomePay.toLocaleString('vi-VN')}đ. Nhập số tiền thực trả:
                             </AlertDialogDescription>
                         </AlertDialogHeader>
-                        <div className="mt-2">
-                            <Input type="number" value={actualPaidInput} onChange={(e) => setActualPaidInput(e.target.value)} onFocus={(e) => e.target.select()} />
+
+                        {/* Staff quick info */}
+                        <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-muted-foreground">
+                            <div className="flex justify-between"><span className="font-medium">Tên</span><span className="text-lg font-semibold text-primary">{record.userName}</span></div>
+                            <div className="flex justify-between"><span className="font-medium">Vai trò</span><span>{record.userRole}</span></div>
+                            <div className="flex justify-between"><span className="font-medium">Tổng lương</span><span>{record.totalSalary.toLocaleString('vi-VN')}đ</span></div>
+                            <div className="flex justify-between"><span className="font-medium">Giờ làm</span><span>{record.totalWorkingHours.toFixed(1)} / {record.totalExpectedHours.toFixed(1)} h</span></div>
+                            <div className="flex justify-between"><span className="font-medium">Lương/giờ</span><span>{record.averageHourlyRate.toLocaleString('vi-VN')}đ</span></div>
+                            <div className="flex justify-between"><span className="font-medium">Tạm ứng</span><span>{(record.salaryAdvance || 0).toLocaleString('vi-VN')}đ</span></div>
+                            <div className="flex justify-between"><span className="font-medium">Thưởng</span><span>{(record.bonus || 0).toLocaleString('vi-VN')}đ</span></div>
+                            <div className="flex justify-between items-center">
+                                <span className="font-medium">Tổng phạt</span>
+                                <span>
+                                    {totalPenalty.toLocaleString('vi-VN')}đ
+                                    <span className="text-sm text-muted-foreground ml-2">(
+                                        <span>chưa nộp: </span>
+                                        <span className={cn(violationPenaltyTotals.unpaid > 0 ? 'text-destructive font-semibold' : 'text-muted-foreground')}>
+                                            {violationPenaltyTotals.unpaid.toLocaleString('vi-VN')}đ
+                                        </span>
+                                    )</span>
+                                </span>
+                            </div>
+                            {record.paymentStatus && <div className="flex justify-between"><span className="font-medium">Trạng thái</span><span>{record.paymentStatus === 'paid' ? 'Đã trả' : 'Chưa trả'}</span></div>}
+                            {record.paidAt && <div className="flex justify-between"><span className="font-medium">Ngày trả</span><span>{format((record.paidAt as Timestamp).toDate(), 'dd/MM/yyyy HH:mm')}</span></div>}
                         </div>
+
+                        <div className="mt-2">
+                            <div className="flex items-center gap-3">
+                                <Input
+                                    ref={inputRef}
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={actualPaidInput}
+                                    placeholder="0"
+                                    aria-label="Số tiền thực trả (VND)"
+                                    onChange={(e) => {
+                                        const raw = e.target.value || '';
+                                        // Keep only digits (VND uses whole numbers)
+                                        const digits = raw.replace(/\D/g, '');
+                                        const num = digits === '' ? null : parseInt(digits, 10);
+                                        setActualPaidNumber(num);
+                                        setActualPaidInput(num == null ? '' : new Intl.NumberFormat('vi-VN').format(num));
+                                    }}
+                                    onFocus={(e) => e.currentTarget.select()}
+                                    className="text-2xl sm:text-3xl font-semibold text-right text-primary border border-primary/10 p-3 rounded-md w-full"
+                                />
+                                <span className="text-lg font-semibold">đ</span>
+                            </div>
+                        </div> 
                         <AlertDialogFooter>
                             <AlertDialogCancel>Hủy</AlertDialogCancel>
                             <AlertDialogAction
                                 onClick={async () => {
-                                    const amount = Number(actualPaidInput);
+                                    const amount = actualPaidNumber ?? (actualPaidInput ? Number(actualPaidInput.replace(/\D/g, '')) : NaN);
                                     if (isNaN(amount) || amount < 0) {
                                         toast.error('Số tiền không hợp lệ.');
                                         return;

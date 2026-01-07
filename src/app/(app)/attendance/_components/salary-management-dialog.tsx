@@ -12,7 +12,7 @@ import type { MonthlySalarySheet, SalaryRecord, ManagedUser, Schedule, Attendanc
 import { format, startOfMonth, endOfMonth, getISOWeek, getYear, parseISO, differenceInMinutes, addMonths } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { toast } from '@/components/ui/pro-toast';
-import { Loader2, Download, Calculator, AlertTriangle, CheckCircle, User, Clock, FileX, ChevronsDownUp } from 'lucide-react';
+import { Loader2, Download, RotateCw, AlertTriangle, CheckCircle, User, Clock, FileX, ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
 import SalaryRecordAccordionItem from './salary-record-accordion-item';
@@ -232,12 +232,25 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers }: Sa
     const paidRecords = useMemo(() => {
         return filteredRecords.filter(r => r.paymentStatus === 'paid');
     }, [filteredRecords]);
+
     const eligibleRecords = useMemo(() => {
-        return filteredRecords.filter(r => r.paymentStatus !== 'paid' && (nextMonthSalaryByUser[r.userId] || 0) >= eligibleThreshold);
+        // Eligible only when: not already paid, next month expected salary meets threshold,
+        // AND the employee has no unpaid violation penalties.
+        return filteredRecords.filter(r =>
+            r.paymentStatus !== 'paid' &&
+            (nextMonthSalaryByUser[r.userId] || 0) >= eligibleThreshold &&
+            ((r.totalUnpaidPenalties || 0) === 0)
+        );
     }, [filteredRecords, nextMonthSalaryByUser]);
 
     const ineligibleRecords = useMemo(() => {
-        return filteredRecords.filter(r => r.paymentStatus !== 'paid' && (nextMonthSalaryByUser[r.userId] || 0) < eligibleThreshold);
+        // Ineligible when not paid AND (next-month expected salary below threshold OR has unpaid penalties)
+        return filteredRecords.filter(r =>
+            r.paymentStatus !== 'paid' && (
+                (nextMonthSalaryByUser[r.userId] || 0) < eligibleThreshold ||
+                ((r.totalUnpaidPenalties || 0) > 0)
+            )
+        );
     }, [filteredRecords, nextMonthSalaryByUser]);
 
     const totalEligibleAmount = useMemo(() => {
@@ -245,6 +258,16 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers }: Sa
             return sum + (record.totalSalary - (record.salaryAdvance || 0) + (record.bonus || 0));
         }, 0);
     }, [eligibleRecords]);
+
+    const totalIneligibleAmount = useMemo(() => {
+        return ineligibleRecords.reduce((sum, record) => {
+            return sum + (record.totalSalary - (record.salaryAdvance || 0) + (record.bonus || 0));
+        }, 0);
+    }, [ineligibleRecords]);
+
+    // Count of records currently shown and whether all are expanded
+    const shownCount = eligibleRecords.length + ineligibleRecords.length + paidRecords.length;
+    const allExpanded = shownCount > 0 && openAccordionItems.length === shownCount;
 
     useEffect(() => {
         const computeNextMonthExpectedSalaries = async () => {
@@ -318,12 +341,12 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers }: Sa
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="max-w-4xl sm:h-[90vh] h-[100vh] flex flex-col p-0">
-                <DialogHeader>
-                    <DialogTitle className="px-4 pt-4">Quản lý Bảng lương tháng</DialogTitle>
+                <DialogHeader className="flex flex-row items-center gap-2 px-4 py-2 border-b">
+                    <DialogTitle className="text-base sm:text-lg">Quản lý Bảng lương</DialogTitle>
                 </DialogHeader>
-                <div className="px-4 py-2 border-b">
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
+                <div className="px-4 py-2 border-b bg-muted/30">
+                    <div className="grid grid-cols-12 gap-2 items-center">
+                        <div className="col-span-5 sm:col-span-3">
                             <Combobox
                                 value={selectedMonth}
                                 onChange={setSelectedMonth}
@@ -331,59 +354,75 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers }: Sa
                                     value: month,
                                     label: `Tháng ${format(parseISO(`${month}-01`), 'MM/yyyy')}`
                                 }))}
-                                className="w-[160px] sm:w-[180px]"
-                                placeholder="Chọn tháng"
+                                className="w-full"
+                                placeholder="Tháng"
                                 compact
                                 searchable={false}
                             />
                         </div>
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                            <div className="w-full sm:w-[300px]">
-                                <Combobox
-                                    options={allUsers
-                                        .filter(u => u.role !== 'Chủ nhà hàng')
-                                        .map(u => ({ value: u.uid, label: u.displayName }))}
-                                    multiple
-                                    value={selectedUsers.map(u => u.uid)}
-                                    onChange={(next) => {
-                                        const nextIds = Array.isArray(next)
-                                            ? next
-                                            : typeof next === 'string' && next
-                                                ? [next]
-                                                : [];
-                                        setSelectedUsers(
-                                            nextIds
-                                                .map(id => allUsers.find(u => u.uid === id))
-                                                .filter((u): u is ManagedUser => !!u)
-                                        );
-                                    }}
-                                    placeholder="Chọn nhân viên..."
-                                    searchPlaceholder="Tìm nhân viên..."
-                                    emptyText="Không tìm thấy nhân viên."
-                                    className="w-full"
-                                />
-                            </div>
-                            <Button variant="outline" onClick={handleToggleAll} disabled={!salarySheet || (eligibleRecords.length + ineligibleRecords.length + paidRecords.length) === 0}>
-                                <ChevronsDownUp className="mr-2 h-4 w-4" />
-                                {openAccordionItems.length === (eligibleRecords.length + ineligibleRecords.length + paidRecords.length) ? 'Thu gọn' : 'Mở rộng'}
-                            </Button>
-                            <Button onClick={handleRecalculate} disabled={isLoading}>
-                                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Calculator className="mr-2 h-4 w-4" />}
-                                Tính toán lại
-                            </Button>
+                        <div className="col-span-7 sm:col-span-9">
+                            <Combobox
+                                options={allUsers
+                                    .filter(u => u.role !== 'Chủ nhà hàng')
+                                    .map(u => ({ value: u.uid, label: u.displayName }))}
+                                multiple
+                                value={selectedUsers.map(u => u.uid)}
+                                onChange={(next) => {
+                                    const nextIds = Array.isArray(next)
+                                        ? next
+                                        : typeof next === 'string' && next
+                                            ? [next]
+                                            : [];
+                                    setSelectedUsers(
+                                        nextIds
+                                            .map(id => allUsers.find(u => u.uid === id))
+                                            .filter((u): u is ManagedUser => !!u)
+                                    );
+                                }}
+                                placeholder="Nhân viên..."
+                                searchPlaceholder="Tìm nhân viên..."
+                                emptyText="Không thấy."
+                                className="w-full"
+                                compact
+                            />
                         </div>
                     </div>
                     {salarySheet && (
-                        <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-muted-foreground mt-2">
-                            <Badge variant="secondary" className="flex items-center gap-1">
-                                <CheckCircle className="h-3 w-3 text-green-600" /> {eligibleRecords.length} đủ điều kiện (≥ {eligibleThreshold.toLocaleString('vi-VN')})
-                            </Badge>
-                            <Badge variant="outline" className="flex items-center gap-1">
-                                <AlertTriangle className="h-3 w-3 text-yellow-600" /> {ineligibleRecords.length} chưa đủ điều kiện
-                            </Badge>
-                            <Badge variant="outline" className="flex items-center gap-1">
-                                <CheckCircle className="h-3 w-3 text-blue-600" /> {paidRecords.length} đã trả
-                            </Badge>
+                        <div className="mt-2 grid grid-cols-12 gap-2 items-center">
+                            <div className="col-span-10 sm:col-span-10 flex flex-wrap items-center gap-1.5">
+                                <Badge variant="secondary" className="px-2 py-0 h-5 bg-green-100 text-green-700 border-green-200 text-[10px] sm:text-xs">
+                                    <CheckCircle className="h-3 w-3 mr-1" /> {eligibleRecords.length} Đủ ĐK
+                                </Badge>
+                                <Badge variant="outline" className="px-2 py-0 h-5 bg-amber-50 text-amber-700 border-amber-200 text-[10px] sm:text-xs">
+                                    <AlertTriangle className="h-3 w-3 mr-1" /> {ineligibleRecords.length} Chưa đủ ĐK
+                                </Badge>
+                                <Badge variant="outline" className="px-2 py-0 h-5 bg-blue-50 text-blue-700 border-blue-200 text-[10px] sm:text-xs">
+                                    <CheckCircle className="h-3 w-3 mr-1" /> {paidRecords.length} Đã trả
+                                </Badge>
+                            </div>
+
+                            <div className="col-span-2 sm:col-span-2 flex items-center justify-end gap-1">
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={handleRecalculate} 
+                                    disabled={isLoading}
+                                    title="Tính toán lại"
+                                    className="h-8 w-8 text-primary"
+                                >
+                                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" />}
+                                </Button>
+                                    <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={handleToggleAll} 
+                                    disabled={!salarySheet || shownCount === 0}
+                                    title={allExpanded ? 'Thu gọn tất cả' : 'Mở rộng tất cả'}
+                                    className="h-8 w-8"
+                                >
+                                    {allExpanded ? <ChevronsDownUp className="h-4 w-4" /> : <ChevronsUpDown className="h-4 w-4" />}
+                                </Button>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -394,24 +433,22 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers }: Sa
                                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                             </div>
                         ) : salarySheet ? (
-                            <div className="space-y-4">
-                                <Card className="border-l-4 border-green-500">
-                                    <CardHeader className="pb-2">
-                                        <CardTitle className="flex items-center gap-2 justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <CheckCircle className="h-5 w-5 text-green-600" />
-                                                <span>Đủ điều kiện trả lương</span>
-                                                <Badge variant="secondary">{eligibleRecords.length}</Badge>
-                                            </div>
-                                            <span className="text-lg font-bold text-green-700">
-                                                {totalEligibleAmount.toLocaleString('vi-VN')}đ
-                                            </span>
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
+                            <div className="space-y-3 py-3">
+                                <Card className="border-l-4 border-green-500 shadow-sm overflow-hidden">
+                                    <div className="py-2 px-3 border-b flex items-center justify-between bg-green-50/50">
+                                        <div className="flex items-center gap-1.5">
+                                            <CheckCircle className="h-4 w-4 text-green-600" />
+                                            <span className="font-bold text-sm sm:text-base text-green-800">Đủ điều kiện</span>
+                                            <Badge variant="secondary" className="px-1 py-0 h-4 text-[10px] font-normal bg-green-100">{eligibleRecords.length}</Badge>
+                                        </div>
+                                        <span className="text-sm sm:text-base font-bold text-green-700">
+                                            {totalEligibleAmount.toLocaleString('vi-VN')}đ
+                                        </span>
+                                    </div>
+                                    <CardContent className="p-0">
                                         <Accordion
                                             type="multiple"
-                                            className="w-full space-y-2"
+                                            className="w-full"
                                             value={openAccordionItems}
                                             onValueChange={setOpenAccordionItems}
                                         >
@@ -429,18 +466,20 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers }: Sa
                                         </Accordion>
                                     </CardContent>
                                 </Card>
-                                <Card className="border-l-4 border-amber-500">
-                                    <CardHeader className="pb-2">
-                                        <CardTitle className="flex items-center gap-2">
-                                            <AlertTriangle className="h-5 w-5 text-yellow-600" />
-                                            <span>Chưa đủ điều kiện</span>
-                                            <Badge variant="outline">{ineligibleRecords.length}</Badge>
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
+
+                                <Card className="border-l-4 border-amber-500 shadow-sm overflow-hidden">
+                                    <div className="py-2 px-3 border-b flex items-center justify-between bg-amber-50/50">
+                                        <div className="flex items-center gap-1.5">
+                                            <AlertTriangle className="h-4 w-4 text-amber-600" />
+                                            <span className="font-bold text-sm sm:text-base text-amber-800">Chưa đủ điều kiện</span>
+                                            <Badge variant="outline" className="px-1 py-0 h-4 text-[10px] font-normal border-amber-200 bg-amber-100">{ineligibleRecords.length}</Badge>
+                                        </div>
+                                        <span className="text-sm sm:text-base font-bold text-amber-700">{totalIneligibleAmount.toLocaleString('vi-VN')}đ</span>
+                                    </div>
+                                    <CardContent className="p-0">
                                         <Accordion
                                             type="multiple"
-                                            className="w-full space-y-2"
+                                            className="w-full"
                                             value={openAccordionItems}
                                             onValueChange={setOpenAccordionItems}
                                         >
@@ -458,18 +497,17 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers }: Sa
                                         </Accordion>
                                     </CardContent>
                                 </Card>
-                                <Card className="border-l-4 border-blue-500">
-                                    <CardHeader className="pb-2">
-                                        <CardTitle className="flex items-center gap-2">
-                                            <CheckCircle className="h-5 w-5 text-blue-600" />
-                                            <span>Đã trả</span>
-                                            <Badge>{paidRecords.length}</Badge>
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
+
+                                <Card className="border-l-4 border-blue-500 shadow-sm overflow-hidden">
+                                    <div className="py-2 px-3 border-b flex items-center gap-1.5 bg-blue-50/50">
+                                        <CheckCircle className="h-4 w-4 text-blue-600" />
+                                        <span className="font-bold text-sm sm:text-base text-blue-800">Đã trả</span>
+                                        <Badge variant="outline" className="px-1 py-0 h-4 text-[10px] font-normal border-blue-200 bg-blue-100">{paidRecords.length}</Badge>
+                                    </div>
+                                    <CardContent className="p-0">
                                         <Accordion
                                             type="multiple"
-                                            className="w-full space-y-2"
+                                            className="w-full"
                                             value={openAccordionItems}
                                             onValueChange={setOpenAccordionItems}
                                         >
