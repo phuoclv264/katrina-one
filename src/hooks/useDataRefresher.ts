@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { onSnapshot, collection, doc, getDoc } from 'firebase/firestore';
+import { onSnapshot, collection } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { usePageVisibility } from './usePageVisibility';
 
@@ -26,26 +26,26 @@ export function useDataRefresher(onReconnect: () => void, options?: DataRefreshe
 
   const optsRef = useRef<DataRefresherOptions>({
     minIntervalMs: options?.minIntervalMs ?? 8_000,
-    refreshOnReturnAfterMs: options?.refreshOnReturnAfterMs ?? 5_000,
+    // Default to 1 hour to avoid refreshing on short background periods.
+    refreshOnReturnAfterMs: options?.refreshOnReturnAfterMs ?? 3_600_000,
     refreshOnBrowserOnline: options?.refreshOnBrowserOnline ?? true,
   });
 
   const lastRefreshAtRef = useRef<number>(0);
   const lastHiddenAtRef = useRef<number | null>(null);
-  // Count consecutive offline snapshots to avoid flapping.
-  const offlineStreakRef = useRef<number>(0);
+  // Whether we've received the initial snapshot for the Firestore check listener.
+  const subscribedRef = useRef<boolean>(false);
   const wasOnlineRef = useRef<boolean | null>(null);
-  // Rate limit server probes so we don't spam network while retrying
-  const lastProbeAtRef = useRef<number>(0);
-  const OFFLINE_STREAK_THRESHOLD = 3;
-  const MIN_PROBE_INTERVAL_MS = 10_000; // 10s
+  // Prevent overlapping refresh calls when multiple events fire at once.
+  const inFlightRefreshRef = useRef<boolean>(false);
 
 
   useEffect(() => {
     // Keep latest option values without retriggering effects.
     optsRef.current = {
       minIntervalMs: options?.minIntervalMs ?? 8_000,
-      refreshOnReturnAfterMs: options?.refreshOnReturnAfterMs ?? 5_000,
+      // Default to 1 hour to avoid refreshing on short background periods.
+      refreshOnReturnAfterMs: options?.refreshOnReturnAfterMs ?? 3_600_000,
       refreshOnBrowserOnline: options?.refreshOnBrowserOnline ?? true,
     };
   }, [options?.minIntervalMs, options?.refreshOnReturnAfterMs, options?.refreshOnBrowserOnline]);
@@ -57,6 +57,13 @@ export function useDataRefresher(onReconnect: () => void, options?: DataRefreshe
     const sinceLast = now - lastRefreshAtRef.current;
     const min = minIntervalMs ?? 0;
 
+    if (inFlightRefreshRef.current) {
+      console.log(
+        `[useDataRefresher] Skipping refresh (in-flight). reason=${reason} isVisible=${isVisible} wasOnline=${wasOnlineRef.current}`
+      );
+      return;
+    }
+
     if (sinceLast < min) {
       console.log(
         `[useDataRefresher] Skipping refresh (throttled). reason=${reason} sinceLast=${sinceLast}ms minIntervalMs=${min} isVisible=${isVisible} wasOnline=${wasOnlineRef.current}`
@@ -65,55 +72,52 @@ export function useDataRefresher(onReconnect: () => void, options?: DataRefreshe
     }
 
     lastRefreshAtRef.current = now;
+    inFlightRefreshRef.current = true;
     console.log(`[useDataRefresher] Refreshing data (${reason})`);
-    onReconnect();
+
+    // Support async callbacks safely; clear in-flight flag when finished.
+    Promise.resolve()
+      .then(() => onReconnect())
+      .finally(() => {
+        inFlightRefreshRef.current = false;
+      });
   };
 
   // When the app becomes visible again, refresh only if we previously detected
   // a connectivity problem (offline or error). Do NOT use `fromCache` as the
   // signal because Firestore often emits cache-first snapshots while online.
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  // useEffect(() => {
+  //   if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        lastHiddenAtRef.current = Date.now();
-        return;
-      }
+  //   const onVisibilityChange = () => {
+  //     if (document.visibilityState === 'hidden') {
+  //       lastHiddenAtRef.current = Date.now();
+  //       return;
+  //     }
 
-      // document.visibilityState === 'visible'
-      // Only refresh when we previously detected a connectivity issue.
-      if (wasOnlineRef.current === false) {
-        tryRefresh('visibility-after-connectivity-issue');
-      }
-    };
+  //     // document.visibilityState === 'visible'
+  //     // Refresh when we previously detected a connectivity issue OR when the
+  //     // page was backgrounded longer than `refreshOnReturnAfterMs`.
+  //     const now = Date.now();
+  //     const refreshOnReturnAfterMs = optsRef.current.refreshOnReturnAfterMs ?? 0;
+  //     const wasLongHidden = lastHiddenAtRef.current != null && (now - lastHiddenAtRef.current >= refreshOnReturnAfterMs);
 
-    document.addEventListener('visibilitychange', onVisibilityChange);
+  //     if (wasOnlineRef.current === false) {
+  //       tryRefresh('visibility-after-connectivity-issue');
+  //     } else if (wasLongHidden) {
+  //       tryRefresh('visibility-after-long-background');
+  //     }
 
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
-  }, [onReconnect]);
+  //     // Clear the hidden timestamp once handled.
+  //     lastHiddenAtRef.current = null;
+  //   };
 
-  // Browser network signal: when coming online while visible, refresh.
-  // This is more reliable for "connection lost" than Firestore `fromCache`.
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  //   document.addEventListener('visibilitychange', onVisibilityChange);
 
-    const onOnline = () => {
-      if (!optsRef.current.refreshOnBrowserOnline) return;
-      if (document.visibilityState !== 'visible') return;
-
-      // Mark that we have connectivity again.
-      wasOnlineRef.current = true;
-      tryRefresh('browser-online');
-    };
-
-    window.addEventListener('online', onOnline);
-    return () => {
-      window.removeEventListener('online', onOnline);
-    };
-  }, [onReconnect]);
+  //   return () => {
+  //     document.removeEventListener('visibilitychange', onVisibilityChange);
+  //   };
+  // }, [onReconnect]);
 
   // Effect to monitor Firestore connection status
   useEffect(() => {
@@ -125,88 +129,17 @@ export function useDataRefresher(onReconnect: () => void, options?: DataRefreshe
       _check_collection,
       { includeMetadataChanges: true }, // Important to get offline status
       (snapshot) => {
-        // Use metadata pattern to detect degraded connectivity when the onSnapshot
-        // error callback doesn't fire (common for transient network drops).
-        try {
-          const fromCache = !!snapshot?.metadata?.fromCache;
-          if (fromCache) {
-            const newStreak = (offlineStreakRef.current || 0) + 1;
-            offlineStreakRef.current = newStreak;
-            console.log(`[useDataRefresher] Snapshot from cache detected (streak=${newStreak})`);
-
-            // If we see several consecutive cached snapshots, treat this as a likely
-            // connectivity degradation and attempt a refresh (rate-limited).
-            if (offlineStreakRef.current >= OFFLINE_STREAK_THRESHOLD) {
-              console.log(
-                `[useDataRefresher] Offline streak ${offlineStreakRef.current} >= threshold ${OFFLINE_STREAK_THRESHOLD}`
-              );
-
-              if (wasOnlineRef.current !== false) {
-                console.warn('[useDataRefresher] Detected repeated cache-only snapshots -> possible offline');
-                wasOnlineRef.current = false;
-                tryRefresh('fromCache-streak');
-              }
-
-              const now = Date.now();
-              if (now - lastProbeAtRef.current > MIN_PROBE_INTERVAL_MS) {
-                lastProbeAtRef.current = now;
-                console.log('[useDataRefresher] Scheduling server probe to confirm reachability');
-
-                // Probe the server to confirm reachability. If probe fails, trigger a refresh.
-                (async () => {
-                  try {
-                    // Small doc used only to test server reachability; create it if you like.
-                    const probeDocRef = doc(db, 'app-data', 'connectionProbe');
-                    await getDoc(probeDocRef);
-                    // Probe succeeded; reset offline indicators.
-                    offlineStreakRef.current = 0;
-                    wasOnlineRef.current = true;
-                    console.log('[useDataRefresher] Server probe succeeded after cached snapshot streak');
-                  } catch (probeErr) {
-                    console.warn('[useDataRefresher] Server probe failed after cached snapshot streak', probeErr);
-                    if (document.visibilityState === 'visible') {
-                      console.log('[useDataRefresher] Probe failed while visible — triggering refresh');
-                      tryRefresh('server-probe-failed');
-                    }
-                  }
-                })();
-              }
-            }
-          } else {
-            // healthy snapshot from server
-            offlineStreakRef.current = 0;
-            wasOnlineRef.current = true;
-            console.log('[useDataRefresher] Snapshot from server — connectivity healthy');
-          }
-        } catch (e) {
-          // Safely ignore unanticipated metadata shapes
-          console.debug('[useDataRefresher] Failed to interpret snapshot metadata', e);
+        // Snapshot callback: the initial snapshot indicates a successful connection
+        // — trigger a refresh on the first subscribe so the caller can re-run subscriptions.
+        if (!subscribedRef.current) {
+          subscribedRef.current = true;
+          wasOnlineRef.current = true; // mark online
+          tryRefresh('firestore-initial-subscribe');
         }
       },
       (error) => {
         console.error('Firestore connection check error:', error);
-
         console.log('[useDataRefresher] Detected Firestore connectivity issue (error callback), isVisible=', isVisible);
-
-        // Mark that we had a connectivity issue; when we come back online/visible,
-        // we will refresh subscriptions.
-        wasOnlineRef.current = false;
-
-        // Also attempt a server probe to confirm the error indicates an unreachable server
-        (async () => {
-          try {
-            const probeDocRef = doc(db, 'app-data', 'connectionProbe');
-            await getDoc(probeDocRef);
-            // If probe succeeded, we likely had a transient issue - mark online.
-            wasOnlineRef.current = true;
-            console.log('[useDataRefresher] Server probe succeeded despite onSnapshot error');
-            // still trigger a refresh to be safe
-            if (isVisible) tryRefresh('firestore-error-probe-succeeded');
-          } catch (probeErr) {
-            console.warn('[useDataRefresher] Server probe failed after onSnapshot error', probeErr);
-            if (isVisible) tryRefresh('firestore-error');
-          }
-        })();
       }
     );
 
