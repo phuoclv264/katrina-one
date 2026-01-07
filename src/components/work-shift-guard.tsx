@@ -26,7 +26,7 @@ export default function WorkShiftGuard({ children, redirectPath }: WorkShiftGuar
     timeoutRef.current = setTimeout(() => {
       if (!isReady) {
         console.warn('WorkShiftGuard: Timed out waiting for auth/check-in status. Redirecting.');
-        router.replace(getHomePathForRole(user?.role));
+        nav.replace(getHomePathForRole(user?.role));
       }
     }, 10000);
 
@@ -39,7 +39,7 @@ export default function WorkShiftGuard({ children, redirectPath }: WorkShiftGuar
     }
 
     return () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); };
-  }, [authLoading, isCheckedIn, router, user?.role]);
+  }, [authLoading, isCheckedIn, nav, user?.role]);
 
   if (!isReady) {
     return (
