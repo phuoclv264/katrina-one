@@ -382,7 +382,7 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
                     </div>
                 </AccordionContent>
                 <AlertDialog open={isPayDialogOpen} onOpenChange={setIsPayDialogOpen}>
-                    <AlertDialogContent portalContainer={containerRef.current}>
+                    <AlertDialogContent>
                         <AlertDialogHeader>
                             <AlertDialogTitle>Xác nhận trả lương</AlertDialogTitle>
                             <AlertDialogDescription>
