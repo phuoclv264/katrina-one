@@ -9,11 +9,20 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Camera, Clock, X, Trash2, AlertCircle, FilePlus2, ThumbsDown, ThumbsUp, FilePen, ChevronDown, ChevronUp, Star, MapPin, CheckCircle2, MessageSquareText, Image as ImageIcon, Eye } from 'lucide-react';
 import CompletionGalleryDialog from '@/components/completion-gallery-dialog';
-import type { Task, CompletionRecord } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import OtherCompletionsDialog from '@/components/other-completions-dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import type { Task, CompletionRecord, ShiftReport } from '@/lib/types';
+import { cn, generateShortName } from '@/lib/utils';
 import { photoStore } from '@/lib/photo-store';
 import { differenceInMinutes } from 'date-fns';
+// Avatar not needed for flattened other-staff completions
+import { Users } from 'lucide-react';
 
+type OtherStaffCompletion = {
+  staffName: string;
+  userId: string;
+  completions: CompletionRecord[];
+};
 
 type TaskItemProps = {
   task: Task;
@@ -28,6 +37,7 @@ type TaskItemProps = {
   onDeletePhoto: (taskId: string, completionIndex: number, photoId: string, isLocal: boolean) => void;
   onToggleExpand: (taskId: string) => void;
   onOpenLightbox: (photos: { src: string }[], startIndex: number) => void;
+  otherStaffCompletions?: OtherStaffCompletion[];
   className?: string;
 };
 
@@ -44,10 +54,12 @@ const TaskItemComponent = ({
   onDeletePhoto,
   onToggleExpand,
   onOpenLightbox,
+  otherStaffCompletions = [],
   className,
 }: TaskItemProps) => {
   const isCompletedOnce = completions.length > 0;
   const isDisabledForNew = (isSingleCompletion && isCompletedOnce && task.type !== 'opinion') || isReadonly;
+  const hasOtherStaffCompletions = otherStaffCompletions.length > 0;
 
   const [currentTime, setCurrentTime] = useState(() => new Date());
 
@@ -114,6 +126,12 @@ const TaskItemComponent = ({
   const [isGalleryOpen, setIsGalleryOpen] = React.useState(false);
   const [galleryImages, setGalleryImages] = React.useState<string[]>([]);
   const [galleryIndex, setGalleryIndex] = React.useState(0);
+
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
+
+  const [showOtherCompletionsDialog, setShowOtherCompletionsDialog] = useState(false);
 
 
   return (
@@ -282,6 +300,104 @@ const TaskItemComponent = ({
           )}
         </div>
       )}
+
+      {/* Other Staff Completions - visible as individual completion rows (time, name, eye) */}
+      {hasOtherStaffCompletions && (
+        <div className={cn(
+          "space-y-1.5 border-dashed border-blue-200",
+          isCompletedOnce ? "pt-2.5 border-t mt-2.5" : "pt-2 border-t mt-2"
+        )}>
+          {/* Flatten other staff completions into individual rows */}
+          {(() => {
+            const flattened: { staffName: string; userId: string; completion: CompletionRecord }[] = [];
+            otherStaffCompletions.forEach(s => {
+              (s.completions || []).forEach(c => flattened.push({ staffName: s.staffName, userId: s.userId, completion: c }));
+            });
+            // Sort most recent first (timestamps are 'HH:mm')
+            flattened.sort((a, b) => (b.completion.timestamp || '').localeCompare(a.completion.timestamp || ''));
+
+            const itemsToShow = isExpanded ? flattened : flattened.slice(0, 1);
+
+            return (
+              <div className="space-y-1.5">
+                {itemsToShow.map((entry, idx) => (
+                  <div key={`${entry.userId}-${idx}`} className="flex flex-col">
+                    <div className="flex items-center justify-between gap-2 h-7">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="flex items-center gap-1 text-[11px] font-medium text-blue-600/70 shrink-0">
+                          <Clock className="h-3.5 w-3.5" />
+                          <span>{entry.completion.timestamp}</span>
+                        </div>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-[11px] font-bold text-blue-900 truncate">
+                            {generateShortName(entry.staffName)}
+                          </span>
+                          {/* boolean value */}
+                          {task.type === 'boolean' && entry.completion.value !== undefined && (
+                            <Badge 
+                              variant={entry.completion.value ? 'default' : 'secondary'} 
+                              className="h-4 px-1 text-[8px] font-bold leading-none border-none min-w-[20px] flex items-center justify-center"
+                            >
+                              {entry.completion.value ? '✓' : '✗'}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center shrink-0">
+                        {/* Eye button to view photos (server URLs only) */}
+                        {task.type === 'photo' && (entry.completion.photos?.length || 0) > 0 && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-blue-700 hover:bg-blue-50"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const photos = (entry.completion.photos || []).map(url => ({ src: url }));
+                              if (photos.length > 0) onOpenLightbox(photos, 0);
+                            }}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Opinion text (full) - tucked under name */}
+                    {task.type === 'opinion' && entry.completion.opinion && (
+                      <div className="ml-[18px] mt-0.5 bg-blue-50/50 rounded-lg p-2 border border-blue-100/50">
+                        <p className="text-[11px] text-blue-800 italic leading-tight">
+                          "{entry.completion.opinion}"
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {/* show count when collapsed - open dialog to see all */}
+                {flattened.length > 1 && !isExpanded && (
+                  <Button 
+                    variant="ghost" 
+                    className="h-6 px-2 text-[9px] font-bold text-blue-600 hover:bg-blue-50 w-fit" 
+                    onClick={() => setShowOtherCompletionsDialog(true)}
+                  >
+                    XEM THÊM {flattened.length - 1} LẦN KHÁC
+                  </Button>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      <OtherCompletionsDialog
+        open={showOtherCompletionsDialog}
+        onOpenChange={setShowOtherCompletionsDialog}
+        otherStaffCompletions={otherStaffCompletions}
+        taskName={task.text}
+        taskType={task.type}
+        onOpenLightbox={onOpenLightbox}
+      />
 
       {/* Photo action moved to bottom (hidden for single-completion tasks after done) */}
       {task.type === 'photo' && !(isSingleCompletion && isCompletedOnce) && (

@@ -73,6 +73,23 @@ export function BottomNav({ tabs, activeTab, onTabChange, watchValue, autoHideMs
     setIsVisible(true);
   }, [activeTab]);
 
+  // Expose visibility to other components via a global class so floating
+  // action buttons can adjust their position when the bottom nav is shown.
+  useEffect(() => {
+    try {
+      if (isVisible) {
+        document.documentElement.classList.add('bottom-nav-visible');
+      } else {
+        document.documentElement.classList.remove('bottom-nav-visible');
+      }
+    } catch (e) {
+      // ignore (server-side rendering or restricted environments)
+    }
+    return () => {
+      try { document.documentElement.classList.remove('bottom-nav-visible'); } catch (e) {}
+    };
+  }, [isVisible]);
+
   // Reveal the nav briefly whenever the visible tabs or a watched value (e.g. check-in state)
   // changes, so users immediately see updated tab content.
   useEffect(() => {
