@@ -289,21 +289,19 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
     updateLocalReport(prevReport => {
       const newReport = { ...prevReport };
       const newCompletedTasks = { ...newReport.completedTasks };
+      const taskCompletions = [...(newCompletedTasks[taskId] || [])];
 
-      if (value) {
-        const newCompletion: CompletionRecord = {
-          timestamp: format(new Date(), 'HH:mm'),
-          value: true,
-        };
-        newCompletedTasks[taskId] = [newCompletion];
-      } else {
-        delete newCompletedTasks[taskId];
-      }
-
+      const newCompletion: CompletionRecord = {
+        timestamp: format(new Date(), 'HH:mm'),
+        value: value,
+      };
+      taskCompletions.unshift(newCompletion);
+      newCompletedTasks[taskId] = taskCompletions;
       newReport.completedTasks = newCompletedTasks;
       return newReport;
     });
   };
+
 
   const handleOpinionTaskAction = (task: Task) => {
     setActiveTask(task);

@@ -27,7 +27,7 @@ type TaskItemProps = {
   onDeleteCompletion: (taskId: string, completionIndex: number) => void;
   onDeletePhoto: (taskId: string, completionIndex: number, photoId: string, isLocal: boolean) => void;
   onToggleExpand: (taskId: string) => void;
-  onOpenLightbox: (photos: {src: string}[], startIndex: number) => void;
+  onOpenLightbox: (photos: { src: string }[], startIndex: number) => void;
   className?: string;
 };
 
@@ -68,7 +68,7 @@ const TaskItemComponent = ({
     const fetchLocalPhotos = async () => {
       // Always get all photoIds from the current completions prop
       const allLocalPhotoIds = completions.flatMap(c => c.photoIds || []);
-  
+
       if (allLocalPhotoIds.length > 0) {
         const urlsMap = await photoStore.getPhotosAsUrls(allLocalPhotoIds);
         if (isMounted) {
@@ -78,37 +78,37 @@ const TaskItemComponent = ({
           // Collect all newly created URLs to be revoked on cleanup
           newUrlMap.forEach(url => urlsToRevoke.push(url));
         } else {
-            // If component unmounted before state update, revoke immediately
-            urlsMap.forEach(url => URL.revokeObjectURL(url));
+          // If component unmounted before state update, revoke immediately
+          urlsMap.forEach(url => URL.revokeObjectURL(url));
         }
       } else {
-         // If there are no local photos, clear the state
-         if(isMounted) {
-            setLocalPhotoUrls(new Map());
-         }
+        // If there are no local photos, clear the state
+        if (isMounted) {
+          setLocalPhotoUrls(new Map());
+        }
       }
     };
-  
+
     fetchLocalPhotos();
-    
-    return () => { 
-        isMounted = false; 
-        // Revoke all URLs that were created in this effect run
-        urlsToRevoke.forEach(url => URL.revokeObjectURL(url));
-        // Also revoke any URLs currently in state to be safe
-        localPhotoUrls.forEach(url => URL.revokeObjectURL(url));
+
+    return () => {
+      isMounted = false;
+      // Revoke all URLs that were created in this effect run
+      urlsToRevoke.forEach(url => URL.revokeObjectURL(url));
+      // Also revoke any URLs currently in state to be safe
+      localPhotoUrls.forEach(url => URL.revokeObjectURL(url));
     };
   }, [completions]);
 
-  const handleOpenLightbox = (allPhotosInTask: {src: string}[], currentPhotoUrl: string) => {
-      const startIndex = allPhotosInTask.findIndex(p => p.src === currentPhotoUrl);
-      onOpenLightbox(allPhotosInTask, startIndex >= 0 ? startIndex : 0);
+  const handleOpenLightbox = (allPhotosInTask: { src: string }[], currentPhotoUrl: string) => {
+    const startIndex = allPhotosInTask.findIndex(p => p.src === currentPhotoUrl);
+    onOpenLightbox(allPhotosInTask, startIndex >= 0 ? startIndex : 0);
   };
-  
-  const allPhotosInTask = completions.flatMap(c => 
+
+  const allPhotosInTask = completions.flatMap(c =>
     [...(c.photos || []), ...(c.photoIds || []).map(id => localPhotoUrls.get(id) || '')]
-    .filter(Boolean)
-    .map(url => ({ src: url }))
+      .filter(Boolean)
+      .map(url => ({ src: url }))
   );
 
   const [isGalleryOpen, setIsGalleryOpen] = React.useState(false);
@@ -148,32 +148,15 @@ const TaskItemComponent = ({
         {/* Action Buttons */}
         <div className="pt-2">
           {task.type === 'boolean' && (
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid">
               <Button
                 size="sm"
                 variant="outline"
-                className={cn(
-                  "h-9 rounded-xl text-[11px] font-bold border-[1.5px] transition-all",
-                  completions[0]?.value === true ? "bg-green-600 border-green-600 text-white hover:bg-green-700" : "hover:bg-green-50 hover:border-green-200"
-                )}
+                className="w-full"
                 onClick={() => onBooleanAction(task.id, true)}
                 disabled={isDisabledForNew}
               >
-                <ThumbsUp className={cn("mr-1.5 h-3.5 w-3.5", completions[0]?.value === true ? "fill-current" : "")} />
-                ĐẠT
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className={cn(
-                  "h-9 rounded-xl text-[11px] font-bold border-[1.5px] transition-all",
-                  completions[0]?.value === false ? "bg-rose-600 border-rose-600 text-white hover:bg-rose-700" : "hover:bg-rose-50 hover:border-rose-200"
-                )}
-                onClick={() => onBooleanAction(task.id, false)}
-                disabled={isDisabledForNew}
-              >
-                <ThumbsDown className={cn("mr-1.5 h-3.5 w-3.5", completions[0]?.value === false ? "fill-current" : "")} />
-                KHÔNG
+                <ThumbsUp className="w-full" /> Đảm bảo
               </Button>
             </div>
           )}
@@ -205,10 +188,10 @@ const TaskItemComponent = ({
                     <span>{completion.timestamp}</span>
                   </div>
                 </div>
-                
+
                 {!isReadonly && (
                   <div className="flex items-center gap-1">
-                          {(() => {
+                    {(() => {
                       // Prepare photos for this specific completion
                       const completionPhotos = [
                         ...(completion.photos || []),
@@ -287,10 +270,10 @@ const TaskItemComponent = ({
               )}
             </div>
           ))}
-          
+
           {completions.length > 1 && (
-            <button 
-              onClick={() => onToggleExpand(task.id)} 
+            <button
+              onClick={() => onToggleExpand(task.id)}
               className="w-full py-1 text-[10px] font-bold text-muted-foreground hover:text-primary transition-colors flex items-center justify-center gap-1"
             >
               {isExpanded ? 'THU GỌN' : `XEM THÊM (${completions.length - 1})`}
