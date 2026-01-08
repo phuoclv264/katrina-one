@@ -35,11 +35,16 @@ const DialogOverlay = React.forwardRef<
 ))
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
+type DialogContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+  // Optional container element to mount the portal into (passed to Radix Portal `container` prop).
+  portalContainer?: Element | null;
+};
+
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
-  <DialogPortal>
+  DialogContentProps
+>(({ className, children, portalContainer, ...props }, ref) => (
+  <DialogPortal container={portalContainer}>
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
