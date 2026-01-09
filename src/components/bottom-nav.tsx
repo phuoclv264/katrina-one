@@ -47,26 +47,37 @@ export function BottomNav({ tabs, activeTab, onTabChange, watchValue, autoHideMs
   const scrollDirection = useScrollDirection();
   const [isVisible, setIsVisible] = useState(true);
   const [isInteracting, setIsInteracting] = useState(false);
+  // When true we force the nav visible (e.g., when at top of page or when content
+  // is not scrollable so you "cannot scroll up" any further).
+  const [alwaysVisibleAtTop, setAlwaysVisibleAtTop] = useState(false);
 
   useEffect(() => {
+    // When pinned to top or page isn't scrollable, keep the nav visible.
+    if (alwaysVisibleAtTop) {
+      setIsVisible(true);
+      return;
+    }
+
     if (scrollDirection === 'down') {
       setIsVisible(false);
     } else if (scrollDirection === 'up') {
       setIsVisible(true);
     }
-  }, [scrollDirection]);
+  }, [scrollDirection, alwaysVisibleAtTop]);
 
   // Auto-hide timer when visible and not interacting
+  // Don't auto-hide when we're pinned at the top / page isn't scrollable.
   useEffect(() => {
     if (!isVisible) return;
     if (isInteracting) return;
+    if (alwaysVisibleAtTop) return;
 
     const id = setTimeout(() => {
       setIsVisible(false);
     }, autoHideMs);
 
     return () => clearTimeout(id);
-  }, [isVisible, isInteracting, activeTab, autoHideMs]);
+  }, [isVisible, isInteracting, activeTab, autoHideMs, alwaysVisibleAtTop]);
 
   // Make sure the nav becomes visible whenever activeTab changes
   useEffect(() => {
@@ -97,6 +108,33 @@ export function BottomNav({ tabs, activeTab, onTabChange, watchValue, autoHideMs
     // ensure auto-hide will run by marking not-interacting
     setIsInteracting(false);
   }, [tabs, watchValue]);
+
+  // Keep the nav visible when we're at the top of the page or when the document
+  // isn't scrollable (so there's nowhere to scroll up to). This improves UX on
+  // short pages and prevents surprising auto-hide behavior.
+  useEffect(() => {
+    const checkTopOrUnscrollable = () => {
+      try {
+        const doc = document.documentElement;
+        const scrollTop = window.scrollY || doc.scrollTop || 0;
+        const canScroll = doc.scrollHeight > window.innerHeight + 1; // small tolerance
+        const atTop = scrollTop <= 0;
+        const pinned = atTop || !canScroll;
+        setAlwaysVisibleAtTop(pinned);
+        if (pinned) setIsVisible(true);
+      } catch (e) {
+        // ignore (server environments, restricted contexts)
+      }
+    };
+
+    checkTopOrUnscrollable();
+    window.addEventListener('scroll', checkTopOrUnscrollable, { passive: true });
+    window.addEventListener('resize', checkTopOrUnscrollable);
+    return () => {
+      window.removeEventListener('scroll', checkTopOrUnscrollable);
+      window.removeEventListener('resize', checkTopOrUnscrollable);
+    };
+  }, []);
 
   return (
     <div

@@ -225,7 +225,7 @@ function setPageHash(href: string, mode: 'push' | 'replace' = 'push') {
 // usePreserveScroll moved to src/hooks/use-preserve-scroll.ts
 
 export function MobileLayout({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, refreshTrigger } = useAuth();
   const { isCheckedIn } = useCheckInCardPlacement();
   const pathname = usePathname();
   const [activeTab, setActiveTab] = useState('home');
@@ -233,7 +233,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
   const [virtualHref, setVirtualHref] = useState<string | null>(null);
   const { restore: restoreScroll, persist: persistScroll } = usePreserveScroll();
 
-  const tabs = useMemo(() => buildTabs(user, isCheckedIn), [user, isCheckedIn]);
+  const tabs = useMemo(() => buildTabs(user, isCheckedIn), [user, isCheckedIn, refreshTrigger]);
 
   // Initialize active tab based on pathname.
   // Important: do NOT let this override hash-driven SPA navigation (#tab / #page),

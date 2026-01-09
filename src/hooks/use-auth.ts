@@ -266,6 +266,7 @@ export const useAuth = () => {
     todaysShifts,
     notifications,
     users,
+    refreshTrigger,
     unreadNotificationCount,
     login,
     register,
