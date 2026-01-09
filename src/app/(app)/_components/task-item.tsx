@@ -7,9 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Camera, Clock, X, Trash2, AlertCircle, FilePlus2, ThumbsDown, ThumbsUp, FilePen, ChevronDown, ChevronUp, Star, MapPin, CheckCircle2, MessageSquareText, Image as ImageIcon, Eye } from 'lucide-react';
-import CompletionGalleryDialog from '@/components/completion-gallery-dialog';
-import OtherCompletionsDialog from '@/components/other-completions-dialog';
+import { Camera, Clock, X, Trash2, AlertCircle, FilePlus2, ThumbsDown, ThumbsUp, FilePen, ChevronDown, ChevronUp, Star, MapPin, CheckCircle2, MessageSquareText, Image as ImageIcon } from 'lucide-react';
+import CompletionsDialog from '@/components/completions-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Task, CompletionRecord, ShiftReport } from '@/lib/types';
 import { cn, generateShortName } from '@/lib/utils';
@@ -59,7 +58,14 @@ const TaskItemComponent = ({
 }: TaskItemProps) => {
   const isCompletedOnce = completions.length > 0;
   const isDisabledForNew = (isSingleCompletion && isCompletedOnce && task.type !== 'opinion') || isReadonly;
-  const hasOtherStaffCompletions = otherStaffCompletions.length > 0;
+
+  const combinedCompletions = React.useMemo(() => {
+    const out: { staffName: string; userId?: string; completion: CompletionRecord }[] = [];
+    (completions || []).forEach(c => out.push({ staffName: 'Bạn', completion: c }));
+    (otherStaffCompletions || []).forEach(s => (s.completions || []).forEach(c => out.push({ staffName: s.staffName, userId: s.userId, completion: c })));
+    out.sort((a, b) => (b.completion.timestamp || '').localeCompare(a.completion.timestamp || ''));
+    return out;
+  }, [completions, otherStaffCompletions]);
 
   const [currentTime, setCurrentTime] = useState(() => new Date());
 
@@ -111,25 +117,6 @@ const TaskItemComponent = ({
       localPhotoUrls.forEach(url => URL.revokeObjectURL(url));
     };
   }, [completions]);
-
-  const handleOpenLightbox = (allPhotosInTask: { src: string }[], currentPhotoUrl: string) => {
-    const startIndex = allPhotosInTask.findIndex(p => p.src === currentPhotoUrl);
-    onOpenLightbox(allPhotosInTask, startIndex >= 0 ? startIndex : 0);
-  };
-
-  const allPhotosInTask = completions.flatMap(c =>
-    [...(c.photos || []), ...(c.photoIds || []).map(id => localPhotoUrls.get(id) || '')]
-      .filter(Boolean)
-      .map(url => ({ src: url }))
-  );
-
-  const [isGalleryOpen, setIsGalleryOpen] = React.useState(false);
-  const [galleryImages, setGalleryImages] = React.useState<string[]>([]);
-  const [galleryIndex, setGalleryIndex] = React.useState(0);
-
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-  };
 
   const [showOtherCompletionsDialog, setShowOtherCompletionsDialog] = useState(false);
 
@@ -194,209 +181,48 @@ const TaskItemComponent = ({
         </div>
       </div>
 
-      {/* Completions Display */}
-      {isCompletedOnce && (
+      {/* Completions Display (compact) */}
+      {combinedCompletions.length > 0 && (
         <div className="mt-2 space-y-2 border-t border-dashed pt-2">
-          {(isExpanded ? completions : completions.slice(0, 1)).map((completion, cIndex) => (
-            <div key={cIndex} className="relative group/item">
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-2">
-                  <div className="inline-flex items-center gap-1 text-sm font-semibold text-foreground">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <span>{completion.timestamp}</span>
-                  </div>
-                </div>
-
-                {!isReadonly && (
-                  <div className="flex items-center gap-1">
-                    {(() => {
-                      // Prepare photos for this specific completion
-                      const completionPhotos = [
-                        ...(completion.photos || []),
-                        ...((completion.photoIds || []).map((id) => localPhotoUrls.get(id)).filter(Boolean) as string[])
-                      ];
-
-                      const [h, m] = completion.timestamp.split(":").map(Number);
-                      const compDate = new Date(); compDate.setHours(h, m);
-
-                      return (
-                        <>
-                          {task.type === 'photo' && completionPhotos.length > 0 && (
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-6 w-6 text-primary relative"
-                              onClick={() => { setGalleryImages(completionPhotos); setGalleryIndex(0); setIsGalleryOpen(true); }}
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                              <span className="absolute -top-1 -right-1 inline-flex items-center justify-center text-[10px] font-bold bg-primary text-white rounded-full h-4 w-4">
-                                {completionPhotos.length}
-                              </span>
-                            </Button>
-                          )}
-
-                          {task.type === 'photo' && (() => {
-                            if (differenceInMinutes(currentTime, compDate) < 10 || isSingleCompletion) {
-                              return (
-                                <Button size="icon" variant="ghost" className="h-6 w-6 text-primary" onClick={() => onPhotoAction(task, cIndex)}>
-                                  <FilePlus2 className="h-3 w-3" />
-                                </Button>
-                              );
-                            }
-                            return null;
-                          })()}
-
-                          {/* Gallery dialog */}
-                          <CompletionGalleryDialog
-                            isOpen={isGalleryOpen}
-                            onClose={() => setIsGalleryOpen(false)}
-                            images={galleryImages}
-                          />
-
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive">
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent className="rounded-2xl">
-                              <AlertDialogHeader>
-                                <AlertDialogTitle className="text-base">Xóa lần thực hiện này?</AlertDialogTitle>
-                                <AlertDialogDescription className="text-sm">Hành động này không thể hoàn tác.</AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel className="rounded-xl">Hủy</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => onDeleteCompletion(task.id, cIndex)} className="rounded-xl bg-destructive text-destructive-foreground">Xóa</AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </>
-                      );
-                    })()}
-                  </div>
-                )}
+          {(isExpanded ? combinedCompletions : combinedCompletions.slice(0, 1)).map((entry, idx) => (
+            <div key={`${entry.userId || 'self'}-${idx}`} className="flex items-center justify-between py-1">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-semibold text-foreground">{entry.completion.timestamp}</span>
+                <span className="text-sm font-bold text-slate-800 ml-2">{generateShortName(entry.staffName)}</span>
               </div>
-
-
-
-              {/* Opinion Text */}
-              {completion.opinion && (
-                <div className="mt-1.5 flex gap-2 p-2 bg-muted/50 rounded-lg border border-dashed">
-                  <MessageSquareText className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
-                  <p className="text-[11px] italic text-muted-foreground leading-tight">{completion.opinion}</p>
-                </div>
-              )}
             </div>
           ))}
 
-          {completions.length > 1 && (
+          {combinedCompletions.length > 1 && (
             <button
               onClick={() => onToggleExpand(task.id)}
               className="w-full py-1 text-[10px] font-bold text-muted-foreground hover:text-primary transition-colors flex items-center justify-center gap-1"
             >
-              {isExpanded ? 'THU GỌN' : `XEM THÊM (${completions.length - 1})`}
+              {isExpanded ? 'THU GỌN' : `XEM THÊM (${combinedCompletions.length - 1})`}
               {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
             </button>
           )}
+
+          <div className="pt-1">
+            <Button size="sm" variant="ghost" className="w-full text-[12px] font-bold" onClick={() => setShowOtherCompletionsDialog(true)}>
+              Chi tiết
+            </Button>
+          </div>
         </div>
       )}
 
-      {/* Other Staff Completions - visible as individual completion rows (time, name, eye) */}
-      {hasOtherStaffCompletions && (
-        <div className={cn(
-          "space-y-1.5 border-dashed border-blue-200",
-          isCompletedOnce ? "pt-2.5 border-t mt-2.5" : "pt-2 border-t mt-2"
-        )}>
-          {/* Flatten other staff completions into individual rows */}
-          {(() => {
-            const flattened: { staffName: string; userId: string; completion: CompletionRecord }[] = [];
-            otherStaffCompletions.forEach(s => {
-              (s.completions || []).forEach(c => flattened.push({ staffName: s.staffName, userId: s.userId, completion: c }));
-            });
-            // Sort most recent first (timestamps are 'HH:mm')
-            flattened.sort((a, b) => (b.completion.timestamp || '').localeCompare(a.completion.timestamp || ''));
-
-            const itemsToShow = isExpanded ? flattened : flattened.slice(0, 1);
-
-            return (
-              <div className="space-y-1.5">
-                {itemsToShow.map((entry, idx) => (
-                  <div key={`${entry.userId}-${idx}`} className="flex flex-col">
-                    <div className="flex items-center justify-between gap-2 h-7">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="flex items-center gap-1 text-[11px] font-medium text-blue-600/70 shrink-0">
-                          <Clock className="h-3.5 w-3.5" />
-                          <span>{entry.completion.timestamp}</span>
-                        </div>
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-[11px] font-bold text-blue-900 truncate">
-                            {generateShortName(entry.staffName)}
-                          </span>
-                          {/* boolean value */}
-                          {task.type === 'boolean' && entry.completion.value !== undefined && (
-                            <Badge 
-                              variant={entry.completion.value ? 'default' : 'secondary'} 
-                              className="h-4 px-1 text-[8px] font-bold leading-none border-none min-w-[20px] flex items-center justify-center"
-                            >
-                              {entry.completion.value ? '✓' : '✗'}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center shrink-0">
-                        {/* Eye button to view photos (server URLs only) */}
-                        {task.type === 'photo' && (entry.completion.photos?.length || 0) > 0 && (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7 text-blue-700 hover:bg-blue-50"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const photos = (entry.completion.photos || []).map(url => ({ src: url }));
-                              if (photos.length > 0) onOpenLightbox(photos, 0);
-                            }}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Opinion text (full) - tucked under name */}
-                    {task.type === 'opinion' && entry.completion.opinion && (
-                      <div className="ml-[18px] mt-0.5 bg-blue-50/50 rounded-lg p-2 border border-blue-100/50">
-                        <p className="text-[11px] text-blue-800 italic leading-tight">
-                          "{entry.completion.opinion}"
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                ))}
-
-                {/* show count when collapsed - open dialog to see all */}
-                {flattened.length > 1 && !isExpanded && (
-                  <Button 
-                    variant="ghost" 
-                    className="h-6 px-2 text-[9px] font-bold text-blue-600 hover:bg-blue-50 w-fit" 
-                    onClick={() => setShowOtherCompletionsDialog(true)}
-                  >
-                    XEM THÊM {flattened.length - 1} LẦN KHÁC
-                  </Button>
-                )}
-              </div>
-            );
-          })()}
-        </div>
-      )}
-
-      <OtherCompletionsDialog
+      <CompletionsDialog
         open={showOtherCompletionsDialog}
         onOpenChange={setShowOtherCompletionsDialog}
         otherStaffCompletions={otherStaffCompletions}
         taskName={task.text}
         taskType={task.type}
         onOpenLightbox={onOpenLightbox}
+        currentStaffName={'Bạn'}
+        currentCompletions={completions}
+        onDeleteCurrentCompletion={(index) => onDeleteCompletion(task.id, index)}
+        onDeleteCurrentPhoto={(completionIndex, photoId) => onDeletePhoto(task.id, completionIndex, photoId, true)}
       />
 
       {/* Photo action moved to bottom (hidden for single-completion tasks after done) */}
