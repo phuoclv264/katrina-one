@@ -4,14 +4,14 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ThumbsUp, ThumbsDown, MessageSquare, Eye, EyeOff, Loader2, Trash2, User, Pin, PinOff, Edit2, File as FileIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, getInitials } from '@/lib/utils';
 import type { WhistleblowingReport, AuthUser, ManagedUser, ReportComment, Attachment, CommentMedia } from '@/lib/types';
 import Image from 'next/image';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import CommentDialog from './comment-dialog';
 import { toast } from '@/components/ui/pro-toast';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Separator } from '@/components/ui/separator';
 import { useLightbox } from '@/contexts/lightbox-context';
@@ -122,10 +122,15 @@ export default function ReportCard({
       : allUsers.find(u => u.uid === report.reporterId)?.displayName || 'Không rõ';
   }, [report, allUsers]);
 
-  const reporterAvatarFallback = useMemo(() => {
-    if (reporterDisplayName === 'Ẩn danh') return <User className="h-4 w-4"/>;
-    return reporterDisplayName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-  }, [reporterDisplayName]);
+  const reporterPhotoURL = useMemo(() => {
+    if (report.isAnonymous) return null;
+    return allUsers.find(u => u.uid === report.reporterId)?.photoURL || null;
+  }, [report, allUsers]);
+
+    const reporterAvatarFallback = useMemo(() => {
+        if (reporterDisplayName === 'Ẩn danh') return <User className="h-4 w-4"/>;
+        return getInitials(reporterDisplayName);
+    }, [reporterDisplayName]);
   
   const mediaAttachments = useMemo(() => (report.attachments || []).filter(att => att.type.startsWith('image/') || att.type.startsWith('video/')), [report.attachments]);
   const otherAttachments = useMemo(() => (report.attachments || []).filter(att => !att.type.startsWith('image/') && !att.type.startsWith('video/')), [report.attachments]);
@@ -147,6 +152,7 @@ export default function ReportCard({
            <div className="flex items-center justify-between mt-2">
              <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Avatar className="h-6 w-6">
+                    <AvatarImage src={reporterPhotoURL || ''} />
                     <AvatarFallback className="text-xs">{reporterAvatarFallback}</AvatarFallback>
                 </Avatar>
                 <span className="font-semibold text-foreground">{reporterDisplayName}</span>

@@ -21,12 +21,17 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { toast } from "react-hot-toast";
 import { useAppNavigation } from '@/contexts/app-navigation-context';
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { getInitials } from '@/lib/utils';
+import { ProfileDialog } from "./profile-dialog";
+import { useState } from "react";
 
 export function AppSidebar() {
   const { user, logout, loading, isOnActiveShift } = useAuth();
   const { setOpenMobile, state: sidebarState } = useSidebar();
   const pathname = usePathname();
   const nav = useAppNavigation();
+  const [profileOpen, setProfileOpen] = useState(false);
   
   const handleLinkClick = () => {
     setOpenMobile(false);
@@ -144,7 +149,6 @@ export function AppSidebar() {
   const { primaryItems, secondaryItems } = getMenuItems();
   const displayName = user?.displayName ?? 'Đang tải...';
   const displayRole = user?.role ?? '';
-  
   const getRoleIcon = () => {
     if (loading) return <Loader2 className="animate-spin"/>;
     switch(user?.role) {
@@ -182,29 +186,45 @@ export function AppSidebar() {
                  </div>
             </div>
          </div>
-        <div className="flex items-center justify-between p-2 rounded-md bg-muted group-data-[collapsible=icon]:hidden">
-            <div className="flex items-center gap-3 overflow-hidden">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
-                    {getRoleIcon()}
-                </div>
-                <div className="flex flex-col overflow-hidden">
-                    <span className="font-semibold">{displayName}</span>
-                    <span className="text-xs text-muted-foreground capitalize">{displayRole}</span>
+        <div className="flex items-center gap-3 p-2 group-data-[collapsible=icon]:hidden">
+            <div 
+              className="relative group/avatar cursor-pointer shrink-0" 
+              onClick={() => setProfileOpen(true)}
+            >
+                <Avatar className="h-10 w-10 border border-border shadow-sm group-hover/avatar:brightness-75 transition-all">
+                    <AvatarImage src={user?.photoURL || ''} />
+                    <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                        {getInitials(displayName)}
+                    </AvatarFallback>
+                </Avatar>
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity">
+                    <Edit2 className="h-4 w-4 text-white drop-shadow-md" />
                 </div>
             </div>
-            <SidebarMenuButton
-              variant="outline"
-              size="default"
-              className="h-8 w-8 shrink-0"
-              onClick={logout}
-              tooltip="Đăng xuất"
-              disabled={loading}
+            <div className="flex flex-col overflow-hidden">
+                <span className="font-semibold truncate">{displayName}</span>
+                <span className="text-xs text-muted-foreground capitalize truncate">{displayRole}</span>
+            </div>
+        </div>
+        <div className="hidden group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center p-2">
+            <div 
+              className="relative group/avatar cursor-pointer" 
+              onClick={() => setProfileOpen(true)}
             >
-              <LogOut />
-            </SidebarMenuButton>
+                <Avatar className="h-8 w-8 border border-border shadow-sm group-hover/avatar:brightness-75 transition-all">
+                    <AvatarImage src={user?.photoURL || ''} />
+                    <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-bold">
+                        {getInitials(displayName)}
+                    </AvatarFallback>
+                </Avatar>
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity">
+                    <Edit2 className="h-3 w-3 text-white drop-shadow-md" />
+                </div>
+            </div>
         </div>
       </SidebarHeader>
       <SidebarSeparator />
+      <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
       <SidebarContent className="flex-1">
         <SidebarMenu>
           {primaryItems.map((item) => (
@@ -253,6 +273,16 @@ export function AppSidebar() {
       <SidebarSeparator />
       <SidebarFooter>
          <SidebarMenu>
+            <SidebarMenuItem className="group-data-[collapsible=icon]:justify-center">
+                <SidebarMenuButton 
+                  onClick={() => logout()}
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  tooltip="Đăng xuất"
+                >
+                    <LogOut className="h-4 w-4" />
+                    <span className="group-data-[collapsible=icon]:hidden">Đăng xuất</span>
+                </SidebarMenuButton>
+            </SidebarMenuItem>
             <SidebarMenuItem className="justify-end group-data-[collapsible=icon]:justify-center">
                 <SidebarTrigger tooltip={sidebarState === 'expanded' ? "Thu gọn" : "Mở rộng"} />
             </SidebarMenuItem>

@@ -1,11 +1,10 @@
-
 'use client';
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { AttendanceRecord, ManagedUser, Schedule, AssignedShift } from '@/lib/types';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
+import { cn, getInitials } from '@/lib/utils';
 import Image from 'next/image';
 import { getStatusInfo, findShiftForRecord } from '@/lib/attendance-utils';
 import { Edit2, MoreVertical, Trash2 } from 'lucide-react';
@@ -22,6 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export default function AttendanceCards({
   records,
@@ -95,19 +95,21 @@ export default function AttendanceCards({
             <Card key={record.id}>
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-start">
-                    <div>
-                        <CardTitle className="text-base">{user?.displayName || 'Không rõ'}</CardTitle>
-                        <div className="text-xs text-muted-foreground flex items-center">
-                            {record.hourlyRate?.toLocaleString('vi-VN')}đ/giờ
-                             <Button variant="ghost" size="icon" className="h-6 w-6 ml-1" onClick={() => handleEditRate(record)}>
-                                <Edit2 className="h-3 w-3" />
-                            </Button>
-                        </div>
+                    <div className="flex items-center gap-3">
+                        <Avatar className="h-10 w-10 border border-border">
+                            <AvatarImage src={user?.photoURL || ''} />
+                            <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                                {getInitials(user?.displayName)}
+                            </AvatarFallback>
+                        </Avatar>
                         <div>
-                            {record.isOffShift && <Badge variant="outline" className="text-amber-600 border-amber-500">Ngoài giờ</Badge>}
+                            <CardTitle className="text-base">{user?.displayName || 'Không rõ'}</CardTitle>
+                            <div className="text-xs text-muted-foreground flex items-center">
+                                {user?.role}
+                            </div>
                         </div>
                     </div>
-                     <div className="flex items-center">
+                     <div className="flex items-center gap-1">
                         <div className={cn("text-sm font-semibold flex items-center gap-1", statusInfo.color)}>
                             {statusInfo.icon}
                             {statusInfo.text}
@@ -236,5 +238,3 @@ export default function AttendanceCards({
     </>
   );
 }
-
-    

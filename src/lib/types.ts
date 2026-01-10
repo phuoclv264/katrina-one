@@ -18,6 +18,7 @@ export type ManagedUser = {
   secondaryRoles?: UserRole[];
   notes?: string;
   hourlyRate?: number; // Added for payroll
+  photoURL?: string | null;
 };
 
 export type SimpleUser = {
@@ -562,6 +563,7 @@ export interface AuthUser extends User {
   role: UserRole;
   secondaryRoles?: UserRole[];
   anonymousName?: string;
+  photoURL: string | null;
 }
 
 // --- Cashier Types ---

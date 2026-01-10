@@ -19,6 +19,7 @@ export interface AuthUser extends User {
   role: UserRole;
   secondaryRoles?: UserRole[];
   anonymousName?: string;
+  photoURL: string | null;
 }
 
 export const useAuth = () => {
@@ -93,6 +94,7 @@ export const useAuth = () => {
             role: userRole,
             secondaryRoles: userData.secondaryRoles || [],
             anonymousName: userData.anonymousName,
+            photoURL: userData.photoURL || firebaseUser.photoURL || null,
           } as AuthUser;
           setUser(authUser);
 
@@ -116,6 +118,7 @@ export const useAuth = () => {
                   role: serverData.role as UserRole,
                   secondaryRoles: serverData.secondaryRoles || [],
                   anonymousName: serverData.anonymousName,
+                  photoURL: serverData.photoURL || firebaseUser.photoURL || null,
                 } as AuthUser;
                 // Update state only if there's a change to avoid unnecessary re-renders
                 setUser(currentUser => 

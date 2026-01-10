@@ -23,6 +23,7 @@ import { Switch } from '@/components/ui/switch';
 import { Combobox } from '@/components/combobox';
 import { Badge } from '@/components/ui/badge';
 import { normalizeSearchString } from '@/lib/utils';
+import { AvatarUpload } from '@/components/avatar-upload';
 
 
 function EditUserDialog({ user, onSave, onOpenChange, open }: { user: ManagedUser, onSave: (data: Partial<ManagedUser>) => void, onOpenChange: (open: boolean) => void, open: boolean }) {
@@ -30,6 +31,7 @@ function EditUserDialog({ user, onSave, onOpenChange, open }: { user: ManagedUse
     const [role, setRole] = useState<UserRole>(user.role);
     const [secondaryRoles, setSecondaryRoles] = useState<ManagedUser[]>([]);
     const [notes, setNotes] = useState(user.notes || '');
+    const [photoURL, setPhotoURL] = useState(user.photoURL || null);
 
     useEffect(() => {
         if(open) {
@@ -39,11 +41,15 @@ function EditUserDialog({ user, onSave, onOpenChange, open }: { user: ManagedUse
             const secondaryRoleUsers = (user.secondaryRoles || []).map(r => ({ uid: r, displayName: r, email: '', role: r }));
             setSecondaryRoles(secondaryRoleUsers);
             setNotes(user.notes || '');
+            setPhotoURL(user.photoURL || null);
         }
     }, [open, user]);
 
     const handleSave = () => {
-        onSave({ displayName, role, notes, secondaryRoles: secondaryRoles.map(r => r.role) });
+        // If photoURL is explicitly null, send null to clear it. If it's a string, send it.
+        // If it's undefined (no change), omit the field by passing undefined.
+        const photoPayload = photoURL === null ? null : (photoURL ? photoURL : undefined);
+        onSave({ displayName, role, notes, secondaryRoles: secondaryRoles.map(r => r.role), photoURL: photoPayload });
         onOpenChange(false);
     };
 
@@ -64,6 +70,14 @@ function EditUserDialog({ user, onSave, onOpenChange, open }: { user: ManagedUse
                         Thực hiện các thay đổi cho tài khoản của {user.displayName}.
                     </DialogDescription>
                 </DialogHeader>
+                <div className="flex justify-center py-2">
+                    <AvatarUpload
+                        currentPhotoURL={photoURL}
+                        onUploadComplete={setPhotoURL}
+                        uid={user.uid}
+                        displayName={user.displayName}
+                    />
+                </div>
                 <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="email" className="text-right">Email</Label>

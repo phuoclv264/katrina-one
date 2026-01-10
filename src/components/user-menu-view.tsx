@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { Button } from '@/components/ui/button';
@@ -12,9 +12,10 @@ import {
   LogOut, User, CalendarDays, CheckSquare, Coffee, Banknote, UserCog, 
   BarChart3, FileText, DollarSign, CalendarClock, Users2, ClipboardList, 
   UtensilsCrossed, ListChecks, Package, FileSignature, History, ShieldX, 
-  MessageSquare, ChevronRight, Sparkles
+  MessageSquare, ChevronRight, Sparkles, UserCircle
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, getInitials } from '@/lib/utils';
+import { ProfileDialog } from './profile-dialog';
 
 interface UserMenuViewProps {
   onNavigateToHome?: () => void;
@@ -24,6 +25,7 @@ interface UserMenuViewProps {
 export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuViewProps) {
   const { user, logout, loading, isOnActiveShift } = useAuth();
   const nav = useAppNavigation();
+  const [profileOpen, setProfileOpen] = useState(false);
 
   if (!user) return null;
 
@@ -120,16 +122,6 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
     }
   }
 
-  // Helper to get initials
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
   return (
     <div className="flex flex-col h-full bg-background/50">
       {/* Header Profile Section */}
@@ -151,20 +143,33 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
            <Badge variant="secondary" className="px-3 py-1 text-sm font-medium capitalize shadow-sm">
               {user.role}
            </Badge>
-           <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={logout} 
-            disabled={loading}
-            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Đăng xuất
-          </Button>
+           <div className="flex gap-1">
+             <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setProfileOpen(true)}
+                className="text-muted-foreground hover:text-primary hover:bg-primary/10"
+              >
+                <UserCircle className="w-4 h-4 mr-2" />
+                Hồ sơ
+              </Button>
+             <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={logout} 
+              disabled={loading}
+              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Đăng xuất
+            </Button>
+           </div>
         </div>
       </div>
 
       <Separator className="mb-4" />
+      
+      <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
 
       {/* Menu Items */}
       <ScrollArea className="flex-1 px-4 pb-6">

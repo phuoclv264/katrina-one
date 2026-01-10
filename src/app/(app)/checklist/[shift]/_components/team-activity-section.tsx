@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Users, ChevronDown, ChevronUp, Clock, CheckCircle, User, Camera, MessageSquare } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { cn } from '@/lib/utils';
+import { cn, getInitials } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface TeamActivitySectionProps {
@@ -106,9 +106,7 @@ export default function TeamActivitySection({
     return null;
   }
 
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-  };
+  // Use shared getInitials util
 
   const getTaskIcon = (type: string) => {
     switch (type) {

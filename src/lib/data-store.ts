@@ -543,7 +543,13 @@ export const dataStore = {
 
   async updateUserData(uid: string, data: Partial<ManagedUser>): Promise<void> {
     const userRef = doc(db, 'users', uid);
-    await updateDoc(userRef, data);
+    // Remove undefined fields to avoid Firestore errors (updateDoc does not accept undefined)
+    const payload: any = {};
+    Object.entries(data).forEach(([k, v]) => {
+      if (v !== undefined) payload[k] = v;
+    });
+    if (Object.keys(payload).length === 0) return; // nothing to update
+    await updateDoc(userRef, payload);
   },
 
   async bulkUpdateUserRates(rates: { [userId: string]: number }): Promise<void> {
