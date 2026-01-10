@@ -56,8 +56,12 @@ const TaskItemComponent = ({
   otherStaffCompletions = [],
   className,
 }: TaskItemProps) => {
-  const isCompletedOnce = completions.length > 0;
-  const isDisabledForNew = (isSingleCompletion && isCompletedOnce && task.type !== 'opinion') || isReadonly;
+  const minCompletions = task.minCompletions || 1;
+  const isCompleted = completions.length >= minCompletions;
+  // Allow adding photos to single-completion photo tasks even if already completed.
+  const isDisabledForNew = (isSingleCompletion && isCompleted && task.type !== 'opinion' && task.type !== 'photo') || isReadonly;
+
+  const MIN_TIME_FOR_ONE_TASK = 20; // minutes
 
   const combinedCompletions = React.useMemo(() => {
     const out: { staffName: string; userId?: string; completion: CompletionRecord }[] = [];
@@ -66,16 +70,6 @@ const TaskItemComponent = ({
     out.sort((a, b) => (b.completion.timestamp || '').localeCompare(a.completion.timestamp || ''));
     return out;
   }, [completions, otherStaffCompletions]);
-
-  const [currentTime, setCurrentTime] = useState(() => new Date());
-
-  useEffect(() => {
-    // Update the current time every minute to re-evaluate time-based conditions
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 60000); // 1 minute
-    return () => clearInterval(timer);
-  }, []);
 
   const [localPhotoUrls, setLocalPhotoUrls] = useState<Map<string, string>>(new Map());
 
@@ -123,27 +117,19 @@ const TaskItemComponent = ({
 
   return (
     <div className={cn(
-      'group relative flex flex-col h-full rounded-2xl transition-all duration-300 p-3',
+      'group relative flex flex-col h-full min-w-0 w-full rounded-2xl transition-all duration-300 p-3',
       !className && 'bg-white border-slate-200 shadow-[0_2px_8px_rgba(0,0,0,0.04)]',
-      !isCompletedOnce && task.isCritical && !className && 'border-amber-500/40 shadow-[0_4px_12px_rgba(245,158,11,0.1)]',
-      isCompletedOnce && !className && 'border-green-500/30 shadow-[0_2px_8px_rgba(34,197,94,0.06)]',
+      !isCompleted && task.isCritical && !className && 'border-amber-500/40 shadow-[0_4px_12px_rgba(245,158,11,0.1)]',
+      isCompleted && !className && 'border-green-500/30 shadow-[0_2px_8px_rgba(34,197,94,0.06)]',
       className
     )}>
-      {/* Header: Task Text & Area */}
+      {/* Header: Task Text */}
       <div className="flex-1">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-baseline gap-x-2 mb-1">
-              {task.area && (
-                <span className="inline-flex items-center text-[8px] font-black uppercase tracking-tight text-slate-400 bg-slate-100/80 px-1.5 py-0.5 rounded-md">
-                  <MapPin className="mr-0.5 h-2 w-2" />
-                  {task.area}
-                </span>
-              )}
-            </div>
             <h3 className={cn(
               "text-[12.5px] font-bold leading-[1.3] line-clamp-3 transition-colors",
-              isCompletedOnce ? "text-green-700" : "text-slate-900"
+              isCompleted ? "text-green-700" : "text-slate-900"
             )}>
               {task.text}
             </h3>
@@ -159,7 +145,7 @@ const TaskItemComponent = ({
                 variant="outline"
                 className={cn(
                   "w-full h-8 rounded-xl text-[11px] font-bold transition-all active:scale-95",
-                  isCompletedOnce ? "border-green-200 text-green-700 bg-green-50/30" : "border-slate-200 text-slate-600 hover:border-green-500 hover:text-green-600 hover:bg-green-50"
+                  isCompleted ? "border-green-200 text-green-700 bg-green-50/30" : "border-slate-200 text-slate-600 hover:border-green-500 hover:text-green-600 hover:bg-green-50"
                 )}
                 onClick={() => onBooleanAction(task.id, true)}
                 disabled={isDisabledForNew}
@@ -253,20 +239,49 @@ const TaskItemComponent = ({
       />
 
       {/* Photo action moved to bottom (hidden for single-completion tasks after done) */}
-      {task.type === 'photo' && !(isSingleCompletion && isCompletedOnce) && (
+      {task.type === 'photo' && (
         <div className="mt-2">
           <Button
             size="sm"
-            variant={isCompletedOnce ? "outline" : "default"}
+            variant={isCompleted ? "outline" : "default"}
             className={cn(
               "w-full h-8 rounded-xl text-[11px] font-bold transition-all active:scale-95",
-              isCompletedOnce ? "border-green-200 text-green-700 hover:bg-green-50" : "shadow-sm shadow-primary/10"
+              isCompleted ? "border-green-200 text-green-700 hover:bg-green-50" : "shadow-sm shadow-primary/10"
             )}
-            onClick={() => onPhotoAction(task)}
+            onClick={() => {
+              // Decide whether to append to newest completion or create a new one
+              // For single-completion tasks: always append to the (only) completion if it exists
+              // For multi-completion tasks: append to newest completion if within 20 minutes, otherwise create new
+              let completionIndex: number | null = null;
+
+              if (isSingleCompletion) {
+                completionIndex = (completions && completions.length > 0) ? 0 : null;
+              } else {
+                if (completions && completions.length > 0) {
+                  const newest = completions[0];
+                  if (newest?.timestamp) {
+                    const [h, m] = newest.timestamp.split(':').map(Number);
+                    const now = new Date();
+                    const ts = new Date(now);
+                    ts.setHours(h || 0, m || 0, 0, 0);
+
+                    // If timestamp appears to be in the future (e.g., past midnight), assume previous day
+                    if (ts.getTime() > now.getTime()) ts.setDate(ts.getDate() - 1);
+
+                    const diffMinutes = Math.abs((now.getTime() - ts.getTime()) / 60000);
+                    if (diffMinutes <= MIN_TIME_FOR_ONE_TASK) {
+                      completionIndex = 0;
+                    }
+                  }
+                }
+              }
+
+              onPhotoAction(task, completionIndex);
+            }}
             disabled={isDisabledForNew}
           >
             <Camera className="mr-1.5 h-3 w-3" />
-            Hoàn thành
+            Báo cáo
           </Button>
         </div>
       )}

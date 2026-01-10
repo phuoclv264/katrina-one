@@ -36,7 +36,7 @@ export type Task = {
   text: string;
   isCritical?: boolean;
   type: 'photo' | 'boolean' | 'opinion';
-  area?: string;
+  minCompletions?: number; // Minimum number of completions required to mark task as done (default: 1)
 };
 
 // Type for AI-parsed server tasks

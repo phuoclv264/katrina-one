@@ -86,8 +86,9 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
 
   const totalTasksCount = checklistTasks.length;
   const completedTasksCount = checklistTasks.filter(t => {
-    const isSelfCompleted = (report?.completedTasks[t.id]?.length || 0) > 0;
-    const isOtherCompleted = otherStaffReports.some(r => (r.completedTasks?.[t.id]?.length || 0) > 0);
+    const minCompletions = t.minCompletions || 1;
+    const isSelfCompleted = (report?.completedTasks[t.id]?.length || 0) >= minCompletions;
+    const isOtherCompleted = otherStaffReports.some(r => (r.completedTasks?.[t.id]?.length || 0) >= minCompletions);
     return isSelfCompleted || isOtherCompleted;
   }).length;
 
@@ -785,11 +786,12 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
                     <div className="flex gap-3">
                       <div className="flex-1 flex flex-col gap-3">
                         {sectionTasks.filter((_, idx) => idx % 2 === 0).map((task) => {
-                          const isCompleted = (report.completedTasks[task.id]?.length || 0) > 0;
+                          const minCompletions = task.minCompletions || 1;
+                          const isCompleted = (report.completedTasks[task.id]?.length || 0) >= minCompletions;
 
                           // Check if other team members completed this task
                           const otherStaffWhoCompleted = otherStaffReports.filter(
-                            r => r.completedTasks[task.id]?.length > 0
+                            r => (r.completedTasks[task.id]?.length || 0) >= minCompletions
                           );
                           const hasTeamCompletion = otherStaffWhoCompleted.length > 0;
 
@@ -802,13 +804,47 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
 
                           return (
                             <div key={task.id} className="relative">
-                              {isCompleted && (
-                                <div className="absolute top-2 right-2 z-10">
-                                  <div className="bg-green-500 rounded-full p-0.5 shadow-sm">
-                                    <CheckCircle className="w-3 h-3 text-white" />
-                                  </div>
-                                </div>
-                              )}
+                              <div className="absolute -top-2 -right-2 z-10 pointer-events-none">
+                                {(() => {
+                                  const selfCount = (report?.completedTasks[task.id]?.length || 0);
+                                  const otherStaffTotal = otherStaffReports.reduce((s, r) => s + (r.completedTasks?.[task.id]?.length || 0), 0);
+                                  const isSingle = section.title !== 'Trong ca';
+                                  const min = task.minCompletions || 1;
+
+                                  if (isSingle) {
+                                    if (selfCount > 0) {
+                                      return (
+                                        <div className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-green-500 text-white shadow-sm border-2 border-white">
+                                          <CheckCircle className="w-3 h-3" />
+                                        </div>
+                                      );
+                                    }
+                                    if (otherStaffTotal > 0) {
+                                      return (
+                                        <div className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-sky-500 text-white shadow-sm border-2 border-white">
+                                          <CheckCircle className="w-3 h-3" />
+                                        </div>
+                                      );
+                                    }
+                                    return null;
+                                  }
+
+                                  const isMet = selfCount >= min;
+                                  if (isMet) {
+                                    return (
+                                      <div className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-green-500 text-white shadow-sm border-2 border-white">
+                                        <CheckCircle className="w-3 h-3" />
+                                      </div>
+                                    );
+                                  }
+
+                                  return (
+                                    <div className="inline-flex items-center justify-center h-5 min-w-[24px] px-1 rounded-full bg-slate-600 text-white text-[10px] font-bold shadow-sm border-2 border-white">
+                                      {`${selfCount}/${min}`}
+                                    </div>
+                                  );
+                                })()}
+                              </div>
 
                               <TaskItem
                                 task={task}
@@ -840,11 +876,12 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
 
                       <div className="flex-1 flex flex-col gap-3">
                         {sectionTasks.filter((_, idx) => idx % 2 === 1).map((task) => {
-                          const isCompleted = (report.completedTasks[task.id]?.length || 0) > 0;
+                          const minCompletions = task.minCompletions || 1;
+                          const isCompleted = (report.completedTasks[task.id]?.length || 0) >= minCompletions;
 
                           // Check if other team members completed this task
                           const otherStaffWhoCompleted = otherStaffReports.filter(
-                            r => r.completedTasks[task.id]?.length > 0
+                            r => (r.completedTasks[task.id]?.length || 0) >= minCompletions
                           );
 
                           // Prepare other staff completions for this task
@@ -856,13 +893,46 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
 
                           return (
                             <div key={task.id} className="relative">
-                              {isCompleted && (
-                                <div className="absolute top-2 right-2 z-10">
-                                  <div className="bg-green-500 rounded-full p-0.5 shadow-sm">
-                                    <CheckCircle className="w-3 h-3 text-white" />
-                                  </div>
-                                </div>
-                              )}
+                              {/* Badge: show other completions for single-completion tasks, or self count/min for multi-completion */}
+                              <div className="absolute -top-2 -right-2 z-10 pointer-events-none">
+                                {(() => {
+                                  const selfCount = (report?.completedTasks[task.id]?.length || 0);
+                                  const otherStaffTotal = otherStaffReports.reduce((s, r) => s + (r.completedTasks?.[task.id]?.length || 0), 0);
+                                  const isSingle = section.title !== 'Trong ca';
+                                  const min = task.minCompletions || 1;
+
+                                  if (isSingle) {
+                                    if (selfCount > 0) {
+                                      return (
+                                        <div className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-green-500 text-white shadow-sm border-2 border-white">
+                                          <CheckCircle className="w-3 h-3" />
+                                        </div>
+                                      );
+                                    }
+                                    if (otherStaffTotal > 0) {
+                                      return (
+                                        <div className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-sky-500 text-white shadow-sm border-2 border-white">
+                                          <CheckCircle className="w-3 h-3" />
+                                        </div>
+                                      );
+                                    }
+                                    return null;
+                                  }
+
+                                  // Multi-completion
+                                  const isMet = selfCount >= min;
+                                  if (isMet) {
+                                    return (
+                                      <div className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-green-500 text-white shadow-sm border-2 border-white">
+                                        <CheckCircle className="w-3 h-3" />
+                                      </div>
+                                    );
+                                  }
+                                  return (
+                                    <div className="inline-flex items-center justify-center h-5 min-w-[24px] px-1 rounded-full bg-slate-600 text-white text-[10px] font-bold shadow-sm border-2 border-white">{`${selfCount}/${min}`}</div>
+                                  );
+                                })()}
+                              </div>
 
                               <TaskItem
                                 task={task}

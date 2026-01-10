@@ -121,7 +121,7 @@ function ShiftSummaryCard({
                 .map(task => ({
                     taskText: task.text,
                     taskType: task.type,
-                    taskArea: task.area,
+                    taskMinCompletions: task.minCompletions || 1,
                     completions: allCompletedTasks.get(task.id) || [],
                 }))
                 .filter(item => item.completions.length > 0);
@@ -159,10 +159,9 @@ function ShiftSummaryCard({
                 <div key={item.taskText} className="p-3 bg-card rounded-md border">
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <p className="font-medium">{item.taskText}</p>
-                        {item.taskArea && (
+                        {item.taskMinCompletions > 1 && (
                             <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 font-normal whitespace-nowrap">
-                                <MapPin className="mr-1 h-3 w-3" />
-                                {item.taskArea}
+                                x{item.taskMinCompletions} lần
                             </Badge>
                         )}
                     </div>
@@ -268,10 +267,9 @@ function ShiftSummaryCard({
                                         {summary.uncompletedStartShiftTasks.map(task => (
                                             <li key={task.id} className="flex items-center gap-2 flex-wrap">
                                                 <span>{task.text}</span>
-                                                {task.area && (
+                                                {task.minCompletions && task.minCompletions > 1 && (
                                                     <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 font-normal whitespace-nowrap">
-                                                        <MapPin className="mr-1 h-3 w-3" />
-                                                        {task.area}
+                                                        x{task.minCompletions} lần
                                                     </Badge>
                                                 )}
                                             </li>
@@ -287,10 +285,9 @@ function ShiftSummaryCard({
                                     {summary.uncompletedInShiftTasks.map(task => (
                                         <li key={task.id} className="flex items-center gap-2 flex-wrap">
                                             <span>{task.text}</span>
-                                            {task.area && (
+                                            {task.minCompletions && task.minCompletions > 1 && (
                                                 <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 font-normal whitespace-nowrap">
-                                                    <MapPin className="mr-1 h-3 w-3" />
-                                                    {task.area}
+                                                    x{task.minCompletions} lần
                                                 </Badge>
                                             )}
                                         </li>
@@ -308,10 +305,9 @@ function ShiftSummaryCard({
                                         {summary.uncompletedEndShiftTasks.map(task => (
                                             <li key={task.id} className="flex items-center gap-2 flex-wrap">
                                                 <span>{task.text}</span>
-                                                {task.area && (
+                                                {task.minCompletions && task.minCompletions > 1 && (
                                                     <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 font-normal whitespace-nowrap">
-                                                        <MapPin className="mr-1 h-3 w-3" />
-                                                        {task.area}
+                                                        x{task.minCompletions} lần
                                                     </Badge>
                                                 )}
                                             </li>
