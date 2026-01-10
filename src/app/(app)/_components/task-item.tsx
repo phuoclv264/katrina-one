@@ -123,26 +123,26 @@ const TaskItemComponent = ({
 
   return (
     <div className={cn(
-      'group relative flex flex-col h-full rounded-2xl transition-all duration-300 p-4',
-      !className && 'bg-white border-slate-200 shadow-[0_4px_12px_rgba(0,0,0,0.05)]',
-      !isCompletedOnce && task.isCritical && !className && 'border-amber-500/40 shadow-[0_8px_20px_rgba(245,158,11,0.12)]',
-      isCompletedOnce && !className && 'border-green-500/30 shadow-[0_4px_12px_rgba(34,197,94,0.08)]',
+      'group relative flex flex-col h-full rounded-2xl transition-all duration-300 p-3',
+      !className && 'bg-white border-slate-200 shadow-[0_2px_8px_rgba(0,0,0,0.04)]',
+      !isCompletedOnce && task.isCritical && !className && 'border-amber-500/40 shadow-[0_4px_12px_rgba(245,158,11,0.1)]',
+      isCompletedOnce && !className && 'border-green-500/30 shadow-[0_2px_8px_rgba(34,197,94,0.06)]',
       className
     )}>
       {/* Header: Task Text & Area */}
-      <div className="flex-1 space-y-2">
+      <div className="flex-1">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap mb-1">
+            <div className="flex flex-wrap items-baseline gap-x-2 mb-1">
               {task.area && (
-                <span className="inline-flex items-center text-[9px] font-extrabold uppercase tracking-widest text-slate-500 bg-slate-100 px-2 py-1 rounded-md mb-1">
-                  <MapPin className="mr-1 h-2.5 w-2.5" />
+                <span className="inline-flex items-center text-[8px] font-black uppercase tracking-tight text-slate-400 bg-slate-100/80 px-1.5 py-0.5 rounded-md">
+                  <MapPin className="mr-0.5 h-2 w-2" />
                   {task.area}
                 </span>
               )}
             </div>
             <h3 className={cn(
-              "text-[13px] font-bold leading-snug line-clamp-3 transition-colors",
+              "text-[12.5px] font-bold leading-[1.3] line-clamp-3 transition-colors",
               isCompletedOnce ? "text-green-700" : "text-slate-900"
             )}>
               {task.text}
@@ -151,17 +151,21 @@ const TaskItemComponent = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="pt-2">
+        <div className="mt-2">
           {task.type === 'boolean' && (
             <div className="grid">
               <Button
                 size="sm"
                 variant="outline"
-                className="w-full"
+                className={cn(
+                  "w-full h-8 rounded-xl text-[11px] font-bold transition-all active:scale-95",
+                  isCompletedOnce ? "border-green-200 text-green-700 bg-green-50/30" : "border-slate-200 text-slate-600 hover:border-green-500 hover:text-green-600 hover:bg-green-50"
+                )}
                 onClick={() => onBooleanAction(task.id, true)}
                 disabled={isDisabledForNew}
               >
-                <ThumbsUp className="w-full" /> Đảm bảo
+                <ThumbsUp className="mr-1.5 h-3 w-3" />
+                Đảm bảo
               </Button>
             </div>
           )}
@@ -170,45 +174,68 @@ const TaskItemComponent = ({
             <Button
               size="sm"
               variant="outline"
-              className="w-full h-9 rounded-xl text-xs font-bold border-amber-200 bg-amber-50/50 text-amber-700 hover:bg-amber-100"
+              className="w-full h-8 rounded-xl text-[11px] font-bold border-amber-200 bg-amber-50/50 text-amber-700 hover:bg-amber-100 transition-all active:scale-95"
               onClick={() => onOpinionAction(task)}
               disabled={isReadonly}
             >
-              <FilePen className="mr-2 h-3.5 w-3.5" />
+              <FilePen className="mr-1.5 h-3 w-3" />
               Ghi nhận ý kiến
             </Button>
           )}
         </div>
       </div>
 
-      {/* Completions Display (compact) */}
+      {/* Completions Display (Ultra Compact) */}
       {combinedCompletions.length > 0 && (
-        <div className="mt-2 space-y-2 border-t border-dashed pt-2">
-          {(isExpanded ? combinedCompletions : combinedCompletions.slice(0, 1)).map((entry, idx) => (
-            <div key={`${entry.userId || 'self'}-${idx}`} className="flex items-center justify-between py-1">
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-semibold text-foreground">{entry.completion.timestamp}</span>
-                <span className="text-sm font-bold text-slate-800 ml-2">{generateShortName(entry.staffName)}</span>
-              </div>
-            </div>
-          ))}
-
-          {combinedCompletions.length > 1 && (
-            <button
-              onClick={() => onToggleExpand(task.id)}
-              className="w-full py-1 text-[10px] font-bold text-muted-foreground hover:text-primary transition-colors flex items-center justify-center gap-1"
-            >
-              {isExpanded ? 'THU GỌN' : `XEM THÊM (${combinedCompletions.length - 1})`}
-              {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-            </button>
-          )}
-
-          <div className="pt-1">
-            <Button size="sm" variant="ghost" className="w-full text-[12px] font-bold" onClick={() => setShowOtherCompletionsDialog(true)}>
-              Chi tiết
-            </Button>
+        <div className="p-1 rounded-xl bg-slate-50/60 border border-slate-100 flex flex-col gap-1">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-[9px] font-bold uppercase tracking-tight text-slate-400/80">Nhật ký</span>
+            {combinedCompletions.length > 1 && (
+              <button
+                onClick={() => onToggleExpand(task.id)}
+                className="text-[9px] font-extrabold text-primary flex items-center gap-0.5 active:scale-95 transition-transform"
+              >
+                {isExpanded ? (
+                  <>THU GỌN <ChevronUp className="h-2.5 w-2.5" /></>
+                ) : (
+                  <>+{combinedCompletions.length - 1} KHÁC <ChevronDown className="h-2.5 w-2.5" /></>
+                )}
+              </button>
+            )}
           </div>
+
+          <div className="space-y-1">
+            {(isExpanded ? combinedCompletions : combinedCompletions.slice(0, 1)).map((entry, idx) => (
+              <div
+                key={`${entry.userId || 'self'}-${idx}`}
+                className="flex items-center justify-between bg-white px-1.5 py-1 rounded-lg border border-slate-100/50 shadow-[0_1px_1px_rgba(0,0,0,0.01)]"
+              >
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Clock className="h-2.5 w-2.5 text-slate-300 shrink-0" />
+                  <div className="flex flex-col min-w-0">
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] font-bold text-slate-700 truncate leading-tight">
+                        {entry.staffName === 'Bạn' ? 'Bạn' : generateShortName(entry.staffName)}
+                      </span>
+                      {entry.completion.photoIds && entry.completion.photoIds.length > 0 && (
+                        <ImageIcon className="h-2 w-2 text-blue-400 shrink-0" />
+                      )}
+                    </div>
+                    <span className="text-[9px] font-medium text-slate-400/80 leading-none">
+                      {entry.completion.timestamp}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button
+            className="w-full py-0.5 text-[9px] font-bold uppercase tracking-tight text-slate-400 hover:text-primary transition-colors"
+            onClick={() => setShowOtherCompletionsDialog(true)}
+          >
+            Xem Chi tiết
+          </button>
         </div>
       )}
 
@@ -227,18 +254,18 @@ const TaskItemComponent = ({
 
       {/* Photo action moved to bottom (hidden for single-completion tasks after done) */}
       {task.type === 'photo' && !(isSingleCompletion && isCompletedOnce) && (
-        <div className="mt-3">
+        <div className="mt-2">
           <Button
             size="sm"
             variant={isCompletedOnce ? "outline" : "default"}
             className={cn(
-              "w-full h-9 rounded-xl text-xs font-bold transition-all active:scale-95",
-              isCompletedOnce ? "border-green-200 text-green-700 hover:bg-green-50" : "shadow-md shadow-primary/20"
+              "w-full h-8 rounded-xl text-[11px] font-bold transition-all active:scale-95",
+              isCompletedOnce ? "border-green-200 text-green-700 hover:bg-green-50" : "shadow-sm shadow-primary/10"
             )}
             onClick={() => onPhotoAction(task)}
             disabled={isDisabledForNew}
           >
-            <Camera className="mr-2 h-3.5 w-3.5" />
+            <Camera className="mr-1.5 h-3 w-3" />
             Hoàn thành
           </Button>
         </div>
