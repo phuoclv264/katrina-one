@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/pro-toast';
-import { Camera, Video, VideoOff, RefreshCw, Trash2, CheckCircle, X, Loader2, Disc } from 'lucide-react';
+import { Camera, Video, VideoOff, RefreshCw, Trash2, CheckCircle, X, Loader2, Disc, Maximize2 } from 'lucide-react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { photoStore } from '@/lib/photo-store';
 import { v4 as uuidv4 } from 'uuid';
@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import MediaGalleryDialog from './media-gallery-dialog';
 
 
 type CameraDialogProps = {
@@ -55,6 +56,10 @@ export default function CameraDialog({
   const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(new Date());
+
+  // UI state: gallery open and preview scroller ref
+  const [showGallery, setShowGallery] = useState(false);
+  const previewRef = useRef<HTMLDivElement | null>(null);
 
   const [supportedMimeType, setSupportedMimeType] = useState<string | null>(null);
   const [currentMode, setCurrentMode] = useState<'photo' | 'video'>(captureMode === 'video' ? 'video' : 'photo');
@@ -186,7 +191,6 @@ export default function CameraDialog({
     return () => clearInterval(timer);
   }, [isRecording, recordingStartTime]);
 
-
   const handleCapturePhoto = async () => {
     if (videoRef.current && hasPermission) {
         const video = videoRef.current;
@@ -216,7 +220,8 @@ export default function CameraDialog({
                         capturedMedia.forEach(p => URL.revokeObjectURL(p.url));
                         setCapturedMedia([{ id: photoId, url: objectUrl, type: 'photo' }]);
                     } else {
-                        setCapturedMedia(prev => [...prev, { id: photoId, url: objectUrl, type: 'photo' }]);
+                        // Put newest media at the start so newest appears on the left
+                        setCapturedMedia(prev => [{ id: photoId, url: objectUrl, type: 'photo' }, ...prev]);
                     }
                 } catch(error) {
                     toast.error("Lỗi lưu ảnh tạm thời.");
@@ -297,7 +302,8 @@ export default function CameraDialog({
                     try {
                         await photoStore.addPhoto(videoId, videoBlob);
                         const url = URL.createObjectURL(videoBlob);
-                        setCapturedMedia(prev => [...prev, { id: videoId, url, type: 'video' }]);
+                        // Put newest media at the start so newest appears on the left
+                        setCapturedMedia(prev => [{ id: videoId, url, type: 'video' }, ...prev]);
                     } catch(error) {
                         toast.error("Lỗi lưu video tạm thời.");
                     }
@@ -353,114 +359,184 @@ export default function CameraDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleDialogClose()}>
-      <DialogContent className="max-w-xl">
-        <DialogHeader>
-          <DialogTitle>Thêm bằng chứng</DialogTitle>
-          <DialogDescription>
-            {singlePhotoMode && captureMode === 'photo'
-                ? 'Chụp ảnh bằng chứng cho hạng mục này.'
-                : 'Chụp ảnh hoặc quay video làm bằng chứng.'
-            }
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent
+        overlayClassName="bg-transparent"
+        hideClose={true}
+        className="max-w-3xl p-0 overflow-hidden border-none bg-transparent sm:rounded-[40px] shadow-2xl"
+      >
+        <div className="relative h-[90vh] sm:h-[80vh] w-full flex flex-col">
+          {/* Main Camera View - Absolutely positioned to fill background */}
+          <div className="absolute inset-0 z-0">
+              <video ref={videoRef} className="h-full w-full object-cover" autoPlay muted playsInline />
+          </div>
 
-        <div className="relative aspect-video w-full overflow-hidden rounded-md border bg-muted">
-            <video ref={videoRef} className="h-full w-full object-cover" autoPlay muted playsInline />
-             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 p-4 text-center text-white transition-opacity duration-300"
-                style={{ opacity: hasPermission !== true ? 1 : 0, pointerEvents: hasPermission !== true ? 'auto' : 'none' }}
+          {/* Header Overlay - Gradient for legibility */}
+          <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-6 bg-gradient-to-b from-black/80 via-black/20 to-transparent text-white">
+            <div className="space-y-1">
+              <DialogTitle className="text-xl font-bold tracking-tight">Bằng chứng</DialogTitle>
+              <DialogDescription className="text-sm text-white/70 italic line-clamp-1">
+                {singlePhotoMode ? 'Vui lòng chụp 1 tấm ảnh' : 'Chụp ảnh hoặc video'}
+              </DialogDescription>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-12 w-12 text-white hover:bg-white/20 hover:text-white rounded-full transition-all duration-300 backdrop-blur-md border border-white/10 pointer-events-auto"
+              onClick={handleDialogClose}
             >
-                {isStarting && <p>Đang yêu cầu quyền truy cập...</p>}
-                {hasPermission === false && (
-                    <>
-                        <VideoOff className="mb-4 h-12 w-12" />
-                        {hardwareError ? (
-                            <p>Không tìm thấy camera hoặc micro phù hợp trên thiết bị của bạn.</p>
-                        ) : (
-                            <p>Không thể truy cập camera. Vui lòng cấp quyền trong cài đặt trình duyệt và thử lại.</p>
-                        )}
-                        <Button variant="secondary" size="sm" className="mt-4" onClick={startCamera} disabled={hardwareError}>
-                            <RefreshCw className={`mr-2 h-4 w-4 ${isStarting ? 'animate-spin' : ''}`} />
-                            Thử lại
-                        </Button>
-                    </>
-                )}
-            </div>
+              <X className="h-6 w-6" />
+            </Button>
+          </div>
 
-            {isRecording && (
-                <div className="absolute top-2 left-2 z-10 flex items-center gap-2 rounded-full bg-red-600 px-3 py-1 text-white text-sm font-medium">
-                    <Disc className="h-4 w-4 animate-pulse" />
-                    <span>{formatDuration(recordingDuration)}</span>
+          {/* Camera Status Overlay (Center) */}
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] p-6 text-center text-white transition-opacity duration-500"
+              style={{ opacity: hasPermission !== true ? 1 : 0, pointerEvents: hasPermission !== true ? 'auto' : 'none' }}
+          >
+              {isStarting && (
+                <div className="flex flex-col items-center gap-6">
+                  <div className="relative">
+                    <div className="h-20 w-20 rounded-full border-4 border-white/10 border-t-primary animate-spin" />
+                    <Camera className="absolute inset-0 m-auto h-8 w-8 text-primary/50" />
+                  </div>
+                  <p className="text-lg font-medium tracking-wide">Đang kết nối camera...</p>
                 </div>
-            )}
-             <div className="absolute bottom-2 right-2 z-10 text-white font-mono text-xs bg-black/50 px-2 py-1 rounded">
-                {format(currentTime, 'HH:mm:ss dd/MM/yyyy', { locale: vi })}
-            </div>
-            
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-4">
-                {captureMode === 'both' && (
-                  <ToggleGroup 
-                    type="single" 
-                    value={currentMode}
-                    onValueChange={(value) => { if(value) setCurrentMode(value as 'photo' | 'video')}}
-                    className="bg-black/50 p-1 rounded-full"
-                    disabled={isRecording}
-                  >
-                      <ToggleGroupItem value="photo" aria-label="Photo mode" className="rounded-full text-white data-[state=on]:bg-primary/80"><Camera/></ToggleGroupItem>
-                      <ToggleGroupItem value="video" aria-label="Video mode" className="rounded-full text-white data-[state=on]:bg-primary/80"><Video/></ToggleGroupItem>
-                  </ToggleGroup>
-                )}
+              )}
+              {hasPermission === false && (
+                  <div className="max-w-xs flex flex-col items-center gap-6 animate-in fade-in zoom-in duration-300">
+                      <div className="bg-destructive/10 p-6 rounded-full ring-8 ring-destructive/5">
+                        <VideoOff className="h-10 w-10 text-destructive" />
+                      </div>
+                      <p className="text-base text-white/90 leading-relaxed font-medium">
+                        {hardwareError 
+                          ? 'Không tìm thấy camera hoặc micro.' 
+                          : 'Vui lòng cấp quyền truy cập camera trong cài đặt.'}
+                      </p>
+                      <Button variant="outline" size="lg" className="bg-white text-black hover:bg-white/90 border-none rounded-full px-8 py-6 h-auto font-bold shadow-xl" onClick={startCamera}>
+                          <RefreshCw className={`mr-2 h-5 w-5 ${isStarting ? 'animate-spin' : ''}`} />
+                          Thử lại ngay
+                      </Button>
+                  </div>
+              )}
+          </div>
 
-                <Button 
-                    onClick={currentMode === 'photo' ? handleCapturePhoto : handleToggleRecording} 
-                    disabled={!hasPermission || isStarting} 
-                    className={cn(
-                      "rounded-full h-16 w-16 shadow-lg",
-                      isRecording && "bg-red-600 hover:bg-red-700 animate-pulse"
+          {/* Indicators Overlays */}
+          <div className="absolute top-24 left-6 z-20 flex flex-col gap-3">
+              {isRecording && (
+                  <div className="flex items-center gap-3 rounded-2xl bg-red-600 px-4 py-2 text-white text-sm font-black ring-4 ring-red-600/20 animate-in slide-in-from-left duration-300">
+                      <div className="h-2.5 w-2.5 rounded-full bg-white animate-pulse shadow-[0_0_10px_white]" />
+                      <span className="tabular-nums tracking-widest">{formatDuration(recordingDuration)}</span>
+                  </div>
+              )}
+              <div className="bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 text-white font-mono text-[10px] tracking-tighter w-fit">
+                  {format(currentTime, 'HH:mm:ss')} • {format(currentTime, 'dd.MM.yyyy')}
+              </div>
+          </div>
+          
+          {/* Fixed Controls - centered and fixed to viewport bottom */}
+          <div className="fixed bottom-8 left-1/2 z-50 -translate-x-1/2 w-full max-w-sm pointer-events-none">
+              <div className="flex items-center justify-around w-full pointer-events-auto">
+                  <div className="w-16 h-16 flex items-center justify-center">
+                    {captureMode === 'both' && !isRecording && (
+                       <button 
+                         onClick={() => setCurrentMode(currentMode === 'photo' ? 'video' : 'photo')}
+                         className="h-12 w-12 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-white transition-all active:scale-95"
+                       >
+                         {currentMode === 'photo' ? <Video className="h-5 w-5" /> : <Camera className="h-5 w-5" />}
+                       </button>
                     )}
-                >
-                    {currentMode === 'photo' ? <Camera className="h-8 w-8" /> : (isRecording ? <div className="h-6 w-6 rounded-sm bg-white" /> : <Video className="h-8 w-8"/>)}
-                    <span className="sr-only">{currentMode === 'photo' ? 'Chụp ảnh' : (isRecording ? 'Dừng quay' : 'Bắt đầu quay')}</span>
-                </Button>
-            </div>
-        </div>
-        
-        {capturedMedia.length > 0 && (
-          <ScrollArea className="w-full">
-            <div className="flex space-x-2 pb-4">
-              {capturedMedia.map((media) => (
-                <div key={media.id} className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-md bg-muted">
-                   {media.type === 'photo' ? (
-                        <Image src={media.url} alt={`Ảnh đã chụp`} fill className="object-cover" />
-                   ) : (
-                        <video src={media.url} className="h-full w-full object-cover" loop muted playsInline />
-                   )}
-                   <Button
-                      variant="destructive"
-                      size="icon"
-                      className="absolute top-1 right-1 h-5 w-5 rounded-full z-10"
-                      onClick={() => handleDeleteMedia(media.id)}
-                    >
-                      <X className="h-3 w-3" />
-                      <span className="sr-only">Xóa</span>
-                   </Button>
-                </div>
-              ))}
-            </div>
-             <ScrollBar orientation="horizontal" />
-          </ScrollArea>
-        )}
+                  </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={handleDialogClose} disabled={isSubmitting}>Hủy</Button>
-          <Button onClick={handleSubmit} disabled={capturedMedia.length === 0 || isSubmitting || isRecording}>
-            {isSubmitting ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <CheckCircle className="mr-2 h-4 w-4" />
-            )}
-            Xong ({capturedMedia.length})
-          </Button>
-        </DialogFooter>
+                  {/* Shutter */}
+                  <button 
+                      onClick={currentMode === 'photo' ? handleCapturePhoto : handleToggleRecording} 
+                      disabled={!hasPermission || isStarting || isSubmitting} 
+                      className={cn(
+                        "relative flex items-center justify-center rounded-full transition-all duration-300 transform active:scale-90 ring-offset-black ring-offset-4 pointer-events-auto",
+                        currentMode === 'photo' 
+                          ? "h-20 w-20 bg-white ring-2 ring-white/50" 
+                          : cn("h-20 w-20 ring-4 ring-white/50", isRecording ? "bg-red-600 ring-red-500/50 scale-110" : "bg-white")
+                      )}
+                  >
+                      {currentMode === 'video' && isRecording ? (
+                         <div className="h-8 w-8 rounded-md bg-white animate-pulse" />
+                      ) : (
+                         <div className={cn(
+                           "h-[calc(100%-12px)] w-[calc(100%-12px)] rounded-full border-2",
+                           currentMode === 'photo' ? "border-black/5 bg-white" : "border-black/5 bg-red-600"
+                         )} />
+                      )}
+                  </button>
+
+                  <div className="w-16 h-16 flex items-center justify-center">
+                    {capturedMedia.length > 0 && !isRecording && (
+                      <button 
+                        onClick={handleSubmit}
+                        disabled={isSubmitting}
+                        className="group h-16 w-16 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-2xl shadow-primary/40 flex flex-col items-center justify-center gap-1 transition-all duration-300 hover:scale-110 active:scale-95"
+                      >
+                         {isSubmitting ? (
+                            <Loader2 className="h-6 w-6 animate-spin" />
+                         ) : (
+                            <>
+                              <CheckCircle className="h-6 w-6" />
+                              <span className="text-[10px] font-bold uppercase tracking-tighter">Xong</span>
+                            </>
+                         )}
+                      </button>
+                    )}
+                  </div>
+              </div>
+          </div>
+
+          {/* Preview Strip - fixed and transparent, positioned above controls */}
+          {capturedMedia.length > 0 && (
+            <div className="fixed bottom-28 left-1/2 z-50 -translate-x-1/2 w-full max-w-lg pointer-events-auto">
+              <div className="flex justify-end pr-4 mb-2">
+                {capturedMedia.length > 5 && (
+                  <button
+                    onClick={() => setShowGallery(true)}
+                    className="text-xs bg-white/10 text-white px-4 py-2 rounded-full hover:bg-white/20 transition-all font-bold backdrop-blur-md border border-white/10 active:scale-95 flex items-center gap-2"
+                  >
+                    <Maximize2 className="h-3 w-3" />
+                    Xem thêm
+                  </button>
+                )}
+              </div>
+
+              <ScrollArea className="w-full whitespace-nowrap">
+                <div ref={previewRef} className="flex gap-4 px-4 pb-2 justify-start overflow-x-auto">
+                  {capturedMedia.map((media) => (
+                    <div key={media.id} className="group relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-2xl border-2 border-white/10 bg-transparent shadow-xl transition-all hover:scale-110 active:scale-95">
+                      {media.type === 'photo' ? (
+                            <Image src={media.url} alt="Preview" fill className="object-cover" />
+                      ) : (
+                            <video src={media.url} className="h-full w-full object-cover" muted />
+                      )}
+                      <button
+                        className="absolute inset-0 bg-red-600/90 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => { e.stopPropagation(); handleDeleteMedia(media.id); }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                      {media.type === 'video' && (
+                         <div className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-red-500 shadow-[0_0_5px_red]" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <ScrollBar orientation="horizontal" className="hidden" />
+              </ScrollArea>
+
+              {/* Enhanced Gallery component */}
+              <MediaGalleryDialog 
+                isOpen={showGallery}
+                onClose={() => setShowGallery(false)}
+                media={capturedMedia}
+                onDelete={handleDeleteMedia}
+              />
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

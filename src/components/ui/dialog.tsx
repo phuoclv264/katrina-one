@@ -38,14 +38,22 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 type DialogContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
   // Optional container element to mount the portal into (passed to Radix Portal `container` prop).
   portalContainer?: Element | null;
+  // Optional class name to apply to the overlay (useful for transparent overlays per-dialog)
+  overlayClassName?: string;
+  // Hide the default X close button rendered in the top-right corner
+  hideClose?: boolean;
+  // Provide a custom React node to render inside the Close button (e.g., custom icon)
+  closeElement?: React.ReactNode;
+  // Optional className to apply to the Close button wrapper for custom styling
+  closeClassName?: string;
 };
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DialogContentProps
->(({ className, children, portalContainer, ...props }, ref) => (
+>(({ className, children, portalContainer, overlayClassName, hideClose, closeElement, closeClassName, ...props }, ref) => (
   <DialogPortal container={portalContainer}>
-    <DialogOverlay />
+    <DialogOverlay className={overlayClassName} />
     <DialogPrimitive.Content
       ref={ref}
       onInteractOutside={(e: any) => e.preventDefault()}
@@ -58,10 +66,17 @@ const DialogContent = React.forwardRef<
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-        <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
-      </DialogPrimitive.Close>
+      {!hideClose && (
+        <DialogPrimitive.Close className={cn(
+          "absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground",
+          closeClassName
+        )}>
+          {closeElement ? closeElement : (<>
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </>)}
+        </DialogPrimitive.Close>
+      )}
     </DialogPrimitive.Content>
   </DialogPortal>
 ))
