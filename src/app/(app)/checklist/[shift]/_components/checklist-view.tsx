@@ -25,7 +25,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { format, set } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import SubmissionNotesSection from '../../_components/submission-notes-section';
-import { cn } from '@/lib/utils';
+import { cn, generateShortName, getInitials } from '@/lib/utils';
 import { TaskItem } from '../../../_components/task-item';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useLightbox } from '@/contexts/lightbox-context';
@@ -723,11 +723,11 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
                     <div className="relative">
                       <div className={cn(
                         "w-10 h-10 rounded-2xl flex items-center justify-center text-[10px] font-black transition-all border-2",
-                        idx === 0 
-                          ? "bg-amber-500 border-amber-200 text-white shadow-lg shadow-amber-500/20 ring-4 ring-amber-500/5" 
+                        idx === 0
+                          ? "bg-amber-500 border-amber-200 text-white shadow-lg shadow-amber-500/20 ring-4 ring-amber-500/5"
                           : "bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400 group-hover:border-primary/30 shadow-sm"
                       )}>
-                        {staff.name.split(' ').pop()?.slice(0, 2).toUpperCase()}
+                        {getInitials(staff.name)}
                       </div>
                       {idx === 0 && (
                         <div className="absolute -top-2 -right-2 bg-white rounded-full p-1 shadow-md border border-amber-100 animate-bounce">
@@ -742,10 +742,10 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
                       </div>
                     </div>
                     <span className={cn(
-                      "text-[9px] font-bold truncate max-w-[44px]",
+                      "text-[9px] font-bold uppercase tracking-tight",
                       idx === 0 ? "text-amber-800" : "text-slate-500"
                     )}>
-                      {staff.isMe ? "BẠN" : staff.name.split(' ').pop()?.toUpperCase()}
+                      {staff.isMe ? "BẠN" : generateShortName(staff.name)}
                     </span>
                   </div>
                 ))}
@@ -778,62 +778,119 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
 
             return (
               <TabsContent key={section.title} value={section.title} className="mt-0 focus-visible:outline-none">
-                <div className="space-y-6">
+                <div className="space-y-">
                   {/* Checklist Grid */}
                   {sectionTasks.length > 0 && (
-                    <div className="grid grid-cols-2 gap-3">
-                      {sectionTasks.map((task) => {
-                        const isCompleted = (report.completedTasks[task.id]?.length || 0) > 0;
+                    // Two independent columns (left-to-right ordering): distribute tasks alternately so items read L→R, top→bottom
+                    <div className="flex gap-3">
+                      <div className="flex-1 flex flex-col gap-3">
+                        {sectionTasks.filter((_, idx) => idx % 2 === 0).map((task) => {
+                          const isCompleted = (report.completedTasks[task.id]?.length || 0) > 0;
 
-                        // Check if other team members completed this task
-                        const otherStaffWhoCompleted = otherStaffReports.filter(
-                          r => r.completedTasks[task.id]?.length > 0
-                        );
-                        const hasTeamCompletion = otherStaffWhoCompleted.length > 0;
+                          // Check if other team members completed this task
+                          const otherStaffWhoCompleted = otherStaffReports.filter(
+                            r => r.completedTasks[task.id]?.length > 0
+                          );
+                          const hasTeamCompletion = otherStaffWhoCompleted.length > 0;
 
-                        // Prepare other staff completions for this task
-                        const otherStaffCompletions = otherStaffWhoCompleted.map(staffReport => ({
-                          staffName: staffReport.staffName,
-                          userId: staffReport.userId,
-                          completions: (staffReport.completedTasks[task.id] || []) as CompletionRecord[]
-                        }));
+                          // Prepare other staff completions for this task
+                          const otherStaffCompletions = otherStaffWhoCompleted.map(staffReport => ({
+                            staffName: staffReport.staffName,
+                            userId: staffReport.userId,
+                            completions: (staffReport.completedTasks[task.id] || []) as CompletionRecord[]
+                          }));
 
-                        return (
-                          <div key={task.id} className="relative">
-                            {isCompleted && (
-                              <div className="absolute top-2 right-2 z-10">
-                                <div className="bg-green-500 rounded-full p-0.5 shadow-sm">
-                                  <CheckCircle className="w-3 h-3 text-white" />
+                          return (
+                            <div key={task.id} className="relative">
+                              {isCompleted && (
+                                <div className="absolute top-2 right-2 z-10">
+                                  <div className="bg-green-500 rounded-full p-0.5 shadow-sm">
+                                    <CheckCircle className="w-3 h-3 text-white" />
+                                  </div>
                                 </div>
-                              </div>
-                            )}
-
-                            <TaskItem
-                              task={task}
-                              completions={(report.completedTasks[task.id] || []) as CompletionRecord[]}
-                              onBooleanAction={handleBooleanTaskAction}
-                              onPhotoAction={handlePhotoTaskAction}
-                              onOpinionAction={handleOpinionTaskAction}
-                              onDeletePhoto={handleDeletePhoto}
-                              onDeleteCompletion={handleDeleteCompletion}
-                              onToggleExpand={toggleExpandTask}
-                              isReadonly={isReadonly || isSubmitting}
-                              isExpanded={expandedTaskIds.has(task.id)}
-                              isSingleCompletion={section.title !== 'Trong ca' ? true : false}
-                              onOpenLightbox={openLightbox}
-                              otherStaffCompletions={otherStaffCompletions}
-                              className={cn(
-                                "h-full border-[1.5px] transition-all duration-300 rounded-2xl",
-                                isCompleted
-                                  ? "border-green-500/30 bg-white shadow-[0_4px_12px_rgba(34,197,94,0.08)]"
-                                  : task.isCritical
-                                    ? "border-amber-500/40 bg-white shadow-[0_8px_20px_rgba(245,158,11,0.12)] active:scale-[0.98]"
-                                    : "border-slate-200 bg-white shadow-[0_4px_12px_rgba(0,0,0,0.05)] active:scale-[0.98]"
                               )}
-                            />
-                          </div>
-                        );
-                      })}
+
+                              <TaskItem
+                                task={task}
+                                completions={(report.completedTasks[task.id] || []) as CompletionRecord[]}
+                                onBooleanAction={handleBooleanTaskAction}
+                                onPhotoAction={handlePhotoTaskAction}
+                                onOpinionAction={handleOpinionTaskAction}
+                                onDeletePhoto={handleDeletePhoto}
+                                onDeleteCompletion={handleDeleteCompletion}
+                                onToggleExpand={toggleExpandTask}
+                                isReadonly={isReadonly || isSubmitting}
+                                isExpanded={expandedTaskIds.has(task.id)}
+                                isSingleCompletion={section.title !== 'Trong ca' ? true : false}
+                                onOpenLightbox={openLightbox}
+                                otherStaffCompletions={otherStaffCompletions}
+                                className={cn(
+                                  "w-full border-[1.5px] transition-all duration-300 rounded-2xl",
+                                  isCompleted
+                                    ? "border-green-500/30 bg-white shadow-[0_4px_12px_rgba(34,197,94,0.08)]"
+                                    : task.isCritical
+                                      ? "border-amber-500/40 bg-white shadow-[0_8px_20px_rgba(245,158,11,0.12)] active:scale-[0.98]"
+                                      : "border-slate-200 bg-white shadow-[0_4px_12px_rgba(0,0,0,0.05)] active:scale-[0.98]"
+                                )}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="flex-1 flex flex-col gap-3">
+                        {sectionTasks.filter((_, idx) => idx % 2 === 1).map((task) => {
+                          const isCompleted = (report.completedTasks[task.id]?.length || 0) > 0;
+
+                          // Check if other team members completed this task
+                          const otherStaffWhoCompleted = otherStaffReports.filter(
+                            r => r.completedTasks[task.id]?.length > 0
+                          );
+
+                          // Prepare other staff completions for this task
+                          const otherStaffCompletions = otherStaffWhoCompleted.map(staffReport => ({
+                            staffName: staffReport.staffName,
+                            userId: staffReport.userId,
+                            completions: (staffReport.completedTasks[task.id] || []) as CompletionRecord[]
+                          }));
+
+                          return (
+                            <div key={task.id} className="relative">
+                              {isCompleted && (
+                                <div className="absolute top-2 right-2 z-10">
+                                  <div className="bg-green-500 rounded-full p-0.5 shadow-sm">
+                                    <CheckCircle className="w-3 h-3 text-white" />
+                                  </div>
+                                </div>
+                              )}
+
+                              <TaskItem
+                                task={task}
+                                completions={(report.completedTasks[task.id] || []) as CompletionRecord[]}
+                                onBooleanAction={handleBooleanTaskAction}
+                                onPhotoAction={handlePhotoTaskAction}
+                                onOpinionAction={handleOpinionTaskAction}
+                                onDeletePhoto={handleDeletePhoto}
+                                onDeleteCompletion={handleDeleteCompletion}
+                                onToggleExpand={toggleExpandTask}
+                                isReadonly={isReadonly || isSubmitting}
+                                isExpanded={expandedTaskIds.has(task.id)}
+                                isSingleCompletion={section.title !== 'Trong ca' ? true : false}
+                                onOpenLightbox={openLightbox}
+                                otherStaffCompletions={otherStaffCompletions}
+                                className={cn(
+                                  "w-full border-[1.5px] transition-all duration-300 rounded-2xl",
+                                  isCompleted
+                                    ? "border-green-500/30 bg-white shadow-[0_4px_12px_rgba(34,197,94,0.08)]"
+                                    : task.isCritical
+                                      ? "border-amber-500/40 bg-white shadow-[0_8px_20px_rgba(245,158,11,0.12)] active:scale-[0.98]"
+                                      : "border-slate-200 bg-white shadow-[0_4px_12px_rgba(0,0,0,0.05)] active:scale-[0_98]"
+                                )}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
 
