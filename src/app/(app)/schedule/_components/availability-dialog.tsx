@@ -17,7 +17,8 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from '@/lib/utils';
 import isEqual from 'lodash.isequal';
 import { Badge } from '@/components/ui/badge';
-import { X, Loader2 } from 'lucide-react';
+import { X, Loader2, CalendarCheck2, Clock, CheckCircle2 } from 'lucide-react';
+import { vi } from 'date-fns/locale';
 
 type AvailabilityDialogProps = {
   isOpen: boolean;
@@ -122,26 +123,48 @@ export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDa
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Đăng ký thời gian rảnh</DialogTitle>
-          <DialogDescription>
-            Chọn các khung giờ bạn có thể làm việc trong ngày {format(selectedDate, 'dd/MM/yyyy')}.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="py-4 space-y-4">
-            <div>
-                <Label className="text-sm font-medium">Chọn nhanh theo ca</Label>
-                <div className="grid grid-cols-2 gap-2 mt-2">
+      <DialogContent className="w-[92vw] sm:max-w-md p-0 overflow-hidden rounded-[38px] sm:rounded-[40px] border-none shadow-3xl bg-white dark:bg-slate-950">
+        <div className="p-5 sm:p-6 pb-0">
+          <DialogHeader className="space-y-4">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="h-12 w-12 sm:h-14 sm:w-14 bg-green-500/10 rounded-[18px] sm:rounded-[20px] flex items-center justify-center shrink-0">
+                <CalendarCheck2 className="h-6 w-6 sm:h-7 sm:w-7 text-green-500" />
+              </div>
+              <div className="min-w-0">
+                <DialogTitle className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-slate-50 leading-tight">
+                  Đăng ký rảnh
+                </DialogTitle>
+                <DialogDescription className="text-[12px] sm:text-sm font-bold text-slate-500 dark:text-slate-400 mt-0.5 uppercase tracking-wide">
+                  {format(selectedDate, 'eeee, dd/MM/yyyy', { locale: vi })}
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+        </div>
+
+        <div className="p-5 sm:p-6 space-y-6">
+            <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-slate-400" />
+                    <Label className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-slate-400">Chọn nhanh theo ca</Label>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-2">
                     {quickSelectSlots.special.map((slot, index) => {
                          const isSelected = selectedSlots.some(s => isEqual(s, slot));
                          return (
                             <Button 
                                 key={`special-${index}`} 
-                                variant={isSelected ? "default" : "outline"}
-                                className={cn("border-2 border-transparent", !isSelected && "border-blue-500/80")}
+                                variant="outline"
+                                className={cn(
+                                    "h-11 sm:h-12 rounded-2xl font-black text-[11px] sm:text-xs transition-all border-2",
+                                    isSelected 
+                                        ? "bg-green-500 border-green-500 text-white shadow-lg shadow-green-500/20" 
+                                        : "bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-600 hover:border-green-500/30 hover:bg-green-50/50"
+                                )}
                                 onClick={() => handleToggleSlot(slot)}
                             >
+                                {isSelected && <CheckCircle2 className="w-3 h-3 mr-1.5" />}
                                 {slot.start} - {slot.end}
                             </Button>
                          )
@@ -151,9 +174,16 @@ export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDa
                         return (
                             <Button 
                                 key={index} 
-                                variant={isSelected ? "default" : "outline"}
+                                variant="outline"
+                                className={cn(
+                                    "h-11 sm:h-12 rounded-2xl font-black text-[11px] sm:text-xs transition-all border-2",
+                                    isSelected 
+                                        ? "bg-green-500 border-green-500 text-white shadow-lg shadow-green-500/20" 
+                                        : "bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-600 hover:border-green-500/30 hover:bg-green-50/50"
+                                )}
                                 onClick={() => handleToggleSlot(slot)}
                             >
+                                {isSelected && <CheckCircle2 className="w-3 h-3 mr-1.5" />}
                                 {slot.start} - {slot.end}
                             </Button>
                         )
@@ -161,19 +191,24 @@ export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDa
                 </div>
             </div>
             
-            <div className="space-y-2">
-                <Label className="text-sm font-medium">Khung giờ đã chọn</Label>
+            <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-[28px] sm:rounded-[32px] border border-slate-100 dark:border-slate-800">
+                <Label className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-slate-400 px-1">Khung giờ đã chọn</Label>
                 {selectedSlots.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">Chưa chọn khung giờ nào.</p>
+                    <div className="py-6 flex flex-col items-center justify-center text-center">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-2">
+                             <Clock className="w-5 h-5 text-slate-300 dark:text-slate-600" />
+                        </div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Chưa chọn khung giờ</p>
+                    </div>
                 ) : (
                     <div className="flex flex-wrap gap-2">
                     {selectedSlots.map((slot, index) => (
-                        <Badge key={index} variant="secondary" className="text-base h-auto py-1 pl-3 pr-1">
+                        <Badge key={index} variant="secondary" className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 text-[11px] sm:text-xs h-9 sm:h-10 px-3 pl-4 rounded-xl flex items-center gap-2 font-black tracking-tight">
                              <span>{slot.start} - {slot.end}</span>
                              <Button 
                                 variant="ghost" 
                                 size="icon" 
-                                className="h-5 w-5 ml-1"
+                                className="h-6 w-6 rounded-lg hover:bg-red-50 hover:text-red-500 transition-colors"
                                 onClick={() => handleRemoveSlot(slot)}
                              >
                                 <X className="h-3 w-3" />
@@ -185,12 +220,17 @@ export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDa
                 )}
             </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isSaving}>
-            Hủy
+
+        <DialogFooter className="p-5 sm:p-6 pt-0 flex flex-row items-center gap-3 sm:gap-4">
+          <Button variant="ghost" className="flex-1 h-11 sm:h-12 rounded-xl sm:rounded-2xl font-black text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-900 transition-all text-[11px] sm:text-xs uppercase tracking-widest" onClick={onClose} disabled={isSaving}>
+            HỦY
           </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Button 
+            className="flex-[2] h-11 sm:h-12 rounded-xl sm:rounded-2xl bg-slate-900 dark:bg-slate-50 text-white dark:text-slate-900 font-black text-[11px] sm:text-xs uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-slate-200 dark:shadow-none translate-y-0"
+            onClick={handleSave} 
+            disabled={isSaving}
+          >
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
             Lưu thay đổi
           </Button>
         </DialogFooter>

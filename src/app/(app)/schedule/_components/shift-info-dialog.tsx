@@ -21,6 +21,10 @@ import { useAuth } from '@/hooks/use-auth';
 import { hasTimeConflict } from '@/lib/schedule-utils';
 import { toast } from '@/components/ui/pro-toast';
 
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { cn, getInitials } from '@/lib/utils';
+
 type ShiftInfoDialogProps = {
   isOpen: boolean;
   onClose: () => void;
@@ -139,78 +143,157 @@ export default function ShiftInfoDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Thông tin ca: {shift.label}</DialogTitle>
-          <DialogDescription>
-            {format(parseISO(shift.date), 'eeee, dd/MM/yyyy', { locale: vi })} | {shift.timeSlot.start} - {shift.timeSlot.end}
-          </DialogDescription>
-        </DialogHeader>
-        <Tabs defaultValue="colleagues" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 h-auto">
-            <TabsTrigger value="colleagues" className="whitespace-normal"><Users className="mr-2 h-4 w-4" />Nhân viên trong ca ({colleagues.length})</TabsTrigger>
-            <TabsTrigger value="available" className="whitespace-normal"><UserCheck className="mr-2 h-4 w-4" />Nhân viên rảnh ({availableStaff.length})</TabsTrigger>
-          </TabsList>
-          <TabsContent value="colleagues">
-             <ScrollArea className="h-72 mt-4">
+      <DialogContent className="w-[92vw] sm:max-w-md p-0 overflow-hidden rounded-[38px] sm:rounded-[40px] border-none shadow-3xl bg-white dark:bg-slate-950">
+        <div className="p-5 sm:p-6 pb-0">
+          <DialogHeader className="space-y-4">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="h-12 w-12 sm:h-14 sm:w-14 bg-blue-500/10 rounded-[18px] sm:rounded-[20px] flex items-center justify-center shrink-0">
+                <Users className="h-6 w-6 sm:h-7 sm:w-7 text-blue-500" />
+              </div>
+              <div className="min-w-0">
+                <DialogTitle className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-slate-50 leading-tight">
+                  {shift.label}
+                </DialogTitle>
+                <DialogDescription className="text-[12px] sm:text-sm font-bold text-slate-500 dark:text-slate-400 mt-0.5">
+                  {format(parseISO(shift.date), 'eeee, dd/MM', { locale: vi }).toUpperCase()} | {shift.timeSlot.start} - {shift.timeSlot.end}
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+        </div>
+
+        <Tabs defaultValue="colleagues" className="w-full mt-5 sm:mt-6">
+          <div className="px-5 sm:px-6">
+            <TabsList className="flex w-full h-11 sm:h-12 p-1.5 bg-slate-100 dark:bg-slate-900 rounded-[18px] sm:rounded-[20px] gap-1">
+              <TabsTrigger 
+                value="colleagues" 
+                className="flex-1 rounded-[13px] sm:rounded-[14px] text-[10px] sm:text-xs font-black tracking-tight data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-sm data-[state=active]:text-blue-500 px-1"
+              >
+                Nhân viên ca ({colleagues.length})
+              </TabsTrigger>
+              <TabsTrigger 
+                value="available" 
+                className="flex-1 rounded-[13px] sm:rounded-[14px] text-[10px] sm:text-xs font-black tracking-tight data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-sm data-[state=active]:text-green-500 px-1"
+              >
+                Đang rảnh ({availableStaff.length})
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          <TabsContent value="colleagues" className="mt-4">
+             <ScrollArea className="h-[45vh] sm:h-80 px-5 sm:px-6 pb-6">
                 {colleagues.length > 0 ? (
-                    <div className="space-y-2 pr-4">
+                    <div className="space-y-3">
                     {colleagues.map(({ user, shift: colleagueShift, assignedRole }) => {
                         const canSwap = shift.label !== colleagueShift.label || (shift.timeSlot.start !== colleagueShift.timeSlot.start || shift.timeSlot.end !== colleagueShift.timeSlot.end);
                         const alreadyRequested = existingPendingRequests.some(r => r.payload.targetUserId === user.uid);
                         const isThisUserProcessing = processingUserId === user.uid;
                         return (
-                            <Card key={user.uid}>
-                                <CardContent className="p-3 flex items-center justify-between">
-                                    <div>
-                                        <p className="font-semibold">{user.displayName}</p>
-                                        <p className="text-sm text-muted-foreground">{assignedRole ? `${colleagueShift.label} (${assignedRole})` : (colleagueShift.role ? `${colleagueShift.label} (${colleagueShift.role})` : colleagueShift.label)} ({colleagueShift.timeSlot.start} - {colleagueShift.timeSlot.end})</p>
+                            <div key={user.uid} className="group relative flex items-center justify-between p-3 sm:p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all">
+                                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                                    <Avatar className="h-9 w-9 sm:h-10 sm:w-10 rounded-[12px] sm:rounded-[14px]">
+                                        <AvatarImage src={user.photoURL || ""} />
+                                        <AvatarFallback className="bg-blue-100 text-blue-600 font-black text-[10px] sm:text-xs uppercase rounded-[12px] sm:rounded-[14px]">
+                                            {getInitials(user.displayName)}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <div className="min-w-0">
+                                        <p className="font-black text-xs sm:text-sm text-slate-900 dark:text-slate-100 tracking-tight break-words whitespace-normal leading-tight">{user.displayName}</p>
+                                        <div className="flex items-center gap-1 sm:gap-1.5 mt-0.5">
+                                            <Badge variant="outline" className="text-[8px] sm:text-[9px] h-3.5 sm:h-4 px-1 sm:px-1.5 font-black border-slate-200 dark:border-slate-800 text-slate-500 uppercase tracking-wider rounded-md">
+                                                {assignedRole || colleagueShift.role || 'NHÂN VIÊN'}
+                                            </Badge>
+                                            <span className="text-[9px] sm:text-[10px] font-bold text-slate-400">
+                                                {colleagueShift.timeSlot.start}-{colleagueShift.timeSlot.end}
+                                            </span>
+                                        </div>
                                     </div>
-                                    {canSwap && (
-                                        <Button size="sm" onClick={() => handlePassRequest(user, true)} disabled={isProcessing || isThisUserProcessing || alreadyRequested}>
-                                            {isProcessing || isThisUserProcessing ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : <Replace className="mr-2 h-4 w-4" />}
-                                            {alreadyRequested ? 'Đã nhờ' : 'Đổi ca'}
-                                        </Button>
-                                    )}
-                                </CardContent>
-                            </Card>
+                                </div>
+                                {canSwap && (
+                                    <Button 
+                                        size="sm" 
+                                        variant={alreadyRequested ? "ghost" : "outline"}
+                                        onClick={() => handlePassRequest(user, true)} 
+                                        disabled={isProcessing || isThisUserProcessing || alreadyRequested}
+                                        className={cn(
+                                            "h-8 sm:h-9 rounded-xl font-black text-[10px] sm:text-[11px] px-2.5 sm:px-3 uppercase tracking-tighter transition-all",
+                                            !alreadyRequested && "border-blue-500/20 text-blue-500 hover:bg-blue-500 hover:text-white"
+                                        )}
+                                    >
+                                        {isProcessing || isThisUserProcessing ? <Loader2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 animate-spin mr-1 sm:mr-1.5"/> : <Replace className="mr-1 sm:mr-1.5 h-3 w-3 sm:h-3.5 sm:w-3.5 text-blue-500 group-hover:text-white" />}
+                                        {alreadyRequested ? 'Đã nhờ' : 'Đổi ca'}
+                                    </Button>
+                                )}
+                            </div>
                         )
                     })}
                     </div>
                 ) : (
-                    <p className="text-sm text-muted-foreground text-center py-8">Không có đồng nghiệp nào làm cùng khung giờ này.</p>
+                    <div className="flex flex-col items-center justify-center py-10 sm:py-12 text-center">
+                        <div className="h-10 w-10 sm:h-12 sm:w-12 bg-slate-100 dark:bg-slate-900 rounded-full flex items-center justify-center mb-3">
+                            <Users className="h-5 w-5 sm:h-6 sm:w-6 text-slate-300 dark:text-slate-700" />
+                        </div>
+                        <p className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest">Không có đồng nghiệp</p>
+                    </div>
                 )}
              </ScrollArea>
           </TabsContent>
-          <TabsContent value="available">
-             <ScrollArea className="h-72 mt-4">
+
+          <TabsContent value="available" className="mt-4">
+             <ScrollArea className="h-[45vh] sm:h-80 px-5 sm:px-6 pb-6">
                  {availableStaff.length > 0 ? (
-                    <div className="space-y-2 pr-4">
+                    <div className="space-y-3">
                         {availableStaff.map(user => {
                             const alreadyRequested = existingPendingRequests.some(r => r.payload.targetUserId === user.uid);
                             const isThisUserProcessing = processingUserId === user.uid;
                             return (
-                                <Card key={user.uid}>
-                                    <CardContent className="p-3 flex items-center justify-between">
-                                        <div>
-                                            <p className="font-semibold">{user.displayName}</p>
-                                            <p className="text-sm text-muted-foreground">{user.role}</p>
+                                <div key={user.uid} className="group relative flex items-center justify-between p-3 sm:p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all">
+                                    <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                                        <Avatar className="h-9 w-9 sm:h-10 sm:w-10 rounded-[12px] sm:rounded-[14px]">
+                                            <AvatarImage src={user.photoURL || ""} />
+                                            <AvatarFallback className="bg-green-100 text-green-600 font-black text-[10px] sm:text-xs uppercase rounded-[12px] sm:rounded-[14px]">
+                                                {getInitials(user.displayName)}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <div className="min-w-0">
+                                            <p className="font-black text-xs sm:text-sm text-slate-900 dark:text-slate-100 tracking-tight break-words whitespace-normal leading-tight">{user.displayName}</p>
+                                            <p className="text-[9px] sm:text-[10px] font-black text-green-500/80 uppercase tracking-widest mt-0.5">{user.role}</p>
                                         </div>
-                                        <Button size="sm" onClick={() => handlePassRequest(user, false)} disabled={isProcessing || isThisUserProcessing || alreadyRequested}>
-                                            {isProcessing || isThisUserProcessing ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : <Send className="mr-2 h-4 w-4" />}
-                                            {alreadyRequested ? 'Đã nhờ' : 'Nhờ nhận ca'}
-                                        </Button>
-                                    </CardContent>
-                                </Card>
+                                    </div>
+                                    <Button 
+                                        size="sm" 
+                                        variant={alreadyRequested ? "ghost" : "outline"}
+                                        onClick={() => handlePassRequest(user, false)} 
+                                        disabled={isProcessing || isThisUserProcessing || alreadyRequested}
+                                        className={cn(
+                                            "h-8 sm:h-9 rounded-xl font-black text-[10px] sm:text-[11px] px-2.5 sm:px-3 uppercase tracking-tighter transition-all",
+                                            !alreadyRequested && "border-green-500/20 text-green-500 hover:bg-green-500 hover:text-white"
+                                        )}
+                                    >
+                                        {isProcessing || isThisUserProcessing ? <Loader2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 animate-spin mr-1 sm:mr-1.5"/> : <Send className="mr-1 sm:mr-1.5 h-3 w-3 sm:h-3.5 sm:w-3.5 text-green-500 group-hover:text-white" />}
+                                        {alreadyRequested ? 'Đã nhờ' : 'Nhờ nhận'}
+                                    </Button>
+                                </div>
                             )
                         })}
                     </div>
                 ) : (
-                    <p className="text-sm text-muted-foreground text-center py-8">Không có nhân viên nào rảnh trong khung giờ này.</p>
+                    <div className="flex flex-col items-center justify-center py-10 sm:py-12 text-center">
+                        <div className="h-10 w-10 sm:h-12 sm:w-12 bg-slate-100 dark:bg-slate-900 rounded-full flex items-center justify-center mb-3">
+                            <UserCheck className="h-5 w-5 sm:h-6 sm:w-6 text-slate-300 dark:text-slate-700" />
+                        </div>
+                        <p className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest">Không có nhân viên rảnh</p>
+                    </div>
                 )}
              </ScrollArea>
           </TabsContent>
         </Tabs>
+        
+        <div className="px-5 sm:px-6 pb-5 sm:pb-6 pt-2">
+            <Button variant="ghost" className="w-full h-11 sm:h-12 rounded-xl sm:rounded-2xl font-black text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-900 transition-all text-[11px] sm:text-xs uppercase tracking-widest" onClick={onClose}>
+                ĐÓNG
+            </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
