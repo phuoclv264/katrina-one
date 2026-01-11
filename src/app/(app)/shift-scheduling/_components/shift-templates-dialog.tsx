@@ -95,6 +95,27 @@ export default function ShiftTemplatesDialog({ isOpen, onClose }: { isOpen: bool
       setCurrentTemplate(prev => ({...prev, [field]: value}));
   }
 
+  const handleAddRequiredRole = () => {
+    setCurrentTemplate(prev => ({
+      ...prev,
+      requiredRoles: [ ...(prev.requiredRoles || []), { role: 'Phục vụ' as UserRole, count: 1 } ]
+    }));
+  }
+
+  const handleRemoveRequiredRole = (index: number) => {
+    setCurrentTemplate(prev => ({
+      ...prev,
+      requiredRoles: (prev.requiredRoles || []).filter((_, i) => i !== index)
+    }));
+  }
+
+  const handleRequiredRoleChange = (index: number, key: 'role' | 'count', value: any) => {
+    setCurrentTemplate(prev => ({
+      ...prev,
+      requiredRoles: (prev.requiredRoles || []).map((r, i) => i === index ? { ...r, [key]: key === 'count' ? Number(value) : value } : r)
+    }));
+  }
+
   const handleTimeChange = (field: 'start' | 'end', value: string) => {
     setCurrentTemplate(prev => ({
         ...prev,
@@ -179,6 +200,33 @@ export default function ShiftTemplatesDialog({ isOpen, onClose }: { isOpen: bool
                                     ))}
                                 </ToggleGroup>
                            </div>
+                           <div className="space-y-2">
+                               <Label>Yêu cầu nhân sự</Label>
+                               <div className="space-y-2">
+                                 {(item.requiredRoles || []).map((req, idx) => (
+                                   <div key={idx} className="flex items-center gap-2">
+                                     <Combobox
+                                       value={req.role}
+                                       onChange={(val) => handleRequiredRoleChange(idx, 'role', val)}
+                                       options={[
+                                         { value: 'Phục vụ', label: 'Phục vụ' },
+                                         { value: 'Pha chế', label: 'Pha chế' },
+                                         { value: 'Thu ngân', label: 'Thu ngân' },
+                                         { value: 'Quản lý', label: 'Quản lý' },
+                                       ]}
+                                       compact
+                                       searchable={false}
+                                       className="w-36"
+                                     />
+                                     <Input type="number" min={0} value={req.count} onChange={(e) => handleRequiredRoleChange(idx, 'count', e.target.value)} className="w-20" />
+                                     <Button size="icon" variant="ghost" className="text-destructive" onClick={() => handleRemoveRequiredRole(idx)}><Trash2 className="h-4 w-4"/></Button>
+                                   </div>
+                                 ))}
+                                 <div>
+                                   <Button size="sm" variant="outline" onClick={handleAddRequiredRole}><Plus className="mr-2 h-4 w-4"/>Thêm yêu cầu</Button>
+                                 </div>
+                               </div>
+                           </div>
                            <div className="flex justify-end gap-2 pt-2">
                                 <Button size="sm" variant="ghost" onClick={handleCancelEdit}>Hủy</Button>
                                 <Button size="sm" onClick={handleSave}><Check className="mr-2 h-4 w-4"/>Lưu</Button>
@@ -192,6 +240,11 @@ export default function ShiftTemplatesDialog({ isOpen, onClose }: { isOpen: bool
                                   <span>{template.role} | {template.timeSlot.start} - {template.timeSlot.end}</span>
                                   <span className="flex items-center gap-1"><Users className="h-3 w-3"/> Tối thiểu: {template.minUsers ?? 0}</span>
                                 </div>
+                                {template.requiredRoles && template.requiredRoles.length > 0 && (
+                                  <div className="mt-2 text-sm text-muted-foreground">
+                                    Yêu cầu: {template.requiredRoles.map(r => `${r.count}× ${r.role}`).join(', ')}
+                                  </div>
+                                )}
                                 <div className="flex gap-1 mt-2">
                                     {weekDays.map(day => (
                                         <Badge key={day.value} variant={(template.applicableDays || []).includes(day.value) ? 'default' : 'outline'}>{day.label}</Badge>

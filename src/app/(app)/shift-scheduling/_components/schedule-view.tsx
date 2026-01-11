@@ -45,7 +45,7 @@ import {
 } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, SimpleUser } from '@/lib/types';
+import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, SimpleUser, ShiftBusyEvidence } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { toast } from '@/components/ui/pro-toast';
 import ShiftAssignmentDialog from './shift-assignment-popover'; // Renaming this import for clarity, but it's the right file
@@ -67,6 +67,7 @@ import { getQueryParamWithMobileHashFallback } from '@/lib/url-params';
 import { useRouter } from 'nextjs-toploader/app';
 import { Label } from '@/components/ui/label';
 import AutoScheduleDialog from './auto-schedule-dialog';
+import { UnderstaffedEvidenceDialog } from './understaffed-evidence-dialog';
 
 
 // Helper function to abbreviate names
@@ -161,6 +162,8 @@ export default function ScheduleView() {
     const [allUsers, setAllUsers] = useState<ManagedUser[]>([]);
     const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
     const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [busyEvidences, setBusyEvidences] = useState<ShiftBusyEvidence[]>([]);
+    const [isUnderstaffedDialogOpen, setIsUnderstaffedDialogOpen] = useState(false);
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -236,7 +239,7 @@ export default function ScheduleView() {
         });
 
         const unsubNotifications = dataStore.subscribeToAllPassRequestNotifications(setNotifications);
-
+        const unsubBusyEvidences = dataStore.subscribeToShiftBusyEvidencesForWeek(weekId, setBusyEvidences);
 
         return () => {
             unsubSchedule();
@@ -244,6 +247,7 @@ export default function ScheduleView() {
             unsubUsers();
             unsubTemplates();
             unsubNotifications();
+            unsubBusyEvidences();
         };
 
     }, [user, weekId, canManage]);
@@ -343,6 +347,7 @@ export default function ScheduleView() {
                         role: template.role,
                         timeSlot: template.timeSlot,
                         minUsers: template.minUsers ?? 0,
+                        requiredRoles: template.requiredRoles ?? [],
                         assignedUsers: existingShift ? existingShift.assignedUsers : [],
                     });
                 }
@@ -472,6 +477,7 @@ export default function ScheduleView() {
             timeSlot: template.timeSlot,
             assignedUsers: [],
             minUsers: template.minUsers,
+            requiredRoles: template.requiredRoles ?? [],
         };
     };
     
@@ -791,6 +797,49 @@ export default function ScheduleView() {
             <div className="flex flex-col xl:flex-row gap-8">
                 {/* Main Schedule View */}
                 <div className="flex-1">
+                                        {/* Professional summary card that opens a dialog with full details */}
+                                        <Card className="mb-8 overflow-hidden border-amber-200 dark:border-amber-900/50 bg-gradient-to-br from-white to-amber-50/30 dark:from-background dark:to-amber-950/10 shadow-md">
+                                            <div className="flex flex-col sm:flex-row items-center p-4 sm:p-6 gap-6">
+                                                <div className="size-16 rounded-2xl bg-amber-500 shadow-lg shadow-amber-500/20 flex items-center justify-center shrink-0">
+                                                    <AlertTriangle className="h-9 w-9 text-white" />
+                                                </div>
+                                                <div className="flex-1 text-center sm:text-left space-y-1">
+                                                    <h3 className="text-xl font-bold tracking-tight">Tình trạng nhân sự</h3>
+                                                    <p className="text-muted-foreground text-sm leading-relaxed">
+                                                        Có <span className="font-bold text-amber-600 dark:text-amber-400">{(localSchedule ?? serverSchedule)?.shifts.filter(s => {
+                                                            const minUsers = s.minUsers ?? 0;
+                                                            const reqs = s.requiredRoles || [];
+                                                            const lackingMin = minUsers > 0 && s.assignedUsers.length < minUsers;
+                                                            const lackingReq = reqs.some(req => {
+                                                                const assignedOfRole = s.assignedUsers.filter(au => {
+                                                                    const u = allUsers.find(x => x.uid === au.userId);
+                                                                    const effRole = au.assignedRole ?? u?.role;
+                                                                    return effRole === req.role;
+                                                                }).length;
+                                                                return assignedOfRole < req.count;
+                                                            });
+                                                            return lackingMin || lackingReq;
+                                                        }).length} ca</span> chưa đủ người theo định mức. Vui lòng kiểm tra báo bận của nhân viên.
+                                                    </p>
+                                                </div>
+                                                <div className="shrink-0 w-full sm:w-auto">
+                                                    <Button 
+                                                        onClick={() => setIsUnderstaffedDialogOpen(true)}
+                                                        className="w-full sm:w-auto rounded-xl px-8 font-bold shadow-lg h-12"
+                                                    >
+                                                        Xem báo cáo bận
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </Card>
+
+                                        <UnderstaffedEvidenceDialog
+                                            open={isUnderstaffedDialogOpen}
+                                            onOpenChange={setIsUnderstaffedDialogOpen}
+                                            schedule={localSchedule ?? serverSchedule}
+                                            allUsers={allUsers}
+                                            evidences={busyEvidences}
+                                        />
                     <Card>
                         <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                              <div>

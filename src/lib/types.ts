@@ -343,6 +343,7 @@ export type ShiftTemplate = {
   timeSlot: TimeSlot;
   applicableDays: number[]; // 0 for Sun, 1 for Mon, ..., 6 for Sat
   minUsers: number;
+  requiredRoles?: { role: UserRole; count: number }[]; // e.g., [{role: 'Pha chế', count: 2}, ...]
 };
 
 export type AssignedUser = {
@@ -367,6 +368,7 @@ export type AssignedShift = {
   assignedUsers: AssignedUser[];
   assignedUsersWithRole?: AssignedUserWithRole[]; // Optional array of user-role pairs
   minUsers: number;
+  requiredRoles?: { role: UserRole; count: number }[];
   employees?: EmployeeAttendance[]; // Augmented with attendance info on admin page
 };
 
@@ -395,6 +397,20 @@ export type Availability = {
   userName: string;
   date: string | Timestamp; // YYYY-MM-DD
   availableSlots: TimeSlot[];
+};
+
+export type ShiftBusyEvidence = {
+  id: string;
+  weekId: string;
+  shiftId: string;
+  shiftDate: string;
+  shiftLabel: string;
+  role: UserRole | 'Bất kỳ';
+  submittedBy: SimpleUser;
+  message: string;
+  media?: MediaAttachment[];
+  submittedAt: string | Timestamp | FieldValue;
+  updatedAt?: string | Timestamp | FieldValue;
 };
 
 // --- Auto Scheduling Constraint Types ---

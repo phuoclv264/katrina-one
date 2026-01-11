@@ -27,7 +27,7 @@ import {
     and,
     arrayUnion,
 } from 'firebase/firestore';
-import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, AuthUser, PassRequestPayload, TimeSlot, MonthlyTask, MonthlyTaskAssignment, MediaAttachment, MediaItem, TaskCompletionRecord, SimpleUser } from './types';
+import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, AuthUser, PassRequestPayload, TimeSlot, MonthlyTask, MonthlyTaskAssignment, MediaAttachment, MediaItem, TaskCompletionRecord, SimpleUser, ShiftBusyEvidence } from './types';
 import { getISOWeek, getISOWeekYear, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, getDay, parseISO, isPast, isWithinInterval, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, getDate, getWeekOfMonth, addMonths } from 'date-fns';
 import { hasTimeConflict } from './schedule-utils';
 import { DateRange } from 'react-day-picker';
@@ -150,6 +150,34 @@ export function subscribeToSchedule(weekId: string, callback: (schedule: Schedul
         console.warn(`[Firestore Read Error] Could not read schedule for ${weekId}: ${error.code}`);
         callback(null);
     });
+    return unsubscribe;
+}
+
+export function subscribeToShiftBusyEvidencesForWeek(
+    weekId: string,
+    callback: (entries: ShiftBusyEvidence[]) => void
+): () => void {
+    if (!weekId) {
+        callback([]);
+        return () => { };
+    }
+
+    const evidencesQuery = query(
+        collection(db, 'shift_busy_evidences'),
+        where('weekId', '==', weekId)
+    );
+
+    const unsubscribe = onSnapshot(evidencesQuery, (snapshot) => {
+        const evidences = snapshot.docs.map(docSnap => ({
+            id: docSnap.id,
+            ...(docSnap.data() as Omit<ShiftBusyEvidence, 'id'>),
+        }));
+        callback(evidences);
+    }, (error) => {
+        console.warn(`[Firestore Read Error] Could not read busy evidences for ${weekId}: ${error.code}`);
+        callback([]);
+    });
+
     return unsubscribe;
 }
 
@@ -375,6 +403,7 @@ export async function createDraftScheduleForNextWeek(currentDate: Date, shiftTem
                     role: template.role,
                     timeSlot: template.timeSlot,
                     minUsers: template.minUsers ?? 0,
+                    requiredRoles: template.requiredRoles ?? [],
                     assignedUsers: [],
                 });
             }
@@ -392,6 +421,75 @@ export async function createDraftScheduleForNextWeek(currentDate: Date, shiftTem
     };
 
     await setDoc(scheduleRef, newSchedule);
+}
+
+export async function submitShiftBusyEvidence({
+    weekId,
+    shift,
+    user,
+    message,
+    newMedia = [],
+    existingAttachments = [],
+}: {
+    weekId: string;
+    shift: AssignedShift;
+    user: SimpleUser;
+    message: string;
+    newMedia?: MediaItem[];
+    existingAttachments?: MediaAttachment[];
+}): Promise<void> {
+    if (!weekId) {
+        throw new Error('Thiếu thông tin tuần cần báo bận.');
+    }
+    if (!shift || !shift.id) {
+        throw new Error('Không thể xác định ca thiếu người.');
+    }
+    if (!user || !user.userId) {
+        throw new Error('Không xác định được người gửi.');
+    }
+
+    const trimmedMessage = message.trim();
+    if (!trimmedMessage) {
+        throw new Error('Vui lòng nhập lý do bạn bận trong ca này.');
+    }
+
+    const docRef = doc(db, 'shift_busy_evidences', `${weekId}_${shift.id}_${user.userId}`);
+    const existingDoc = await getDoc(docRef);
+    const previousData = existingDoc.exists() ? (existingDoc.data() as Omit<ShiftBusyEvidence, 'id'>) : null;
+    const previousAttachments = previousData?.media ?? [];
+
+    const attachmentsToKeep = existingAttachments ? [...existingAttachments] : [];
+    const uploadedAttachments = newMedia.length > 0
+        ? await uploadMedia(newMedia, `shift-busy-evidences/${weekId}/${shift.id}/${user.userId}`)
+        : [];
+
+    const finalAttachments = [...attachmentsToKeep, ...uploadedAttachments];
+    if (finalAttachments.length === 0) {
+        throw new Error('Vui lòng đính kèm ít nhất một ảnh hoặc video minh chứng.');
+    }
+
+    const payload: Omit<ShiftBusyEvidence, 'id'> = {
+        weekId,
+        shiftId: shift.id,
+        shiftDate: shift.date,
+        shiftLabel: shift.label,
+        role: shift.role,
+        submittedBy: user,
+        message: trimmedMessage,
+        media: finalAttachments,
+        submittedAt: previousData?.submittedAt ?? serverTimestamp(),
+        updatedAt: serverTimestamp(),
+    };
+
+    await setDoc(docRef, payload);
+
+    const attachmentsToDelete = previousAttachments.filter(
+        previous => !attachmentsToKeep.some(att => att.url === previous.url)
+    );
+
+    if (attachmentsToDelete.length > 0) {
+        await Promise.all(attachmentsToDelete.map(att => deleteFileByUrl(att.url)));
+    }
 }
 
 export function subscribeToShiftTemplates(callback: (templates: ShiftTemplate[]) => void): () => void {
@@ -418,6 +516,78 @@ export function subscribeToShiftTemplates(callback: (templates: ShiftTemplate[])
 export async function updateShiftTemplates(templates: ShiftTemplate[]): Promise<void> {
     const docRef = doc(db, 'app-data', 'shiftTemplates');
     await setDoc(docRef, { templates });
+
+    // Propagate template changes to existing schedules.
+    // For each schedule, update any shift that references a templateId present
+    // in the new templates list so label/time/role/requirements stay in sync.
+    try {
+        const schedulesSnapshot = await getDocs(collection(db, 'schedules'));
+        const writeBatches: WriteBatch[] = [];
+        let batch = writeBatch(db);
+        let opsInBatch = 0;
+
+        const tmplById = new Map(templates.map(t => [t.id, t]));
+
+        for (const docSnap of schedulesSnapshot.docs) {
+            const scheduleData = docSnap.data() as Schedule;
+            if (!scheduleData.shifts || scheduleData.shifts.length === 0) continue;
+
+            let changed = false;
+            const updatedShifts = scheduleData.shifts.map(s => {
+                if (!s.templateId) return s;
+                const tmpl = tmplById.get(s.templateId);
+                if (!tmpl) return s; // template removed or not present in new list
+
+                const newProps = {
+                    label: tmpl.label,
+                    role: tmpl.role,
+                    timeSlot: tmpl.timeSlot,
+                    minUsers: tmpl.minUsers ?? 0,
+                    requiredRoles: tmpl.requiredRoles ?? [],
+                };
+
+                const oldProps = {
+                    label: s.label,
+                    role: s.role,
+                    timeSlot: s.timeSlot,
+                    minUsers: s.minUsers ?? 0,
+                    requiredRoles: s.requiredRoles ?? [],
+                };
+
+                if (JSON.stringify(oldProps) !== JSON.stringify(newProps)) {
+                    changed = true;
+                    return { ...s, ...newProps };
+                }
+                return s;
+            });
+
+            if (changed) {
+                batch.update(doc(db, 'schedules', docSnap.id), { shifts: updatedShifts });
+                opsInBatch++;
+            }
+
+            // Firestore limits batches to 500 operations. Commit and start a new one when close to limit.
+            if (opsInBatch >= 450) {
+                writeBatches.push(batch);
+                batch = writeBatch(db);
+                opsInBatch = 0;
+            }
+        }
+
+        writeBatches.push(batch);
+
+        for (const b of writeBatches) {
+            // If no writes were staged in this batch, skip commit
+            // (writeBatch has no direct inspect, we rely on that we only pushed batches we used or the final empty one)
+            try {
+                await b.commit();
+            } catch (e) {
+                console.error('Failed to propagate shift template updates to schedules:', e);
+            }
+        }
+    } catch (e) {
+        console.error('Failed to read schedules for template propagation:', e);
+    }
 }
 
 // --- Schedule Constraints (Owner) ---

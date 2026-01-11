@@ -35,7 +35,7 @@ import {
     Calendar as CalendarIcon,
     LogOut
 } from 'lucide-react';
-import type { Schedule, Availability, TimeSlot, AssignedShift, Notification, UserRole, ShiftTemplate, AuthUser, ManagedUser, AssignedUser, SimpleUser } from '@/lib/types';
+import type { Schedule, Availability, TimeSlot, AssignedShift, Notification, UserRole, ShiftTemplate, AuthUser, ManagedUser, AssignedUser, SimpleUser, ShiftBusyEvidence } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { CustomAlertDialog } from '@/components/ui/custom-alert-dialog';
 import AvailabilityDialog from './availability-dialog';
@@ -69,6 +69,7 @@ import { hasTimeConflict } from '@/lib/schedule-utils';
 import ShiftInfoDialog from './shift-info-dialog';
 import WeekScheduleDialog from './week-schedule-dialog';
 import { getQueryParamWithMobileHashFallback } from '@/lib/url-params';
+import { BusyEvidenceDialog } from './busy-evidence-dialog';
 
 
 export default function ScheduleView() {
@@ -94,6 +95,8 @@ export default function ScheduleView() {
     const [isWeekScheduleDialogOpen, setIsWeekScheduleDialogOpen] = useState(false);
     const [dialogWeekId, setDialogWeekId] = useState<string>("");
     const [dialogSchedule, setDialogSchedule] = useState<Schedule | null>(null);
+    const [busyEvidences, setBusyEvidences] = useState<ShiftBusyEvidence[]>([]);
+    const [isBusyEvidenceDialogOpen, setIsBusyEvidenceDialogOpen] = useState(false);
 
     useEffect(() => {
         if (isWeekScheduleDialogOpen) {
@@ -109,6 +112,19 @@ export default function ScheduleView() {
         });
         return () => unsubscribe();
     }, [dialogWeekId, isWeekScheduleDialogOpen]);
+
+    useEffect(() => {
+        if (!dialogWeekId || (!isWeekScheduleDialogOpen && !isBusyEvidenceDialogOpen)) {
+            setBusyEvidences([]);
+            return;
+        }
+
+        const unsubscribe = dataStore.subscribeToShiftBusyEvidencesForWeek(dialogWeekId, (entries) => {
+            setBusyEvidences(entries);
+        });
+
+        return () => unsubscribe();
+    }, [dialogWeekId, isWeekScheduleDialogOpen, isBusyEvidenceDialogOpen]);
 
     const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
     const [activeShiftForInfo, setActiveShiftForInfo] = useState<AssignedShift | null>(null);
@@ -218,6 +234,12 @@ export default function ScheduleView() {
                 routerRef.current.replace('/schedule', { scroll: false });
         }
     }, [searchParams]);
+
+    useEffect(() => {
+        if (!isWeekScheduleDialogOpen) {
+            setIsBusyEvidenceDialogOpen(false);
+        }
+    }, [isWeekScheduleDialogOpen]);
 
     const handleDateChange = (direction: 'next' | 'prev') => {
         setCurrentDate(current => addDays(current, direction === 'next' ? 7 : -7));
@@ -786,6 +808,18 @@ export default function ScheduleView() {
                 shiftTemplates={shiftTemplates}
                 initialWeekInterval={weekInterval}
                 onWeekChange={setDialogWeekId}
+                currentUser={user}
+                evidences={busyEvidences}
+                onOpenBusyEvidence={() => setIsBusyEvidenceDialogOpen(true)}
+            />
+
+            <BusyEvidenceDialog
+                open={isBusyEvidenceDialogOpen && Boolean(dialogWeekId)}
+                onOpenChange={setIsBusyEvidenceDialogOpen}
+                schedule={dialogSchedule}
+                currentUser={user}
+                weekId={dialogWeekId}
+                evidences={busyEvidences}
             />
 
             <AvailabilityDialog

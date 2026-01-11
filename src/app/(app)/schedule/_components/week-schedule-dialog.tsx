@@ -7,7 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
-import type { ManagedUser, Schedule, ShiftTemplate, UserRole } from '@/lib/types';
+import type { AssignedShift, ManagedUser, Schedule, ShiftBusyEvidence, ShiftTemplate, UserRole } from '@/lib/types';
+import type { AuthUser } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 import { addWeeks, eachDayOfInterval, endOfWeek, format, getISOWeek, getISOWeekYear, getYear, startOfWeek } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -20,6 +21,9 @@ interface WeekScheduleDialogProps {
   shiftTemplates: ShiftTemplate[];
   initialWeekInterval: { start: Date; end: Date };
   onWeekChange: (weekId: string) => void;
+  currentUser?: AuthUser | null;
+  evidences?: ShiftBusyEvidence[];
+  onOpenBusyEvidence?: () => void;
 }
 
 const roleOrder: Record<UserRole, number> = {
@@ -59,6 +63,9 @@ export default function WeekScheduleDialog({
   shiftTemplates,
   initialWeekInterval,
   onWeekChange,
+  currentUser,
+  evidences = [],
+  onOpenBusyEvidence,
 }: WeekScheduleDialogProps) {
   const [weekOffset, setWeekOffset] = useState(0);
   const [weekInterval, setWeekInterval] = useState(initialWeekInterval);
@@ -84,6 +91,57 @@ export default function WeekScheduleDialog({
   );
 
   const hasSchedule = !!schedule && schedule.shifts.length > 0;
+
+  const relevantUnderstaffedShifts = useMemo<AssignedShift[]>(() => {
+    if (!schedule || !currentUser || currentUser.role === 'Chủ nhà hàng') {
+      return [];
+    }
+
+    const allowedRoles = new Set<UserRole>([
+      currentUser.role,
+      ...(currentUser.secondaryRoles || []),
+    ]);
+
+    return schedule.shifts.filter((shift) => {
+      const minUsers = shift.minUsers ?? 0;
+      const lackingMin = minUsers > 0 && shift.assignedUsers.length < minUsers;
+      
+      const reqs = shift.requiredRoles || [];
+      const lackingReq = reqs.some(req => {
+        const assignedOfRole = shift.assignedUsers.filter(au => {
+          const user = allUsers.find(u => u.uid === au.userId);
+          const effRole = au.assignedRole ?? user?.role;
+          return effRole === req.role;
+        }).length;
+        return assignedOfRole < req.count;
+      });
+
+      const needsStaff = lackingMin || lackingReq;
+      if (!needsStaff) return false;
+
+      // User identifies if they are part of needed roles
+      if (reqs.length > 0) {
+        return reqs.some(r => allowedRoles.has(r.role));
+      }
+
+      if (shift.role === 'Bất kỳ') {
+        return currentUser.role !== 'Chủ nhà hàng';
+      }
+
+      return allowedRoles.has(shift.role as UserRole);
+    });
+  }, [schedule, currentUser]);
+
+  const pendingEvidenceCount = useMemo(() => {
+    if (!currentUser) return 0;
+    return relevantUnderstaffedShifts.reduce((count, shift) => {
+      const submitted = evidences.some((entry) => entry.shiftId === shift.id && entry.submittedBy.userId === currentUser.uid);
+      return submitted ? count : count + 1;
+    }, 0);
+  }, [relevantUnderstaffedShifts, evidences, currentUser]);
+
+  const totalRelevantShifts = relevantUnderstaffedShifts.length;
+  const submittedEvidenceCount = Math.max(0, totalRelevantShifts - pendingEvidenceCount);
 
   const renderUserBadge = (userId: string) => {
     const user = allUsers.find((u) => u.uid === userId);
@@ -121,6 +179,22 @@ export default function WeekScheduleDialog({
                   </Button>
                 )}
                 {schedule && <Badge variant={schedule.status === 'published' ? 'default' : 'secondary'}>{statusLabel[schedule.status]}</Badge>}
+                {currentUser && totalRelevantShifts > 0 && onOpenBusyEvidence && (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs">
+                      {submittedEvidenceCount}/{totalRelevantShifts} ca đã báo bận
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant={pendingEvidenceCount > 0 ? 'default' : 'secondary'}
+                      onClick={onOpenBusyEvidence}
+                    >
+                      {pendingEvidenceCount > 0
+                        ? `Báo bận ${pendingEvidenceCount} ca`
+                        : 'Xem báo bận của bạn'}
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -182,8 +256,14 @@ export default function WeekScheduleDialog({
                             });
 
                             const isUnderstaffed =
-                              (shiftForCell.minUsers || 0) > 0 &&
-                              shiftForCell.assignedUsers.length < shiftForCell.minUsers;
+                              ((shiftForCell.minUsers || 0) > 0 && shiftForCell.assignedUsers.length < shiftForCell.minUsers) ||
+                              ((shiftForCell.requiredRoles || []).some(req => {
+                                const assignedOfRole = shiftForCell.assignedUsers.filter(au => {
+                                  const user = allUsers.find(u => u.uid === au.userId);
+                                  return user?.role === req.role;
+                                }).length;
+                                return assignedOfRole < req.count;
+                              }));
 
                             return (
                               <TableCell
