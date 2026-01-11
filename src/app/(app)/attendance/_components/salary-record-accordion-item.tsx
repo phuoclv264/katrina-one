@@ -109,14 +109,16 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
             }
         }, [monthId, record.userId, localBonusAmount, onRecordUpdated]);
 
-        const handleTogglePaymentStatus = useCallback(async () => {
+    const handleTogglePaymentStatus = useCallback(async () => {
             if (!currentUser || !monthId || !record.userId) return;
 
             const newStatus = record.paymentStatus === 'paid' ? 'unpaid' : 'paid';
             if (newStatus === 'paid') {
-                const defaultAmount = Math.max(0, record.totalSalary - (record.salaryAdvance || 0) + (record.bonus || 0));
-                setActualPaidNumber(defaultAmount);
-                setActualPaidInput(new Intl.NumberFormat('vi-VN').format(defaultAmount));
+                // Suggest a rounded-up amount for quick-pay: round up to the nearest 50,000 VND
+                const baseAmount = Math.max(0, record.totalSalary - (record.salaryAdvance || 0) + (record.bonus || 0));
+                const roundedSuggested = Math.ceil(baseAmount / 50000) * 50000;
+                setActualPaidNumber(roundedSuggested);
+                setActualPaidInput(new Intl.NumberFormat('vi-VN').format(roundedSuggested));
                 setIsPayDialogOpen(true);
                 return;
             }
@@ -134,7 +136,10 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
         }, [currentUser, monthId, record.userId, record.paymentStatus, record.userName, onRecordUpdated]);
 
         const finalTakeHomePay = useMemo(() => {
-            return record.totalSalary - (record.salaryAdvance || 0) + (record.bonus || 0);
+            // Base take-home before rounding
+            const base = Math.max(0, record.totalSalary - (record.salaryAdvance || 0) + (record.bonus || 0));
+            // Round up to the nearest 50,000 VND for suggested payout amounts
+            return Math.ceil(base / 50000) * 50000;
         }, [record.totalSalary, record.salaryAdvance, record.bonus]);
 
         const violationPenaltyTotals = useMemo(() => {
