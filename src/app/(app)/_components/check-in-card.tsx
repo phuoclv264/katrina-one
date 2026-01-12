@@ -266,16 +266,16 @@ export default function CheckInCard() {
                         <div className="absolute inset-0 bg-gradient-to-br from-blue-600/40 to-indigo-700/40" />
                     </div>
                 )}
-                <div className="relative p-6 overflow-hidden z-10">
+                <div className="relative p-4 sm:p-6 overflow-hidden z-10">
                     {/* Background decoration */}
                     {!isCheckedIn && (
                         <>
-                            <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-indigo-500/5 rounded-full blur-3xl"></div>
-                            <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-40 h-40 bg-blue-500/5 rounded-full blur-3xl"></div>
+                            <div className="hidden sm:block absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-indigo-500/5 rounded-full blur-3xl"></div>
+                            <div className="hidden sm:block absolute bottom-0 left-0 -mb-10 -ml-10 w-40 h-40 bg-blue-500/5 rounded-full blur-3xl"></div>
                         </>
                     )}
 
-                    <div className="relative z-10 space-y-6">
+                    <div className="relative z-10 space-y-4 sm:space-y-6">
                         <div className="flex justify-between items-start">
                             <div>
                                 <p className={cn(
@@ -285,7 +285,7 @@ export default function CheckInCard() {
                                     {format(currentTime, 'EEEE, d MMMM', { locale: vi })}
                                 </p>
                                 <h2 className={cn(
-                                    "text-3xl font-bold tracking-tight",
+                                    "text-2xl sm:text-3xl font-bold tracking-tight",
                                     isCheckedIn ? "text-white" : "text-zinc-900 dark:text-white"
                                 )}>
                                     {format(currentTime, 'HH:mm')}
@@ -301,9 +301,9 @@ export default function CheckInCard() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3 sm:gap-4">
                             <div className={cn(
-                                "rounded-2xl p-4 border",
+                                "rounded-2xl p-3 sm:p-4 border",
                                 isCheckedIn 
                                     ? "bg-white/10 backdrop-blur-md border-white/10" 
                                     : "bg-zinc-50 dark:bg-zinc-800/50 border-zinc-100 dark:border-zinc-800"
@@ -318,7 +318,7 @@ export default function CheckInCard() {
                                 )}>{getDuration()}</p>
                             </div>
                             <div className={cn(
-                                "rounded-2xl p-4 border",
+                                "rounded-2xl p-3 sm:p-4 border",
                                 isCheckedIn 
                                     ? "bg-white/10 backdrop-blur-md border-white/10" 
                                     : "bg-zinc-50 dark:bg-zinc-800/50 border-zinc-100 dark:border-zinc-800"
@@ -328,7 +328,7 @@ export default function CheckInCard() {
                                     isCheckedIn ? "text-blue-100" : "text-zinc-500 dark:text-zinc-400"
                                 )}>Ca làm việc</p>
                                 <p className={cn(
-                                    "text-xl font-bold truncate",
+                                    "text-xl font-bold",
                                     isCheckedIn ? "text-white" : "text-zinc-900 dark:text-white"
                                 )}>
                                     {activeShift ? `${activeShift.label} (${activeShift.assignedUsers.find(u => u.userId === user?.uid)?.assignedRole || 'N/A'})` : 'Ngoài giờ'}
@@ -339,7 +339,7 @@ export default function CheckInCard() {
                         <Button 
                             size="xl" 
                             className={cn(
-                                "w-full rounded-2xl font-bold text-lg shadow-lg transition-all active:scale-[0.98]",
+                                "w-full rounded-2xl font-bold text-md sm:text-lg py-2 sm:py-3 shadow-lg transition-all active:scale-[0.98]",
                                 isCheckedIn 
                                     ? "bg-gradient-to-r from-rose-500 to-red-600 text-white shadow-rose-500/25 hover:shadow-rose-500/40" 
                                     : "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-blue-600/25 hover:shadow-blue-600/40"
@@ -361,7 +361,7 @@ export default function CheckInCard() {
                                 <Button 
                                     variant="outline" 
                                     className={cn(
-                                        "w-full h-12 rounded-xl border transition-colors",
+                                        "w-full h-10 sm:h-12 rounded-xl border transition-colors",
                                         isCheckedIn 
                                             ? "bg-white/10 border-white/20 text-white hover:bg-white/20" 
                                             : "border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
@@ -377,7 +377,7 @@ export default function CheckInCard() {
                             {!isCheckedIn && todaysShifts.length > 0 && (
                                 <Button 
                                     variant="ghost" 
-                                    className="w-full h-12 rounded-xl text-zinc-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                    className="w-full h-10 sm:h-12 rounded-xl text-zinc-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                                     onClick={handleOpenLateRequestDialog}
                                     disabled={isProcessing || hasPendingLateRequest}
                                 >
@@ -389,7 +389,7 @@ export default function CheckInCard() {
                             <Button 
                                 variant="outline" 
                                 className={cn(
-                                    "w-full h-12 rounded-xl border transition-colors",
+                                    "w-full h-10 sm:h-12 rounded-xl border transition-colors",
                                     isCheckedIn 
                                         ? "bg-white/10 border-white/20 text-white hover:bg-white/20" 
                                         : "border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
@@ -404,7 +404,7 @@ export default function CheckInCard() {
                         {/* Recent History List */}
                         {attendanceRecords.length > 0 && (
                             <div className={cn(
-                                "space-y-3 pt-4 border-t",
+                                "space-y-2 pt-3 border-t",
                                 isCheckedIn ? "border-white/10" : "border-zinc-100 dark:border-zinc-800"
                             )}>
                                 <div className="flex items-center justify-between">
@@ -427,7 +427,7 @@ export default function CheckInCard() {
                                 <div className="space-y-2">
                                     {attendanceRecords.slice(0, 2).map((record) => (
                                         <div key={record.id} className={cn(
-                                            "flex items-center justify-between p-3 rounded-2xl border",
+                                            "flex items-center justify-between p-2 rounded-lg border",
                                             isCheckedIn 
                                                 ? "bg-white/10 backdrop-blur-md border-white/10" 
                                                 : "bg-zinc-50 dark:bg-zinc-800/50 border-zinc-100 dark:border-zinc-800"
@@ -554,7 +554,7 @@ export default function CheckInCard() {
                         ) : (
                             <div className="space-y-3">
                                 {attendanceRecords.map((record) => (
-                                    <div key={record.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                                    <div key={record.id} className="flex items-center justify-between p-2 rounded-lg border bg-card">
                                         <div>
                                             <div className="flex items-center gap-2 mb-1">
                                                 <Badge variant={record.isOffShift ? "secondary" : "default"}>
