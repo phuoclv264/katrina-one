@@ -1,6 +1,149 @@
 'use client';
 
-import type { MediaAttachment, ShiftBusyEvidence, ManagedUser, UserRole } from '@/lib/types';
+import type { MediaAttachment, ShiftBusyEvidence, ManagedUser, UserRole, AssignedShift, Schedule, BusyReportRequest } from '@/lib/types';
+import type { AuthUser } from '@/hooks/use-auth';
+
+// Return eligible users for a shift and which of them have not yet submitted evidence
+// Also compute per-role eligible/pending and the list of pending users that are actually needed to fill missing slots
+export function getEligibleAndPendingUsers(
+  shift: AssignedShift,
+  allUsers: ManagedUser[],
+  shiftEvidences: ShiftBusyEvidence[],
+  busyRequest?: BusyReportRequest
+) {
+  const reqs = shift.requiredRoles || [];
+  const submittedIds = new Set(shiftEvidences.map(e => e.submittedBy.userId));
+
+  // Per-role breakdown when requiredRoles are present
+  let perRole = reqs.map((req) => {
+    const assignedOfRole = shift.assignedUsers.filter((au) => {
+      const user = allUsers.find((u) => u.uid === au.userId);
+      const effRole = au.assignedRole ?? user?.role;
+      return effRole === req.role;
+    }).length;
+
+    const missing = Math.max(0, req.count - assignedOfRole);
+    const eligible = allUsers.filter(u => userMatchesRole(u, req.role));
+    const pending = eligible.filter(u => !submittedIds.has(u.uid));
+
+    return { role: req.role, missing, eligible, pending };
+  });
+
+  // Aggregate lists
+  let eligibleUsers = reqs.length > 0
+    ? Array.from(new Map(perRole.filter(p => p.missing > 0).flatMap(p => p.eligible).map(u => [u.uid, u])).values())
+    : allUsers.filter(user => userMatchesRole(user, shift.role));
+
+  let pendingUsers = (reqs.length > 0
+    ? Array.from(new Map(perRole.filter(p => p.missing > 0).flatMap(p => p.pending).map(u => [u.uid, u])).values())
+    : eligibleUsers.filter(u => !submittedIds.has(u.uid)));
+
+
+  // If an owner has set up a BusyReportRequest for this shift, narrow down eligible/pending users accordingly
+  if (busyRequest && busyRequest.active) {
+    if (busyRequest.targetMode === 'roles') {
+      const roles = new Set(busyRequest.targetRoles || []);
+      // Filter per-role breakdown and aggregate lists
+      eligibleUsers = allUsers.filter(u => roles.has(u.role));
+    } else if (busyRequest.targetMode === 'users') {
+      const ids = new Set(busyRequest.targetUserIds || []);
+      eligibleUsers = allUsers.filter(u => ids.has(u.uid));
+    } else { // targetMode === 'all'
+      eligibleUsers = allUsers;
+    }
+
+    pendingUsers = eligibleUsers.filter(u => !submittedIds.has(u.uid));
+  }
+
+  return { eligibleUsers, pendingUsers };
+}
+
+type Options = {
+  currentUser?: AuthUser | null;
+  roleAware?: boolean; // if true, filter shifts relevant to currentUser's roles; if false, return all understaffed shifts
+};
+
+export function getRelevantUnderstaffedShifts(
+  schedule: Schedule | null,
+  allUsers: ManagedUser[],
+  options: Options = {}
+): AssignedShift[] {
+  const { currentUser = null, roleAware = true } = options;
+  if (!schedule) return [];
+
+  // Preserve previous behavior: when roleAware is enabled, if there is no current user or the current user is the Owner, return []
+  if (roleAware) {
+    if (!currentUser || currentUser.role === 'Chủ nhà hàng') return [];
+  }
+
+  const allowedRoles = new Set<UserRole>(
+    currentUser ? [currentUser.role, ...(currentUser.secondaryRoles || [])] : []
+  );
+
+  return schedule.shifts.filter((shift) => {
+    const minUsers = shift.minUsers ?? 0;
+    const lackingMin = minUsers > 0 && shift.assignedUsers.length < minUsers;
+
+    const reqs = shift.requiredRoles || [];
+
+    // compute which required roles are currently understaffed
+    const lackingReqRoles = reqs.filter((req) => {
+      const assignedOfRole = shift.assignedUsers.filter((au) => {
+        const user = allUsers.find((u) => u.uid === au.userId);
+        const effRole = au.assignedRole ?? user?.role;
+        return effRole === req.role;
+      }).length;
+      return assignedOfRole < req.count;
+    });
+
+    // If specific role requirements exist, we only consider 'needsStaff' when one of those roles is lacking.
+    // Otherwise, we fall back to the generic minUsers check.
+    // const needsStaff = reqs.length > 0 ? (lackingReqRoles.length > 0 && lackingMin) : lackingMin;
+    const needsStaff = reqs.length > 0 && lackingReqRoles.length > 0;
+    if (!needsStaff) return false;
+
+    // If role-aware filtering is requested, only show shifts relevant to the current user's role(s)
+    if (roleAware) {
+      if (reqs.length > 0) {
+        return lackingReqRoles.some((r) => allowedRoles.has(r.role));
+      }
+
+      if (shift.role === 'Bất kỳ') {
+        return currentUser!.role !== 'Chủ nhà hàng';
+      }
+
+      return allowedRoles.has(shift.role as UserRole);
+    }
+
+    // roleAware disabled -> include all understaffed shifts
+    return true;
+  });
+}
+
+// Compute per-role missing counts and a friendly display text for a shift
+export function getShiftMissingDetails(shift: AssignedShift, allUsers: ManagedUser[]) {
+  const reqs = shift.requiredRoles || [];
+  const missingByRole = reqs.map((req) => {
+    const assignedOfRole = shift.assignedUsers.filter((au) => {
+      const user = allUsers.find((u) => u.uid === au.userId);
+      const effRole = au.assignedRole ?? user?.role;
+      return effRole === req.role;
+    }).length;
+    return { role: req.role, missing: Math.max(0, req.count - assignedOfRole) };
+  });
+
+  const totalRoleMissing = missingByRole.reduce((s, r) => s + r.missing, 0);
+  const totalMissing = totalRoleMissing > 0 ? totalRoleMissing : Math.max(0, (shift.minUsers ?? 0) - shift.assignedUsers.length);
+
+  const roleText = missingByRole.filter(m => m.missing > 0).map(m => `${m.missing} ${m.role}`).join(', ');
+  const text = roleText.length > 0 ? `Thiếu ${roleText}` : `Thiếu ${totalMissing} người`;
+
+  return {
+    perRole: missingByRole,
+    totalMissing,
+    text,
+  };
+}
 
 export const getRoleColor = (role: UserRole | 'Bất kỳ'): string => {
   switch (role) {

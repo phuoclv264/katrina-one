@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/accordion";
 import type { AssignedShift, ManagedUser, Schedule, ShiftBusyEvidence, UserRole } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { getRoleColor, userMatchesRole, toDate, buildSlides } from './understaffed-evidence-utils';
+import { getRoleColor, userMatchesRole, toDate, buildSlides, getRelevantUnderstaffedShifts } from './understaffed-evidence-utils';
 
 // Re-export dialog for backward compatibility
 export { UnderstaffedEvidenceDialog } from './understaffed-evidence-dialog';
@@ -35,28 +35,10 @@ export function UnderstaffedEvidencePanel({ schedule, allUsers, evidences }: Und
   const { openLightbox } = useLightbox();
 
   const understaffedShifts = useMemo<AssignedShift[]>(() => {
-    if (!schedule) return [];
-    return (schedule.shifts || [])
-      .filter((shift) => {
-        const minUsers = shift.minUsers ?? 0;
-        const lackingMin = minUsers > 0 && shift.assignedUsers.length < minUsers;
-        const reqs = shift.requiredRoles || [];
-        const lackingReq = reqs.some(req => {
-          const assignedOfRole = shift.assignedUsers.filter(au => {
-            const user = allUsers.find(u => u.uid === au.userId);
-            return user?.role === req.role;
-          }).length;
-          return assignedOfRole < req.count;
-        });
-        return lackingMin || lackingReq;
-      })
-      .sort((a, b) => {
-        if (a.date === b.date) {
-          return a.timeSlot.start.localeCompare(b.timeSlot.start);
-        }
-        return a.date.localeCompare(b.date);
-      });
-  }, [schedule]);
+    // For the panel we want ALL understaffed shifts (owner-style view), so disable role-aware filtering
+    const shifts = getRelevantUnderstaffedShifts(schedule, allUsers, { currentUser: null, roleAware: false });
+    return shifts.sort((a, b) => (a.date === b.date ? a.timeSlot.start.localeCompare(b.timeSlot.start) : a.date.localeCompare(b.date)));
+  }, [schedule, allUsers]);
 
   if (understaffedShifts.length === 0) {
     return null;

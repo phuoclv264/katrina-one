@@ -6,12 +6,12 @@ import { useMemo } from 'react';
 import { NotificationBell } from './notification-bell';
 
 const pathToTitleMap: { [key: string]: string } = {
-    '/shifts': 'Chọn ca làm việc',
-    '/bartender': 'Danh mục Báo cáo Pha chế',
+    '/shifts': 'Báo cáo Phục vụ',
+    '/bartender': 'Báo cáo Pha chế',
     '/bartender/hygiene-report': 'Báo cáo Vệ sinh quầy',
     '/bartender/inventory': 'Kiểm kê Tồn kho',
     '/cashier': 'Báo cáo Thu ngân',
-    '/manager': 'Bảng điều khiển Quản lý',
+    '/manager': 'Báo cáo Quản lý',
     '/manager/comprehensive-report': 'Phiếu kiểm tra toàn diện',
     '/manager/hygiene-report': 'Xem Báo cáo Vệ sinh',
     '/manager/inventory-report': 'Xem Báo cáo Tồn kho',

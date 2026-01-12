@@ -61,7 +61,7 @@ export function BartenderHomeView() {
 
   return (
     <DashboardLayout
-      title="Danh mục Báo cáo Pha chế"
+      title="Báo cáo Pha chế"
       description={todaysShifts.length > 0 ? `Hôm nay bạn có ca: ${shiftsText}. Chọn báo cáo để thực hiện.` : 'Bạn không có ca làm việc nào hôm nay.'}
       top={isCheckedIn && todaysMonthlyAssignments.length > 0 ? <TodaysTasksCard assignments={todaysMonthlyAssignments} shiftTemplates={shiftTemplates} /> : undefined}
     >

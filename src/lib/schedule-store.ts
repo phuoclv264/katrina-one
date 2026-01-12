@@ -27,7 +27,7 @@ import {
     and,
     arrayUnion,
 } from 'firebase/firestore';
-import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, AuthUser, PassRequestPayload, TimeSlot, MonthlyTask, MonthlyTaskAssignment, MediaAttachment, MediaItem, TaskCompletionRecord, SimpleUser, ShiftBusyEvidence } from './types';
+import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, AuthUser, PassRequestPayload, TimeSlot, MonthlyTask, MonthlyTaskAssignment, MediaAttachment, MediaItem, TaskCompletionRecord, SimpleUser, ShiftBusyEvidence, BusyReportRequest } from './types';
 import { getISOWeek, getISOWeekYear, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, getDay, parseISO, isPast, isWithinInterval, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, getDate, getWeekOfMonth, addMonths } from 'date-fns';
 import { hasTimeConflict } from './schedule-utils';
 import { DateRange } from 'react-day-picker';
@@ -179,6 +179,63 @@ export function subscribeToShiftBusyEvidencesForWeek(
     });
 
     return unsubscribe;
+}
+
+export function subscribeToBusyReportRequestsForWeek(
+    weekId: string,
+    callback: (requests: BusyReportRequest[]) => void
+): () => void {
+    if (!weekId) {
+        callback([]);
+        return () => {};
+    }
+    const q = query(collection(db, 'busy_report_requests'), where('weekId', '==', weekId));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        const requests = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...(docSnap.data() as Omit<BusyReportRequest, 'id'>) }));
+        callback(requests);
+    }, (error) => {
+        console.warn(`[Firestore Read Error] Could not read busy report requests for ${weekId}: ${error.code}`);
+        callback([]);
+    });
+    return unsubscribe;
+}
+
+export async function setBusyReportRecipients({
+    weekId,
+    shift,
+    createdBy,
+    targetMode,
+    targetUserIds = [],
+    targetRoles = [],
+    active = true,
+}: {
+    weekId: string;
+    shift: AssignedShift;
+    createdBy: SimpleUser;
+    targetMode: 'users' | 'roles' | 'all';
+    targetUserIds?: string[];
+    targetRoles?: UserRole[];
+    active?: boolean;
+}): Promise<void> {
+    if (!weekId || !shift?.id) throw new Error('Thiếu thông tin tuần hoặc ca.');
+    const docRef = doc(db, 'busy_report_requests', `${weekId}_${shift.id}`);
+    const payload: Omit<BusyReportRequest, 'id'> = {
+        weekId,
+        shiftId: shift.id,
+        createdBy,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        active,
+        targetMode,
+    };
+    // Only include targetUserIds/targetRoles if they're actually used to avoid undefined in Firestore
+    if (targetMode === 'users') {
+        payload.targetUserIds = Array.from(new Set(targetUserIds));
+    }
+    if (targetMode === 'roles') {
+        payload.targetRoles = Array.from(new Set(targetRoles));
+    }
+    await setDoc(docRef, payload);
 }
 
 export function subscribeToAllSchedules(callback: (schedules: Schedule[]) => void): () => void {

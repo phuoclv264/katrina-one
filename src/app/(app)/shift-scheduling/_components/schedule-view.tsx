@@ -62,6 +62,7 @@ import { Badge } from '@/components/ui/badge';
 import PassRequestsDialog from '../../schedule/_components/pass-requests-dialog';
 import UserDetailsDialog from './user-details-dialog';
 import { isUserAvailable, hasTimeConflict } from '@/lib/schedule-utils';
+import { getRelevantUnderstaffedShifts } from './understaffed-evidence-utils';
 import { useSearchParams } from 'next/navigation';
 import { getQueryParamWithMobileHashFallback } from '@/lib/url-params';
 import { useRouter } from 'nextjs-toploader/app';
@@ -806,20 +807,7 @@ export default function ScheduleView() {
                                                 <div className="flex-1 text-center sm:text-left space-y-1">
                                                     <h3 className="text-xl font-bold tracking-tight">Tình trạng nhân sự</h3>
                                                     <p className="text-muted-foreground text-sm leading-relaxed">
-                                                        Có <span className="font-bold text-amber-600 dark:text-amber-400">{(localSchedule ?? serverSchedule)?.shifts.filter(s => {
-                                                            const minUsers = s.minUsers ?? 0;
-                                                            const reqs = s.requiredRoles || [];
-                                                            const lackingMin = minUsers > 0 && s.assignedUsers.length < minUsers;
-                                                            const lackingReq = reqs.some(req => {
-                                                                const assignedOfRole = s.assignedUsers.filter(au => {
-                                                                    const u = allUsers.find(x => x.uid === au.userId);
-                                                                    const effRole = au.assignedRole ?? u?.role;
-                                                                    return effRole === req.role;
-                                                                }).length;
-                                                                return assignedOfRole < req.count;
-                                                            });
-                                                            return lackingMin || lackingReq;
-                                                        }).length} ca</span> chưa đủ người theo định mức. Vui lòng kiểm tra báo bận của nhân viên.
+                                                        Có <span className="font-bold text-amber-600 dark:text-amber-400">{getRelevantUnderstaffedShifts(localSchedule ?? serverSchedule, allUsers, { currentUser: null, roleAware: false }).length} ca</span> chưa đủ người theo định mức. Vui lòng kiểm tra báo bận của nhân viên.
                                                     </p>
                                                 </div>
                                                 <div className="shrink-0 w-full sm:w-auto">

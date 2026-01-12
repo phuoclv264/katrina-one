@@ -413,6 +413,23 @@ export type ShiftBusyEvidence = {
   updatedAt?: string | Timestamp | FieldValue;
 };
 
+export type BusyReportTargetMode = 'users' | 'roles' | 'all';
+
+export type BusyReportRequest = {
+  id: string;
+  weekId: string;
+  shiftId: string;
+  createdBy: SimpleUser;
+  createdAt: string | Timestamp | FieldValue;
+  updatedAt?: string | Timestamp | FieldValue;
+  active: boolean;
+  targetMode: BusyReportTargetMode;
+  /** When targetMode==='users' */
+  targetUserIds?: string[];
+  /** When targetMode==='roles' */
+  targetRoles?: UserRole[];
+};
+
 // --- Auto Scheduling Constraint Types ---
 export type BaseConstraint = {
   id: string;

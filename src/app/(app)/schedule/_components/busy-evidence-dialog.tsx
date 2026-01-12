@@ -14,10 +14,11 @@ import { Camera, Upload, Trash2, Loader2, AlertTriangle, Check } from 'lucide-re
 import { dataStore } from '@/lib/data-store';
 import { photoStore } from '@/lib/photo-store';
 import { cn } from '@/lib/utils';
-import type { AssignedShift, MediaAttachment, MediaItem, Schedule, ShiftBusyEvidence, UserRole } from '@/lib/types';
+import type { AssignedShift, MediaAttachment, MediaItem, Schedule, ShiftBusyEvidence, UserRole, ManagedUser } from '@/lib/types';
 import type { AuthUser } from '@/hooks/use-auth';
 import CameraDialog from '@/components/camera-dialog';
 import { v4 as uuidv4 } from 'uuid';
+import { getShiftMissingDetails } from '../../shift-scheduling/_components/understaffed-evidence-utils';
 
 const getRoleColor = (role: UserRole | 'Bất kỳ'): string => {
   switch (role) {
@@ -56,6 +57,8 @@ type BusyEvidenceDialogProps = {
   currentUser: AuthUser | null;
   weekId: string;
   evidences: ShiftBusyEvidence[];
+  relevantShifts: AssignedShift[]; // Provided by WeekScheduleDialog — do not recalculate locally
+  allUsers: ManagedUser[]; // required to compute effective assigned roles
 };
 
 const toDate = (value: ShiftBusyEvidence['submittedAt']) => {
@@ -88,7 +91,7 @@ const getWeekRange = (weekId: string) => {
   return { start: weekStart, end: weekEnd };
 };
 
-export function BusyEvidenceDialog({ open, onOpenChange, schedule, currentUser, weekId, evidences }: BusyEvidenceDialogProps) {
+export function BusyEvidenceDialog({ open, onOpenChange, schedule, currentUser, weekId, evidences, relevantShifts, allUsers }: BusyEvidenceDialogProps) {
   const [drafts, setDrafts] = useState<Record<string, DraftState>>({});
   const [activeCameraShiftId, setActiveCameraShiftId] = useState<string | null>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -110,44 +113,7 @@ export function BusyEvidenceDialog({ open, onOpenChange, schedule, currentUser, 
     }
   }, [open, cleanupMediaList]);
 
-  const relevantShifts = useMemo(() => {
-    if (!schedule || !currentUser || currentUser.role === 'Chủ nhà hàng') {
-      return [] as AssignedShift[];
-    }
 
-    const primaryAndSecondaryRoles = new Set<UserRole>([
-      currentUser.role,
-      ...(currentUser.secondaryRoles || []),
-    ]);
-
-    return (schedule.shifts || [])
-      .filter((shift) => {
-        const reqs = shift.requiredRoles || [];
-
-        if (reqs.length > 0) {
-          // If template defines per-role requirements, only show this shift to users whose role is required and still lacking
-          const matchingReq = reqs.find(r => primaryAndSecondaryRoles.has(r.role));
-          if (!matchingReq) return false;
-          const assignedOfRole = shift.assignedUsers.filter(au => au.assignedRole === matchingReq.role).length;
-          return assignedOfRole < matchingReq.count;
-        }
-
-        const minRequired = shift.minUsers ?? 0;
-        const isUnderstaffed = minRequired > 0 && shift.assignedUsers.length < minRequired;
-        if (!isUnderstaffed) return false;
-
-        if (shift.role === 'Bất kỳ') {
-          return currentUser.role !== 'Chủ nhà hàng';
-        }
-        return primaryAndSecondaryRoles.has(shift.role as UserRole);
-      })
-      .sort((a, b) => {
-        if (a.date === b.date) {
-          return a.timeSlot.start.localeCompare(b.timeSlot.start);
-        }
-        return a.date.localeCompare(b.date);
-      });
-  }, [schedule, currentUser]);
 
   useEffect(() => {
     if (!open || !currentUser) return;
@@ -155,7 +121,7 @@ export function BusyEvidenceDialog({ open, onOpenChange, schedule, currentUser, 
     setDrafts((prev) => {
       const next: Record<string, DraftState> = {};
 
-      relevantShifts.forEach((shift) => {
+      (relevantShifts || []).forEach((shift) => {
         const existing = evidences.find((entry) => entry.shiftId === shift.id && entry.submittedBy.userId === currentUser.uid);
         const serverNote = existing?.message ?? '';
         const serverMedia = existing?.media ? [...existing.media] : [];
@@ -384,68 +350,68 @@ export function BusyEvidenceDialog({ open, onOpenChange, schedule, currentUser, 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden border-none sm:rounded-2xl">
-        <DialogHeader className="p-6 pb-0 space-y-2">
+      <DialogContent className="max-w-4xl max-h-[92vh] flex flex-col p-0 overflow-hidden border-none sm:rounded-2xl">
+        <DialogHeader className="p-4 pb-0 space-y-1">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
-              <AlertTriangle className="h-6 w-6" />
+            <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="h-5 w-5" />
             </div>
             <div>
-              <DialogTitle className="text-2xl font-bold font-headline">Báo bận cho các ca thiếu người</DialogTitle>
-              <DialogDescription className="text-base">
+              <DialogTitle className="text-lg sm:text-xl font-bold font-headline">Báo bận cho ca thiếu người</DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm line-clamp-1">
                 {weekRange
                   ? `Tuần ${format(weekRange.start, 'dd/MM')} - ${format(weekRange.end, 'dd/MM/yyyy')}`
-                  : 'Vui lòng cung cấp lý do và bằng chứng bạn bận ở những ca hiển thị bên dưới.'}
+                  : 'Vui lòng cung cấp lý do và bằng chứng bạn bận.'}
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
         {!currentUser ? (
-          <div className="p-12 text-center text-muted-foreground italic flex flex-col items-center gap-2">
-            <Loader2 className="h-8 w-8 animate-spin text-primary/40" />
-            Không xác định được tài khoản hiện tại...
+          <div className="p-8 text-center text-muted-foreground italic flex flex-col items-center gap-2">
+            <Loader2 className="h-6 w-6 animate-spin text-primary/40" />
+            Đang xác định tài khoản...
           </div>
         ) : relevantShifts.length === 0 ? (
-          <div className="p-12 text-center text-muted-foreground italic">
-            Không có ca thiếu người phù hợp với vai trò của bạn trong tuần này.
+          <div className="p-8 text-center text-muted-foreground italic text-sm">
+            Không có ca thiếu người phù hợp vai trò của bạn.
           </div>
         ) : (
           <div className="flex-1 flex flex-col min-h-0">
-            <div className="px-6 py-4">
+            <div className="px-4 py-2">
               <div className={cn(
-                'flex flex-col sm:flex-row sm:items-center gap-3 rounded-2xl border px-5 py-4 text-sm transition-all duration-300', 
+                'flex items-center gap-3 rounded-xl border px-4 py-2.5 text-xs sm:text-sm transition-all duration-300', 
                 pendingCount > 0 
                   ? 'border-amber-200 bg-amber-50/50 dark:border-amber-900/40 dark:bg-amber-900/10' 
                   : 'border-emerald-200 bg-emerald-50/50 dark:border-emerald-900/40 dark:bg-emerald-900/10'
               )}>
                 <div className={cn(
-                  'flex h-10 w-10 shrink-0 items-center justify-center rounded-full',
+                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
                   pendingCount > 0 ? 'bg-amber-100 dark:bg-amber-800/40 text-amber-600' : 'bg-emerald-100 dark:bg-emerald-800/40 text-emerald-600'
                 )}>
                   {pendingCount > 0 ? (
-                    <AlertTriangle className="h-5 w-5" />
+                    <AlertTriangle className="h-4 w-4" />
                   ) : (
-                    <Check className="h-5 w-5" />
+                    <Check className="h-4 w-4" />
                   )}
                 </div>
-                <div>
-                  <p className="font-semibold text-base">
-                    {pendingCount > 0 ? 'Yêu cầu xác nhận bận' : 'Đã hoàn thành xác nhận'}
+                <div className="flex-1">
+                  <p className="font-bold leading-tight">
+                    {pendingCount > 0 ? 'Yêu cầu báo bận' : 'Đã hoàn thành'}
                   </p>
-                  <p className="text-muted-foreground">
+                  <p className="text-muted-foreground text-[11px] sm:text-xs leading-tight">
                     {pendingCount > 0 ? (
-                      <>Bạn còn <strong>{pendingCount}</strong>/{relevantShifts.length} ca cần xác nhận lý do bận.</>
+                      <>Còn <strong>{pendingCount}</strong>/{relevantShifts.length} ca cần bạn xác nhận.</>
                     ) : (
-                      'Tất cả các ca thiếu người trong tuần này đã được bạn xác nhận lý do bận.'
+                      'Bạn đã xác nhận toàn bộ ca thiếu người.'
                     )}
                   </p>
                 </div>
               </div>
             </div>
 
-            <ScrollArea className="flex-1 px-6 pb-6 overflow-auto">
-              <div className="space-y-6">
+            <ScrollArea className="flex-1 px-4 pb-4 overflow-auto">
+              <div className="space-y-4">
                 {relevantShifts.map((shift) => {
                   const draft = drafts[shift.id];
                   if (!draft) return null;
@@ -460,8 +426,8 @@ export function BusyEvidenceDialog({ open, onOpenChange, schedule, currentUser, 
                     <div 
                       key={shift.id} 
                       className={cn(
-                        "group relative overflow-hidden rounded-2xl border transition-all duration-300",
-                        isSubmitted ? "border-emerald-100 bg-emerald-50/20 dark:border-emerald-900/30 dark:bg-emerald-900/5" : "bg-card hover:shadow-md border-slate-200 dark:border-slate-800 shadow-sm"
+                        "group relative overflow-hidden rounded-xl border transition-all duration-300",
+                        isSubmitted ? "border-emerald-100 bg-emerald-50/20 dark:border-emerald-900/30 dark:bg-emerald-900/5 shadow-none" : "bg-card border-slate-200 dark:border-slate-800 shadow-sm"
                       )}
                     >
                       {/* Accent Bar */}
@@ -470,81 +436,81 @@ export function BusyEvidenceDialog({ open, onOpenChange, schedule, currentUser, 
                         isSubmitted ? "bg-emerald-500" : "bg-primary/20 group-hover:bg-primary/40"
                       )} />
 
-                      <div className="p-5 sm:p-6">
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="flex gap-4">
+                      <div className="p-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="flex gap-3">
                             <div className={cn(
-                              "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border text-lg font-bold",
+                              "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border text-base font-bold",
                               getRoleColor(shift.role)
                             )}>
                               {shift.label.slice(0, 1)}
                             </div>
                             <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <h3 className="text-lg font-bold tracking-tight">{shift.label}</h3>
-                                <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0 h-4 font-bold', getRoleColor(shift.role))}>{shift.role}</Badge>
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                <h3 className="text-base font-bold tracking-tight">{shift.label}</h3>
+                                <Badge variant="outline" className={cn('text-[9px] px-1 py-0 h-3.5 font-bold uppercase leading-none', getRoleColor(shift.role))}>{shift.role}</Badge>
                               </div>
-                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                                <span className="flex items-center gap-1">
-                                  {format(shiftDate, 'EEEE, dd/MM', { locale: vi })}
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                                <span className="font-medium text-foreground">
+                                  {format(shiftDate, 'EEE, dd/MM', { locale: vi })}
                                 </span>
                                 <span className="text-muted-foreground/30">•</span>
-                                <span className="flex items-center gap-1 font-medium text-foreground">
+                                <span className="font-semibold text-primary">
                                   {shift.timeSlot.start} - {shift.timeSlot.end}
                                 </span>
                               </div>
                             </div>
                           </div>
                           
-                          <div className="flex items-center gap-2 self-start flex-wrap">
-                            <Badge variant={missingCount > 0 ? 'destructive' : 'outline'} className="rounded-md font-medium">
-                              Thiếu {missingCount} người
+                          <div className="flex items-center gap-1.5 self-start shrink-0">
+                            <Badge variant="destructive" className="rounded-md font-bold text-[10px] h-5">
+                              {getShiftMissingDetails(shift, allUsers).text}
                             </Badge>
                             {submittedAt && (
-                              <Badge variant="outline" className="bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-400">
-                                Đã gửi: {format(submittedAt, 'HH:mm dd/MM')}
+                              <Badge variant="outline" className="bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/40 dark:border-emerald-800 dark:text-emerald-400 text-[10px] h-5">
+                                {format(submittedAt, 'HH:mm dd/MM')}
                               </Badge>
                             )}
                           </div>
                         </div>
 
-                        <div className="mt-6 space-y-5">
-                          <div className="space-y-2.5">
-                            <label className="text-sm font-bold text-foreground inline-flex items-center gap-2">
+                        <div className="mt-4 space-y-4">
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-foreground inline-flex items-center gap-1.5">
                               Lý do bận
                               <span className="text-rose-500">*</span>
                             </label>
                             <Textarea
                               value={draft.note}
                               onChange={(event) => handleNoteChange(shift.id, event.target.value)}
-                              placeholder="Mô tả cụ thể lịch bận của bạn (ví dụ: bận học, việc gia đình...)"
-                              className="min-h-[100px] resize-none border-slate-200 focus:border-primary/50 focus:ring-primary/20 rounded-xl"
+                              placeholder="Mô tả cụ thể lịch bận (học, gia đình...)"
+                              className="min-h-[80px] text-sm resize-none border-slate-200 focus:border-primary/50 focus:ring-primary/20 rounded-xl px-3 py-2"
                             />
                           </div>
 
-                          <div className="space-y-3">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                              <label className="text-sm font-bold text-foreground inline-flex items-center gap-2">
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <label className="text-xs font-bold text-foreground inline-flex items-center gap-1.5">
                                 Minh chứng bằng hình ảnh/video
                                 <span className="text-rose-500">*</span>
                               </label>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1.5">
                                 <Button 
                                   variant="outline" 
                                   size="sm" 
-                                  className="h-9 px-3 rounded-lg border-slate-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900 transition-colors"
+                                  className="h-8 px-2.5 text-[11px] rounded-lg border-slate-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900"
                                   onClick={() => setActiveCameraShiftId(shift.id)}
                                 >
-                                  <Camera className="mr-2 h-4 w-4 text-primary" /> 
-                                  Chụp ảnh
+                                  <Camera className="mr-1.5 h-3.5 w-3.5 text-primary" /> 
+                                  Chụp
                                 </Button>
                                 <Button 
                                   variant="outline" 
                                   size="sm" 
-                                  className="h-9 px-3 rounded-lg border-slate-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900 transition-colors"
+                                  className="h-8 px-2.5 text-[11px] rounded-lg border-slate-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900"
                                   onClick={() => fileInputRefs.current[shift.id]?.click()}
                                 >
-                                  <Upload className="mr-2 h-4 w-4 text-primary" /> 
+                                  <Upload className="mr-1.5 h-3.5 w-3.5 text-primary" /> 
                                   Tải lên
                                 </Button>
                                 <input
@@ -560,23 +526,23 @@ export function BusyEvidenceDialog({ open, onOpenChange, schedule, currentUser, 
                               </div>
                             </div>
 
-                            <div className="min-h-[100px] rounded-xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/20 p-4 transition-all duration-300">
+                            <div className="min-h-[80px] rounded-xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/20 p-2.5 transition-all duration-300">
                               {(draft.existingAttachments.length > 0 || draft.newMedia.length > 0) ? (
-                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                                <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-1.5">
                                   {draft.existingAttachments.map((attachment) => (
-                                    <div key={attachment.url} className="group/media relative aspect-square overflow-hidden rounded-xl border-2 border-white dark:border-slate-800 shadow-sm ring-1 ring-slate-200 dark:ring-slate-800 transition-transform active:scale-95">
+                                    <div key={attachment.url} className="group/media relative aspect-square overflow-hidden rounded-lg border-2 border-white dark:border-slate-800 shadow-sm ring-1 ring-slate-200 dark:ring-slate-800">
                                       {attachment.type === 'photo' ? (
                                         <Image
                                           src={attachment.url}
                                           alt="Đính kèm"
                                           fill
-                                          className="cursor-pointer object-cover transition-transform group-hover/media:scale-110"
+                                          className="cursor-pointer object-cover"
                                           onClick={() => handleOpenAttachment(attachment.url)}
                                         />
                                       ) : (
                                         <video
                                           src={`${attachment.url}#t=0.1`}
-                                          className="h-full w-full cursor-pointer object-cover transition-transform group-hover/media:scale-110"
+                                          className="h-full w-full cursor-pointer object-cover"
                                           muted
                                           playsInline
                                           onClick={() => handleOpenAttachment(attachment.url)}
@@ -586,59 +552,56 @@ export function BusyEvidenceDialog({ open, onOpenChange, schedule, currentUser, 
                                         <Button
                                           variant="destructive"
                                           size="icon"
-                                          className="h-8 w-8 rounded-full scale-0 group-hover/media:scale-100 transition-transform"
+                                          className="h-7 w-7 rounded-full"
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             handleRemoveExistingAttachment(shift.id, attachment.url);
                                           }}
                                         >
-                                          <Trash2 className="h-4 w-4" />
+                                          <Trash2 className="h-3.5 w-3.5" />
                                         </Button>
                                       </div>
                                     </div>
                                   ))}
                                   {draft.newMedia.map((item) => (
-                                    <div key={item.id} className="group/media relative aspect-square overflow-hidden rounded-xl border-2 border-dashed border-primary/40 shadow-sm ring-1 ring-primary/20 bg-primary/5 transition-transform active:scale-95">
+                                    <div key={item.id} className="group/media relative aspect-square overflow-hidden rounded-lg border-2 border-dashed border-primary/40 shadow-sm ring-1 ring-primary/20 bg-primary/5">
                                       {item.type === 'photo' ? (
                                         <Image
                                           src={item.url}
-                                          alt="Đính kèm mới"
+                                          alt="Mới"
                                           fill
-                                          className="cursor-pointer object-cover transition-transform group-hover/media:scale-110"
+                                          className="cursor-pointer object-cover"
                                           onClick={() => handleOpenAttachment(item.url)}
                                         />
                                       ) : (
                                         <video
                                           src={`${item.url}#t=0.1`}
-                                          className="h-full w-full cursor-pointer object-cover transition-transform group-hover/media:scale-110"
+                                          className="h-full w-full cursor-pointer object-cover"
                                           muted
                                           playsInline
                                           onClick={() => handleOpenAttachment(item.url)}
                                         />
                                       )}
-                                      <div className="absolute top-1 left-1 pointer-events-none">
-                                        <Badge className="bg-primary hover:bg-primary text-[8px] font-bold px-1.5 h-4 uppercase">Mới</Badge>
-                                      </div>
                                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/media:opacity-100 transition-opacity flex items-center justify-center">
                                         <Button
                                           variant="destructive"
                                           size="icon"
-                                          className="h-8 w-8 rounded-full scale-0 group-hover/media:scale-100 transition-transform"
+                                          className="h-7 w-7 rounded-full"
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             handleRemoveNewMedia(shift.id, item.id);
                                           }}
                                         >
-                                          <Trash2 className="h-4 w-4" />
+                                          <Trash2 className="h-3.5 w-3.5" />
                                         </Button>
                                       </div>
                                     </div>
                                   ))}
                                 </div>
                               ) : (
-                                <div className="h-24 flex flex-col items-center justify-center text-muted-foreground gap-2">
-                                  <Camera className="h-8 w-8 text-muted-foreground/30" />
-                                  <p className="text-sm italic">Chưa có ảnh/video minh chứng.</p>
+                                <div className="h-[80px] flex flex-col items-center justify-center text-muted-foreground gap-1">
+                                  <Camera className="h-6 w-6 text-muted-foreground/30" />
+                                  <p className="text-[11px] italic">Chưa có ảnh/video minh chứng.</p>
                                 </div>
                               )}
                             </div>
@@ -648,19 +611,18 @@ export function BusyEvidenceDialog({ open, onOpenChange, schedule, currentUser, 
                             <Button 
                               onClick={() => handleSubmitEvidence(shift.id)} 
                               disabled={draft.isSubmitting || (isSubmitted && !draft.dirty)}
+                              size="sm"
                               className={cn(
-                                "h-11 px-6 rounded-xl font-bold transition-all duration-300",
-                                isSubmitted && !draft.dirty ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 hover:bg-emerald-100" : "shadow-lg shadow-primary/20"
+                                "h-9 px-5 rounded-lg font-bold transition-all duration-300 text-xs",
+                                isSubmitted && !draft.dirty ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 hover:bg-emerald-100" : "shadow-md shadow-primary/20"
                               )}
                             >
                               {draft.isSubmitting ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                               ) : isSubmitted && !draft.dirty ? (
-                                <Check className="mr-2 h-4 w-4" />
-                              ) : (
-                                null
-                              )}
-                              {isSubmitted && !draft.dirty ? 'Đã gửi báo bận' : (isSubmitted && draft.dirty ? 'Cập nhật báo bận' : 'Gửi báo bận')}
+                                <Check className="mr-1.5 h-3.5 w-3.5" />
+                              ) : null}
+                              {isSubmitted && !draft.dirty ? 'Đã gửi' : (isSubmitted && draft.dirty ? 'Cập nhật' : 'Gửi báo bận')}
                             </Button>
                           </div>
                         </div>
