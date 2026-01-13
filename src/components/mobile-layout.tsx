@@ -84,6 +84,7 @@ const FinancialReportPage = dynamic(() => import('@/app/(app)/financial-report/p
 const ShiftSchedulingPage = dynamic(() => import('@/app/(app)/shift-scheduling/page'), { ssr: false, loading: () => <LoadingPage /> });
 const MonthlyTasksPage = dynamic(() => import('@/app/(app)/monthly-tasks/page'), { ssr: false, loading: () => <LoadingPage /> });
 const MonthlyTaskReportsPage = dynamic(() => import('@/app/(app)/monthly-task-reports/page'), { ssr: false, loading: () => <LoadingPage /> });
+const DailyAssignmentsPage = dynamic(() => import('@/app/(app)/daily-assignments/page'), { ssr: false, loading: () => <LoadingPage /> });
 const UsersPage = dynamic(() => import('@/app/(app)/users/page'), { ssr: false, loading: () => <LoadingPage /> });
 const TaskListsPage = dynamic(() => import('@/app/(app)/task-lists/page'), { ssr: false, loading: () => <LoadingPage /> });
 const BartenderTasksPage = dynamic(() => import('@/app/(app)/bartender-tasks/page'), { ssr: false, loading: () => <LoadingPage /> });
@@ -466,6 +467,8 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
         return <MonthlyTasksPage />;
       case '/monthly-task-reports':
         return <MonthlyTaskReportsPage />;
+      case '/daily-assignments':
+        return <DailyAssignmentsPage />;
       case '/users':
         return <UsersPage />;
       case '/task-lists':

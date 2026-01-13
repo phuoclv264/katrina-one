@@ -41,6 +41,7 @@ import * as scheduleStore from './schedule-store';
 import * as attendanceStore from './attendance-store';
 import * as idbKeyvalStore from './idb-keyval-store';
 import * as cashierStore from './cashier-store';
+import * as dailyTaskStore from './daily-task-store';
 import { deleteFileByUrl, uploadFile } from './data-store-helpers';
 import { error } from 'console';
 import { InventoryItemRow } from '@/app/(app)/bartender/inventory/_components/inventory-item-row';
@@ -94,6 +95,7 @@ export const dataStore = {
   ...scheduleStore, // Spread all functions from schedule-store
   ...attendanceStore, // Spread all functions from attendance-store
   ...cashierStore, // Spread all functions from cashier-store
+  ...dailyTaskStore,
 
   // --- Firebase Push Notifications ---
   async saveFcmToken(userId: string, token: string): Promise<void> {

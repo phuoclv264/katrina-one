@@ -44,23 +44,27 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
       case 'Phục vụ': primaryItems.push(
         { href: '/shifts', label: 'Bảng điều khiển', icon: CheckSquare },
         commonScheduleMenu,
+        { href: '/daily-assignments', label: 'Giao việc trong ngày', icon: ClipboardList },
         commonViolationMenu,
         commonReportsFeedMenu,
       ); break;
       case 'Pha chế': primaryItems.push(
         { href: '/bartender', label: 'Bảng điều khiển', icon: Coffee },
+        { href: '/daily-assignments', label: 'Giao việc trong ngày', icon: ClipboardList },
         commonScheduleMenu,
         commonViolationMenu,
         commonReportsFeedMenu,
       ); break;
       case 'Thu ngân': primaryItems.push(
         { href: '/cashier', label: 'Bảng điều khiển', icon: Banknote },
+        { href: '/daily-assignments', label: 'Giao việc trong ngày', icon: ClipboardList },
         commonScheduleMenu,
         commonViolationMenu,
         commonReportsFeedMenu,
       ); break;
       case 'Quản lý': primaryItems.push(
         { href: '/manager', label: 'Bảng điều khiển', icon: UserCog },
+        { href: '/daily-assignments', label: 'Giao việc trong ngày', icon: ClipboardList },
         { href: '/reports', label: 'Xem báo cáo', icon: FileText },
         commonScheduleMenu,
         commonViolationMenu,
@@ -68,6 +72,7 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
       ); break;
       case 'Chủ nhà hàng': primaryItems.push(
         { href: '/admin', label: 'Tổng quan', icon: BarChart3 },
+        { href: '/daily-assignments', label: 'Giao việc trong ngày', icon: ClipboardList },
         { href: '/reports', label: 'Xem Báo cáo', icon: FileText },
         { href: '/financial-report', label: 'Báo cáo Tài chính', icon: DollarSign },
         { href: '/reports/cashier', label: 'Báo cáo Thu ngân', icon: Banknote },

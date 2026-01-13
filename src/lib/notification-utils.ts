@@ -121,6 +121,16 @@ export const getNotificationDetails = (notification: Notification, currentUserId
                 description: messageBody,
                 href: normalizeInternalHref(payload.url, '/reports'),
             };
+        case 'new_daily_task_report': {
+            const hrefBase = '/daily-assignments';
+            const fallback = payload?.assignedDate ? `${hrefBase}?date=${payload.assignedDate}` : hrefBase;
+            return {
+                icon: ClipboardCheck,
+                title: messageTitle,
+                description: messageBody,
+                href: normalizeInternalHref(payload?.url, fallback),
+            };
+        }
         case 'new_monthly_task_report': {
             const hrefBase = '/monthly-task-reports';
             const qs: string[] = [];

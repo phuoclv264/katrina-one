@@ -4,7 +4,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import CheckInCard from '@/app/(app)/_components/check-in-card';
 import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
-import SecondaryRoleCard from '@/components/secondary-role-card';
+import UtilitiesCard from '@/components/utilities-card';
 import QuickEventsCard from './events/QuickEventsCard';
 
 export interface DashboardLayoutProps {
@@ -34,7 +34,7 @@ export default function DashboardLayout({ title, description, top, children, cla
           <CardContent className="grid gap-4">{children}</CardContent>
         </Card>
 
-        {isCheckedIn && <SecondaryRoleCard />}
+        {isCheckedIn && <UtilitiesCard />}
 
         {!showCheckInCardOnTop && <CheckInCard />}
       </div>

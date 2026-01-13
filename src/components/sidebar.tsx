@@ -61,6 +61,7 @@ export function AppSidebar() {
           case 'Phục vụ': primaryItems.push(
             { href: '/shifts', label: 'Bảng điều khiển', icon: CheckSquare },
             commonScheduleMenu,
+            { href: '/daily-assignments', label: 'Giao việc trong ngày', icon: ListChecks },
             commonViolationMenu,
             commonReportsFeedMenu,
           );
@@ -68,6 +69,7 @@ export function AppSidebar() {
           case 'Pha chế': primaryItems.push(
             { href: '/bartender', label: 'Bảng điều khiển', icon: Coffee },
             commonScheduleMenu,
+            { href: '/daily-assignments', label: 'Giao việc trong ngày', icon: ListChecks },
             commonViolationMenu,
             commonReportsFeedMenu,
           );
@@ -75,6 +77,7 @@ export function AppSidebar() {
            case 'Thu ngân': primaryItems.push(
             { href: '/cashier', label: 'Bảng điều khiển', icon: Banknote },
             commonScheduleMenu,
+            { href: '/daily-assignments', label: 'Giao việc trong ngày', icon: ListChecks },
             commonViolationMenu,
             commonReportsFeedMenu,
           );
@@ -83,6 +86,7 @@ export function AppSidebar() {
             { href: '/manager', label: 'Bảng điều khiển', icon: UserCog },
             { href: '/reports', label: 'Xem báo cáo', icon: FileText },
             commonScheduleMenu,
+            { href: '/daily-assignments', label: 'Giao việc trong ngày', icon: ListChecks },
             
             commonViolationMenu,
             commonReportsFeedMenu
@@ -96,6 +100,7 @@ export function AppSidebar() {
             { href: '/shift-scheduling', label: 'Xếp lịch & Phê duyệt', icon: CalendarDays },
             { href: '/attendance', label: 'Quản lý Chấm công', icon: UserCheck },
             { href: '/monthly-tasks', label: 'Công việc Định kỳ', icon: CalendarClock },
+            { href: '/daily-assignments', label: 'Giao việc trong ngày', icon: ListChecks },
             commonReportsFeedMenu,
             { href: '/users', label: 'QL Người dùng', icon: Users2 },
             { href: '/task-lists', label: 'QL Công việc Phục vụ', icon: ClipboardList },

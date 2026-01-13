@@ -534,6 +534,7 @@ export type NotificationType =
   | 'schedule_proposal'
   | 'new_schedule'
   | 'schedule_changed'
+  | 'new_daily_task_report'
   | 'new_task_report'
   | 'new_whistleblowing_report'
   | 'new_monthly_task_report'
@@ -569,13 +570,22 @@ export type NewSchedulePayload = {
   notificationType?: 'new_schedule'
 }
 
+export type DailyTaskReportPayload = {
+  notificationType?: 'new_daily_task_report';
+  taskId: string;
+  taskTitle: string;
+  assignedDate: string;
+  reportId: string;
+  url?: string;
+}
+
 export type NewViolationPayload = {
   notificationType?: 'new_violation';
   violationId: string;
   title: string;
 }
 
-export type AnyNotificationPayload = PassRequestPayload | NewSchedulePayload | NewViolationPayload;
+export type AnyNotificationPayload = PassRequestPayload | NewSchedulePayload | NewViolationPayload | DailyTaskReportPayload;
 
 export type Notification = {
   id: string;
@@ -1036,6 +1046,49 @@ export type MonthlySalarySheet = {
   calculatedBy: SimpleUser;
   scheduleMap: Record<string, Schedule>; // Keyed by weekId
   salaryRecords: Record<string, SalaryRecord>; // Keyed by userId
+};
+
+// --- Daily Assignments ---
+
+export type DailyTaskTargetMode = 'roles' | 'users';
+
+export type DailyTaskStatus = 'open' | 'in_review' | 'completed';
+
+export type DailyTask = {
+  id: string;
+  title: string;
+  description: string;
+  assignedDate: string; // YYYY-MM-DD
+  targetMode: DailyTaskTargetMode;
+  targetRoles?: UserRole[];
+  targetUserIds?: string[];
+  createdBy: SimpleUser;
+  createdByRole: UserRole;
+  media?: MediaAttachment[];
+  status: DailyTaskStatus;
+  completedAt?: string | Timestamp;
+  completedBy?: SimpleUser;
+  summaryNote?: string;
+  createdAt: string | Timestamp | FieldValue;
+  updatedAt: string | Timestamp | FieldValue;
+};
+
+export type DailyTaskReportStatus = 'submitted' | 'manager_approved' | 'rejected';
+
+export type DailyTaskReport = {
+  id: string;
+  taskId: string;
+  taskTitle: string;
+  assignedDate: string;
+  reporter: SimpleUser;
+  content?: string;
+  media?: MediaAttachment[];
+  status: DailyTaskReportStatus;
+  managerNote?: string;
+  reviewedBy?: SimpleUser;
+  reviewedAt?: string | Timestamp | FieldValue;
+  createdAt: string | Timestamp | FieldValue;
+  updatedAt: string | Timestamp | FieldValue;
 };
 
 // --- Monthly Tasks ---
