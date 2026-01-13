@@ -35,7 +35,8 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const closeDialog = useCallback(() => {
     const closeSubscribersArray = Array.from(closeSubscribers.current);
-    closeSubscribersArray[closeSubscribersArray.length - 1].call((cb: () => any) => cb());
+    if (closeSubscribersArray.length === 0) return;
+    closeSubscribersArray[0].call((cb: () => any) => cb());
   }, []);
 
   const value = { isAnyDialogOpen, registerDialog, unregisterDialog, subscribeToClose, closeDialog };
