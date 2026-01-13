@@ -72,7 +72,6 @@ export function subscribeToDailyTasksForDate(
 
   const unsubscribe = onSnapshot(q, (snapshot) => {
     const tasks = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as DailyTask));
-    console.log('Fetched daily tasks for date', dateKey, tasks);
     callback(tasks);
   }, (error) => {
     console.warn('[Firestore Read Error] Could not read daily tasks:', error.code);

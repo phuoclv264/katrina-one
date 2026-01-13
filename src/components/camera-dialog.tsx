@@ -299,8 +299,6 @@ export default function CameraDialog({
 
         context.drawImage(video, sx, sy, cropW, cropH, 0, 0, canvas.width, canvas.height);
 
-        console.log('Drawing image with params:', { sx, sy, cropW, cropH, destW: canvas.width, destH: canvas.height });
-
         // Add timestamp
         const timestamp = format(new Date(), 'HH:mm:ss dd/MM/yyyy', { locale: vi });
         context.font = '24px Arial';

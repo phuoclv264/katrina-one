@@ -353,7 +353,6 @@ export default function TaskListsPage() {
                 navigation.replace('/shifts');
             } else {
                 const unsubscribe = dataStore.subscribeToTasks((tasks) => {
-                    console.log("Fetched tasks for task lists:", tasks);
                     setTasksByShift(tasks);
                     setIsLoading(false);
                     const initialOpenState: { [shiftKey: string]: string[] } = {};
