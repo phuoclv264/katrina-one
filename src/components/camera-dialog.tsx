@@ -11,12 +11,12 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/pro-toast';
-import { Camera, Video, VideoOff, RefreshCw, Trash2, CheckCircle, X, Loader2, Disc, Maximize2 } from 'lucide-react';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Camera, Video, VideoOff, RefreshCw, Trash2, CheckCircle, X, Loader2 } from 'lucide-react';
+
 import { photoStore } from '@/lib/photo-store';
 import { v4 as uuidv4 } from 'uuid';
 import { cn } from '@/lib/utils';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import MediaGalleryDialog from './media-gallery-dialog';
@@ -29,6 +29,100 @@ type CameraDialogProps = {
   singlePhotoMode?: boolean;
   captureMode?: 'photo' | 'video' | 'both';
   isHD?: boolean;
+};
+
+const PORTRAIT_ASPECT_RATIO = 3 / 4; // width:height = 3:4
+const TARGET_DIMENSIONS = {
+  standard: { width: 1080, height: 1440 },
+  hd: { width: 1440, height: 1920 },
+};
+
+const getTargetDimensions = (isHD: boolean) =>
+  isHD ? TARGET_DIMENSIONS.hd : TARGET_DIMENSIONS.standard;
+
+const ensureVideoReady = (video: HTMLVideoElement) =>
+  new Promise<{ naturalW: number; naturalH: number }>((resolve) => {
+    let fallbackTimer: number | null = null;
+    if (video.videoWidth && video.videoHeight) {
+      resolve({ naturalW: video.videoWidth, naturalH: video.videoHeight });
+      return;
+    }
+
+    const onLoaded = () => {
+      video.removeEventListener('loadedmetadata', onLoaded);
+      if (fallbackTimer) window.clearTimeout(fallbackTimer);
+      resolve({ naturalW: video.videoWidth, naturalH: video.videoHeight });
+    };
+
+    video.addEventListener('loadedmetadata', onLoaded);
+    fallbackTimer = window.setTimeout(() => {
+      video.removeEventListener('loadedmetadata', onLoaded);
+      resolve({ naturalW: video.videoWidth || TARGET_DIMENSIONS.standard.width, naturalH: video.videoHeight || TARGET_DIMENSIONS.standard.height });
+    }, 1000);
+  });
+
+const computePortraitCropBox = (naturalW: number, naturalH: number) => {
+  // Legacy centered 3:4 box (largest centered area fitting 3:4) — fallback if preview container isn't available.
+  const desiredAspect = PORTRAIT_ASPECT_RATIO;
+  let cropW = Math.floor(naturalH * desiredAspect);
+  let cropH = naturalH;
+
+  if (cropW > naturalW) {
+    cropW = naturalW;
+    cropH = Math.floor(naturalW / desiredAspect);
+  }
+
+  const sx = Math.floor((naturalW - cropW) / 2);
+  const sy = Math.floor((naturalH - cropH) / 2);
+
+  return { sx, sy, cropW, cropH };
+};
+
+const computeVisibleNaturalCrop = (video: HTMLVideoElement, container: HTMLDivElement) => {
+  // Robust mapping from the visible container (CSS pixels) to natural video pixels.
+  // This accounts for object-fit: cover on the video element which can scale/offset the
+  // rendered video content inside the video element.
+  const naturalW = video.videoWidth || 0;
+  const naturalH = video.videoHeight || 0;
+  if (!naturalW || !naturalH) return null;
+
+  const videoRect = video.getBoundingClientRect();
+  const containerRect = container.getBoundingClientRect();
+
+  // Compute scale used by object-fit: cover when rendering the natural content into the video element
+  const scale = Math.max(videoRect.width / naturalW, videoRect.height / naturalH); // px (display) per natural px
+  const scaledW = naturalW * scale;
+  const scaledH = naturalH * scale;
+
+  // Content is centered inside video element; compute offset from video element top-left to content top-left
+  const offsetX = (videoRect.width - scaledW) / 2;
+  const offsetY = (videoRect.height - scaledH) / 2;
+
+  // Compute container position relative to the video element's content coordinate system
+  const leftInVideo = containerRect.left - videoRect.left;
+  const topInVideo = containerRect.top - videoRect.top;
+
+  // Position of container relative to the scaled content (in display px)
+  const contentLeft = leftInVideo - offsetX;
+  const contentTop = topInVideo - offsetY;
+
+  // Convert to natural pixels by dividing by scale
+  let sx = Math.floor(contentLeft / scale);
+  let sy = Math.floor(contentTop / scale);
+  let cropW = Math.floor(containerRect.width / scale);
+  let cropH = Math.floor(containerRect.height / scale);
+
+  // Clamp to valid natural bounds
+  if (sx < 0) sx = 0;
+  if (sy < 0) sy = 0;
+  if (sx + cropW > naturalW) cropW = naturalW - sx;
+  if (sy + cropH > naturalH) cropH = naturalH - sy;
+
+  // Ensure minimum size
+  cropW = Math.max(1, cropW);
+  cropH = Math.max(1, cropH);
+
+  return { sx, sy, cropW, cropH };
 };
 
 export default function CameraDialog({ 
@@ -55,11 +149,11 @@ export default function CameraDialog({
   const [isRecording, setIsRecording] = useState(false);
   const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null);
   const [recordingDuration, setRecordingDuration] = useState(0);
-  const [currentTime, setCurrentTime] = useState(new Date());
 
   // UI state: gallery open and preview scroller ref
   const [showGallery, setShowGallery] = useState(false);
   const previewRef = useRef<HTMLDivElement | null>(null);
+  const previewContainerRef = useRef<HTMLDivElement | null>(null);
 
   const [supportedMimeType, setSupportedMimeType] = useState<string | null>(null);
   const [currentMode, setCurrentMode] = useState<'photo' | 'video'>(captureMode === 'video' ? 'video' : 'photo');
@@ -83,16 +177,6 @@ export default function CameraDialog({
         onClose();
     }
   },[isStarting, isSubmitting, onClose]);
-
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isOpen) {
-      timer = setInterval(() => {
-        setCurrentTime(new Date());
-      }, 1000);
-    }
-    return () => clearInterval(timer);
-  }, [isOpen]);
 
   useEffect(() => {
     if (window.MediaRecorder) {
@@ -121,9 +205,13 @@ export default function CameraDialog({
             throw new Error('Camera not supported on this browser.');
         }
         
-        const videoConstraints: MediaTrackConstraints = isHD && currentMode === 'photo'
-            ? { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
-            : { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } };
+        // Prefer the native camera resolution. Removing explicit width/height prevents
+        // forcing the device to downscale to a target size. We still request a portrait
+        // aspect ratio and the rear camera.
+        const videoConstraints: MediaTrackConstraints = {
+          facingMode: { ideal: 'environment' },
+          aspectRatio: PORTRAIT_ASPECT_RATIO,
+        };
 
         const constraints = { video: videoConstraints, audio: currentMode === 'video' };
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -194,20 +282,38 @@ export default function CameraDialog({
   const handleCapturePhoto = async () => {
     if (videoRef.current && hasPermission) {
         const video = videoRef.current;
+
+        const { naturalW, naturalH } = await ensureVideoReady(video);
+        // Prefer crop derived from the on-screen preview (object-fit: cover) so preview == saved
+        let crop = null;
+        if (previewContainerRef.current) {
+          crop = computeVisibleNaturalCrop(video, previewContainerRef.current);
+        }
+        const { sx, sy, cropW, cropH } = crop || computePortraitCropBox(naturalW, naturalH);
+
         const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        canvas.width = cropW;
+        canvas.height = cropH;
         const context = canvas.getContext('2d');
         if (!context) return;
-        context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-        
+
+        context.drawImage(video, sx, sy, cropW, cropH, 0, 0, canvas.width, canvas.height);
+
+        console.log('Drawing image with params:', { sx, sy, cropW, cropH, destW: canvas.width, destH: canvas.height });
+
         // Add timestamp
         const timestamp = format(new Date(), 'HH:mm:ss dd/MM/yyyy', { locale: vi });
         context.font = '24px Arial';
         context.fillStyle = 'white';
         context.textAlign = 'right';
         context.textBaseline = 'bottom';
+        context.shadowColor = 'black';
+        context.shadowBlur = 4;
         context.fillText(timestamp, canvas.width - 10, canvas.height - 10);
+
+        // For debugging, log sizes when in dev
+        // eslint-disable-next-line no-console
+        console.debug('capture', { naturalW, naturalH, sx, sy, cropW, cropH, outW: canvas.width, outH: canvas.height });
 
         canvas.toBlob(async (blob) => {
             if (blob) {
@@ -231,7 +337,7 @@ export default function CameraDialog({
     }
   };
   
-    const handleToggleRecording = () => {
+    const handleToggleRecording = async () => {
         if (isRecording) {
             mediaRecorderRef.current?.stop(); // onstop will handle the rest
             if (animationFrameIdRef.current) {
@@ -252,16 +358,24 @@ export default function CameraDialog({
             toast.success("Đang bắt đầu quay video...");
 
             const video = videoRef.current;
-            const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
+          const { naturalW, naturalH } = await ensureVideoReady(video);
+          // Prefer crop derived from the on-screen preview (object-fit: cover) so preview == recorded
+          let crop = null;
+          if (previewContainerRef.current) {
+            crop = computeVisibleNaturalCrop(video, previewContainerRef.current);
+          }
+          const { sx, sy, cropW, cropH } = crop || computePortraitCropBox(naturalW, naturalH);
+
+          const canvas = document.createElement('canvas');
+          canvas.width = cropW;
+          canvas.height = cropH;
             canvasRef.current = canvas;
             const ctx = canvas.getContext('2d');
             if (!ctx) return;
 
             const drawFrame = () => {
                 if (!ctx || !videoRef.current) return;
-                ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+            ctx.drawImage(videoRef.current, sx, sy, cropW, cropH, 0, 0, canvas.width, canvas.height);
                 
                 const timestamp = format(new Date(), 'HH:mm:ss dd/MM/yyyy', { locale: vi });
                 ctx.font = '24px Arial';
@@ -357,6 +471,10 @@ export default function CameraDialog({
         return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
     };
 
+  // Preview helper: show up to 5 items in the strip; remaining items are counted as "extra"
+  const previewItems = capturedMedia.slice(0, 5);
+  const extraCount = Math.max(0, capturedMedia.length - previewItems.length);
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleDialogClose()}>
       <DialogContent
@@ -368,6 +486,13 @@ export default function CameraDialog({
           {/* Main Camera View - Absolutely positioned to fill background */}
           <div className="absolute inset-0 z-0">
               <video ref={videoRef} className="h-full w-full object-cover" autoPlay muted playsInline />
+          </div>
+
+          {/* Preview window (transparent) - shows the crop area over the full video */}
+          <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+              <div ref={previewContainerRef} className="relative w-full max-w-2xl aspect-[3/4] overflow-hidden rounded-3xl border bg-transparent z-20 pointer-events-none shadow-[0_0_0_9999px_rgba(0,0,0,0.45)] ring-1 ring-white/10" aria-hidden>
+                {/* transparent window showing the area that will be captured */}
+              </div>
           </div>
 
           {/* Header Overlay - Gradient for legibility */}
@@ -427,9 +552,6 @@ export default function CameraDialog({
                       <span className="tabular-nums tracking-widest">{formatDuration(recordingDuration)}</span>
                   </div>
               )}
-              <div className="bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 text-white font-mono text-[10px] tracking-tighter w-fit">
-                  {format(currentTime, 'HH:mm:ss')} • {format(currentTime, 'dd.MM.yyyy')}
-              </div>
           </div>
           
           {/* Fixed Controls - centered and fixed to viewport bottom */}
@@ -491,41 +613,72 @@ export default function CameraDialog({
           {/* Preview Strip - fixed and transparent, positioned above controls */}
           {capturedMedia.length > 0 && (
             <div className="fixed bottom-28 left-1/2 z-50 -translate-x-1/2 w-full max-w-lg pointer-events-auto">
-              <div className="flex justify-end pr-4 mb-2">
-                {capturedMedia.length > 5 && (
-                  <button
-                    onClick={() => setShowGallery(true)}
-                    className="text-xs bg-white/10 text-white px-4 py-2 rounded-full hover:bg-white/20 transition-all font-bold backdrop-blur-md border border-white/10 active:scale-95 flex items-center gap-2"
-                  >
-                    <Maximize2 className="h-3 w-3" />
-                    Xem thêm
-                  </button>
-                )}
-              </div>
 
-              <ScrollArea className="w-full whitespace-nowrap">
-                <div ref={previewRef} className="flex gap-4 px-4 pb-2 justify-start overflow-x-auto">
-                  {capturedMedia.map((media) => (
-                    <div key={media.id} className="group relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-2xl border-2 border-white/10 bg-transparent shadow-xl transition-all hover:scale-110 active:scale-95">
-                      {media.type === 'photo' ? (
-                            <Image src={media.url} alt="Preview" fill className="object-cover" />
-                      ) : (
-                            <video src={media.url} className="h-full w-full object-cover" muted />
-                      )}
-                      <button
-                        className="absolute inset-0 bg-red-600/90 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={(e) => { e.stopPropagation(); handleDeleteMedia(media.id); }}
+              <div className="w-full">
+                <div ref={previewRef} className="flex gap-3 px-4 pb-2 items-center">
+                  {previewItems.map((media, idx) => {
+                    const isLastPreview = idx === previewItems.length - 1 && extraCount > 0;
+                    const extraPeeks = capturedMedia.slice(previewItems.length, previewItems.length + 3); // show up to 3 peeks
+                    return (
+                      <div
+                        key={media.id}
+                        className={cn(
+                          "group relative h-14 flex-1 min-w-0 max-w-[88px] rounded-2xl border-2 border-white/10 bg-transparent shadow-xl transition-all hover:scale-110 active:scale-95",
+                          isLastPreview ? "overflow-visible" : "overflow-hidden"
+                        )}
+                        role={isLastPreview ? 'button' : undefined}
+                        aria-label={isLastPreview ? `Mở thư viện — còn ${extraCount} ảnh/video` : undefined}
+                        tabIndex={isLastPreview ? 0 : undefined}
+                        onKeyDown={(e) => { if (isLastPreview && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setShowGallery(true); } }}
+                        onClick={() => { if (isLastPreview) setShowGallery(true); }}
                       >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                      {media.type === 'video' && (
-                         <div className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-red-500 shadow-[0_0_5px_red]" />
-                      )}
-                    </div>
-                  ))}
+                        <div className="w-full h-full relative overflow-hidden rounded-2xl">
+                          {media.type === 'photo' ? (
+                            <Image src={media.url} alt="Preview" fill className="object-cover bg-black" />
+                          ) : (
+                            <video src={media.url} className="w-full h-full object-cover" muted />
+                          )}
+                        </div>
+
+                        {!isLastPreview && (
+                          <button
+                            className="absolute inset-0 bg-red-600/90 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                            onClick={(e) => { e.stopPropagation(); handleDeleteMedia(media.id); }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+
+                        {media.type === 'video' && (
+                          <div className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-red-500 shadow-[0_0_5px_red]" />
+                        )}
+
+                        {isLastPreview && (
+                          <>
+                            {extraPeeks.map((m, i) => (
+                              <div
+                                key={m.id}
+                                className="absolute w-14 h-9 rounded-md overflow-hidden border-2 border-white/10 shadow-sm"
+                                style={{ right: -(i + 1) * 16 }}
+                              >
+                                {m.type === 'photo' ? (
+                                  <Image src={m.url} alt="peek" width={56} height={36} className="object-cover" />
+                                ) : (
+                                  <video src={m.url} className="w-full h-full object-cover" muted />
+                                )}
+                              </div>
+                            ))}
+
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/30 z-10 text-white text-sm font-bold pointer-events-none">
+                              +{extraCount}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-                <ScrollBar orientation="horizontal" className="hidden" />
-              </ScrollArea>
+              </div>
 
               {/* Enhanced Gallery component */}
               <MediaGalleryDialog 
