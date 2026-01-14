@@ -17,8 +17,9 @@ import {
   ShieldCheck,
   Users,
   Video,
+  MessageSquare,
 } from "lucide-react";
-import { toast } from "react-hot-toast";
+import { toast } from "@/components/ui/pro-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -27,8 +28,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
 import { useAuth } from "@/hooks/use-auth";
 import { dataStore } from "@/lib/data-store";
+import { cn } from "@/lib/utils";
 import type {
   DailyTask,
   DailyTaskReport,
@@ -55,6 +58,9 @@ import { useLightbox } from '@/contexts/lightbox-context';
 import MediaPreview from './_components/MediaPreview';
 import ReportCard from './_components/ReportCard';
 import TaskCard from './_components/TaskCard';
+import { DateStrip } from './_components/DateStrip';
+import CreateTaskDialog from './_components/CreateTaskDialog';
+import { motion, AnimatePresence } from "framer-motion";
 const ROLES: UserRole[] = ["Phục vụ", "Pha chế", "Quản lý", "Thu ngân"];
 
 const formatDateInput = (date: Date) => format(date, "yyyy-MM-dd");
@@ -69,7 +75,9 @@ const isUserTargeted = (task: DailyTask, userId: string, userRoles: UserRole[]) 
   return false;
 };
 
-export default function DailyAssignmentsPage() {
+import { Suspense } from 'react';
+
+function DailyAssignmentsPageContent() {
   const { user, loading } = useAuth();
   const searchParams = useSearchParams();
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -86,6 +94,84 @@ export default function DailyAssignmentsPage() {
   const [pendingReportNotes, setPendingReportNotes] = useState<Record<string, string>>({});
   const [managerNotes, setManagerNotes] = useState<Record<string, string>>({});
   const [pendingReportId, setPendingReportId] = useState<string | null>(null);
+
+  // Tracks whether reports for a given task are expanded
+  const [expandedReports, setExpandedReports] = useState<Record<string, boolean>>({});
+
+  const toggleReportsForTask = (taskId: string) => {
+    setExpandedReports((prev) => ({ ...prev, [taskId]: !prev[taskId] }));
+  };
+
+  const regenerateTask = async (taskId: string) => {
+    if (!user) {
+      toast.error('Bạn cần đăng nhập.');
+      return;
+    }
+
+    const original = [...tasks, ...monthTasks].find((t) => t.id === taskId);
+    if (!original) {
+      toast.error('Không tìm thấy nhiệm vụ để giao lại.');
+      return;
+    }
+
+    try {
+      // Convert existing MediaAttachment[] into MediaItem[] (id can be a URL)
+      const mediaForNewTask = (original.media || []).map((m: any) => ({ id: m.url || m.id, type: m.type }));
+
+      await dataStore.createDailyTask({
+        title: original.title,
+        description: original.description,
+        assignedDate: formatDateInput(new Date()),
+        targetMode: original.targetMode,
+        targetRoles: original.targetMode === 'roles' ? original.targetRoles : [],
+        targetUserIds: original.targetMode === 'users' ? original.targetUserIds : [],
+        media: mediaForNewTask,
+        createdBy: { userId: user.uid, userName: user.displayName },
+        createdByRole: user.role as UserRole,
+      });
+
+      toast.success('Đã giao lại nhiệm vụ cho hôm nay.');
+    } catch (error) {
+      console.error('Failed to regenerate task', error);
+      toast.error('Không thể giao lại nhiệm vụ.');
+    }
+  };
+
+  const deleteTask = async (taskId: string) => {
+    if (!user) {
+      toast.error('Bạn cần đăng nhập.');
+      return;
+    }
+
+    try {
+      await dataStore.deleteDailyTask(taskId);
+      toast.success('Đã xóa nhiệm vụ.');
+    } catch (error) {
+      console.error('Failed to delete task', error);
+      toast.error('Không thể xóa nhiệm vụ.');
+    }
+  };
+
+  const handleEditTask = (taskId: string) => {
+    const original = [...tasks, ...monthTasks].find((t) => t.id === taskId);
+    if (!original) {
+      toast.error('Không tìm thấy nhiệm vụ để chỉnh sửa.');
+      return;
+    }
+
+    setEditingTaskId(taskId);
+    setNewTask({
+      title: original.title,
+      description: original.description,
+      assignedDate: original.assignedDate,
+      targetMode: original.targetMode,
+      targetRoles: original.targetMode === 'roles' ? (original.targetRoles || []) : [],
+      targetUserIds: original.targetMode === 'users' ? (original.targetUserIds || []) : [],
+      media: (original.media || []).map((m: any) => ({ id: m.url || m.id, type: m.type })),
+    });
+
+    setIsCreateDialogOpen(true);
+  };
 
   const [newTask, setNewTask] = useState({
     title: "",
@@ -107,6 +193,7 @@ export default function DailyAssignmentsPage() {
   }, [user]);
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -214,18 +301,33 @@ export default function DailyAssignmentsPage() {
 
     setIsCreating(true);
     try {
-      await dataStore.createDailyTask({
-        title: newTask.title,
-        description: newTask.description,
-        assignedDate: newTask.assignedDate || formatDateInput(selectedDate),
-        targetMode: newTask.targetMode,
-        targetRoles: newTask.targetMode === "roles" ? newTask.targetRoles : [],
-        targetUserIds: newTask.targetMode === "users" ? newTask.targetUserIds : [],
-        media: newTask.media,
-        createdBy: { userId: user.uid, userName: user.displayName },
-        createdByRole: user.role as UserRole,
-      });
-      toast.success("Đã tạo việc trong ngày.");
+      if (editingTaskId) {
+        await dataStore.updateDailyTask(editingTaskId, {
+          title: newTask.title,
+          description: newTask.description,
+          assignedDate: newTask.assignedDate || formatDateInput(selectedDate),
+          targetMode: newTask.targetMode,
+          targetRoles: newTask.targetMode === "roles" ? newTask.targetRoles : [],
+          targetUserIds: newTask.targetMode === "users" ? newTask.targetUserIds : [],
+          media: newTask.media,
+        });
+        toast.success("Đã cập nhật nhiệm vụ.");
+        setEditingTaskId(null);
+      } else {
+        await dataStore.createDailyTask({
+          title: newTask.title,
+          description: newTask.description,
+          assignedDate: newTask.assignedDate || formatDateInput(selectedDate),
+          targetMode: newTask.targetMode,
+          targetRoles: newTask.targetMode === "roles" ? newTask.targetRoles : [],
+          targetUserIds: newTask.targetMode === "users" ? newTask.targetUserIds : [],
+          media: newTask.media,
+          createdBy: { userId: user.uid, userName: user.displayName },
+          createdByRole: user.role as UserRole,
+        });
+        toast.success("Đã tạo việc trong ngày.");
+      }
+
       setNewTask({
         title: "",
         description: "",
@@ -235,9 +337,10 @@ export default function DailyAssignmentsPage() {
         targetUserIds: [],
         media: [],
       });
+      setIsCreateDialogOpen(false);
     } catch (error) {
       console.error("Failed to create task", error);
-      toast.error("Không thể tạo việc.");
+      toast.error(editingTaskId ? "Không thể cập nhật nhiệm vụ." : "Không thể tạo việc.");
     } finally {
       setIsCreating(false);
     }
@@ -294,12 +397,13 @@ export default function DailyAssignmentsPage() {
     }
   };
 
-  const renderReport = (task: DailyTask, report: DailyTaskReport) => {
+  const renderReport = (task: DailyTask, report: DailyTaskReport, idx: number) => {
     const isHighlighted = highlightedReportId === report.id;
+    const safeKey = report.id || `report-${task.id || 'unknown'}-${idx}`;
     return (
-      <div key={report.id} ref={(el) => {
-        if (el) highlightRef.current.set(report.id, el);
-        else highlightRef.current.delete(report.id);
+      <div key={safeKey} ref={(el) => {
+        if (el) highlightRef.current.set(safeKey, el);
+        else highlightRef.current.delete(safeKey);
       }}>
         <ReportCard
           task={task}
@@ -309,21 +413,23 @@ export default function DailyAssignmentsPage() {
           setManagerNote={setManagerNote}
           onApprove={handleApproveReport}
           pendingReportId={pendingReportId}
-          userRole={user?.role}
+          canApprove={!!user && (user.role === 'Chủ nhà hàng' || (user.role === 'Quản lý' && task.createdBy?.userId === user.uid && report.reporter.userId !== user.uid))}
         />
       </div>
     );
   };
 
 
-  const renderTaskCard = (task: DailyTask, isMine: boolean) => {
+  const renderTaskCard = (task: DailyTask, isMine: boolean, idx: number = 0) => {
     const taskReports = reportsByTask.get(task.id) || [];
     const pendingMedia = pendingReportMedia[task.id] || [];
     const pendingNote = pendingReportNotes[task.id] || "";
     const canSubmit = user && isMine;
+    const isExpanded = !!expandedReports[task.id];
 
+    const safeKey = task.id || `task-${task.assignedDate || 'unknown'}-${idx}`;
     return (
-      <div key={task.id}>
+      <div key={safeKey}>
         <TaskCard
           task={task}
           reports={taskReports}
@@ -335,11 +441,25 @@ export default function DailyAssignmentsPage() {
           onSubmitReport={handleSubmitReport}
           onSetActiveTaskForProof={(id) => setActiveTaskForProof(id)}
           pendingReportId={pendingReportId}
+          reportsExpanded={isExpanded}
+          onToggleReports={toggleReportsForTask}
+          onRegenerate={user?.role === 'Chủ nhà hàng' ? regenerateTask : undefined}
+          onDelete={user?.role === 'Chủ nhà hàng' ? deleteTask : undefined}
+          onEdit={user?.role === 'Chủ nhà hàng' ? () => handleEditTask(task.id) : (user?.role === 'Quản lý' && task.createdBy?.userId === user.uid) ? () => handleEditTask(task.id) : undefined}
         />
 
-        <div className="space-y-3 mt-3">
-          {taskReports.map((r) => renderReport(task, r))}
-        </div>
+        <AnimatePresence>
+          {isExpanded && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="space-y-3 mt-3"
+            >
+              {taskReports.map((r, i) => renderReport(task, r, i))}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   };
@@ -350,295 +470,245 @@ export default function DailyAssignmentsPage() {
 
   if (!user) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Alert className="max-w-lg">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Phiên đăng nhập hết hạn</AlertTitle>
-          <AlertDescription>Vui lòng đăng nhập để tiếp tục.</AlertDescription>
-        </Alert>
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+        >
+          <Alert className="max-w-md border-red-100 bg-red-50/50">
+            <AlertCircle className="h-4 w-4 text-red-600" />
+            <AlertTitle className="text-red-700">Phiên đăng nhập hết hạn</AlertTitle>
+            <AlertDescription className="text-red-600/80">Vui lòng đăng nhập lại để xem công việc của mình.</AlertDescription>
+          </Alert>
+        </motion.div>
       </div>
     );
   }
 
-  const handleDayShift = (delta: number) => {
-    const next = addDays(selectedDate, delta);
-    setSelectedDate(next);
-    setNewTask((prev) => ({ ...prev, assignedDate: formatDateInput(next) }));
+  const completionStats = {
+    total: tasks.length,
+    completed: tasks.filter(t => t.status === 'completed').length,
+    inReview: tasks.filter(t => t.status === 'in_review').length,
+    mineCount: targetedTasks.length
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/10">
-      <div className="container mx-auto max-w-6xl px-4 py-8 sm:px-6 md:px-8 space-y-8">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">Giao việc trong ngày</p>
-            <h1 className="text-3xl font-bold text-foreground">Tạo, theo dõi và duyệt công việc tuỳ chỉnh</h1>
-            <p className="text-muted-foreground">Quản lý công việc phát sinh với mô tả, hình ảnh/video và báo cáo hoàn thành.</p>
+    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50 pb-20">
+      <div className="container mx-auto max-w-5xl px-3 sm:px-4 pt-4 sm:pt-6 space-y-6 sm:space-y-8">
+        {/* Header Section */}
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <div className="h-6 w-1 sm:h-8 sm:w-1 bg-primary rounded-full" />
+              <h1 className="text-2xl font-black tracking-tight text-foreground sm:text-4xl">Giao việc</h1>
+            </div>
+            <p className="text-xs sm:text-sm text-muted-foreground font-medium italic sm:not-italic">Quản lý và theo dõi nhiệm vụ phát sinh hằng ngày</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => handleDayShift(-1)}>
-              Ngày trước
-            </Button>
-            <Input
-              type="date"
-              value={formatDateInput(selectedDate)}
-              onChange={(e) => setSelectedDate(new Date(e.target.value))}
-              className="w-[160px]"
-            />
-            <Button variant="outline" size="sm" onClick={() => handleDayShift(1)}>
-              Ngày kế
-            </Button>
-          </div>
+
+          {(user.role === "Quản lý" || user.role === "Chủ nhà hàng") && (
+            <>
+              <Button onClick={() => setIsCreateDialogOpen(true)} className="h-10 sm:h-11 px-4 sm:px-6 shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95 font-black uppercase tracking-wider text-[11px] sm:text-xs">
+                <ClipboardList className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                Tạo nhiệm vụ mới
+              </Button>
+
+              <CreateTaskDialog
+                isOpen={isCreateDialogOpen}
+                onOpenChange={(open) => {
+                  setIsCreateDialogOpen(open);
+                  if (!open) {
+                    setNewTask({
+                      title: "",
+                      description: "",
+                      assignedDate: formatDateInput(selectedDate),
+                      targetMode: "roles",
+                      targetRoles: ["Phục vụ"],
+                      targetUserIds: [],
+                      media: [],
+                    });
+                    setEditingTaskId(null);
+                  }
+                }}
+                newTask={newTask}
+                setNewTask={setNewTask}
+                onCreate={handleCreateTask}
+                isCreating={isCreating}
+                isEditing={!!editingTaskId}
+                setInstructionCameraOpen={setInstructionCameraOpen}
+                allUsers={allUsers}
+                roles={ROLES}
+              />
+            </>
+          )}
         </div>
 
-        {(user.role === "Quản lý" || user.role === "Chủ nhà hàng") && (
-          <div className="flex justify-end">
-            <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
-              setIsCreateDialogOpen(open);
-              if (!open) {
-                setNewTask({
-                  title: "",
-                  description: "",
-                  assignedDate: formatDateInput(selectedDate),
-                  targetMode: "roles",
-                  targetRoles: ["Phục vụ"],
-                  targetUserIds: [],
-                  media: [],
-                });
-              }
-            }}>
-              <DialogTrigger asChild>
-                <Button size="sm">Tạo nhiệm vụ mới</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Tạo nhiệm vụ mới</DialogTitle>
-                  <div className="text-sm text-muted-foreground">Gửi nhiệm vụ tuỳ chỉnh kèm hướng dẫn và người nhận.</div>
-                </DialogHeader>
-
-                <div className="space-y-4 p-2">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label>Tiêu đề</Label>
-                      <Input
-                        value={newTask.title}
-                        onChange={(e) => setNewTask((prev) => ({ ...prev, title: e.target.value }))}
-                        placeholder="Ví dụ: Dọn khu vực ngoài sân"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Ngày thực hiện</Label>
-                      <Input
-                        type="date"
-                        value={newTask.assignedDate}
-                        onChange={(e) => setNewTask((prev) => ({ ...prev, assignedDate: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Mô tả</Label>
-                    <Textarea
-                      rows={3}
-                      value={newTask.description}
-                      onChange={(e) => setNewTask((prev) => ({ ...prev, description: e.target.value }))}
-                      placeholder="Nêu rõ yêu cầu, tiêu chuẩn hoàn thành và thời hạn."
-                    />
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-3">
-                      <Label>Chọn đối tượng</Label>
-                      <div className="flex gap-2 text-sm">
-                        <Button
-                          variant={newTask.targetMode === "roles" ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setNewTask((prev) => ({ ...prev, targetMode: "roles" }))}
-                        >
-                          Theo vai trò
-                        </Button>
-                        <Button
-                          variant={newTask.targetMode === "users" ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setNewTask((prev) => ({ ...prev, targetMode: "users" }))}
-                        >
-                          Theo nhân viên
-                        </Button>
-                      </div>
-                      {newTask.targetMode === "roles" ? (
-                        <div className="grid grid-cols-2 gap-2">
-                          {ROLES.map((role) => (
-                            <label key={role} className="flex items-center gap-2 rounded-md border p-2 text-sm">
-                              <input
-                                type="checkbox"
-                                checked={(newTask.targetRoles || []).includes(role)}
-                                onChange={(e) => {
-                                  setNewTask((prev) => {
-                                    const current = prev.targetRoles || [];
-                                    const next = e.target.checked
-                                      ? Array.from(new Set([...current, role]))
-                                      : current.filter((r) => r !== role);
-                                    return { ...prev, targetRoles: next };
-                                  });
-                                }}
-                              />
-                              {role}
-                            </label>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="max-h-56 space-y-2 overflow-y-auto rounded-md border p-2">
-                          {allUsers.map((u) => (
-                            <label key={u.uid} className="flex items-center gap-2 rounded-md p-1 text-sm hover:bg-muted">
-                              <input
-                                type="checkbox"
-                                checked={newTask.targetUserIds.includes(u.uid)}
-                                onChange={(e) => {
-                                  setNewTask((prev) => {
-                                    const current = prev.targetUserIds;
-                                    const next = e.target.checked
-                                      ? Array.from(new Set([...current, u.uid]))
-                                      : current.filter((id) => id !== u.uid);
-                                    return { ...prev, targetUserIds: next };
-                                  });
-                                }}
-                              />
-                              <span className="font-medium">{u.displayName}</span>
-                              <span className="text-xs text-muted-foreground">({u.role})</span>
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="space-y-3">
-                      <Label>Hình ảnh / Video hướng dẫn</Label>
-                      <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                        <Button variant="outline" size="sm" onClick={() => setInstructionCameraOpen(true)}>
-                          <ImageIcon className="mr-2 h-4 w-4" />Thêm tệp
-                        </Button>
-                        {newTask.media.length > 0 && <span>Đã thêm {newTask.media.length} tệp</span>}
-                      </div>
-                      <p className="text-xs text-muted-foreground">Khuyến khích đính kèm 1-2 ảnh/video để nhân viên hiểu rõ yêu cầu.</p>
-                    </div>
-                  </div>
-                </div>
-
-                <DialogFooter>
-                  <DialogClose asChild>
-                    <Button variant="outline" size="sm">Hủy</Button>
-                  </DialogClose>
-                  <Button onClick={handleCreateTask} disabled={isCreating} className="min-w-[180px]">
-                    {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-                    Lưu nhiệm vụ
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+        {/* Date Selection Strip - Sticky on Mobile, Centered, Below Global Header */}
+        {(user.role === "Chủ nhà hàng") && (
+          <div className="sticky top-[3.5rem] z-20 flex justify-center">
+            <div className="w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl flex justify-center">
+              <DateStrip selectedDate={selectedDate} onDateChange={(date) => {
+                setSelectedDate(date);
+                setNewTask(prev => ({ ...prev, assignedDate: formatDateInput(date) }));
+              }} />
+            </div>
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Việc của tôi</h2>
-              <Badge variant="secondary">{targetedTasks.length} nhiệm vụ</Badge>
-            </div>
-            {targetedTasks.length === 0 ? (
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Không có nhiệm vụ cho ngày này.</AlertTitle>
-                <AlertDescription>Quản lý có thể giao thêm việc hoặc chuyển ngày khác.</AlertDescription>
-              </Alert>
-            ) : (
-              <div className="space-y-4">
-                {targetedTasks.map((task) => renderTaskCard(task, true))}
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Tất cả nhiệm vụ trong ngày</h2>
-              <Badge variant="outline">{tasks.length} nhiệm vụ</Badge>
-            </div>
-            {tasks.length === 0 ? (
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Chưa có nhiệm vụ nào.</AlertTitle>
-                <AlertDescription>Hãy tạo nhiệm vụ hoặc chọn ngày khác.</AlertDescription>
-              </Alert>
-            ) : (
-              <div className="space-y-4">
-                {tasks.map((task) => renderTaskCard(task, isUserTargeted(task, user.uid, userRoles)))}
-              </div>
-            )}
-          </div>
+        {/* Quick Stats Grid */}
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="rounded-xl border bg-background p-3 sm:p-4 shadow-sm">
+            <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tổng việc</p>
+            <p className="mt-0.5 sm:mt-1 text-xl sm:text-2xl font-black">{completionStats.total}</p>
+          </motion.div>
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="rounded-xl border bg-background p-3 sm:p-4 shadow-sm border-green-100">
+            <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-green-600">Hoàn tất</p>
+            <p className="mt-0.5 sm:mt-1 text-xl sm:text-2xl font-black text-green-700">{completionStats.completed}</p>
+          </motion.div>
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="rounded-xl border bg-background p-3 sm:p-4 shadow-sm border-amber-100">
+            <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-amber-600">Đang duyệt</p>
+            <p className="mt-0.5 sm:mt-1 text-xl sm:text-2xl font-black text-amber-700">{completionStats.inReview}</p>
+          </motion.div>
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="rounded-xl border bg-background p-3 sm:p-4 shadow-sm border-primary/20">
+            <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-primary">Việc tôi</p>
+            <p className="mt-0.5 sm:mt-1 text-xl sm:text-2xl font-black text-primary">{completionStats.mineCount}</p>
+          </motion.div>
         </div>
 
+        {/* Role-based view: managers and owners see all tasks; other staff see only their assigned tasks. Tabs are removed per design. */}
+        {(user.role === "Quản lý" || user.role === "Chủ nhà hàng") ? (
+          <motion.div
+            key="all-content"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-4 mt-0"
+          >
+            {tasks.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center space-y-4 border-2 border-dashed rounded-3xl bg-muted/5">
+                <div className="h-16 w-16 rounded-full bg-muted/20 flex items-center justify-center text-muted-foreground">
+                  <AlertCircle className="h-8 w-8" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-xl font-bold">Chưa có nhiệm vụ nào được tạo</h3>
+                  <p className="text-muted-foreground max-w-xs">Hãy chọn ngày khác hoặc tạo nhiệm vụ mới nếu bạn là quản lý.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2">
+                {tasks.map((task, idx) => renderTaskCard(task, isUserTargeted(task, user.uid, userRoles), idx))}
+              </div>
+            )}
+          </motion.div>
+        ) : (
+          <motion.div
+            key="mine-content"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            className="space-y-4 mt-0"
+          >
+            {targetedTasks.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center space-y-4 border-2 border-dashed rounded-3xl bg-muted/5">
+                <div className="h-16 w-16 rounded-full bg-muted/20 flex items-center justify-center text-muted-foreground">
+                  <CheckCircle2 className="h-8 w-8" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-xl font-bold">Tuyệt vời, bạn không có nhiệm vụ nào!</h3>
+                  <p className="text-muted-foreground max-w-xs">Hoặc quản lý chưa giao việc riêng cho bạn trong hôm nay.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2">
+                {targetedTasks.map((task, idx) => renderTaskCard(task, true, idx))}
+              </div>
+            )}
+          </motion.div>
+        )}
+
         {ownerSummary && (
-          <Card className="border shadow-sm">
-            <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2 text-xl">
-                  <CalendarDays className="h-5 w-5 text-primary" />
-                  Tổng quan tháng {format(currentMonth, "MM/yyyy")}
-                </CardTitle>
-                <CardDescription>Chủ nhà hàng xem nhanh tiến độ giao việc theo ngày.</CardDescription>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
-                  Tháng trước
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
-                  Tháng sau
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-lg border bg-muted/40 p-3">
-                  <p className="text-xs text-muted-foreground">Tổng nhiệm vụ</p>
-                  <p className="text-2xl font-bold">{ownerSummary.totalTasks}</p>
-                </div>
-                <div className="rounded-lg border bg-muted/40 p-3">
-                  <p className="text-xs text-muted-foreground">Đã hoàn tất</p>
-                  <p className="text-2xl font-bold text-green-600">{ownerSummary.completedTasks}</p>
-                </div>
-                <div className="rounded-lg border bg-muted/40 p-3">
-                  <p className="text-xs text-muted-foreground">Báo cáo nhận</p>
-                  <p className="text-2xl font-bold">{ownerSummary.reportCount}</p>
-                </div>
-                <div className="rounded-lg border bg-muted/40 p-3">
-                  <p className="text-xs text-muted-foreground">Đã duyệt</p>
-                  <p className="text-2xl font-bold text-primary">{ownerSummary.approvedReports}</p>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-3">
-                {ownerSummary.timeline.length === 0 && (
-                  <Alert>
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Chưa có dữ liệu</AlertTitle>
-                    <AlertDescription>Chọn tháng khác để xem báo cáo.</AlertDescription>
-                  </Alert>
-                )}
-                {ownerSummary.timeline.map(([dateKey, bucket]) => (
-                  <div key={dateKey} className="rounded-lg border p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="font-semibold">{format(new Date(dateKey), "EEEE, dd/MM", { locale: vi })}</div>
-                      <Badge variant="secondary">{bucket.tasks.length} nhiệm vụ</Badge>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+          >
+            <Card className="overflow-hidden border-none shadow-xl shadow-slate-200/50 bg-white/80 backdrop-blur-md">
+              <CardHeader className="flex flex-col gap-4 p-4 sm:p-6 md:flex-row md:items-center md:justify-between border-b bg-slate-50/50">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <div className="rounded-lg bg-primary/10 p-1.5 sm:p-2 text-primary">
+                      <CalendarDays className="h-4 w-4 sm:h-5 sm:w-5" />
                     </div>
-                    <div className="mt-2 text-sm text-muted-foreground">
-                      {bucket.tasks.filter((t) => t.status === "completed").length} đã hoàn tất · {bucket.reports.length} báo cáo
-                    </div>
+                    <CardTitle className="text-lg sm:text-xl font-black">Tổng quan tháng {format(currentMonth, "MM/yyyy")}</CardTitle>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  <CardDescription className="text-xs sm:text-sm font-medium">Phân tích hiệu suất giao việc của hệ thống</CardDescription>
+                </div>
+                <div className="flex bg-muted p-1 rounded-xl w-full sm:w-auto">
+                  <Button variant="ghost" size="sm" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="flex-1 sm:flex-none h-8 px-3 text-xs font-bold">
+                    Tháng trước
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="flex-1 sm:flex-none h-8 px-3 text-xs font-bold">
+                    Tháng sau
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-6 space-y-6 sm:space-y-8">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+                  {[
+                    { label: "Nhiệm vụ", value: ownerSummary!.totalTasks, color: "text-slate-900", bg: "bg-slate-100/50" },
+                    { label: "Hoàn tất", value: ownerSummary!.completedTasks, color: "text-green-600", bg: "bg-green-50" },
+                    { label: "Báo cáo", value: ownerSummary!.reportCount, color: "text-blue-600", bg: "bg-blue-50" },
+                    { label: "Đã duyệt", value: ownerSummary!.approvedReports, color: "text-primary", bg: "bg-primary/5" },
+                  ].map((stat, i) => (
+                    <div key={i} className={cn("rounded-xl border border-transparent p-3 sm:p-5 transition-all", stat.bg)}>
+                      <p className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-70">{stat.label}</p>
+                      <p className={cn("mt-0.5 text-xl sm:text-3xl font-black", stat.color)}>{stat.value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                    <div className="h-px flex-1 bg-border" />
+                    Hoạt động
+                    <div className="h-px flex-1 bg-border" />
+                  </div>
+
+                  {ownerSummary!.timeline.length === 0 ? (
+                    <div className="py-10 text-center text-[10px] text-muted-foreground font-medium italic">Không có dữ liệu tháng này.</div>
+                  ) : (
+                    <div className="grid gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {ownerSummary!.timeline.map(([dateKey, bucket], i) => {
+                        const safeDateKey = dateKey || `day-${i}`;
+                        return (
+                          <div key={safeDateKey} className="group relative overflow-hidden rounded-xl border bg-background p-3 sm:p-4 transition-all">
+                            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+                              <div className="text-xs sm:text-sm font-bold text-slate-700">{format(new Date(dateKey), "EEEE, dd/MM", { locale: vi })}</div>
+                              <Badge variant="secondary" className="bg-slate-100 text-[8px] sm:text-[10px] font-bold px-1.5 sm:px-2">{bucket.tasks.length} VIỆC</Badge>
+                            </div>
+                            <div className="flex items-center gap-2 sm:gap-3">
+                              <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-primary transition-all duration-500"
+                                  style={{ width: `${(bucket.tasks.filter((t) => t.status === "completed").length / (bucket.tasks.length || 1)) * 100}%` }}
+                                />
+                              </div>
+                              <span className="text-[9px] sm:text-[10px] font-bold text-muted-foreground uppercase">
+                                {bucket.tasks.filter((t) => t.status === "completed").length}/{bucket.tasks.length}
+                              </span>
+                            </div>
+                            <div className="mt-1.5 sm:mt-2 text-[9px] sm:text-[10px] font-medium text-muted-foreground flex items-center gap-1.5">
+                              <MessageSquare className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                              {bucket.reports.length} báo cáo
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
         )}
       </div>
 
@@ -660,5 +730,13 @@ export default function DailyAssignmentsPage() {
         captureMode="both"
       />
     </div>
+  );
+}
+
+export default function DailyAssignmentsPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <DailyAssignmentsPageContent />
+    </Suspense>
   );
 }

@@ -5,6 +5,7 @@ import {
   addDoc,
   collection,
   doc,
+  getDoc,
   getDocs,
   onSnapshot,
   orderBy,
@@ -12,11 +13,12 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
+  deleteDoc,
   where,
 } from 'firebase/firestore';
 import { format, addMonths, startOfMonth } from 'date-fns';
 import type { DailyTask, DailyTaskReport, DailyTaskTargetMode, MediaItem, SimpleUser, UserRole } from './types';
-import { uploadMedia } from './data-store-helpers';
+import { uploadMedia, deleteFileByUrl } from './data-store-helpers';
 
 const DAILY_TASKS_COLLECTION = 'daily_tasks';
 const DAILY_TASK_REPORTS_COLLECTION = 'daily_task_reports';
@@ -153,7 +155,7 @@ export function subscribeToDailyTaskReportsForMonth(
 export async function createDailyTask(input: CreateDailyTaskInput): Promise<DailyTask> {
   const taskRef = doc(collection(db, DAILY_TASKS_COLLECTION));
   const uploadPath = `daily-tasks/${input.assignedDate}/${taskRef.id}/instructions`;
-  const media = input.media && input.media.length > 0 ? await uploadMedia(input.media, uploadPath) : undefined;
+  const media = input.media && input.media.length > 0 ? await uploadMedia(input.media, uploadPath) : [];
 
   const taskData: any = {
     id: taskRef.id,
@@ -184,10 +186,87 @@ export async function createDailyTask(input: CreateDailyTaskInput): Promise<Dail
   return task;
 }
 
+type UpdateDailyTaskInput = Partial<{
+  title: string;
+  description: string;
+  assignedDate: string;
+  targetMode: DailyTaskTargetMode;
+  targetRoles?: UserRole[];
+  targetUserIds?: string[];
+  media?: MediaItem[];
+}>;
+
+export async function updateDailyTask(taskId: string, input: UpdateDailyTaskInput): Promise<DailyTask> {
+  const taskRef = doc(db, DAILY_TASKS_COLLECTION, taskId);
+  const taskSnap = await getDoc(taskRef);
+  if (!taskSnap.exists()) throw new Error('Task not found');
+  const existing = taskSnap.data() as DailyTask;
+
+  const updates: any = {
+    updatedAt: serverTimestamp(),
+  };
+
+  if (typeof input.title === 'string') updates.title = input.title.trim();
+  if (typeof input.description === 'string') updates.description = input.description.trim();
+  if (typeof input.assignedDate === 'string') updates.assignedDate = input.assignedDate;
+  if (input.targetMode) updates.targetMode = input.targetMode;
+  if (input.targetMode === 'roles') updates.targetRoles = input.targetRoles || [];
+  if (input.targetMode === 'users') updates.targetUserIds = input.targetUserIds || [];
+
+  // Handle media updates: upload new items and delete removed remote files
+  if (input.media !== undefined) {
+    const uploadPath = `daily-tasks/${input.assignedDate || existing.assignedDate}/${taskId}/instructions`;
+    const newMedia = input.media && input.media.length > 0 ? await uploadMedia(input.media, uploadPath) : [];
+
+    // Delete old attachments that are not present in the new list
+    const existingUrls = (existing.media || []).map((m) => m.url);
+    const newUrls = (newMedia || []).map((m) => m.url);
+    const toDelete = existingUrls.filter((u) => !newUrls.includes(u));
+    if (toDelete.length > 0) {
+      await Promise.all(toDelete.map((u) => deleteFileByUrl(u)));
+    }
+
+    updates.media = newMedia;
+  }
+
+  await updateDoc(taskRef, updates);
+
+  const updatedSnap = await getDoc(taskRef);
+  const result = updatedSnap.data() as DailyTask;
+  if (!result.id) result.id = updatedSnap.id;
+  return result as DailyTask;
+}
+
+export async function deleteDailyTask(taskId: string): Promise<void> {
+  const taskRef = doc(db, DAILY_TASKS_COLLECTION, taskId);
+  const taskSnap = await getDoc(taskRef);
+  if (!taskSnap.exists()) return;
+  const task = taskSnap.data() as DailyTask;
+
+  // delete task media from storage
+  if (task.media && task.media.length > 0) {
+    await Promise.all(task.media.map((att) => deleteFileByUrl(att.url)));
+  }
+
+  // find and delete reports for this task (and their media)
+  const reportsQ = query(collection(db, DAILY_TASK_REPORTS_COLLECTION), where('taskId', '==', taskId));
+  const reportsSnap = await getDocs(reportsQ);
+  await Promise.all(reportsSnap.docs.map(async (r) => {
+    const data = r.data() as DailyTaskReport;
+    if (data.media && data.media.length > 0) {
+      await Promise.all(data.media.map((att) => deleteFileByUrl(att.url)));
+    }
+    await deleteDoc(doc(db, DAILY_TASK_REPORTS_COLLECTION, r.id));
+  }));
+
+  // delete the task document
+  await deleteDoc(taskRef);
+}
+
 export async function submitDailyTaskReport(input: SubmitDailyTaskReportInput): Promise<DailyTaskReport> {
   const reportRef = doc(collection(db, DAILY_TASK_REPORTS_COLLECTION));
   const uploadPath = `daily-tasks/${input.task.id}/reports/${reportRef.id}`;
-  const media = input.media && input.media.length > 0 ? await uploadMedia(input.media, uploadPath) : undefined;
+  const media = input.media && input.media.length > 0 ? await uploadMedia(input.media, uploadPath) : [];
 
   const report: DailyTaskReport = {
     id: reportRef.id,
