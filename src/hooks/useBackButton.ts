@@ -14,6 +14,7 @@ interface LightboxControls {
 interface DialogControls {
   isAnyDialogOpen: boolean;
   closeDialog: () => void;
+  openDialogCount?: number;
 }
 
 export function useBackButton(
@@ -62,8 +63,14 @@ export function useBackButton(
 
   useEffect(() => {
     // --- OPEN DIALOG ---
-    if (dialog?.isAnyDialogOpen && !history.state?.dialog) {
-      window.history.pushState({ dialog: true }, "", window.location.href);
+    // Push a history state every time the dialog open count changes so nested
+    // dialogs create additional history entries. We store the count to avoid
+    // pushing duplicate entries for the same count value.
+    if (dialog && typeof dialog.openDialogCount === 'number' && dialog.openDialogCount > 0) {
+      const currentCount = history.state?.dialogCount;
+      if (currentCount !== dialog.openDialogCount) {
+        window.history.pushState({ dialog: true, dialogCount: dialog.openDialogCount }, "", window.location.href);
+      }
     }
 
     // --- BACK BUTTON HANDLER ---
@@ -74,7 +81,7 @@ export function useBackButton(
         return; // prevent navigation
       }
 
-      // CLOSE DIALOG
+      // CLOSE DIALOG (close top-most)
       if (dialog?.isAnyDialogOpen) {
         dialog.closeDialog();
         return; // prevent navigation
@@ -83,5 +90,7 @@ export function useBackButton(
 
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [dialog?.isAnyDialogOpen, lightbox?.isLightboxOpen]);
+    // We include openDialogCount in the dependency list so this runs whenever
+    // a new dialog is registered/unregistered (including nested dialogs).
+  }, [dialog?.openDialogCount, lightbox?.isLightboxOpen]);
 }

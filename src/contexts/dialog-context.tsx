@@ -4,6 +4,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 
 type DialogContextType = {
   isAnyDialogOpen: boolean;
+  // Number of currently open dialogs (increments/decrements on open/close).
+  openDialogCount: number;
   registerDialog: () => void;
   unregisterDialog: () => void;
   subscribeToClose: (callback: () => void) => () => void;
@@ -34,12 +36,20 @@ export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const closeDialog = useCallback(() => {
+    // Close the top-most (most recently registered) dialog
     const closeSubscribersArray = Array.from(closeSubscribers.current);
     if (closeSubscribersArray.length === 0) return;
-    closeSubscribersArray[0].call((cb: () => any) => cb());
+    const last = closeSubscribersArray[0];
+    try {
+      last();
+    } catch (err) {
+      // swallow errors to avoid crash during back handling
+      // eslint-disable-next-line no-console
+      console.error('Error while closing dialog via closeDialog:', err);
+    }
   }, []);
 
-  const value = { isAnyDialogOpen, registerDialog, unregisterDialog, subscribeToClose, closeDialog };
+  const value = { isAnyDialogOpen, openDialogCount, registerDialog, unregisterDialog, subscribeToClose, closeDialog };
 
   return <DialogContext.Provider value={value}>{children}</DialogContext.Provider>;
 };
