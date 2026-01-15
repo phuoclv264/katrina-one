@@ -54,7 +54,7 @@ export default function AiSchedulePreviewDialog({ isOpen, onClose, proposed, cur
   }, [current, proposed, currentById, proposedById]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="ai-schedule-preview-dialog" parentDialogTag="root">
       <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>Xem trước lịch AI</DialogTitle>

@@ -339,7 +339,7 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers }: Sa
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
+        <Dialog open={isOpen} onOpenChange={onClose} dialogTag="salary-management-dialog" parentDialogTag="root">
             <DialogContent className="max-w-4xl sm:h-[90vh] h-[100vh] flex flex-col p-0">
                 <DialogHeader className="flex flex-row items-center gap-2 px-4 py-2 border-b">
                     <DialogTitle className="text-base sm:text-lg">Quản lý Bảng lương</DialogTitle>
@@ -402,20 +402,20 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers }: Sa
                             </div>
 
                             <div className="col-span-2 sm:col-span-2 flex items-center justify-end gap-1">
-                                <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    onClick={handleRecalculate} 
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={handleRecalculate}
                                     disabled={isLoading}
                                     title="Tính toán lại"
                                     className="h-8 w-8 text-primary"
                                 >
                                     {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" />}
                                 </Button>
-                                    <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    onClick={handleToggleAll} 
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={handleToggleAll}
                                     disabled={!salarySheet || shownCount === 0}
                                     title={allExpanded ? 'Thu gọn tất cả' : 'Mở rộng tất cả'}
                                     className="h-8 w-8"
@@ -428,110 +428,110 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers }: Sa
                 </div>
 
                 <ScrollArea className="flex-grow min-h-0 px-4">
-                        {isLoading ? (
-                            <div className="flex justify-center items-center h-64">
-                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                            </div>
-                        ) : salarySheet ? (
-                            <div className="space-y-3 py-3">
-                                <Card className="border-l-4 border-green-500 shadow-sm overflow-hidden">
-                                    <div className="py-2 px-3 border-b flex items-center justify-between bg-green-50/50">
-                                        <div className="flex items-center gap-1.5">
-                                            <CheckCircle className="h-4 w-4 text-green-600" />
-                                            <span className="font-bold text-sm sm:text-base text-green-800">Đủ điều kiện</span>
-                                            <Badge variant="secondary" className="px-1 py-0 h-4 text-[10px] font-normal bg-green-100">{eligibleRecords.length}</Badge>
-                                        </div>
-                                        <span className="text-sm sm:text-base font-bold text-green-700">
-                                            {totalEligibleAmount.toLocaleString('vi-VN')}đ
-                                        </span>
+                    {isLoading ? (
+                        <div className="flex justify-center items-center h-64">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        </div>
+                    ) : salarySheet ? (
+                        <div className="space-y-3 py-3">
+                            <Card className="border-l-4 border-green-500 shadow-sm overflow-hidden">
+                                <div className="py-2 px-3 border-b flex items-center justify-between bg-green-50/50">
+                                    <div className="flex items-center gap-1.5">
+                                        <CheckCircle className="h-4 w-4 text-green-600" />
+                                        <span className="font-bold text-sm sm:text-base text-green-800">Đủ điều kiện</span>
+                                        <Badge variant="secondary" className="px-1 py-0 h-4 text-[10px] font-normal bg-green-100">{eligibleRecords.length}</Badge>
                                     </div>
-                                    <CardContent className="p-0">
-                                        <Accordion
-                                            type="multiple"
-                                            className="w-full"
-                                            value={openAccordionItems}
-                                            onValueChange={setOpenAccordionItems}
-                                        >
-                                            {eligibleRecords.map(record => (
-                                                <SalaryRecordAccordionItem
-                                                    key={record.userId}
-                                                    record={record}
-                                                    monthId={salarySheet.id}
-                                                    currentUser={currentUser ? { userId: currentUser.uid, userName: currentUser.displayName } : null}
-                                                    currentUserRole={currentUser?.role}
-                                                    scheduleMap={salarySheet.scheduleMap}
-                                                    onRecordUpdated={handleRecordUpdated}
-                                                />
-                                            ))}
-                                        </Accordion>
-                                    </CardContent>
-                                </Card>
+                                    <span className="text-sm sm:text-base font-bold text-green-700">
+                                        {totalEligibleAmount.toLocaleString('vi-VN')}đ
+                                    </span>
+                                </div>
+                                <CardContent className="p-0">
+                                    <Accordion
+                                        type="multiple"
+                                        className="w-full"
+                                        value={openAccordionItems}
+                                        onValueChange={setOpenAccordionItems}
+                                    >
+                                        {eligibleRecords.map(record => (
+                                            <SalaryRecordAccordionItem
+                                                key={record.userId}
+                                                record={record}
+                                                monthId={salarySheet.id}
+                                                currentUser={currentUser ? { userId: currentUser.uid, userName: currentUser.displayName } : null}
+                                                currentUserRole={currentUser?.role}
+                                                scheduleMap={salarySheet.scheduleMap}
+                                                onRecordUpdated={handleRecordUpdated}
+                                            />
+                                        ))}
+                                    </Accordion>
+                                </CardContent>
+                            </Card>
 
-                                <Card className="border-l-4 border-amber-500 shadow-sm overflow-hidden">
-                                    <div className="py-2 px-3 border-b flex items-center justify-between bg-amber-50/50">
-                                        <div className="flex items-center gap-1.5">
-                                            <AlertTriangle className="h-4 w-4 text-amber-600" />
-                                            <span className="font-bold text-sm sm:text-base text-amber-800">Chưa đủ điều kiện</span>
-                                            <Badge variant="outline" className="px-1 py-0 h-4 text-[10px] font-normal border-amber-200 bg-amber-100">{ineligibleRecords.length}</Badge>
-                                        </div>
-                                        <span className="text-sm sm:text-base font-bold text-amber-700">{totalIneligibleAmount.toLocaleString('vi-VN')}đ</span>
+                            <Card className="border-l-4 border-amber-500 shadow-sm overflow-hidden">
+                                <div className="py-2 px-3 border-b flex items-center justify-between bg-amber-50/50">
+                                    <div className="flex items-center gap-1.5">
+                                        <AlertTriangle className="h-4 w-4 text-amber-600" />
+                                        <span className="font-bold text-sm sm:text-base text-amber-800">Chưa đủ điều kiện</span>
+                                        <Badge variant="outline" className="px-1 py-0 h-4 text-[10px] font-normal border-amber-200 bg-amber-100">{ineligibleRecords.length}</Badge>
                                     </div>
-                                    <CardContent className="p-0">
-                                        <Accordion
-                                            type="multiple"
-                                            className="w-full"
-                                            value={openAccordionItems}
-                                            onValueChange={setOpenAccordionItems}
-                                        >
-                                            {ineligibleRecords.map(record => (
-                                                <SalaryRecordAccordionItem
-                                                    key={record.userId}
-                                                    record={record}
-                                                    monthId={salarySheet.id}
-                                                    currentUser={currentUser ? { userId: currentUser.uid, userName: currentUser.displayName } : null}
-                                                    currentUserRole={currentUser?.role}
-                                                    scheduleMap={salarySheet.scheduleMap}
-                                                    onRecordUpdated={handleRecordUpdated}
-                                                />
-                                            ))}
-                                        </Accordion>
-                                    </CardContent>
-                                </Card>
+                                    <span className="text-sm sm:text-base font-bold text-amber-700">{totalIneligibleAmount.toLocaleString('vi-VN')}đ</span>
+                                </div>
+                                <CardContent className="p-0">
+                                    <Accordion
+                                        type="multiple"
+                                        className="w-full"
+                                        value={openAccordionItems}
+                                        onValueChange={setOpenAccordionItems}
+                                    >
+                                        {ineligibleRecords.map(record => (
+                                            <SalaryRecordAccordionItem
+                                                key={record.userId}
+                                                record={record}
+                                                monthId={salarySheet.id}
+                                                currentUser={currentUser ? { userId: currentUser.uid, userName: currentUser.displayName } : null}
+                                                currentUserRole={currentUser?.role}
+                                                scheduleMap={salarySheet.scheduleMap}
+                                                onRecordUpdated={handleRecordUpdated}
+                                            />
+                                        ))}
+                                    </Accordion>
+                                </CardContent>
+                            </Card>
 
-                                <Card className="border-l-4 border-blue-500 shadow-sm overflow-hidden">
-                                    <div className="py-2 px-3 border-b flex items-center gap-1.5 bg-blue-50/50">
-                                        <CheckCircle className="h-4 w-4 text-blue-600" />
-                                        <span className="font-bold text-sm sm:text-base text-blue-800">Đã trả</span>
-                                        <Badge variant="outline" className="px-1 py-0 h-4 text-[10px] font-normal border-blue-200 bg-blue-100">{paidRecords.length}</Badge>
-                                    </div>
-                                    <CardContent className="p-0">
-                                        <Accordion
-                                            type="multiple"
-                                            className="w-full"
-                                            value={openAccordionItems}
-                                            onValueChange={setOpenAccordionItems}
-                                        >
-                                            {paidRecords.map(record => (
-                                                <SalaryRecordAccordionItem
-                                                    key={record.userId}
-                                                    record={record}
-                                                    monthId={salarySheet.id}
-                                                    currentUser={currentUser ? { userId: currentUser.uid, userName: currentUser.displayName } : null}
-                                                    currentUserRole={currentUser?.role}
-                                                    scheduleMap={salarySheet.scheduleMap}
-                                                    onRecordUpdated={handleRecordUpdated}
-                                                />
-                                            ))}
-                                        </Accordion>
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        ) : (
-                            <div className="text-center py-16 text-muted-foreground">
-                                <p>Không có dữ liệu bảng lương cho tháng này.</p>
-                                <p className="text-sm">Nhấn "Tính toán lại" để tạo mới.</p>
-                            </div>
-                        )}
+                            <Card className="border-l-4 border-blue-500 shadow-sm overflow-hidden">
+                                <div className="py-2 px-3 border-b flex items-center gap-1.5 bg-blue-50/50">
+                                    <CheckCircle className="h-4 w-4 text-blue-600" />
+                                    <span className="font-bold text-sm sm:text-base text-blue-800">Đã trả</span>
+                                    <Badge variant="outline" className="px-1 py-0 h-4 text-[10px] font-normal border-blue-200 bg-blue-100">{paidRecords.length}</Badge>
+                                </div>
+                                <CardContent className="p-0">
+                                    <Accordion
+                                        type="multiple"
+                                        className="w-full"
+                                        value={openAccordionItems}
+                                        onValueChange={setOpenAccordionItems}
+                                    >
+                                        {paidRecords.map(record => (
+                                            <SalaryRecordAccordionItem
+                                                key={record.userId}
+                                                record={record}
+                                                monthId={salarySheet.id}
+                                                currentUser={currentUser ? { userId: currentUser.uid, userName: currentUser.displayName } : null}
+                                                currentUserRole={currentUser?.role}
+                                                scheduleMap={salarySheet.scheduleMap}
+                                                onRecordUpdated={handleRecordUpdated}
+                                            />
+                                        ))}
+                                    </Accordion>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    ) : (
+                        <div className="text-center py-16 text-muted-foreground">
+                            <p>Không có dữ liệu bảng lương cho tháng này.</p>
+                            <p className="text-sm">Nhấn "Tính toán lại" để tạo mới.</p>
+                        </div>
+                    )}
                 </ScrollArea>
 
                 <DialogFooter>

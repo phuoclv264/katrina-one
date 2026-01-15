@@ -34,7 +34,7 @@ function EditUserDialog({ user, onSave, onOpenChange, open }: { user: ManagedUse
     const [photoURL, setPhotoURL] = useState(user.photoURL || null);
 
     useEffect(() => {
-        if(open) {
+        if (open) {
             setDisplayName(user.displayName);
             setRole(user.role);
             // This is a bit tricky. We need to create dummy ManagedUser objects for the multi-select.
@@ -62,7 +62,7 @@ function EditUserDialog({ user, onSave, onOpenChange, open }: { user: ManagedUse
 
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog open={open} onOpenChange={onOpenChange} dialogTag="edit-user-dialog" parentDialogTag="root">
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Chỉnh sửa thông tin người dùng</DialogTitle>
@@ -89,7 +89,7 @@ function EditUserDialog({ user, onSave, onOpenChange, open }: { user: ManagedUse
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="role" className="text-right">Vai trò chính</Label>
-                         <Combobox
+                        <Combobox
                             className="col-span-3"
                             value={role}
                             onChange={(value) => setRole(value as UserRole)}
@@ -105,7 +105,7 @@ function EditUserDialog({ user, onSave, onOpenChange, open }: { user: ManagedUse
                     </div>
                     <div className="grid grid-cols-4 items-start gap-4">
                         <Label htmlFor="secondary-roles" className="text-right pt-2">
-                        Vai trò phụ
+                            Vai trò phụ
                         </Label>
                         <Combobox
                             options={roleOptions
@@ -133,7 +133,7 @@ function EditUserDialog({ user, onSave, onOpenChange, open }: { user: ManagedUse
                             className="col-span-3"
                         />
                     </div>
-                     <div className="grid grid-cols-4 items-start gap-4">
+                    <div className="grid grid-cols-4 items-start gap-4">
                         <Label htmlFor="notes" className="text-right mt-2">Ghi chú</Label>
                         <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} className="col-span-3" placeholder="Thêm ghi chú về người dùng này..." />
                     </div>
@@ -156,8 +156,8 @@ export default function UsersPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
     const [filterText, setFilterText] = useState('');
-    
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
     const handleDataRefresh = useCallback(() => {
         setRefreshTrigger(prev => prev + 1);
     }, []);
@@ -193,21 +193,21 @@ export default function UsersPage() {
             }
         }
     }, [user, authLoading, router, refreshTrigger]);
- 
+
     useDataRefresher(handleDataRefresh);
 
     const handleEditClick = (userToEdit: ManagedUser) => {
         setEditingUser(userToEdit);
         setIsEditDialogOpen(true);
     };
-    
+
     const handleSaveChanges = async (data: Partial<ManagedUser>) => {
         if (!editingUser) return;
         setIsProcessing(true);
         try {
             await dataStore.updateUserData(editingUser.uid, data);
             toast.success("Đã cập nhật thông tin người dùng.");
-        } catch(error) {
+        } catch (error) {
             console.error("Failed to update user:", error);
             toast.error("Không thể cập nhật thông tin người dùng.");
         } finally {
@@ -216,7 +216,7 @@ export default function UsersPage() {
             setIsEditDialogOpen(false);
         }
     };
-    
+
     const handleDeleteUser = async (userToDelete: ManagedUser) => {
         if (userToDelete.uid === user?.uid) {
             toast.error("Bạn không thể xóa chính mình.");
@@ -226,7 +226,7 @@ export default function UsersPage() {
         try {
             await dataStore.deleteUser(userToDelete.uid);
             toast.success(`Đã xóa người dùng ${userToDelete.displayName}.`);
-        } catch(error) {
+        } catch (error) {
             console.error("Failed to delete user:", error);
             toast.error("Không thể xóa người dùng.");
         } finally {
@@ -235,23 +235,23 @@ export default function UsersPage() {
     };
 
     const handleRegistrationToggle = async (isEnabled: boolean) => {
-        setAppSettings(prev => ({...prev!, isRegistrationEnabled: isEnabled})); // Optimistic update
+        setAppSettings(prev => ({ ...prev!, isRegistrationEnabled: isEnabled })); // Optimistic update
         await dataStore.updateAppSettings({ isRegistrationEnabled: isEnabled });
         toast.success(`Đã ${isEnabled ? 'bật' : 'tắt'} tính năng đăng ký. Người dùng mới ${isEnabled ? 'có thể' : 'không thể'} tạo tài khoản.`);
     }
-    
+
     const filteredUsers = useMemo(() => {
         if (!filterText) {
             return users;
         }
         const normalizedFilter = normalizeSearchString(filterText);
-        return users.filter(u => 
+        return users.filter(u =>
             normalizeSearchString(u.displayName).includes(normalizedFilter) ||
             (u.email && normalizeSearchString(u.email).includes(normalizedFilter))
         );
     }, [users, filterText]);
 
-    if(isLoading || authLoading) {
+    if (isLoading || authLoading) {
         return <LoadingPage />;
     }
 
@@ -308,55 +308,55 @@ export default function UsersPage() {
                         <div className="space-y-4">
                             {filteredUsers.length > 0 ? (
                                 filteredUsers.map((u) => (
-                                <Card key={u.uid} className={isProcessing ? 'opacity-50 pointer-events-none' : ''}>
-                                    <CardHeader>
-                                        <CardTitle>{u.displayName}</CardTitle>
-                                        <CardDescription>{u.email}</CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="space-y-3">
-                                        <div>
-                                            <Label className="text-xs text-muted-foreground">Vai trò</Label>
-                                            <div className='flex flex-wrap gap-1 mt-1'>
-                                                <Badge>{u.role}</Badge>
-                                                {u.secondaryRoles?.map(role => <Badge key={role} variant="secondary">{role}</Badge>)}
-                                            </div>
-                                        </div>
-                                        {u.notes && (
+                                    <Card key={u.uid} className={isProcessing ? 'opacity-50 pointer-events-none' : ''}>
+                                        <CardHeader>
+                                            <CardTitle>{u.displayName}</CardTitle>
+                                            <CardDescription>{u.email}</CardDescription>
+                                        </CardHeader>
+                                        <CardContent className="space-y-3">
                                             <div>
-                                                <Label className="text-xs text-muted-foreground">Ghi chú</Label>
-                                                <p className="text-sm italic text-muted-foreground flex items-start gap-2 mt-1">
-                                                    <StickyNote className="h-4 w-4 mt-0.5 shrink-0" />
-                                                    <span>{u.notes}</span>
-                                                </p>
+                                                <Label className="text-xs text-muted-foreground">Vai trò</Label>
+                                                <div className='flex flex-wrap gap-1 mt-1'>
+                                                    <Badge>{u.role}</Badge>
+                                                    {u.secondaryRoles?.map(role => <Badge key={role} variant="secondary">{role}</Badge>)}
+                                                </div>
                                             </div>
-                                        )}
-                                    </CardContent>
-                                    <CardFooter className="flex justify-end gap-2">
-                                        <Button variant="outline" size="sm" onClick={() => handleEditClick(u)} disabled={isProcessing}>
-                                            <Edit className="mr-2 h-4 w-4" /> Sửa
-                                        </Button>
-                                        <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                                <Button variant="destructive" size="sm" disabled={u.uid === user?.uid || isProcessing}>
-                                                    <Trash2 className="mr-2 h-4 w-4" /> Xóa
-                                                </Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                    <AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle>
-                                                    <AlertDialogDescription>
-                                                        Hành động này sẽ xóa thông tin của người dùng <span className="font-bold">{u.displayName}</span> khỏi hệ thống. Người dùng này sẽ không thể đăng nhập được nữa. Hành động này không thể được hoàn tác.
-                                                    </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => handleDeleteUser(u)}>Xác nhận Xóa</AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
-                                    </CardFooter>
-                                </Card>
-                            ))
+                                            {u.notes && (
+                                                <div>
+                                                    <Label className="text-xs text-muted-foreground">Ghi chú</Label>
+                                                    <p className="text-sm italic text-muted-foreground flex items-start gap-2 mt-1">
+                                                        <StickyNote className="h-4 w-4 mt-0.5 shrink-0" />
+                                                        <span>{u.notes}</span>
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                        <CardFooter className="flex justify-end gap-2">
+                                            <Button variant="outline" size="sm" onClick={() => handleEditClick(u)} disabled={isProcessing}>
+                                                <Edit className="mr-2 h-4 w-4" /> Sửa
+                                            </Button>
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button variant="destructive" size="sm" disabled={u.uid === user?.uid || isProcessing}>
+                                                        <Trash2 className="mr-2 h-4 w-4" /> Xóa
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            Hành động này sẽ xóa thông tin của người dùng <span className="font-bold">{u.displayName}</span> khỏi hệ thống. Người dùng này sẽ không thể đăng nhập được nữa. Hành động này không thể được hoàn tác.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleDeleteUser(u)}>Xác nhận Xóa</AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        </CardFooter>
+                                    </Card>
+                                ))
                             ) : (
                                 <div className="text-center py-16 text-muted-foreground">
                                     <p>Không tìm thấy người dùng nào.</p>
@@ -424,12 +424,12 @@ export default function UsersPage() {
                             </Table>
                         </div>
                     )}
-                    {isProcessing && <div className="absolute inset-0 bg-white/70 dark:bg-black/70 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin"/></div>}
+                    {isProcessing && <div className="absolute inset-0 bg-white/70 dark:bg-black/70 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}
                 </CardContent>
             </Card>
-            
+
             {editingUser && (
-                <EditUserDialog 
+                <EditUserDialog
                     user={editingUser}
                     open={isEditDialogOpen}
                     onOpenChange={setIsEditDialogOpen}

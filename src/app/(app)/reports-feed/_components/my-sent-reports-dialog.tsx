@@ -24,7 +24,7 @@ export default function MySentReportsDialog({ isOpen, onClose, reports, userId, 
     }, [reports, userId]);
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
+        <Dialog open={isOpen} onOpenChange={onClose} dialogTag="my-sent-reports-dialog" parentDialogTag="root">
             <DialogContent className="max-w-2xl h-[90vh] flex flex-col p-0">
                 <DialogHeader className="p-6 pb-4 border-b">
                     <DialogTitle>Các bài tố cáo đã gửi</DialogTitle>
@@ -65,8 +65,8 @@ export default function MySentReportsDialog({ isOpen, onClose, reports, userId, 
                                                     <div className="flex flex-wrap gap-2">
                                                         <Badge variant={report.isAnonymous ? 'secondary' : 'outline'}>{report.isAnonymous ? 'Ẩn danh' : 'Công khai tên'}</Badge>
                                                         <Badge variant="outline" className="flex items-center gap-1">
-                                                          {report.visibility === 'private' ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                                                          {report.visibility === 'private' ? 'Riêng tư' : 'Công khai'}
+                                                            {report.visibility === 'private' ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                                            {report.visibility === 'private' ? 'Riêng tư' : 'Công khai'}
                                                         </Badge>
                                                     </div>
                                                 </div>

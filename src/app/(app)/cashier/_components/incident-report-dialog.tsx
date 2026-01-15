@@ -50,14 +50,14 @@ export default function IncidentReportDialog({
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
     const [selectedCategory, setSelectedCategory] = useState('');
     const [isCameraOpen, setIsCameraOpen] = useState(false);
-    
+
     // Photo state
     const [existingPhotos, setExistingPhotos] = useState<string[]>([]);
     const [localPhotos, setLocalPhotos] = useState<{ id: string, url: string }[]>([]);
     const [photosToDelete, setPhotosToDelete] = useState<string[]>([]);
 
     const { openLightbox } = useLightbox();
-    
+
     const reporterName = useMemo(() => {
         if (incidentToEdit) {
             return incidentToEdit.createdBy.userName;
@@ -65,9 +65,9 @@ export default function IncidentReportDialog({
         return reporter?.userName || '...'; // Fallback for new incidents
     }, [reporter, incidentToEdit]);
 
-    const categoryOptions = useMemo(() => 
-        (categories || []).map(c => ({ value: c.name, label: c.name })), 
-    [categories]);
+    const categoryOptions = useMemo(() =>
+        (categories || []).map(c => ({ value: c.name, label: c.name })),
+        [categories]);
 
     useEffect(() => {
         if (open) {
@@ -84,11 +84,11 @@ export default function IncidentReportDialog({
                 setExistingPhotos([]);
                 setPaymentMethod('cash');
             }
-             // Always reset local photo state
+            // Always reset local photo state
             setLocalPhotos([]);
             setPhotosToDelete([]);
         } else {
-             // Cleanup local photo object URLs when dialog is fully closed
+            // Cleanup local photo object URLs when dialog is fully closed
             localPhotos.forEach(p => URL.revokeObjectURL(p.url));
         }
     }, [open, incidentToEdit, reporter]);
@@ -126,41 +126,41 @@ export default function IncidentReportDialog({
             toast.error('Vui lòng chọn loại sự cố.');
             return;
         }
-        
+
         const totalPhotos = localPhotos.length + existingPhotos.length - photosToDelete.length;
         if (totalPhotos === 0) {
             toast.error('Vui lòng chụp ảnh bằng chứng cho sự cố.');
             return;
         }
 
-        const data = { 
-            content, 
-            cost, 
+        const data = {
+            content,
+            cost,
             paymentMethod: cost > 0 ? paymentMethod : undefined,
-            category: selectedCategory, 
+            category: selectedCategory,
             photos: existingPhotos,
             photoIds: localPhotos.map(p => p.id),
             photosToUpload: localPhotos.map(p => p.id),
             photosToDelete: photosToDelete,
         };
-        
+
         onSave(data, incidentToEdit?.id);
     };
-    
+
     const handleCapturePhotos = async (media: { id: string; type: 'photo' | 'video' }[]) => {
         setIsCameraOpen(false);
-        const newPhotoObjects: {id: string, url: string}[] = [];
+        const newPhotoObjects: { id: string, url: string }[] = [];
         // Filter for photos only
         const photos = media.filter(m => m.type === 'photo');
         for (const { id: photoId } of photos) {
             const photoBlob = await photoStore.getPhoto(photoId);
-            if(photoBlob) {
+            if (photoBlob) {
                 newPhotoObjects.push({ id: photoId, url: URL.createObjectURL(photoBlob) });
             }
         }
         setLocalPhotos(prev => [...prev, ...newPhotoObjects]);
     };
-    
+
     const handleDeleteExistingPhoto = (url: string) => {
         setExistingPhotos(prev => prev.filter(p => p !== url));
         setPhotosToDelete(prev => [...prev, url]);
@@ -176,7 +176,7 @@ export default function IncidentReportDialog({
         });
         await photoStore.deletePhoto(id);
     };
-    
+
     const allPhotos = useMemo(() => {
         return [
             ...existingPhotos.map(url => ({ id: url, url })),
@@ -188,7 +188,7 @@ export default function IncidentReportDialog({
 
     return (
         <>
-            <Dialog open={open} onOpenChange={(open) => !open && onOpenChange(false)}>
+            <Dialog open={open} onOpenChange={(open) => !open && onOpenChange(false)} dialogTag="incident-report-dialog" parentDialogTag="root">
                 <DialogContent className="sm:max-w-md bg-card flex flex-col h-[90vh] p-0">
                     <DialogHeader className="shrink-0 p-6 pb-4 border-b bg-muted/30">
                         <DialogTitle>{dialogTitle}</DialogTitle>
@@ -206,39 +206,39 @@ export default function IncidentReportDialog({
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="category" className="text-right">
-                                Loại sự cố
+                                    Loại sự cố
                                 </Label>
                                 <div className="col-span-3">
-                                <Combobox
-                                    options={categoryOptions}
-                                    value={selectedCategory}
-                                    onChange={setSelectedCategory}
-                                    onCreate={canManageCategories ? handleCreateCategory : undefined}
-                                    onDelete={canManageCategories ? handleDeleteCategory : undefined}
-                                    confirmDelete
-                                    deleteMessage="Bạn có chắc chắn muốn xóa loại sự cố này không?"
-                                    placeholder="Chọn loại sự cố..."
-                                    searchPlaceholder="Tìm loại sự cố..."
-                                    emptyText="Không tìm thấy loại sự cố."
-                                />
+                                    <Combobox
+                                        options={categoryOptions}
+                                        value={selectedCategory}
+                                        onChange={setSelectedCategory}
+                                        onCreate={canManageCategories ? handleCreateCategory : undefined}
+                                        onDelete={canManageCategories ? handleDeleteCategory : undefined}
+                                        confirmDelete
+                                        deleteMessage="Bạn có chắc chắn muốn xóa loại sự cố này không?"
+                                        placeholder="Chọn loại sự cố..."
+                                        searchPlaceholder="Tìm loại sự cố..."
+                                        emptyText="Không tìm thấy loại sự cố."
+                                    />
                                 </div>
                             </div>
                             <div className="grid grid-cols-4 items-start gap-4">
                                 <Label htmlFor="content" className="text-right mt-2">
-                                Nội dung
+                                    Nội dung
                                 </Label>
                                 <Textarea id="content" value={content} onChange={(e) => setContent(e.target.value)} className="col-span-3" placeholder="VD: Làm vỡ ly thuỷ tinh" />
                             </div>
                             <div className="grid grid-cols-4 items-start gap-4">
                                 <Label htmlFor="cost" className="text-right mt-2">Chi phí (nếu có)</Label>
                                 <div className="col-span-3">
-                                    <Input 
-                                    id="cost" 
-                                    type="number" 
-                                    value={cost} 
-                                    onChange={e => setCost(Number(e.target.value))} 
-                                    placeholder="0"
-                                    onFocus={(e) => e.target.select()}
+                                    <Input
+                                        id="cost"
+                                        type="number"
+                                        value={cost}
+                                        onChange={e => setCost(Number(e.target.value))}
+                                        placeholder="0"
+                                        onFocus={(e) => e.target.select()}
                                     />
                                     <p className="text-xs text-muted-foreground mt-1">
                                         Nếu có chi phí, một phiếu chi tương ứng sẽ được tạo tự động.
@@ -270,7 +270,7 @@ export default function IncidentReportDialog({
                                 <Label className="text-right mt-2">Bằng chứng (bắt buộc)</Label>
                                 <div className="col-span-3 space-y-2">
                                     <Button variant="outline" onClick={() => setIsCameraOpen(true)}>
-                                        <Camera className="mr-2 h-4 w-4"/> Chụp ảnh
+                                        <Camera className="mr-2 h-4 w-4" /> Chụp ảnh
                                     </Button>
                                     {allPhotos.length > 0 && (
                                         <div className="flex flex-wrap gap-2">
@@ -279,10 +279,10 @@ export default function IncidentReportDialog({
                                                     <button onClick={() => openLightbox(allPhotos.map(p => ({ src: p.url })), i)} className="w-full h-full">
                                                         <Image src={photo.url} alt={`Bằng chứng ${i + 1}`} fill className="object-cover" />
                                                     </button>
-                                                    <Button 
-                                                        variant="destructive" 
-                                                        size="icon" 
-                                                        className="absolute top-0.5 right-0.5 h-5 w-5" 
+                                                    <Button
+                                                        variant="destructive"
+                                                        size="icon"
+                                                        className="absolute top-0.5 right-0.5 h-5 w-5"
                                                         onClick={() => {
                                                             const isLocal = localPhotos.some(p => p.id === photo.id);
                                                             if (isLocal) {
@@ -305,7 +305,7 @@ export default function IncidentReportDialog({
                     <DialogFooter className="shrink-0 p-6 pt-4 border-t bg-muted/30">
                         <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
                         <Button onClick={handleSave} disabled={isProcessing}>
-                            {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                            {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Lưu Báo cáo
                         </Button>
                     </DialogFooter>
@@ -316,6 +316,7 @@ export default function IncidentReportDialog({
                 onClose={() => setIsCameraOpen(false)}
                 onSubmit={handleCapturePhotos}
                 captureMode="photo"
+                parentDialogTag="incident-report-dialog"
             />
         </>
     );

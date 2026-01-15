@@ -8,10 +8,17 @@ import { X } from "lucide-react"
 import { cn } from "@/lib/utils";
 import { useDialogBackHandler } from "@/contexts/dialog-context";
 
-const Dialog = (props: DialogPrimitive.DialogProps) => {
-  const { open, onOpenChange } = props;
-  useDialogBackHandler(open ?? false, onOpenChange ?? (() => { }));
-  return <DialogPrimitive.Root {...props} />;
+type OurDialogProps = DialogPrimitive.DialogProps & {
+  // Tag to identify this dialog (required). Use a unique string per logical dialog type.
+  dialogTag: string;
+  // Tag of the parent dialog that opened this dialog (required). For top-level dialogs, use 'root' or similar.
+  parentDialogTag: string;
+};
+
+const Dialog = (props: OurDialogProps) => {
+  const { open, onOpenChange, dialogTag, parentDialogTag, ...rest } = props;
+  useDialogBackHandler(open ?? false, onOpenChange ?? (() => { }), { tag: dialogTag, parentTag: parentDialogTag });
+  return <DialogPrimitive.Root open={open} onOpenChange={onOpenChange} {...(rest as DialogPrimitive.DialogProps)} />;
 };
 
 const DialogTrigger = DialogPrimitive.Trigger
@@ -72,9 +79,9 @@ const DialogContent = React.forwardRef<
           closeClassName
         )}>
           {closeElement ? closeElement : (<>
-              <X className="h-4 w-4" />
-              <span className="sr-only">Close</span>
-            </>)}
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </>)}
         </DialogPrimitive.Close>
       )}
     </DialogPrimitive.Content>

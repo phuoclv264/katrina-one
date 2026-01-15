@@ -126,7 +126,7 @@ export function CashierDataDialog({
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+        <Dialog open={isOpen} onOpenChange={onOpenChange} dialogTag="cashier-data-dialog" parentDialogTag="root">
             <DialogContent
                 className="max-w-4xl h-[85vh] flex flex-col p-0 gap-0 bg-gray-50 dark:bg-gray-900 rounded-lg overflow-hidden">
                 <DialogClose asChild>
@@ -219,110 +219,110 @@ export function CashierDataDialog({
                                         const diffClass = diff === null ? 'text-muted-foreground' : diff > 0 ? 'text-green-700 dark:text-green-400' : diff < 0 ? 'text-red-700 dark:text-red-400' : 'text-muted-foreground';
 
                                         return (
-                                        <React.Fragment key={stat.id}>
-                                            {isNewDay && (
-                                                <div className="flex items-center gap-2 py-2 pt-4 first:pt-0">
-                                                    <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
-                                                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest whitespace-nowrap">
-                                                        {formatDay(stat.date)}
-                                                    </span>
-                                                    <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
-                                                </div>
-                                            )}
-                                            <Card className="overflow-hidden border-l-4 border-l-green-500">
-                                                <CardHeader className="p-3 bg-green-50/50 dark:bg-green-900/10 flex flex-row items-center justify-between space-y-0">
-                                                    <div className="flex items-center gap-2">
-                                                        <Badge variant="outline" className="bg-white dark:bg-gray-800">{formatDay(stat.date)}</Badge>
-                                                        <span className="text-sm text-muted-foreground">
-                                                            <span className="sm:hidden">{generateShortName(createdByName) || createdByName}</span>
-                                                            <span className="hidden sm:inline">{createdByName}</span>
-                                                            {updatedAt ? ` • ${updatedAt}` : ''}
+                                            <React.Fragment key={stat.id}>
+                                                {isNewDay && (
+                                                    <div className="flex items-center gap-2 py-2 pt-4 first:pt-0">
+                                                        <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
+                                                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest whitespace-nowrap">
+                                                            {formatDay(stat.date)}
                                                         </span>
+                                                        <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
                                                     </div>
-                                                    <div className="text-right">
-                                                        <div className="font-bold text-green-700 dark:text-green-400 text-lg">
-                                                            {formatCurrency(stat.netRevenue)}
+                                                )}
+                                                <Card className="overflow-hidden border-l-4 border-l-green-500">
+                                                    <CardHeader className="p-3 bg-green-50/50 dark:bg-green-900/10 flex flex-row items-center justify-between space-y-0">
+                                                        <div className="flex items-center gap-2">
+                                                            <Badge variant="outline" className="bg-white dark:bg-gray-800">{formatDay(stat.date)}</Badge>
+                                                            <span className="text-sm text-muted-foreground">
+                                                                <span className="sm:hidden">{generateShortName(createdByName) || createdByName}</span>
+                                                                <span className="hidden sm:inline">{createdByName}</span>
+                                                                {updatedAt ? ` • ${updatedAt}` : ''}
+                                                            </span>
                                                         </div>
-                                                        {delta !== null && (
-                                                            <div className={`text-xs ${deltaClass}`}>
-                                                                {delta >= 0 ? '+' : '-'}{formatCurrency(Math.abs(delta))}
+                                                        <div className="text-right">
+                                                            <div className="font-bold text-green-700 dark:text-green-400 text-lg">
+                                                                {formatCurrency(stat.netRevenue)}
                                                             </div>
-                                                        )}
-                                                        {stat.invoiceImageUrl && (
-                                                            <Button
-                                                                type="button"
-                                                                variant="secondary"
-                                                                size="sm"
-                                                                className="mt-1.5 h-7 px-2.5 rounded-full bg-green-100/80 hover:bg-green-200 dark:bg-green-900/40 dark:hover:bg-green-900/60 text-green-800 dark:text-green-300 border-none flex items-center gap-1.5 transition-colors"
-                                                                onClick={() => openLightbox([{ src: stat.invoiceImageUrl! }], 0)}
-                                                            >
-                                                                <Eye className="h-3.5 w-3.5" />
-                                                                <span className="text-[10px] font-bold uppercase tracking-wider">Xem ảnh</span>
-                                                            </Button>
-                                                        )}
-                                                    </div>
-                                                </CardHeader>
-                                                <CardContent className="p-3 grid grid-cols-2 sm:grid-cols-6 gap-4 text-sm">
-                                                    <div>
-                                                        <p className="text-muted-foreground text-xs">Tiền mặt</p>
-                                                        <p className="font-medium">{formatCurrency(stat.revenueByPaymentMethod?.cash || 0)}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-muted-foreground text-xs">Chuyển khoản</p>
-                                                        <p className="font-medium">{formatCurrency(stat.revenueByPaymentMethod?.bankTransfer || 0)}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-muted-foreground text-xs">GrabFood</p>
-                                                        <p className="font-medium">{formatCurrency(stat.revenueByPaymentMethod?.grabFood || 0)}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-muted-foreground text-xs">ShopeeFood</p>
-                                                        <p className="font-medium">{formatCurrency(stat.revenueByPaymentMethod?.shopeeFood || 0)}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-muted-foreground text-xs">TCB VietQR</p>
-                                                        <p className="font-medium">{formatCurrency(stat.revenueByPaymentMethod?.techcombankVietQrPro || 0)}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-muted-foreground text-xs">Tiền mặt thực tế</p>
-                                                        <div className="text-sm">
-                                                            {associatedHandover ? (
-                                                                <>
-                                                                    <div className="font-medium">{formatCurrency(associatedHandover.actualCashCounted)}</div>
-                                                                    {diff !== null && (
-                                                                        <div>
-                                                                            <div className="text-xs mt-0.5 text-muted-foreground">
-                                                                                Chênh lệch: <span className={diffClass}>
-                                                                                    {formatCurrency(diff!)}
-                                                                                </span>
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-                                                                    {associatedHandover.discrepancyReason && (
-                                                                        <div className="text-xs mt-0.5 text-muted-foreground">Lý do: {associatedHandover.discrepancyReason}</div>
-                                                                    )}
-                                                                    {associatedHandover.discrepancyProofPhotos && associatedHandover.discrepancyProofPhotos.length > 0 && (
-                                                                        <div className="mt-1">
-                                                                            <Button
-                                                                                type="button"
-                                                                                variant="secondary"
-                                                                                size="sm"
-                                                                                className="h-6 px-2 rounded-full bg-gray-100/80 hover:bg-gray-200 dark:bg-gray-900/40 dark:hover:bg-gray-900/60 text-gray-800 dark:text-gray-300 border-none flex items-center gap-1 transition-colors"
-                                                                                onClick={() => openLightbox(associatedHandover.discrepancyProofPhotos!.map(p => ({ src: p })), 0)}
-                                                                            >
-                                                                                <Eye className="h-3 w-3" />
-                                                                                <span className="text-[10px] font-bold uppercase tracking-wider">Xem chứng từ</span>
-                                                                            </Button>
-                                                                        </div>
-                                                                    )}
-                                                                </>
-                                                            ) : (
-                                                                <div className="text-muted-foreground">Chưa có</div>
+                                                            {delta !== null && (
+                                                                <div className={`text-xs ${deltaClass}`}>
+                                                                    {delta >= 0 ? '+' : '-'}{formatCurrency(Math.abs(delta))}
+                                                                </div>
+                                                            )}
+                                                            {stat.invoiceImageUrl && (
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="secondary"
+                                                                    size="sm"
+                                                                    className="mt-1.5 h-7 px-2.5 rounded-full bg-green-100/80 hover:bg-green-200 dark:bg-green-900/40 dark:hover:bg-green-900/60 text-green-800 dark:text-green-300 border-none flex items-center gap-1.5 transition-colors"
+                                                                    onClick={() => openLightbox([{ src: stat.invoiceImageUrl! }], 0)}
+                                                                >
+                                                                    <Eye className="h-3.5 w-3.5" />
+                                                                    <span className="text-[10px] font-bold uppercase tracking-wider">Xem ảnh</span>
+                                                                </Button>
                                                             )}
                                                         </div>
-                                                    </div>                                                </CardContent>
-                                            </Card>
-                                        </React.Fragment>
+                                                    </CardHeader>
+                                                    <CardContent className="p-3 grid grid-cols-2 sm:grid-cols-6 gap-4 text-sm">
+                                                        <div>
+                                                            <p className="text-muted-foreground text-xs">Tiền mặt</p>
+                                                            <p className="font-medium">{formatCurrency(stat.revenueByPaymentMethod?.cash || 0)}</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-muted-foreground text-xs">Chuyển khoản</p>
+                                                            <p className="font-medium">{formatCurrency(stat.revenueByPaymentMethod?.bankTransfer || 0)}</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-muted-foreground text-xs">GrabFood</p>
+                                                            <p className="font-medium">{formatCurrency(stat.revenueByPaymentMethod?.grabFood || 0)}</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-muted-foreground text-xs">ShopeeFood</p>
+                                                            <p className="font-medium">{formatCurrency(stat.revenueByPaymentMethod?.shopeeFood || 0)}</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-muted-foreground text-xs">TCB VietQR</p>
+                                                            <p className="font-medium">{formatCurrency(stat.revenueByPaymentMethod?.techcombankVietQrPro || 0)}</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-muted-foreground text-xs">Tiền mặt thực tế</p>
+                                                            <div className="text-sm">
+                                                                {associatedHandover ? (
+                                                                    <>
+                                                                        <div className="font-medium">{formatCurrency(associatedHandover.actualCashCounted)}</div>
+                                                                        {diff !== null && (
+                                                                            <div>
+                                                                                <div className="text-xs mt-0.5 text-muted-foreground">
+                                                                                    Chênh lệch: <span className={diffClass}>
+                                                                                        {formatCurrency(diff!)}
+                                                                                    </span>
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                        {associatedHandover.discrepancyReason && (
+                                                                            <div className="text-xs mt-0.5 text-muted-foreground">Lý do: {associatedHandover.discrepancyReason}</div>
+                                                                        )}
+                                                                        {associatedHandover.discrepancyProofPhotos && associatedHandover.discrepancyProofPhotos.length > 0 && (
+                                                                            <div className="mt-1">
+                                                                                <Button
+                                                                                    type="button"
+                                                                                    variant="secondary"
+                                                                                    size="sm"
+                                                                                    className="h-6 px-2 rounded-full bg-gray-100/80 hover:bg-gray-200 dark:bg-gray-900/40 dark:hover:bg-gray-900/60 text-gray-800 dark:text-gray-300 border-none flex items-center gap-1 transition-colors"
+                                                                                    onClick={() => openLightbox(associatedHandover.discrepancyProofPhotos!.map(p => ({ src: p })), 0)}
+                                                                                >
+                                                                                    <Eye className="h-3 w-3" />
+                                                                                    <span className="text-[10px] font-bold uppercase tracking-wider">Xem chứng từ</span>
+                                                                                </Button>
+                                                                            </div>
+                                                                        )}
+                                                                    </>
+                                                                ) : (
+                                                                    <div className="text-muted-foreground">Chưa có</div>
+                                                                )}
+                                                            </div>
+                                                        </div>                                                </CardContent>
+                                                </Card>
+                                            </React.Fragment>
                                         );
                                     })
                                 )}
@@ -337,92 +337,92 @@ export function CashierDataDialog({
                                         const isNewDay = !prevSlip || prevSlip.date !== slip.date;
 
                                         return (
-                                        <React.Fragment key={slip.id}>
-                                            {isNewDay && (
-                                                <div className="flex items-center gap-2 py-2 pt-4 first:pt-0">
-                                                    <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
-                                                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest whitespace-nowrap">
-                                                        {formatDay(slip.date)}
-                                                    </span>
-                                                    <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
-                                                </div>
-                                            )}
-                                            <Card className="overflow-hidden border-l-4 border-l-orange-500">
-                                                <CardHeader className="p-3 bg-orange-50/50 dark:bg-orange-900/10 flex flex-row items-center justify-between space-y-0">
-                                                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                                                        <span className="font-semibold text-sm">
-                                                            {slip.items
-                                                                .map((i) => {
-                                                                    const invShortName = getInventoryShortNameById(i.itemId);
-                                                                    const label = invShortName ?? getShortItemName(i.name);
-                                                                    return `${label} × ${formatQty(i.quantity)}`;
-                                                                })
-                                                                .join(' • ')}
+                                            <React.Fragment key={slip.id}>
+                                                {isNewDay && (
+                                                    <div className="flex items-center gap-2 py-2 pt-4 first:pt-0">
+                                                        <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
+                                                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest whitespace-nowrap">
+                                                            {formatDay(slip.date)}
                                                         </span>
-                                                        <Badge variant="outline" className="w-fit text-[10px]">{formatDay(slip.date)}</Badge>
-                                                        {formatTime(slip.createdAt) && (
-                                                            <span className="text-[10px] text-muted-foreground">• {formatTime(slip.createdAt)}</span>
-                                                        )}
+                                                        <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
                                                     </div>
-                                                    <div className="text-right">
-                                                        <div className="font-bold text-orange-700 dark:text-orange-400">
-                                                            {formatCurrency(slip.actualPaidAmount ?? slip.totalAmount)}
-                                                        </div>
-                                                        {!!slip.attachmentPhotos?.length && (
-                                                            <Button
-                                                                type="button"
-                                                                variant="secondary"
-                                                                size="sm"
-                                                                className="mt-1.5 h-7 px-2.5 rounded-full bg-orange-100/80 hover:bg-orange-200 dark:bg-orange-900/40 dark:hover:bg-orange-900/60 text-orange-800 dark:text-orange-300 border-none flex items-center gap-1.5 transition-colors"
-                                                                onClick={() => openLightbox(slip.attachmentPhotos!.map((p) => ({ src: p })), 0)}
-                                                            >
-                                                                <Eye className="h-3.5 w-3.5" />
-                                                                <span className="text-[10px] font-bold uppercase tracking-wider">{slip.attachmentPhotos.length} ảnh</span>
-                                                            </Button>
-                                                        )}
-                                                    </div>
-                                                </CardHeader>
-                                                <CardContent className="p-3 text-sm space-y-2">
-                                                    <div className="flex justify-between">
-                                                        <span className="text-muted-foreground">Người chi:</span>
-                                                        <span>
-                                                            <span className="sm:hidden">{generateShortName(slip.createdBy?.userName || '') || slip.createdBy?.userName}</span>
-                                                            <span className="hidden sm:inline">{slip.createdBy?.userName}</span>
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span className="text-muted-foreground">Hình thức:</span>
-                                                        <span className="capitalize">{slip.paymentMethod === 'cash' ? 'Tiền mặt' : slip.paymentMethod === 'bank_transfer' ? 'Chuyển khoản' : slip.paymentMethod}</span>
-                                                    </div>
-                                                    {slip.expenseType === 'other_cost' && slip.items.some((i) => {
-                                                        const cat = (i.name || '').trim().toLowerCase();
-                                                        return (cat === 'khác' || cat === 'khac') && !!i.description?.trim();
-                                                    }) && (
-                                                        <div className="rounded-md bg-muted/50 p-2 text-xs">
-                                                            <div className="font-semibold text-muted-foreground">Chi tiết (Khác)</div>
-                                                            <div className="mt-0.5 space-y-1">
+                                                )}
+                                                <Card className="overflow-hidden border-l-4 border-l-orange-500">
+                                                    <CardHeader className="p-3 bg-orange-50/50 dark:bg-orange-900/10 flex flex-row items-center justify-between space-y-0">
+                                                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                                                            <span className="font-semibold text-sm">
                                                                 {slip.items
-                                                                    .filter((i) => {
-                                                                        const cat = (i.name || '').trim().toLowerCase();
-                                                                        return (cat === 'khác' || cat === 'khac') && !!i.description?.trim();
+                                                                    .map((i) => {
+                                                                        const invShortName = getInventoryShortNameById(i.itemId);
+                                                                        const label = invShortName ?? getShortItemName(i.name);
+                                                                        return `${label} × ${formatQty(i.quantity)}`;
                                                                     })
-                                                                    .map((i, idx) => (
-                                                                        <div key={`${i.itemId}-${idx}`} className="whitespace-pre-wrap">
-                                                                            {i.description}
-                                                                        </div>
-                                                                    ))}
+                                                                    .join(' • ')}
+                                                            </span>
+                                                            <Badge variant="outline" className="w-fit text-[10px]">{formatDay(slip.date)}</Badge>
+                                                            {formatTime(slip.createdAt) && (
+                                                                <span className="text-[10px] text-muted-foreground">• {formatTime(slip.createdAt)}</span>
+                                                            )}
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <div className="font-bold text-orange-700 dark:text-orange-400">
+                                                                {formatCurrency(slip.actualPaidAmount ?? slip.totalAmount)}
                                                             </div>
+                                                            {!!slip.attachmentPhotos?.length && (
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="secondary"
+                                                                    size="sm"
+                                                                    className="mt-1.5 h-7 px-2.5 rounded-full bg-orange-100/80 hover:bg-orange-200 dark:bg-orange-900/40 dark:hover:bg-orange-900/60 text-orange-800 dark:text-orange-300 border-none flex items-center gap-1.5 transition-colors"
+                                                                    onClick={() => openLightbox(slip.attachmentPhotos!.map((p) => ({ src: p })), 0)}
+                                                                >
+                                                                    <Eye className="h-3.5 w-3.5" />
+                                                                    <span className="text-[10px] font-bold uppercase tracking-wider">{slip.attachmentPhotos.length} ảnh</span>
+                                                                </Button>
+                                                            )}
                                                         </div>
-                                                    )}
-                                                    {slip.notes && (
-                                                        <div className="rounded-md bg-muted/50 p-2 text-xs">
-                                                            <div className="font-semibold text-muted-foreground">Ghi chú</div>
-                                                            <div className="mt-0.5 whitespace-pre-wrap">{slip.notes}</div>
+                                                    </CardHeader>
+                                                    <CardContent className="p-3 text-sm space-y-2">
+                                                        <div className="flex justify-between">
+                                                            <span className="text-muted-foreground">Người chi:</span>
+                                                            <span>
+                                                                <span className="sm:hidden">{generateShortName(slip.createdBy?.userName || '') || slip.createdBy?.userName}</span>
+                                                                <span className="hidden sm:inline">{slip.createdBy?.userName}</span>
+                                                            </span>
                                                         </div>
-                                                    )}
-                                                </CardContent>
-                                            </Card>
-                                        </React.Fragment>
+                                                        <div className="flex justify-between">
+                                                            <span className="text-muted-foreground">Hình thức:</span>
+                                                            <span className="capitalize">{slip.paymentMethod === 'cash' ? 'Tiền mặt' : slip.paymentMethod === 'bank_transfer' ? 'Chuyển khoản' : slip.paymentMethod}</span>
+                                                        </div>
+                                                        {slip.expenseType === 'other_cost' && slip.items.some((i) => {
+                                                            const cat = (i.name || '').trim().toLowerCase();
+                                                            return (cat === 'khác' || cat === 'khac') && !!i.description?.trim();
+                                                        }) && (
+                                                                <div className="rounded-md bg-muted/50 p-2 text-xs">
+                                                                    <div className="font-semibold text-muted-foreground">Chi tiết (Khác)</div>
+                                                                    <div className="mt-0.5 space-y-1">
+                                                                        {slip.items
+                                                                            .filter((i) => {
+                                                                                const cat = (i.name || '').trim().toLowerCase();
+                                                                                return (cat === 'khác' || cat === 'khac') && !!i.description?.trim();
+                                                                            })
+                                                                            .map((i, idx) => (
+                                                                                <div key={`${i.itemId}-${idx}`} className="whitespace-pre-wrap">
+                                                                                    {i.description}
+                                                                                </div>
+                                                                            ))}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        {slip.notes && (
+                                                            <div className="rounded-md bg-muted/50 p-2 text-xs">
+                                                                <div className="font-semibold text-muted-foreground">Ghi chú</div>
+                                                                <div className="mt-0.5 whitespace-pre-wrap">{slip.notes}</div>
+                                                            </div>
+                                                        )}
+                                                    </CardContent>
+                                                </Card>
+                                            </React.Fragment>
                                         );
                                     })
                                 )}
@@ -437,59 +437,59 @@ export function CashierDataDialog({
                                         const isNewDay = !prevIncident || prevIncident.date !== incident.date;
 
                                         return (
-                                        <React.Fragment key={incident.id}>
-                                            {isNewDay && (
-                                                <div className="flex items-center gap-2 py-2 pt-4 first:pt-0">
-                                                    <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
-                                                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest whitespace-nowrap">
-                                                        {formatDay(incident.date)}
-                                                    </span>
-                                                    <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
-                                                </div>
-                                            )}
-                                            <Card className="overflow-hidden border-l-4 border-l-red-500">
-                                                <CardHeader className="p-3 bg-red-50/50 dark:bg-red-900/10 flex flex-row items-center justify-between space-y-0">
-                                                    <div className="flex items-center gap-2">
-                                                        <Badge variant="secondary">
-                                                            {incident.category}
-                                                        </Badge>
-                                                        <span className="text-xs text-muted-foreground">{formatDay(incident.date)}</span>
-                                                        {formatTime(incident.createdAt) && (
-                                                            <span className="text-xs text-muted-foreground">• {formatTime(incident.createdAt)}</span>
-                                                        )}
-                                                    </div>
-                                                    <div className="text-right">
-                                                        {incident.cost > 0 && (
-                                                            <div className="font-bold text-red-700 dark:text-red-400">
-                                                                -{formatCurrency(incident.cost)}
-                                                            </div>
-                                                        )}
-                                                        {!!incident.photos?.length && (
-                                                            <Button
-                                                                type="button"
-                                                                variant="secondary"
-                                                                size="sm"
-                                                                className="mt-1.5 h-7 px-2.5 rounded-full bg-red-100/80 hover:bg-red-200 dark:bg-red-900/40 dark:hover:bg-red-900/60 text-red-800 dark:text-red-300 border-none flex items-center gap-1.5 transition-colors"
-                                                                onClick={() => openLightbox(incident.photos.map((p) => ({ src: p })), 0)}
-                                                            >
-                                                                <Eye className="h-3.5 w-3.5" />
-                                                                <span className="text-[10px] font-bold uppercase tracking-wider">{incident.photos.length} ảnh</span>
-                                                            </Button>
-                                                        )}
-                                                    </div>
-                                                </CardHeader>
-                                                <CardContent className="p-3 text-sm space-y-2">
-                                                    <p className="font-medium">{incident.content}</p>
-                                                    <div className="flex justify-between text-xs text-muted-foreground">
-                                                        <span>
-                                                            Người báo cáo:{' '}
-                                                            <span className="sm:hidden">{generateShortName(incident.createdBy?.userName || '') || incident.createdBy?.userName}</span>
-                                                            <span className="hidden sm:inline">{incident.createdBy?.userName}</span>
+                                            <React.Fragment key={incident.id}>
+                                                {isNewDay && (
+                                                    <div className="flex items-center gap-2 py-2 pt-4 first:pt-0">
+                                                        <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
+                                                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest whitespace-nowrap">
+                                                            {formatDay(incident.date)}
                                                         </span>
+                                                        <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
                                                     </div>
-                                                </CardContent>
-                                            </Card>
-                                        </React.Fragment>
+                                                )}
+                                                <Card className="overflow-hidden border-l-4 border-l-red-500">
+                                                    <CardHeader className="p-3 bg-red-50/50 dark:bg-red-900/10 flex flex-row items-center justify-between space-y-0">
+                                                        <div className="flex items-center gap-2">
+                                                            <Badge variant="secondary">
+                                                                {incident.category}
+                                                            </Badge>
+                                                            <span className="text-xs text-muted-foreground">{formatDay(incident.date)}</span>
+                                                            {formatTime(incident.createdAt) && (
+                                                                <span className="text-xs text-muted-foreground">• {formatTime(incident.createdAt)}</span>
+                                                            )}
+                                                        </div>
+                                                        <div className="text-right">
+                                                            {incident.cost > 0 && (
+                                                                <div className="font-bold text-red-700 dark:text-red-400">
+                                                                    -{formatCurrency(incident.cost)}
+                                                                </div>
+                                                            )}
+                                                            {!!incident.photos?.length && (
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="secondary"
+                                                                    size="sm"
+                                                                    className="mt-1.5 h-7 px-2.5 rounded-full bg-red-100/80 hover:bg-red-200 dark:bg-red-900/40 dark:hover:bg-red-900/60 text-red-800 dark:text-red-300 border-none flex items-center gap-1.5 transition-colors"
+                                                                    onClick={() => openLightbox(incident.photos.map((p) => ({ src: p })), 0)}
+                                                                >
+                                                                    <Eye className="h-3.5 w-3.5" />
+                                                                    <span className="text-[10px] font-bold uppercase tracking-wider">{incident.photos.length} ảnh</span>
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    </CardHeader>
+                                                    <CardContent className="p-3 text-sm space-y-2">
+                                                        <p className="font-medium">{incident.content}</p>
+                                                        <div className="flex justify-between text-xs text-muted-foreground">
+                                                            <span>
+                                                                Người báo cáo:{' '}
+                                                                <span className="sm:hidden">{generateShortName(incident.createdBy?.userName || '') || incident.createdBy?.userName}</span>
+                                                                <span className="hidden sm:inline">{incident.createdBy?.userName}</span>
+                                                            </span>
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
+                                            </React.Fragment>
                                         );
                                     })
                                 )}

@@ -2,24 +2,24 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
-  DialogTrigger,
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+    DialogClose,
+    DialogTrigger,
 } from '@/components/ui/dialog';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
 import { Button } from '@/components/ui/button';
@@ -55,10 +55,10 @@ function AddUnitSimple({
     const unitOptions = React.useMemo(() => globalUnits.map(u => ({ value: u.name, label: u.name })), [globalUnits]);
 
     const handleCreateUnit = (name: string) => {
-         const newUnit: GlobalUnit = { id: `unit-${Date.now()}`, name: name };
-         const newUnits = [...globalUnits, newUnit].sort((a, b) => a.name.localeCompare(b.name, 'vi'));
-         onGlobalUnitsChange(newUnits);
-         setNewUnitName(name);
+        const newUnit: GlobalUnit = { id: `unit-${Date.now()}`, name: name };
+        const newUnits = [...globalUnits, newUnit].sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+        onGlobalUnitsChange(newUnits);
+        setNewUnitName(name);
     }
 
     const handleDeleteUnitGlobal = (name: string) => {
@@ -76,7 +76,7 @@ function AddUnitSimple({
 
         const conversionRate = Number(baseUnitQty) / Number(newUnitQty);
         onAdd({ name: newUnitName, conversionRate, isBaseUnit: false });
-        
+
         // Reset form
         setNewUnitName('');
         setNewUnitQty(1);
@@ -86,10 +86,10 @@ function AddUnitSimple({
     return (
         <div className="space-y-2 pt-4 mt-4 border-t border-dashed">
             <p className="text-sm font-medium">Thêm quy đổi đơn vị mới</p>
-             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                 <div className="flex items-center gap-2 flex-1">
                     <Input type="number" placeholder="SL" value={newUnitQty} onChange={e => setNewUnitQty(Number(e.target.value))} className="h-9 w-16 sm:w-20" />
-                    <Combobox 
+                    <Combobox
                         options={unitOptions}
                         value={newUnitName}
                         onChange={setNewUnitName}
@@ -108,20 +108,20 @@ function AddUnitSimple({
                     <Input type="number" placeholder="SL" value={baseUnitQty} onChange={e => setBaseUnitQty(Number(e.target.value))} className="h-9 w-16 sm:w-20" />
                     <span className="font-semibold text-sm truncate max-w-[100px]" title={baseUnitName}>{baseUnitName}</span>
                 </div>
-             </div>
-             <Button size="sm" onClick={handleAdd} className="w-full h-9 mt-2 sm:mt-0">Thêm đơn vị</Button>
+            </div>
+            <Button size="sm" onClick={handleAdd} className="w-full h-9 mt-2 sm:mt-0">Thêm đơn vị</Button>
         </div>
     );
 }
 
 function UnitEditor({ units, onUnitsChange, globalUnits, onGlobalUnitsChange, canManageUnits }: { units: UnitDefinition[], onUnitsChange: (newUnits: UnitDefinition[]) => void, globalUnits: GlobalUnit[], onGlobalUnitsChange: (newUnits: GlobalUnit[]) => void, canManageUnits: boolean }) {
-    
+
     const unitOptions = React.useMemo(() => globalUnits.map(u => ({ value: u.name, label: u.name })), [globalUnits]);
 
     const handleCreateUnitGlobal = (name: string) => {
-         const newUnit: GlobalUnit = { id: `unit-${Date.now()}`, name: name };
-         const newUnits = [...globalUnits, newUnit].sort((a, b) => a.name.localeCompare(b.name, 'vi'));
-         onGlobalUnitsChange(newUnits);
+        const newUnit: GlobalUnit = { id: `unit-${Date.now()}`, name: name };
+        const newUnits = [...globalUnits, newUnit].sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+        onGlobalUnitsChange(newUnits);
     }
 
     const handleDeleteUnitGlobal = (name: string) => {
@@ -145,7 +145,7 @@ function UnitEditor({ units, onUnitsChange, globalUnits, onGlobalUnitsChange, ca
         if (field === 'isBaseUnit' && value === true) {
             const newBaseUnitName = unitToUpdate.name;
             const oldBaseUnit = newUnits.find(u => u.isBaseUnit);
-            
+
             if (oldBaseUnit && oldBaseUnit.name !== newBaseUnitName) {
                 const newBaseConversionRate = unitToUpdate.conversionRate;
 
@@ -155,12 +155,12 @@ function UnitEditor({ units, onUnitsChange, globalUnits, onGlobalUnitsChange, ca
                     isBaseUnit: u.name === newBaseUnitName,
                 }));
             } else {
-                 newUnits = newUnits.map(u => ({
+                newUnits = newUnits.map(u => ({
                     ...u,
                     isBaseUnit: u.name === newBaseUnitName,
                 }));
-                 const newBase = newUnits.find(u => u.isBaseUnit);
-                 if(newBase) newBase.conversionRate = 1;
+                const newBase = newUnits.find(u => u.isBaseUnit);
+                if (newBase) newBase.conversionRate = 1;
             }
         } else {
             (unitToUpdate as any)[field] = value;
@@ -169,9 +169,9 @@ function UnitEditor({ units, onUnitsChange, globalUnits, onGlobalUnitsChange, ca
 
         onUnitsChange(newUnits);
     }
-    
+
     const handleDeleteUnit = (index: number) => {
-        if(units.length <= 1){
+        if (units.length <= 1) {
             toast.error("Phải có ít nhất một đơn vị.");
             return;
         }
@@ -188,7 +188,7 @@ function UnitEditor({ units, onUnitsChange, globalUnits, onGlobalUnitsChange, ca
 
     return (
         <div className="space-y-3">
-             {units.map((unit, index) => {
+            {units.map((unit, index) => {
                 const isBase = unit.isBaseUnit;
                 let conversionDescription = `1 ${unit.name} = ${Number(unit.conversionRate.toFixed(4))} ${baseUnitName}`;
 
@@ -203,64 +203,64 @@ function UnitEditor({ units, onUnitsChange, globalUnits, onGlobalUnitsChange, ca
 
 
                 return (
-                <div key={index} className="flex flex-col sm:grid sm:grid-cols-12 gap-3 sm:gap-2 items-start sm:items-center p-3 sm:p-2 border rounded-md relative bg-card/50">
-                     {units.length === 1 ? (
-                        <>
-                            <div className="w-full sm:col-span-8">
-                                <Label htmlFor={`unit-name-${index}`} className="text-xs text-muted-foreground mb-1.5 block">Tên đơn vị</Label>
-                                 <Combobox 
-                                    options={unitOptions} 
-                                    value={unit.name}
-                                    onChange={(val) => handleUpdateUnit(index, 'name', val)}
-                                    onCreate={canManageUnits ? (val) => {
-                                        handleCreateUnitGlobal(val);
-                                        handleUpdateUnit(index, 'name', val);
-                                    } : undefined}
-                                    onDelete={canManageUnits ? handleDeleteUnitGlobal : undefined}
-                                    confirmDelete
-                                    deleteMessage="Bạn có chắc chắn muốn xóa đơn vị này không?"
-                                    placeholder="Chọn đơn vị..."
-                                    searchPlaceholder="Tìm đơn vị..."
-                                    emptyText="Không tìm thấy đơn vị."
-                                    className="w-full"
-                                />
-                            </div>
-                            <div className="flex items-center justify-between w-full sm:w-auto sm:col-span-2 sm:flex-col sm:justify-center sm:pt-4">
-                                <Label htmlFor={`unit-isBase-${index}`} className="text-sm sm:text-xs sm:mt-1 order-2 sm:order-2">Cơ sở</Label>
-                                <Switch id={`unit-isBase-${index}`} checked={unit.isBaseUnit} onCheckedChange={c => handleUpdateUnit(index, 'isBaseUnit', c)} className="order-1 sm:order-1"/>
-                            </div>
-                            <div className="absolute top-2 right-2 sm:static sm:col-span-2 sm:flex sm:items-center sm:justify-center sm:pt-5">
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive/90 hover:bg-destructive/10" onClick={() => handleDeleteUnit(index)}><Trash2 className="h-4 w-4" /></Button>
-                            </div>
-                        </>
-                     ) : (
-                        <>
-                            <div className="w-full sm:col-span-4">
-                                <Label htmlFor={`unit-name-${index}`} className="text-xs text-muted-foreground mb-1 block">Tên đơn vị</Label>
-                                <p className="font-semibold text-sm h-9 flex items-center px-1">{unit.name}</p>
-                            </div>
-                             <div className="w-full sm:col-span-5">
-                                <Label htmlFor={`unit-rate-${index}`} className="text-xs text-muted-foreground mb-1.5 block truncate" title={isBase ? 'Đơn vị cơ sở' : conversionDescription}>
-                                    {isBase ? 'Đơn vị cơ sở' : conversionDescription}
-                                </Label>
-                                {!isBase && (
-                                     <Input id={`unit-rate-${index}`} type="number" value={unit.conversionRate} onChange={e => handleUpdateUnit(index, 'conversionRate', Number(e.target.value))} className="w-full" />
-                                )}
-                            </div>
-                             <div className="flex items-center justify-between w-full sm:w-auto sm:col-span-2 sm:flex-col sm:justify-center sm:pt-4">
-                                <Label htmlFor={`unit-isBase-${index}`} className="text-sm sm:text-xs sm:mt-1 order-2 sm:order-2">Cơ sở</Label>
-                                <Switch id={`unit-isBase-${index}`} checked={unit.isBaseUnit} onCheckedChange={c => handleUpdateUnit(index, 'isBaseUnit', c)} className="order-1 sm:order-1"/>
-                            </div>
-                            <div className="absolute top-2 right-2 sm:static sm:col-span-1 sm:flex sm:items-center sm:justify-center sm:pt-5">
-                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive/90 hover:bg-destructive/10" onClick={() => handleDeleteUnit(index)}><Trash2 className="h-4 w-4" /></Button>
-                            </div>
-                        </>
-                     )}
-                </div>
+                    <div key={index} className="flex flex-col sm:grid sm:grid-cols-12 gap-3 sm:gap-2 items-start sm:items-center p-3 sm:p-2 border rounded-md relative bg-card/50">
+                        {units.length === 1 ? (
+                            <>
+                                <div className="w-full sm:col-span-8">
+                                    <Label htmlFor={`unit-name-${index}`} className="text-xs text-muted-foreground mb-1.5 block">Tên đơn vị</Label>
+                                    <Combobox
+                                        options={unitOptions}
+                                        value={unit.name}
+                                        onChange={(val) => handleUpdateUnit(index, 'name', val)}
+                                        onCreate={canManageUnits ? (val) => {
+                                            handleCreateUnitGlobal(val);
+                                            handleUpdateUnit(index, 'name', val);
+                                        } : undefined}
+                                        onDelete={canManageUnits ? handleDeleteUnitGlobal : undefined}
+                                        confirmDelete
+                                        deleteMessage="Bạn có chắc chắn muốn xóa đơn vị này không?"
+                                        placeholder="Chọn đơn vị..."
+                                        searchPlaceholder="Tìm đơn vị..."
+                                        emptyText="Không tìm thấy đơn vị."
+                                        className="w-full"
+                                    />
+                                </div>
+                                <div className="flex items-center justify-between w-full sm:w-auto sm:col-span-2 sm:flex-col sm:justify-center sm:pt-4">
+                                    <Label htmlFor={`unit-isBase-${index}`} className="text-sm sm:text-xs sm:mt-1 order-2 sm:order-2">Cơ sở</Label>
+                                    <Switch id={`unit-isBase-${index}`} checked={unit.isBaseUnit} onCheckedChange={c => handleUpdateUnit(index, 'isBaseUnit', c)} className="order-1 sm:order-1" />
+                                </div>
+                                <div className="absolute top-2 right-2 sm:static sm:col-span-2 sm:flex sm:items-center sm:justify-center sm:pt-5">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive/90 hover:bg-destructive/10" onClick={() => handleDeleteUnit(index)}><Trash2 className="h-4 w-4" /></Button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="w-full sm:col-span-4">
+                                    <Label htmlFor={`unit-name-${index}`} className="text-xs text-muted-foreground mb-1 block">Tên đơn vị</Label>
+                                    <p className="font-semibold text-sm h-9 flex items-center px-1">{unit.name}</p>
+                                </div>
+                                <div className="w-full sm:col-span-5">
+                                    <Label htmlFor={`unit-rate-${index}`} className="text-xs text-muted-foreground mb-1.5 block truncate" title={isBase ? 'Đơn vị cơ sở' : conversionDescription}>
+                                        {isBase ? 'Đơn vị cơ sở' : conversionDescription}
+                                    </Label>
+                                    {!isBase && (
+                                        <Input id={`unit-rate-${index}`} type="number" value={unit.conversionRate} onChange={e => handleUpdateUnit(index, 'conversionRate', Number(e.target.value))} className="w-full" />
+                                    )}
+                                </div>
+                                <div className="flex items-center justify-between w-full sm:w-auto sm:col-span-2 sm:flex-col sm:justify-center sm:pt-4">
+                                    <Label htmlFor={`unit-isBase-${index}`} className="text-sm sm:text-xs sm:mt-1 order-2 sm:order-2">Cơ sở</Label>
+                                    <Switch id={`unit-isBase-${index}`} checked={unit.isBaseUnit} onCheckedChange={c => handleUpdateUnit(index, 'isBaseUnit', c)} className="order-1 sm:order-1" />
+                                </div>
+                                <div className="absolute top-2 right-2 sm:static sm:col-span-1 sm:flex sm:items-center sm:justify-center sm:pt-5">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive/90 hover:bg-destructive/10" onClick={() => handleDeleteUnit(index)}><Trash2 className="h-4 w-4" /></Button>
+                                </div>
+                            </>
+                        )}
+                    </div>
                 )
             })}
-            <AddUnitSimple 
-                baseUnitName={baseUnitName} 
+            <AddUnitSimple
+                baseUnitName={baseUnitName}
                 onAdd={handleAddUnit}
                 globalUnits={globalUnits}
                 onGlobalUnitsChange={onGlobalUnitsChange}
@@ -294,7 +294,7 @@ export default function ItemEditPopover({
     const [item, setItem] = useState(initialItem);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [isConfirmCloseOpen, setIsConfirmCloseOpen] = useState(false);
-    
+
     // State for orderSuggestion UI
     const [orderSuggestionQty, setOrderSuggestionQty] = useState<number | string>('');
     const [orderSuggestionUnit, setOrderSuggestionUnit] = useState<string>('');
@@ -318,11 +318,11 @@ export default function ItemEditPopover({
 
         }
     }, [isOpen, initialItem]);
-    
+
     useEffect(() => {
-      setHasUnsavedChanges(!isEqual(item, initialItem));
+        setHasUnsavedChanges(!isEqual(item, initialItem));
     }, [item, initialItem]);
-    
+
     const handleFieldChange = (field: keyof InventoryItem, value: any) => {
         setItem(prev => {
             if (field === 'units') {
@@ -340,9 +340,9 @@ export default function ItemEditPopover({
         const unit = orderSuggestionUnit.trim();
         const combined = `${qty}${unit ? ` ${unit}` : ''}`;
         if (item.orderSuggestion !== combined) {
-             setItem(prev => ({...prev, orderSuggestion: combined}));
+            setItem(prev => ({ ...prev, orderSuggestion: combined }));
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [orderSuggestionQty, orderSuggestionUnit]);
 
 
@@ -360,23 +360,23 @@ export default function ItemEditPopover({
         if (hasUnsavedChanges) {
             onUpdate(item);
             if (item.supplier && !suppliers.includes(item.supplier)) {
-                 onSupplierChange(item.supplier);
+                onSupplierChange(item.supplier);
             }
-             toast.success(`Đã cập nhật mặt hàng "${item.name}".`);
+            toast.success(`Đã cập nhật mặt hàng "${item.name}".`);
         } else {
             toast.info('Không có thay đổi nào để lưu.');
         }
         setIsOpen(false);
     };
-    
+
     const handleCloseDialog = (open: boolean) => {
-      if (!open && hasUnsavedChanges) {
-        setIsConfirmCloseOpen(true);
-      } else {
-        setIsOpen(open);
-      }
+        if (!open && hasUnsavedChanges) {
+            setIsConfirmCloseOpen(true);
+        } else {
+            setIsOpen(open);
+        }
     };
-    
+
     const handleConfirmClose = () => {
         setIsConfirmCloseOpen(false);
         setIsOpen(false);
@@ -384,7 +384,7 @@ export default function ItemEditPopover({
 
 
     return (
-        <Dialog open={isOpen} onOpenChange={handleCloseDialog}>
+        <Dialog open={isOpen} onOpenChange={handleCloseDialog} dialogTag={`item-edit-dialog-${initialItem.id}`} parentDialogTag="root">
             <DialogTrigger asChild>{children}</DialogTrigger>
             <DialogContent className="w-full h-full max-w-none sm:max-w-2xl sm:h-auto sm:rounded-lg p-0 gap-0 bg-card flex flex-col">
                 <DialogHeader className="p-6 pb-2 flex-shrink-0">
@@ -393,23 +393,23 @@ export default function ItemEditPopover({
                         Kho &gt; {initialItem.category} &gt; {initialItem.name}
                     </DialogDescription>
                 </DialogHeader>
-                 <ScrollArea className="flex-1 px-6">
+                <ScrollArea className="flex-1 px-6">
                     <div className="space-y-6 py-4 px-1">
-                        
+
                         <div className="space-y-4">
-                            <h4 className="text-sm font-semibold flex items-center gap-2 text-primary"><Box className="h-4 w-4"/>Thông tin cơ bản</h4>
+                            <h4 className="text-sm font-semibold flex items-center gap-2 text-primary"><Box className="h-4 w-4" />Thông tin cơ bản</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <Label htmlFor={`name-${item.id}`} className="text-xs text-muted-foreground">Tên mặt hàng</Label>
-                                    <Input id={`name-${item.id}`} value={item.name} onChange={e => handleFieldChange('name', e.target.value)} className="rounded-lg"/>
+                                    <Input id={`name-${item.id}`} value={item.name} onChange={e => handleFieldChange('name', e.target.value)} className="rounded-lg" />
                                 </div>
                                 <div className="space-y-1">
                                     <Label htmlFor={`shortName-${item.id}`} className="text-xs text-muted-foreground">Tên viết tắt</Label>
-                                    <Input id={`shortName-${item.id}`} value={item.shortName} onChange={e => handleFieldChange('shortName', e.target.value)} className="rounded-lg"/>
+                                    <Input id={`shortName-${item.id}`} value={item.shortName} onChange={e => handleFieldChange('shortName', e.target.value)} className="rounded-lg" />
                                 </div>
-                                 <div className="space-y-1">
+                                <div className="space-y-1">
                                     <Label htmlFor={`category-${item.id}`} className="text-xs text-muted-foreground">Nhóm</Label>
-                                    <Input id={`category-${item.id}`} value={item.category} onChange={e => handleFieldChange('category', e.target.value.toUpperCase())} className="rounded-lg"/>
+                                    <Input id={`category-${item.id}`} value={item.category} onChange={e => handleFieldChange('category', e.target.value.toUpperCase())} className="rounded-lg" />
                                 </div>
                                 <div className="space-y-1">
                                     <Label htmlFor={`supplier-${item.id}`} className="text-xs text-muted-foreground">Nhà cung cấp</Label>
@@ -426,27 +426,27 @@ export default function ItemEditPopover({
                             </div>
                         </div>
 
-                        <Separator/>
+                        <Separator />
 
                         <div className="space-y-4">
-                             <h4 className="text-sm font-semibold flex items-center gap-2 text-primary"><SlidersHorizontal className="h-4 w-4"/>Đơn vị & Quy đổi</h4>
-                            <UnitEditor units={item.units} onUnitsChange={(newUnits) => handleFieldChange('units', newUnits)} globalUnits={globalUnits} onGlobalUnitsChange={onGlobalUnitsChange} canManageUnits={canManageUnits}/>
+                            <h4 className="text-sm font-semibold flex items-center gap-2 text-primary"><SlidersHorizontal className="h-4 w-4" />Đơn vị & Quy đổi</h4>
+                            <UnitEditor units={item.units} onUnitsChange={(newUnits) => handleFieldChange('units', newUnits)} globalUnits={globalUnits} onGlobalUnitsChange={onGlobalUnitsChange} canManageUnits={canManageUnits} />
                         </div>
-                        
-                         <Separator/>
 
-                         <div className="space-y-4">
-                             <h4 className="text-sm font-semibold flex items-center gap-2 text-primary"><Settings className="h-4 w-4"/>Quản lý tồn kho</h4>
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Separator />
+
+                        <div className="space-y-4">
+                            <h4 className="text-sm font-semibold flex items-center gap-2 text-primary"><Settings className="h-4 w-4" />Quản lý tồn kho</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <Label htmlFor={`minStock-${item.id}`} className="text-xs text-muted-foreground">Tồn kho tối thiểu ({item.baseUnit})</Label>
-                                    <Input id={`minStock-${item.id}`} type="number" value={item.minStock} onChange={e => handleFieldChange('minStock', Number(e.target.value) || 0)} className="rounded-lg"/>
+                                    <Input id={`minStock-${item.id}`} type="number" value={item.minStock} onChange={e => handleFieldChange('minStock', Number(e.target.value) || 0)} className="rounded-lg" />
                                 </div>
                                 <div className="space-y-1">
                                     <Label className="text-xs text-muted-foreground">Gợi ý đặt hàng</Label>
                                     <div className="flex items-center gap-2">
-                                        <Input 
-                                            type="number" 
+                                        <Input
+                                            type="number"
                                             value={orderSuggestionQty}
                                             onChange={e => setOrderSuggestionQty(e.target.value)}
                                             className="rounded-lg flex-1 sm:flex-0"
@@ -480,16 +480,16 @@ export default function ItemEditPopover({
                             {item.dataType === 'list' && (
                                 <div className="space-y-1">
                                     <Label htmlFor={`listOptions-${item.id}`} className="text-xs text-muted-foreground">Các lựa chọn (phân cách bởi dấu phẩy)</Label>
-                                    <Input id={`listOptions-${item.id}`} value={(item.listOptions || []).join(', ')} onChange={e => handleFieldChange('listOptions', e.target.value.split(',').map(s => s.trim()))} className="rounded-lg"/>
+                                    <Input id={`listOptions-${item.id}`} value={(item.listOptions || []).join(', ')} onChange={e => handleFieldChange('listOptions', e.target.value.split(',').map(s => s.trim()))} className="rounded-lg" />
                                 </div>
                             )}
                         </div>
-                        
-                        <Separator/>
-                        
+
+                        <Separator />
+
                         <div className="space-y-4">
-                            <h4 className="text-sm font-semibold flex items-center gap-2 text-primary"><ToggleRight className="h-4 w-4"/>Tùy chọn</h4>
-                             <div className="space-y-4">
+                            <h4 className="text-sm font-semibold flex items-center gap-2 text-primary"><ToggleRight className="h-4 w-4" />Tùy chọn</h4>
+                            <div className="space-y-4">
                                 <Label htmlFor={`isImportant-${item.id}`} className="flex items-center justify-between rounded-lg border p-3 shadow-sm cursor-pointer">
                                     <div>
                                         <span className="font-medium">Bắt buộc kiểm kê</span>
@@ -498,17 +498,17 @@ export default function ItemEditPopover({
                                     <Switch id={`isImportant-${item.id}`} checked={item.isImportant} onCheckedChange={c => handleFieldChange('isImportant', c)} />
                                 </Label>
                                 <Label htmlFor={`requiresPhoto-${item.id}`} className="flex items-center justify-between rounded-lg border p-3 shadow-sm cursor-pointer">
-                                     <div>
+                                    <div>
                                         <span className="font-medium">Yêu cầu ảnh bằng chứng</span>
                                         <p className="text-[0.8rem] text-muted-foreground">Nhân viên phải chụp ảnh khi kiểm kê mục này.</p>
-                                     </div>
+                                    </div>
                                     <Switch id={`requiresPhoto-${item.id}`} checked={item.requiresPhoto} onCheckedChange={c => handleFieldChange('requiresPhoto', c)} />
                                 </Label>
                             </div>
                         </div>
 
                     </div>
-                 </ScrollArea>
+                </ScrollArea>
                 <DialogFooter className="p-6 pt-2 flex-shrink-0 gap-2">
                     <Button variant="outline" onClick={() => handleCloseDialog(false)}>Hủy</Button>
                     <Button onClick={handleSave}>Lưu thay đổi</Button>

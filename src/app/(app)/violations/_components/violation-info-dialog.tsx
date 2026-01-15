@@ -25,33 +25,33 @@ type ViolationInfoDialogProps = {
 };
 
 const getSeverityBadgeClass = (severity: ViolationCategory['severity']) => {
-    switch (severity) {
-      case 'high': return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/50 dark:text-red-300 dark:border-red-700';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/50 dark:text-yellow-300 dark:border-yellow-700';
-      case 'low':
-      default:
-        return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700';
-    }
+  switch (severity) {
+    case 'high': return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/50 dark:text-red-300 dark:border-red-700';
+    case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/50 dark:text-yellow-300 dark:border-yellow-700';
+    case 'low':
+    default:
+      return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700';
+  }
 };
 
 const severityOrder: Record<ViolationCategory['severity'], number> = {
-    low: 1,
-    medium: 2,
-    high: 3
+  low: 1,
+  medium: 2,
+  high: 3
 };
 
 export default function ViolationInfoDialog({ isOpen, onClose, categories, generalRules = [] }: ViolationInfoDialogProps) {
   const sortedCategories = useMemo(() => {
     return [...categories].sort((a, b) => {
-        const severityA = severityOrder[a.severity] || 99;
-        const severityB = severityOrder[b.severity] || 99;
-        if (severityA !== severityB) {
-            return severityA - severityB;
-        }
-        return (a.name || '').localeCompare(b.name || '', 'vi');
+      const severityA = severityOrder[a.severity] || 99;
+      const severityB = severityOrder[b.severity] || 99;
+      if (severityA !== severityB) {
+        return severityA - severityB;
+      }
+      return (a.name || '').localeCompare(b.name || '', 'vi');
     });
   }, [categories]);
-  
+
   const generalRuleSummary = useMemo(() => {
     if (!generalRules || generalRules.length === 0) return null;
     return generalRules.map(rule => {
@@ -68,7 +68,7 @@ export default function ViolationInfoDialog({ isOpen, onClose, categories, gener
       } else {
         actionText = `cộng thêm ${rule.value.toLocaleString('vi-VN')}đ`;
       }
-      
+
       let severityActionText = '';
       if (rule.severityAction === 'increase') {
         severityActionText = ', tăng mức độ vi phạm';
@@ -81,7 +81,7 @@ export default function ViolationInfoDialog({ isOpen, onClose, categories, gener
   }, [generalRules]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="violation-info-dialog" parentDialogTag="root">
       <DialogContent className="max-w-2xl h-[90vh] flex flex-col bg-white dark:bg-card p-0">
         <DialogHeader className="p-4 border-b">
           <DialogTitle className="text-lg">Chính sách phạt</DialogTitle>
@@ -96,28 +96,28 @@ export default function ViolationInfoDialog({ isOpen, onClose, categories, gener
         </div>
 
         <ScrollArea className="flex-grow">
-            <div className="px-4">
-                <Table>
-                    <TableBody>
-                        {sortedCategories.map((category) => (
-                        <TableRow key={category.id}>
-                            <TableCell className="font-medium py-1.5 px-2 w-[40%] text-sm">{category.name}</TableCell>
-                            <TableCell className="text-center py-1.5 px-2 w-[30%]">
-                                <Badge className={cn("capitalize text-xs", getSeverityBadgeClass(category.severity))}>
-                                    {category.severity === 'low' ? 'Nhẹ' : category.severity === 'medium' ? 'TB' : 'Nặng'}
-                                </Badge>
-                            </TableCell>
-                            <TableCell className="text-right font-semibold py-1.5 px-2 w-[30%] text-sm">
-                            {category.calculationType === 'perUnit'
-                                ? `${(category.finePerUnit ?? 0).toLocaleString('vi-VN')}đ / ${category.unitLabel || 'đơn vị'}`
-                                : `${(category.fineAmount ?? 0).toLocaleString('vi-VN')}đ`
-                            }
-                            </TableCell>
-                        </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </div>
+          <div className="px-4">
+            <Table>
+              <TableBody>
+                {sortedCategories.map((category) => (
+                  <TableRow key={category.id}>
+                    <TableCell className="font-medium py-1.5 px-2 w-[40%] text-sm">{category.name}</TableCell>
+                    <TableCell className="text-center py-1.5 px-2 w-[30%]">
+                      <Badge className={cn("capitalize text-xs", getSeverityBadgeClass(category.severity))}>
+                        {category.severity === 'low' ? 'Nhẹ' : category.severity === 'medium' ? 'TB' : 'Nặng'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right font-semibold py-1.5 px-2 w-[30%] text-sm">
+                      {category.calculationType === 'perUnit'
+                        ? `${(category.finePerUnit ?? 0).toLocaleString('vi-VN')}đ / ${category.unitLabel || 'đơn vị'}`
+                        : `${(category.fineAmount ?? 0).toLocaleString('vi-VN')}đ`
+                      }
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </ScrollArea>
         <DialogFooter className="p-4 pt-2 border-t flex-col items-start gap-2 sm:flex-col sm:items-start bg-white dark:bg-card">
           <Label className="text-xs font-semibold text-muted-foreground w-full">

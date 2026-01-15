@@ -20,9 +20,16 @@ import {
 // @radix-ui/react-alert-dialog. This keeps the alert-style API but uses the shared Dialog
 // implementation (which registers with the global overlay reset system).
 
-const AlertDialog = (props: React.ComponentPropsWithoutRef<typeof Dialog>) => {
-  // Dialog already registers with useDialogBackHandler internally
-  return <Dialog {...props} />;
+type AlertDialogProps = Omit<React.ComponentPropsWithoutRef<typeof Dialog>, 'dialogTag' | 'parentDialogTag'> & {
+  dialogTag?: string;
+  parentDialogTag?: string;
+};
+
+const AlertDialog = (props: AlertDialogProps) => {
+  // Provide sensible defaults so callers don't need to pass tags everywhere.
+  const { dialogTag = 'alert-dialog', parentDialogTag = 'root', ...rest } = props as any;
+  // Dialog registers with useDialogBackHandler internally and requires tags
+  return <Dialog dialogTag={dialogTag} parentDialogTag={parentDialogTag} {...(rest as any)} />;
 }
 
 const AlertDialogTrigger = DialogTrigger

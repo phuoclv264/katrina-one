@@ -43,7 +43,7 @@ export default function PinDialog({ isOpen, onClose, onSubmit }: Props) {
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="pin-dialog" parentDialogTag="root">
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -55,20 +55,20 @@ export default function PinDialog({ isOpen, onClose, onSubmit }: Props) {
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-            <div className="flex flex-col items-center justify-center gap-4">
-                <InputOTP 
-                    maxLength={4} 
-                    value={pin}
-                    onChange={(value) => setPin(value)}
-                >
-                    <InputOTPGroup>
-                    <InputOTPSlot index={0} />
-                    <InputOTPSlot index={1} />
-                    <InputOTPSlot index={2} />
-                    <InputOTPSlot index={3} />
-                    </InputOTPGroup>
-                </InputOTP>
-            </div>
+          <div className="flex flex-col items-center justify-center gap-4">
+            <InputOTP
+              maxLength={4}
+              value={pin}
+              onChange={(value) => setPin(value)}
+            >
+              <InputOTPGroup>
+                <InputOTPSlot index={0} />
+                <InputOTPSlot index={1} />
+                <InputOTPSlot index={2} />
+                <InputOTPSlot index={3} />
+              </InputOTPGroup>
+            </InputOTP>
+          </div>
         </div>
         <DialogFooter>
           <Button type="submit" onClick={handleSubmit} disabled={pin.length < 4}>Đăng nhập</Button>

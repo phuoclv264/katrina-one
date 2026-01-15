@@ -29,6 +29,7 @@ type CameraDialogProps = {
   singlePhotoMode?: boolean;
   captureMode?: 'photo' | 'video' | 'both';
   isHD?: boolean;
+  parentDialogTag?: string;
 };
 
 const PORTRAIT_ASPECT_RATIO = 3 / 4; // width:height = 3:4
@@ -132,6 +133,7 @@ export default function CameraDialog({
   singlePhotoMode = false,
   captureMode = 'photo',
   isHD = false,
+  parentDialogTag = 'root',
 }: CameraDialogProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -174,7 +176,6 @@ export default function CameraDialog({
 
   const handleDialogClose = useCallback(() => {
     if (!isStarting && !isSubmitting) {
-      console.log('Closing camera dialog');
       onClose();
     }
   }, [isStarting, isSubmitting, onClose]);
@@ -359,11 +360,6 @@ export default function CameraDialog({
         toast.error("Stream camera không hoạt động.");
         return;
       }
-      if (!supportedMimeType) {
-        toast.error("Trình duyệt của bạn không hỗ trợ quay video.");
-        console.error("No supported MIME type found for MediaRecorder.");
-        return;
-      }
 
       toast.success("Đang bắt đầu quay video...");
 
@@ -413,9 +409,20 @@ export default function CameraDialog({
       // Combine video with overlay and original audio
       const combinedStream = new MediaStream([videoTrackWithOverlay, ...audioTracks]);
 
+      if (!supportedMimeType) {
+        toast.error("Trình duyệt của bạn không hỗ trợ quay video.");
+        console.error("No supported MIME type found for MediaRecorder.");
+        // Clean up the animation frame if recorder fails to start
+        if (animationFrameIdRef.current) {
+          cancelAnimationFrame(animationFrameIdRef.current);
+          animationFrameIdRef.current = null;
+        }
+        return;
+      }
+
       try {
         // Now use the combined stream for the recorder
-        mediaRecorderRef.current = new MediaRecorder(combinedStream, { mimeType: supportedMimeType });
+        mediaRecorderRef.current = new MediaRecorder(combinedStream, { mimeType: supportedMimeType as string });
         recordedChunksRef.current = [];
 
         mediaRecorderRef.current.ondataavailable = (event) => {
@@ -425,7 +432,7 @@ export default function CameraDialog({
         };
 
         mediaRecorderRef.current.onstop = async () => {
-          const videoBlob = new Blob(recordedChunksRef.current, { type: supportedMimeType });
+          const videoBlob = new Blob(recordedChunksRef.current, { type: supportedMimeType as string });
           const videoId = uuidv4();
           try {
             await photoStore.addPhoto(videoId, videoBlob);
@@ -490,7 +497,7 @@ export default function CameraDialog({
   const extraCount = Math.max(0, capturedMedia.length - previewItems.length);
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && handleDialogClose()}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleDialogClose()} dialogTag="camera-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent
         overlayClassName="bg-transparent"
         hideClose={true}
@@ -700,6 +707,7 @@ export default function CameraDialog({
                 onClose={() => setShowGallery(false)}
                 media={capturedMedia}
                 onDelete={handleDeleteMedia}
+                parentDialogTag="camera-dialog"
               />
             </div>
           )}

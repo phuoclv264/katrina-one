@@ -67,7 +67,7 @@ export default function SupplierManagementDialog({ isOpen, onClose, initialSuppl
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="supplier-management-dialog" parentDialogTag="root">
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Quản lý Nhà Cung Cấp</DialogTitle>
@@ -125,8 +125,8 @@ export default function SupplierManagementDialog({ isOpen, onClose, initialSuppl
           </ScrollArea>
         </div>
         <DialogFooter>
-            <Button variant="outline" onClick={onClose}>Hủy</Button>
-            <Button onClick={handleSaveChanges}>Lưu thay đổi</Button>
+          <Button variant="outline" onClick={onClose}>Hủy</Button>
+          <Button onClick={handleSaveChanges}>Lưu thay đổi</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

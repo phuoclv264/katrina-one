@@ -61,7 +61,7 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} dialogTag="profile-dialog" parentDialogTag="root">
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Hồ sơ cá nhân</DialogTitle>
@@ -69,7 +69,7 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
             Cập nhật thông tin cá nhân của bạn tại đây.
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="flex flex-col gap-6 py-4">
           <AvatarUpload
             currentPhotoURL={photoURL}
@@ -77,7 +77,7 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
             uid={user.uid}
             displayName={user.displayName || ''}
           />
-          
+
           <div className="grid gap-2">
             <Label htmlFor="displayName">Tên hiển thị</Label>
             <Input
@@ -87,7 +87,7 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
               placeholder="Nhập tên của bạn"
             />
           </div>
-          
+
           <div className="grid gap-2">
             <Label htmlFor="email" className="text-muted-foreground">Email (Không thể thay đổi)</Label>
             <Input
@@ -105,7 +105,7 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
             </div>
           </div>
         </div>
-        
+
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Hủy

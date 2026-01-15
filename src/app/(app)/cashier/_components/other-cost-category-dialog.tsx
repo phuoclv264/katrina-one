@@ -86,7 +86,7 @@ export default function OtherCostCategoryDialog({ open, onOpenChange }: { open: 
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} dialogTag="other-cost-category-dialog" parentDialogTag="root">
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Quản lý Loại chi phí khác</DialogTitle>
@@ -129,21 +129,21 @@ export default function OtherCostCategoryDialog({ open, onOpenChange }: { open: 
                       <Edit className="h-4 w-4" />
                     </Button>
                     <AlertDialog>
-                       <AlertDialogTrigger asChild>
-                           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" disabled={cat.name === 'Khác'}>
-                            <Trash2 className="h-4 w-4" />
-                           </Button>
-                       </AlertDialogTrigger>
-                       <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>Xóa "{cat.name}"?</AlertDialogTitle>
-                                <AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDelete(cat.id)}>Xóa</AlertDialogAction>
-                            </AlertDialogFooter>
-                       </AlertDialogContent>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" disabled={cat.name === 'Khác'}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Xóa "{cat.name}"?</AlertDialogTitle>
+                          <AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Hủy</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDelete(cat.id)}>Xóa</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
                     </AlertDialog>
                   </div>
                 ))

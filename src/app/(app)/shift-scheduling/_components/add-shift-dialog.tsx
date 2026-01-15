@@ -36,7 +36,7 @@ export default function AddShiftDialog({ isOpen, onClose, onSave, templates, dat
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="add-shift-dialog" parentDialogTag="root">
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Thêm ca làm việc</DialogTitle>
@@ -45,25 +45,25 @@ export default function AddShiftDialog({ isOpen, onClose, onSave, templates, dat
           </DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-[50vh] pr-4">
-          <RadioGroup 
+          <RadioGroup
             onValueChange={setSelectedTemplateId}
             value={selectedTemplateId || ''}
             className="space-y-2"
           >
             {templates.length > 0 ? templates.map(template => (
-              <Label 
-                key={template.id} 
+              <Label
+                key={template.id}
                 htmlFor={template.id}
                 className="flex items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
               >
-                 <div>
-                    <p className="font-semibold">{template.label}</p>
-                     <p className="text-sm text-muted-foreground">{template.role} | {template.timeSlot.start} - {template.timeSlot.end}</p>
-                 </div>
+                <div>
+                  <p className="font-semibold">{template.label}</p>
+                  <p className="text-sm text-muted-foreground">{template.role} | {template.timeSlot.start} - {template.timeSlot.end}</p>
+                </div>
                 <RadioGroupItem value={template.id} id={template.id} />
               </Label>
             )) : (
-                <p className="text-center text-sm text-muted-foreground py-8">Chủ nhà hàng chưa tạo ca làm việc mẫu nào.</p>
+              <p className="text-center text-sm text-muted-foreground py-8">Chủ nhà hàng chưa tạo ca làm việc mẫu nào.</p>
             )}
           </RadioGroup>
         </ScrollArea>

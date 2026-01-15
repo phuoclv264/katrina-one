@@ -144,7 +144,7 @@ function AiAssistant({
                 </CardContent>
             </Card>
 
-            <Dialog open={showPreview} onOpenChange={setShowPreview}>
+            <Dialog open={showPreview} onOpenChange={setShowPreview} dialogTag="comp-checklist-preview-dialog" parentDialogTag="root">
                 <DialogContent className="max-w-2xl">
                     <AlertDialogHeader>
                         <AlertDialogTitle>Xem trước các hạng mục sẽ được thêm</AlertDialogTitle>

@@ -3,11 +3,11 @@
 'use client';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/combobox';
@@ -27,7 +27,7 @@ import { toast } from '@/components/ui/pro-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 
-function MonthlyUserReport({ userId, allUsers }: { userId: string, allUsers: ManagedUser[]}) {
+function MonthlyUserReport({ userId, allUsers }: { userId: string, allUsers: ManagedUser[] }) {
     const [date, setDate] = useState<Date>(new Date());
     const [schedules, setSchedules] = useState<Schedule[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -35,7 +35,7 @@ function MonthlyUserReport({ userId, allUsers }: { userId: string, allUsers: Man
 
     const monthStart = startOfMonth(date);
     const monthEnd = endOfMonth(date);
-    
+
     useEffect(() => {
         setIsLoading(true);
         dataStore.getSchedulesForMonth(date).then(monthlySchedules => {
@@ -43,7 +43,7 @@ function MonthlyUserReport({ userId, allUsers }: { userId: string, allUsers: Man
             setIsLoading(false);
         });
     }, [date]);
-    
+
     const userShifts = useMemo(() => {
         const shiftsMap = new Map<string, string[]>(); // date -> shift labels
         schedules.forEach(schedule => {
@@ -58,9 +58,9 @@ function MonthlyUserReport({ userId, allUsers }: { userId: string, allUsers: Man
         });
         return shiftsMap;
     }, [schedules, userId]);
-    
+
     const totalHours = useMemo(() => {
-        const userShiftsForMonth = schedules.flatMap(s => s.shifts).filter(shift => 
+        const userShiftsForMonth = schedules.flatMap(s => s.shifts).filter(shift =>
             shift.assignedUsers.some(u => u.userId === userId)
         );
         return calculateTotalHours(userShiftsForMonth.map(s => s.timeSlot));
@@ -74,16 +74,16 @@ function MonthlyUserReport({ userId, allUsers }: { userId: string, allUsers: Man
             return userShifts.has(dateKey) && userShifts.get(dateKey)!.length > 0;
         });
     }, [isMobile, monthStart, monthEnd, userShifts]);
-    
+
     const selectedUser = allUsers.find(u => u.uid === userId);
 
     return (
         <div className="space-y-4">
-             <div className="p-4 border rounded-md">
+            <div className="p-4 border rounded-md">
                 <h4 className="font-semibold text-lg">{selectedUser?.displayName}</h4>
                 <p className="text-muted-foreground">Tổng giờ làm tháng {format(date, 'MM/yyyy')}: <span className="font-bold text-primary">{totalHours.toFixed(1)} giờ</span></p>
             </div>
-            
+
             {isMobile ? (
                 <div className="space-y-4">
                     <div className="flex items-center justify-between bg-muted/30 p-2 rounded-md">
@@ -95,7 +95,7 @@ function MonthlyUserReport({ userId, allUsers }: { userId: string, allUsers: Man
                             <ChevronRight className="h-4 w-4" />
                         </Button>
                     </div>
-                    
+
                     <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
                         {daysWithShifts.length === 0 ? (
                             <div className="text-center py-8 text-muted-foreground">
@@ -160,7 +160,7 @@ function MonthlyUserReport({ userId, allUsers }: { userId: string, allUsers: Man
                                 return (
                                     <div className="flex flex-col h-full w-full p-1 text-xs border-t border-l border-transparent hover:bg-muted/50 transition-colors">
                                         <div className={cn(
-                                            "self-end mr-1 mt-1 font-medium w-6 h-6 flex items-center justify-center rounded-full", 
+                                            "self-end mr-1 mt-1 font-medium w-6 h-6 flex items-center justify-center rounded-full",
                                             isToday && "bg-primary text-primary-foreground font-bold"
                                         )}>
                                             {format(dayDate, 'd')}
@@ -168,8 +168,8 @@ function MonthlyUserReport({ userId, allUsers }: { userId: string, allUsers: Man
                                         {shifts && shifts.length > 0 && (
                                             <div className="flex flex-col gap-1 mt-1 overflow-y-auto max-h-[calc(100%-28px)] no-scrollbar">
                                                 {shifts.map((label, i) => (
-                                                    <div 
-                                                        key={i} 
+                                                    <div
+                                                        key={i}
                                                         className="bg-primary/10 text-primary text-[10px] leading-tight rounded px-1.5 py-1 text-left border border-primary/20 shadow-sm truncate"
                                                         title={label}
                                                     >
@@ -190,47 +190,47 @@ function MonthlyUserReport({ userId, allUsers }: { userId: string, allUsers: Man
 }
 
 export default function HistoryAndReportsDialog({
-  isOpen,
-  onClose,
-  allUsers,
+    isOpen,
+    onClose,
+    allUsers,
 }: {
-  isOpen: boolean;
-  onClose: () => void;
-  allUsers: ManagedUser[];
+    isOpen: boolean;
+    onClose: () => void;
+    allUsers: ManagedUser[];
 }) {
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+    const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isOpen && allUsers.length > 0 && !selectedUserId) {
-      setSelectedUserId(allUsers[0].uid);
-    }
-  }, [isOpen, allUsers, selectedUserId]);
+    useEffect(() => {
+        if (isOpen && allUsers.length > 0 && !selectedUserId) {
+            setSelectedUserId(allUsers[0].uid);
+        }
+    }, [isOpen, allUsers, selectedUserId]);
 
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Lịch sử & Thống kê</DialogTitle>
-          <DialogDescription>
-            Xem lại các lịch đã công bố và thống kê giờ làm của nhân viên.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="py-4 space-y-4">
-            <Combobox
-                value={selectedUserId || ''}
-                onChange={(val) => setSelectedUserId(val as string)}
-                options={allUsers.map(user => ({ value: user.uid, label: user.displayName }))}
-                placeholder="Chọn một nhân viên..."
-                searchable={true}
-                className="w-full"
-            />
-            {selectedUserId ? (
-                <MonthlyUserReport userId={selectedUserId} allUsers={allUsers} />
-            ) : (
-                <Skeleton className="h-96 w-full" />
-            )}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose} dialogTag="history-reports-dialog" parentDialogTag="root">
+            <DialogContent className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle>Lịch sử & Thống kê</DialogTitle>
+                    <DialogDescription>
+                        Xem lại các lịch đã công bố và thống kê giờ làm của nhân viên.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4 space-y-4">
+                    <Combobox
+                        value={selectedUserId || ''}
+                        onChange={(val) => setSelectedUserId(val as string)}
+                        options={allUsers.map(user => ({ value: user.uid, label: user.displayName }))}
+                        placeholder="Chọn một nhân viên..."
+                        searchable={true}
+                        className="w-full"
+                    />
+                    {selectedUserId ? (
+                        <MonthlyUserReport userId={selectedUserId} allUsers={allUsers} />
+                    ) : (
+                        <Skeleton className="h-96 w-full" />
+                    )}
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
 }

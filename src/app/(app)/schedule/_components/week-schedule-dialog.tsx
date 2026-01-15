@@ -150,7 +150,7 @@ export default function WeekScheduleDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} dialogTag="week-schedule-dialog" parentDialogTag="root">
       <DialogContent className="max-w-6xl max-h-[95vh] p-0 overflow-hidden flex flex-col border-none sm:rounded-2xl">
         <DialogHeader className="p-4 sm:p-6 pb-2 sm:pb-3 pr-12 sm:pr-16 border-b border-slate-100 dark:border-slate-800 shrink-0">
           <div className="flex items-center justify-between gap-4">
@@ -168,9 +168,9 @@ export default function WeekScheduleDialog({
           <div className="px-4 sm:px-6 py-3 border-b bg-background sticky top-0 z-10">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center justify-between sm:justify-start gap-4 order-2 sm:order-1">
-                <Button 
-                  variant="outline" 
-                  size="icon" 
+                <Button
+                  variant="outline"
+                  size="icon"
                   className="h-9 w-9 rounded-xl border-slate-200 hover:bg-slate-50 shrink-0"
                   onClick={() => setWeekOffset((prev) => prev - 1)}
                 >
@@ -182,7 +182,7 @@ export default function WeekScheduleDialog({
                     {format(weekInterval.start, 'dd/MM')} — {format(weekInterval.end, 'dd/MM/yyyy')}
                   </span>
                   {weekOffset !== 0 ? (
-                    <button 
+                    <button
                       onClick={() => setWeekOffset(0)}
                       className="text-[10px] font-bold text-primary hover:underline uppercase"
                     >
@@ -193,9 +193,9 @@ export default function WeekScheduleDialog({
                   )}
                 </div>
 
-                <Button 
-                  variant="outline" 
-                  size="icon" 
+                <Button
+                  variant="outline"
+                  size="icon"
                   className="h-9 w-9 rounded-xl border-slate-200 hover:bg-slate-50 shrink-0"
                   onClick={() => setWeekOffset((prev) => prev + 1)}
                 >
@@ -207,8 +207,8 @@ export default function WeekScheduleDialog({
                 <div className="flex items-center gap-2 order-1 sm:order-2">
                   <div className={cn(
                     "flex flex-1 items-center gap-3 px-3 py-2 rounded-xl border transition-all duration-300",
-                    pendingEvidenceCount > 0 
-                      ? "bg-amber-50/50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-900/40" 
+                    pendingEvidenceCount > 0
+                      ? "bg-amber-50/50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-900/40"
                       : "bg-emerald-50/50 border-emerald-200 dark:bg-emerald-900/10 dark:border-emerald-900/40"
                   )}>
                     <div className="flex-1">
@@ -218,7 +218,7 @@ export default function WeekScheduleDialog({
                         </span>
                       </div>
                       <div className="w-full h-1 bg-slate-200 dark:bg-slate-800 rounded-full mt-1 overflow-hidden">
-                        <div 
+                        <div
                           className={cn("h-full transition-all duration-500", pendingEvidenceCount > 0 ? "bg-amber-500" : "bg-emerald-500")}
                           style={{ width: `${(submittedEvidenceCount / totalRelevantShifts) * 100}%` }}
                         />
@@ -342,7 +342,7 @@ export default function WeekScheduleDialog({
                                     </div>
                                     {isUnderstaffed && (
                                       <div className={cn(
-                                        "p-1 rounded-md", 
+                                        "p-1 rounded-md",
                                         isRelevantToMe ? "bg-amber-100 text-amber-600 dark:bg-amber-900/40" : "bg-destructive/10 text-destructive"
                                       )}>
                                         <AlertTriangle className="h-3.5 w-3.5" />
@@ -382,7 +382,7 @@ export default function WeekScheduleDialog({
                 daysOfWeek.map((day) => {
                   const dateKey = format(day, 'yyyy-MM-dd');
                   const applicableTemplates = shiftTemplates.filter((t) => (t.applicableDays || []).includes(day.getDay()));
-                  
+
                   const isToday = dateKey === format(new Date(), 'yyyy-MM-dd');
 
                   return (
@@ -429,7 +429,7 @@ export default function WeekScheduleDialog({
                                 }).length;
                                 return assignedOfRole < req.count;
                               }));
-                            
+
                             const isRelevantToMe = relevantUnderstaffedShifts.some(s => s.id === shiftForCell.id);
 
                             return (
@@ -437,8 +437,8 @@ export default function WeekScheduleDialog({
                                 key={template.id}
                                 className={cn(
                                   'group relative overflow-hidden rounded-2xl border transition-all duration-300',
-                                  isRelevantToMe 
-                                    ? 'border-amber-200 bg-amber-50/30 dark:border-amber-900/40 dark:bg-amber-900/10' 
+                                  isRelevantToMe
+                                    ? 'border-amber-200 bg-amber-50/30 dark:border-amber-900/40 dark:bg-amber-900/10'
                                     : 'border-slate-100 bg-card dark:border-slate-800 dark:bg-slate-900/10'
                                 )}
                               >

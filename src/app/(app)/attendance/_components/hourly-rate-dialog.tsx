@@ -37,7 +37,7 @@ export default function HourlyRateDialog({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="hourly-rate-dialog" parentDialogTag="root">
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Chỉnh sửa lương theo giờ</DialogTitle>
@@ -65,4 +65,3 @@ export default function HourlyRateDialog({
   );
 }
 
-    

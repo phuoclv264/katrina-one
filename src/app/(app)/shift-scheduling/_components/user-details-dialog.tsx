@@ -2,11 +2,11 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,7 @@ function AvailabilityTab({ weekAvailability }: { weekAvailability: Availability[
     if (weekAvailability.length === 0) {
         return <p className="text-sm text-muted-foreground text-center py-8">Nhân viên này chưa đăng ký thời gian rảnh cho tuần này.</p>;
     }
-    
+
     // Sort by date
     const sortedAvailability = weekAvailability.sort((a, b) => new Date(a.date as string).getTime() - new Date(b.date as string).getTime());
 
@@ -45,7 +45,7 @@ function AvailabilityTab({ weekAvailability }: { weekAvailability: Availability[
                                     {format(new Date(avail.date as string), 'eeee, dd/MM', { locale: vi })}
                                 </TableCell>
                                 <TableCell className="align-middle text-center p-2">
-                                     <div className="space-y-2 max-w-sm mx-auto">
+                                    <div className="space-y-2 max-w-sm mx-auto">
                                         {avail.availableSlots.map((slot, index) => (
                                             <Card key={index} className="text-left bg-blue-100/60 dark:bg-blue-900/40">
                                                 <CardContent className="p-3">
@@ -71,7 +71,7 @@ function HistoryTab({ user }: { user: ManagedUser }) {
 
     const monthStart = useMemo(() => startOfMonth(currentMonth), [currentMonth]);
     const monthEnd = useMemo(() => endOfMonth(currentMonth), [currentMonth]);
-    
+
     useEffect(() => {
         setIsLoading(true);
         dataStore.getSchedulesForMonth(currentMonth).then(monthlySchedules => {
@@ -86,7 +86,7 @@ function HistoryTab({ user }: { user: ManagedUser }) {
 
         publishedSchedules.forEach(schedule => {
             schedule.shifts.forEach(shift => {
-                 const shiftDate = new Date(shift.date);
+                const shiftDate = new Date(shift.date);
                 if (shift.assignedUsers.some(u => u.userId === user.uid) && shiftDate >= monthStart && shiftDate <= monthEnd) {
                     const dateKey = shift.date;
                     if (!shiftsMap.has(dateKey)) {
@@ -101,9 +101,9 @@ function HistoryTab({ user }: { user: ManagedUser }) {
         });
         return shiftsMap;
     }, [schedules, user.uid, monthStart, monthEnd]);
-    
+
     const daysWithShifts = useMemo(() => {
-        return Array.from(userShiftsByDate.keys()).sort((a,b) => new Date(a).getTime() - new Date(b).getTime());
+        return Array.from(userShiftsByDate.keys()).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
     }, [userShiftsByDate]);
 
     const totalHoursThisMonth = useMemo(() => {
@@ -112,11 +112,11 @@ function HistoryTab({ user }: { user: ManagedUser }) {
             .filter(shift => {
                 const shiftDate = new Date(shift.date);
                 return shift.assignedUsers.some(u => u.userId === user.uid) &&
-                       shiftDate >= monthStart && shiftDate <= monthEnd;
+                    shiftDate >= monthStart && shiftDate <= monthEnd;
             });
         return calculateTotalHours(shiftsThisMonth.map(s => s.timeSlot));
     }, [schedules, user.uid, monthStart, monthEnd]);
-    
+
     const handleMonthChange = (direction: 'prev' | 'next') => {
         setCurrentMonth(prev => {
             const newMonth = new Date(prev);
@@ -135,7 +135,7 @@ function HistoryTab({ user }: { user: ManagedUser }) {
                             Tổng giờ làm: <span className="font-bold text-primary">{totalHoursThisMonth.toFixed(1)} giờ</span>
                         </CardDescription>
                     </div>
-                     <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2">
                         <Button variant="outline" size="icon" onClick={() => handleMonthChange('prev')}>
                             <ChevronLeft className="h-4 w-4" />
                         </Button>
@@ -145,8 +145,8 @@ function HistoryTab({ user }: { user: ManagedUser }) {
                     </div>
                 </CardHeader>
             </Card>
-             <div className="border rounded-md bg-white dark:bg-card">
-                 {isLoading ? (
+            <div className="border rounded-md bg-white dark:bg-card">
+                {isLoading ? (
                     <div className="h-48 flex items-center justify-center">
                         <Loader2 className="h-6 w-6 animate-spin text-primary" />
                     </div>
@@ -159,43 +159,43 @@ function HistoryTab({ user }: { user: ManagedUser }) {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                        {daysWithShifts.length > 0 ? daysWithShifts.map(dateKey => {
-                            const shiftsForDay = userShiftsByDate.get(dateKey) || [];
-                            if (shiftsForDay.length === 0) return null;
-                            
-                            const timeSlotsForDay = shiftsForDay.map(s => {
-                                const [start, end] = s.timeSlot.split('-');
-                                return { start, end };
-                            });
-                            const dailyTotalHours = calculateTotalHours(timeSlotsForDay);
+                            {daysWithShifts.length > 0 ? daysWithShifts.map(dateKey => {
+                                const shiftsForDay = userShiftsByDate.get(dateKey) || [];
+                                if (shiftsForDay.length === 0) return null;
 
-                            return (
-                                <TableRow key={dateKey}>
-                                    <TableCell className="font-semibold text-base align-middle text-center">
-                                        <p>{format(new Date(dateKey), 'eeee, dd/MM', { locale: vi })}</p>
-                                        <p className="text-xs text-muted-foreground font-normal">(Tổng: {dailyTotalHours.toFixed(1)} giờ)</p>
-                                    </TableCell>
-                                    <TableCell className="align-middle text-center p-2">
-                                        <div className="space-y-2 max-w-sm mx-auto">
-                                            {shiftsForDay.map((shift, index) => (
-                                                 <Card key={index} className="text-left bg-muted text-muted-foreground">
-                                                    <CardContent className="p-3">
-                                                         <p className="font-semibold text-sm text-foreground">{shift.label}</p>
-                                                         <p className="text-xs">{shift.timeSlot}</p>
-                                                    </CardContent>
-                                                </Card>
-                                            ))}
-                                        </div>
+                                const timeSlotsForDay = shiftsForDay.map(s => {
+                                    const [start, end] = s.timeSlot.split('-');
+                                    return { start, end };
+                                });
+                                const dailyTotalHours = calculateTotalHours(timeSlotsForDay);
+
+                                return (
+                                    <TableRow key={dateKey}>
+                                        <TableCell className="font-semibold text-base align-middle text-center">
+                                            <p>{format(new Date(dateKey), 'eeee, dd/MM', { locale: vi })}</p>
+                                            <p className="text-xs text-muted-foreground font-normal">(Tổng: {dailyTotalHours.toFixed(1)} giờ)</p>
+                                        </TableCell>
+                                        <TableCell className="align-middle text-center p-2">
+                                            <div className="space-y-2 max-w-sm mx-auto">
+                                                {shiftsForDay.map((shift, index) => (
+                                                    <Card key={index} className="text-left bg-muted text-muted-foreground">
+                                                        <CardContent className="p-3">
+                                                            <p className="font-semibold text-sm text-foreground">{shift.label}</p>
+                                                            <p className="text-xs">{shift.timeSlot}</p>
+                                                        </CardContent>
+                                                    </Card>
+                                                ))}
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                )
+                            }) : (
+                                <TableRow>
+                                    <TableCell colSpan={2} className="text-center text-muted-foreground h-24">
+                                        Không có ca làm việc nào trong tháng này.
                                     </TableCell>
                                 </TableRow>
-                            )
-                        }) : (
-                            <TableRow>
-                                <TableCell colSpan={2} className="text-center text-muted-foreground h-24">
-                                    Không có ca làm việc nào trong tháng này.
-                                </TableCell>
-                            </TableRow>
-                        )}
+                            )}
                         </TableBody>
                     </Table>
                 )}
@@ -218,7 +218,7 @@ export default function UserDetailsDialog({
     if (!user) return null;
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
+        <Dialog open={isOpen} onOpenChange={onClose} dialogTag="user-details-dialog" parentDialogTag="root">
             <DialogContent className="max-w-4xl">
                 <DialogHeader>
                     <DialogTitle>Chi tiết: {user.displayName}</DialogTitle>

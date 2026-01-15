@@ -285,7 +285,7 @@ export function IndividualTask({ assignment, shiftTemplates }: TaskReportingCard
                 Thêm ảnh/video
               </Button>
 
-              <Dialog open={isNoteDialogOpen} onOpenChange={handleNoteDialogOpenChange}>
+              <Dialog open={isNoteDialogOpen} onOpenChange={handleNoteDialogOpenChange} dialogTag="task-note-dialog" parentDialogTag="root">
                 <DialogTrigger asChild>
                   <Button
                     size="sm"
@@ -336,7 +336,7 @@ export function IndividualTask({ assignment, shiftTemplates }: TaskReportingCard
                 Bằng chứng
               </Button>
 
-              <Dialog open={isNoteDialogOpen} onOpenChange={handleNoteDialogOpenChange}>
+              <Dialog open={isNoteDialogOpen} onOpenChange={handleNoteDialogOpenChange} dialogTag="task-note-dialog" parentDialogTag="root">
                 <DialogTrigger asChild>
                   <Button
                     size="sm"

@@ -33,7 +33,7 @@ export default function IncidentDetailsDialog({
   currentMonth,
 }: IncidentDetailsDialogProps) {
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="incident-details-dialog" parentDialogTag="root">
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Chi tiết Sự cố Tháng {format(currentMonth, 'MM/yyyy')}</DialogTitle>
@@ -48,19 +48,19 @@ export default function IncidentDetailsDialog({
                 <Card key={incident.id}>
                   <CardContent className="p-4">
                     <div className="flex justify-between items-start">
-                        <div>
-                            <p className="font-semibold">{incident.content}</p>
-                            <div className="text-sm text-muted-foreground mt-1 flex flex-wrap items-center gap-2">
-                                <span>bởi {incident.createdBy.userName}</span>
-                                <span>•</span>
-                                <span>{new Date(incident.createdAt as string).toLocaleString('vi-VN')}</span>
-                                <span>•</span>
-                                <Badge variant="secondary">{incident.category}</Badge>
-                            </div>
+                      <div>
+                        <p className="font-semibold">{incident.content}</p>
+                        <div className="text-sm text-muted-foreground mt-1 flex flex-wrap items-center gap-2">
+                          <span>bởi {incident.createdBy.userName}</span>
+                          <span>•</span>
+                          <span>{new Date(incident.createdAt as string).toLocaleString('vi-VN')}</span>
+                          <span>•</span>
+                          <Badge variant="secondary">{incident.category}</Badge>
                         </div>
-                        <p className="font-bold text-lg text-amber-600">
-                            {incident.cost > 0 ? incident.cost.toLocaleString('vi-VN') + 'đ' : 'Không có chi phí'}
-                        </p>
+                      </div>
+                      <p className="font-bold text-lg text-amber-600">
+                        {incident.cost > 0 ? incident.cost.toLocaleString('vi-VN') + 'đ' : 'Không có chi phí'}
+                      </p>
                     </div>
                     {incident.photos && incident.photos.length > 0 && (
                       <div className="mt-2 flex gap-2 flex-wrap">

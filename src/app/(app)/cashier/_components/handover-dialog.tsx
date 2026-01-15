@@ -4,12 +4,13 @@
 import * as React from 'react';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle, 
-  DialogDescription,
-  DialogFooter } from '@/components/ui/dialog';
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -79,17 +80,17 @@ const InputField = React.memo(({ id, label, value, onChange, originalValue }: {
     originalValue?: number;
 }) => {
     const [localValue, setLocalValue] = useState(String(value));
-    
+
     useEffect(() => { setLocalValue(String(value)); }, [value]);
 
     const handleBlur = () => { if (String(value) !== localValue) { onChange(localValue); } };
-    
+
     const isEdited = originalValue !== undefined && value !== originalValue;
 
     return (
         <div key={id} className="grid grid-cols-2 items-center gap-2">
             <Label htmlFor={id} className="text-right flex items-center gap-2 justify-end">
-                 {isEdited && <Edit className="h-3 w-3 text-yellow-500" />}
+                {isEdited && <Edit className="h-3 w-3 text-yellow-500" />}
                 {label}
             </Label>
             <Input id={id} type="number" value={localValue} onChange={e => setLocalValue(e.target.value)} onBlur={handleBlur} onFocus={(e) => e.target.select()} placeholder="0" className="text-right h-9" />
@@ -134,7 +135,7 @@ export default function HandoverDialog({
 
     const [isOcrLoading, setIsOcrLoading] = useState(false);
     const [aiError, setAiError] = useState<string | null>(null);
-    
+
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [shiftEndTime, setShiftEndTime] = useState<string | null>(null);
@@ -144,7 +145,7 @@ export default function HandoverDialog({
     const [existingPhotos, setExistingPhotos] = useState<{ id: string, url: string }[]>([]);
     const [localPhotos, setLocalPhotos] = useState<{ id: string, url: string }[]>([]);
     const [photosToDelete, setPhotosToDelete] = useState<string[]>([]);
-    
+
     const [newImageDataUri, setNewImageDataUri] = useState<string | null>(null);
 
     const [serverErrorDialog, setServerErrorDialog] = useState<{ open: boolean, imageUri: string | null }>({ open: false, imageUri: null });
@@ -156,7 +157,7 @@ export default function HandoverDialog({
     const allPhotos = useMemo(() => {
         return [...existingPhotos, ...localPhotos];
     }, [existingPhotos, localPhotos]);
-    
+
     const saveStateToLocal = useCallback(async () => {
         if (!localReportId || isRestoring) return;
 
@@ -234,7 +235,7 @@ export default function HandoverDialog({
             setShouldRescanAfterPhoto(false); // Reset the flag
         }
     }, [allPhotos, shouldRescanAfterPhoto]);
-    
+
     const validateReportDate = useCallback((shiftEndTime: string): boolean => {
         try {
             const reportDate = parseISO(shiftEndTime);
@@ -275,7 +276,7 @@ export default function HandoverDialog({
                 setAiError('AI không thể xác định ngày giờ trên phiếu.');
                 return;
             }
-            
+
             if (!validateReportDate(result.shiftEndTime)) {
                 return;
             }
@@ -299,19 +300,19 @@ export default function HandoverDialog({
             toast.success("Đã điền dữ liệu từ phiếu. Vui lòng kiểm tra lại.");
 
         } catch (error: any) {
-             if (error.message && (error.message.includes('503 Service Unavailable') || error.message.includes('429 Too Many Requests'))) {
+            if (error.message && (error.message.includes('503 Service Unavailable') || error.message.includes('429 Too Many Requests'))) {
                 setServerErrorDialog({ open: true, imageUri: uri });
-             } else {
+            } else {
                 console.error('OCR Error:', error);
                 setAiError('Lỗi AI: Không thể đọc dữ liệu từ ảnh.');
-             }
+            }
         } finally {
             setIsOcrLoading(false);
             toast.dismiss(toastId);
         }
     };
-    
-     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
         if (!files || files.length === 0) return;
 
@@ -351,12 +352,12 @@ export default function HandoverDialog({
     const handleManualEntry = () => {
         const imageUri = serverErrorDialog.imageUri;
         if (!imageUri) return;
-    
+
         setNewImageDataUri(imageUri);
         setHandoverData(initialHandoverData);
         setOriginalData(initialHandoverData); // Set original to zeros so any entry is an "edit"
         setShiftEndTime(null);
-    
+
         setServerErrorDialog({ open: false, imageUri: null });
         toast.success("Chuyển sang nhập thủ công. Vui lòng nhập các số liệu từ phiếu.");
     };
@@ -380,7 +381,7 @@ export default function HandoverDialog({
         }
 
         const isEdited = !isEqual(originalData, handoverData);
-        
+
         const dataToSubmit = {
             handoverData,
             newPhotoIds: localPhotos.map(p => p.id),
@@ -388,8 +389,8 @@ export default function HandoverDialog({
             photosToDelete,
             isEdited,
         };
-        
-        if(isOwnerView) {
+
+        if (isOwnerView) {
             onSubmit(dataToSubmit, id); // Sử dụng id từ props
             if (localReportId) {
                 del(localReportId);
@@ -399,13 +400,13 @@ export default function HandoverDialog({
             onSubmit(dataToSubmit);
         }
     }
-    
+
     const handleRescan = async () => {
         if (allPhotos.length === 0) {
             toast.error("Vui lòng tải lên ít nhất một ảnh để quét.");
             return;
         }
-        
+
         setIsOcrLoading(true);
         setAiError(null);
         const toastId = toast.loading('AI đang phân tích các phiếu bàn giao...');
@@ -466,7 +467,7 @@ export default function HandoverDialog({
             combinedData.cashRefund = Math.abs(combinedData.cashRefund);
             combinedData.otherRefund = Math.abs(combinedData.otherRefund);
 
-            const latestReport = results.reduce((latest, current) => 
+            const latestReport = results.reduce((latest, current) =>
                 parseISO(current.shiftEndTime!) > parseISO(latest.shiftEndTime!) ? current : latest
             );
 
@@ -484,7 +485,7 @@ export default function HandoverDialog({
             toast.dismiss(toastId);
         }
     };
-    
+
     const handleDeleteExistingPhoto = (url: string) => {
         setExistingPhotos(prev => prev.filter(p => p.url !== url));
         setPhotosToDelete(prev => [...prev, url]);
@@ -499,17 +500,17 @@ export default function HandoverDialog({
         photoStore.deletePhoto(id);
     };
 
-    const dialogTitle = isOwnerView 
-        ? (isCreating ? 'Tạo Báo cáo Bàn giao' : 'Chi tiết Báo cáo Bàn giao') 
+    const dialogTitle = isOwnerView
+        ? (isCreating ? 'Tạo Báo cáo Bàn giao' : 'Chi tiết Báo cáo Bàn giao')
         : 'Nhập Phiếu Bàn Giao Ca';
-        
+
     const dialogDescription = isOwnerView && !isCreating
         ? `Lập bởi: ${reportToEdit!.finalizedBy.userName} lúc ${format((reportToEdit!.finalizedAt as Timestamp).toDate(), 'HH:mm, dd/MM/yyyy')}`
         : 'Tải hoặc chụp ảnh phiếu bàn giao để AI điền tự động.';
 
     return (
         <>
-            <Dialog open={open} onOpenChange={onOpenChange}>
+            <Dialog open={open} onOpenChange={onOpenChange} dialogTag="handover-dialog" parentDialogTag="root">
                 <DialogContent className="max-w-xl h-[95vh] flex flex-col p-0">
                     <DialogHeader className="shrink-0 p-6 pb-4 border-b bg-muted/30">
                         <DialogTitle>{dialogTitle}</DialogTitle>
@@ -523,13 +524,13 @@ export default function HandoverDialog({
                                     <CardTitle className="text-base">Ảnh phiếu bàn giao (bắt buộc)</CardTitle>
                                     {allPhotos.length > 0 && (
                                         <Button variant="secondary" size="sm" onClick={handleRescan} disabled={isOcrLoading} className="w-full sm:w-auto">
-                                            {isOcrLoading ? <Loader2 className="mr-2 h-5 w-5 sm:h-4 sm:w-4 animate-spin"/> : <RefreshCw className="mr-2 h-5 w-5 sm:h-4 sm:w-4"/>}
+                                            {isOcrLoading ? <Loader2 className="mr-2 h-5 w-5 sm:h-4 sm:w-4 animate-spin" /> : <RefreshCw className="mr-2 h-5 w-5 sm:h-4 sm:w-4" />}
                                             Quét dữ liệu bằng AI
                                         </Button>
                                     )}
                                 </CardHeader>
                                 <CardContent>
-                                     {allPhotos.length > 0 ? (
+                                    {allPhotos.length > 0 ? (
                                         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
                                             {allPhotos.map((photo, index) => (
                                                 <div key={photo.id} className="relative aspect-square rounded-md overflow-hidden group bg-muted">
@@ -561,27 +562,27 @@ export default function HandoverDialog({
                                             )}
                                         </div>
                                     )}
-                                     <div className="flex justify-center mt-4 w-full">
+                                    <div className="flex justify-center mt-4 w-full">
                                         {isOwnerView ? (
                                             <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isOcrLoading || isProcessing} className="w-full max-w-xs">
-                                                <Upload className="mr-2 h-4 w-4"/> Tải ảnh
+                                                <Upload className="mr-2 h-4 w-4" /> Tải ảnh
                                             </Button>
                                         ) : (
                                             <Button variant="outline" onClick={() => setIsCameraOpen(true)} disabled={isOcrLoading || isProcessing} className="w-full max-w-xs">
-                                                <Camera className="mr-2 h-4 w-4"/> Chụp ảnh
+                                                <Camera className="mr-2 h-4 w-4" /> Chụp ảnh
                                             </Button>
                                         )}
                                         <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" multiple />
                                     </div>
                                 </CardContent>
                             </Card>
-                            
+
                             {(originalData || isManualEntry) && (
                                 <div ref={dataSectionRef} className="space-y-4 rounded-md border bg-muted/30 shadow-inner p-4">
                                     {shiftEndTime && (
-                                        <Card><CardContent className="p-3 text-center text-sm font-semibold flex items-center justify-center gap-2"><Clock className="h-4 w-4"/>Thời gian trên phiếu: {format(parseISO(shiftEndTime), 'HH:mm:ss, dd/MM/yyyy')}</CardContent></Card>
+                                        <Card><CardContent className="p-3 text-center text-sm font-semibold flex items-center justify-center gap-2"><Clock className="h-4 w-4" />Thời gian trên phiếu: {format(parseISO(shiftEndTime), 'HH:mm:ss, dd/MM/yyyy')}</CardContent></Card>
                                     )}
-                                     <Card>
+                                    <Card>
                                         <CardContent className="p-4 space-y-3">
                                             {handoverFieldOrder.map((key) => (
                                                 <InputField
@@ -592,7 +593,7 @@ export default function HandoverDialog({
                                                         typeof originalData?.[key as keyof typeof originalData] === "number"
                                                             ? (originalData?.[key as keyof typeof originalData] as number)
                                                             : undefined
-                                                        }
+                                                    }
                                                 />
                                             ))}
                                             <Separator />
@@ -606,7 +607,7 @@ export default function HandoverDialog({
                                                         typeof originalData?.revenueByCard?.[cardKey as keyof typeof originalData.revenueByCard] === "number"
                                                             ? (originalData?.revenueByCard?.[cardKey as keyof typeof originalData.revenueByCard] as number)
                                                             : undefined
-                                                        }
+                                                    }
                                                 />
                                             ))}
                                         </CardContent>
@@ -617,11 +618,11 @@ export default function HandoverDialog({
                     </ScrollArea>
 
                     <DialogFooter className="shrink-0 p-6 pt-0 border-t bg-muted/30">
-                         <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
-                         <Button onClick={handleFinalSubmit} disabled={isProcessing || isOcrLoading || allPhotos.length === 0}>
-                            {(isProcessing || isOcrLoading) ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : (isOwnerView ? <FileText className="mr-2 h-4 w-4"/> : <ArrowRight className="mr-2 h-4 w-4"/>)}
+                        <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
+                        <Button onClick={handleFinalSubmit} disabled={isProcessing || isOcrLoading || allPhotos.length === 0}>
+                            {(isProcessing || isOcrLoading) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (isOwnerView ? <FileText className="mr-2 h-4 w-4" /> : <ArrowRight className="mr-2 h-4 w-4" />)}
                             {isOwnerView ? 'Lưu báo cáo' : 'Tiếp tục'}
-                         </Button>
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -632,24 +633,25 @@ export default function HandoverDialog({
                 onSubmit={handleCapturePhoto}
                 captureMode="photo"
                 isHD={true}
+                parentDialogTag="handover-dialog"
             />
 
             <AlertDialog open={serverErrorDialog.open}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                         <AlertDialogTitleComponent className="flex items-center gap-2">
-                            <ServerCrash className="text-destructive"/> Lỗi phân tích ảnh
+                        <AlertDialogTitleComponent className="flex items-center gap-2">
+                            <ServerCrash className="text-destructive" /> Lỗi phân tích ảnh
                         </AlertDialogTitleComponent>
                         <AlertDialogDescriptionComponent>
-                           Mô hình AI đang gặp sự cố hoặc quá tải. Vui lòng chọn một trong các tùy chọn sau.
+                            Mô hình AI đang gặp sự cố hoặc quá tải. Vui lòng chọn một trong các tùy chọn sau.
                         </AlertDialogDescriptionComponent>
                     </AlertDialogHeader>
                     <div className="flex-col sm:flex-row gap-2 pt-4">
                         <Button variant="outline" className="w-full" onClick={() => setServerErrorDialog({ open: false, imageUri: null })}>Hủy</Button>
                         <Button variant="secondary" className="w-full" onClick={() => processImage(serverErrorDialog.imageUri!)}>
-                           <RefreshCw className="mr-2 h-4 w-4" /> Thử lại
+                            <RefreshCw className="mr-2 h-4 w-4" /> Thử lại
                         </Button>
-                         <Button className="w-full" onClick={handleManualEntry}>
+                        <Button className="w-full" onClick={handleManualEntry}>
                             <FileText className="mr-2 h-4 w-4" /> Nhập thủ công
                         </Button>
                     </div>

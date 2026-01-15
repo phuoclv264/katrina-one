@@ -41,7 +41,7 @@ export default function SpecialPeriodsDialog({
 }: SpecialPeriodsDialogProps) {
     const isMobile = useIsMobile();
     const [isAdding, setIsAdding] = useState(false);
-    
+
     // Form state
     const [newName, setNewName] = useState('');
     const [newMultiplier, setNewMultiplier] = useState('2');
@@ -58,15 +58,15 @@ export default function SpecialPeriodsDialog({
     const filteredUsers = useMemo(() => {
         if (!userSearch) return users;
         const normalizedSearch = normalizeSearchString(userSearch);
-        return users.filter(u => 
-            normalizeSearchString(u.displayName || '').includes(normalizedSearch) || 
+        return users.filter(u =>
+            normalizeSearchString(u.displayName || '').includes(normalizedSearch) ||
             normalizeSearchString(u.email || '').includes(normalizedSearch)
         );
     }, [users, userSearch]);
 
     const toggleUser = (uid: string) => {
-        setSelectedUserIds(prev => 
-            prev.includes(uid) 
+        setSelectedUserIds(prev =>
+            prev.includes(uid)
                 ? prev.filter(id => id !== uid)
                 : [...prev, uid]
         );
@@ -102,8 +102,8 @@ export default function SpecialPeriodsDialog({
         endDateTime.setHours(endHours, endMinutes);
 
         if (endDateTime <= startDateTime) {
-             toast.error('Thời gian kết thúc phải sau thời gian bắt đầu');
-             return;
+            toast.error('Thời gian kết thúc phải sau thời gian bắt đầu');
+            return;
         }
 
         if (targetMode === 'specific' && selectedUserIds.length === 0) {
@@ -120,7 +120,7 @@ export default function SpecialPeriodsDialog({
                 multiplier: multiplier,
                 ...(targetMode === 'specific' ? { targetUserIds: selectedUserIds } : {}),
             });
-            
+
             toast.success('Đã thêm giai đoạn tính lương đặc biệt');
             setNewName('');
             setNewMultiplier('2');
@@ -141,7 +141,7 @@ export default function SpecialPeriodsDialog({
 
     const handleDelete = async (id: string) => {
         if (!confirm('Bạn có chắc chắn muốn xóa giai đoạn này?')) return;
-        
+
         try {
             await onDeleteSpecialPeriod(id);
             toast.success('Đã xóa giai đoạn');
@@ -170,15 +170,15 @@ export default function SpecialPeriodsDialog({
                         const targetLabel = Array.isArray(period.targetUserIds) && period.targetUserIds.length > 0
                             ? `Chỉ định ${period.targetUserIds.length} user`
                             : 'Tất cả user';
-                        
+
                         return (
                             <Card key={period.id} className="overflow-hidden">
                                 <CardContent className="p-3">
                                     <div className="flex justify-between items-start mb-2">
                                         <div className="font-medium">{period.name}</div>
                                         <Badge variant="secondary" className={cn(
-                                            period.multiplier >= 3 ? "bg-red-100 text-red-800" : 
-                                            period.multiplier >= 2 ? "bg-orange-100 text-orange-800" : ""
+                                            period.multiplier >= 3 ? "bg-red-100 text-red-800" :
+                                                period.multiplier >= 2 ? "bg-orange-100 text-orange-800" : ""
                                         )}>
                                             x{period.multiplier}
                                         </Badge>
@@ -195,9 +195,9 @@ export default function SpecialPeriodsDialog({
                                         <div className="text-xs">{targetLabel}</div>
                                     </div>
                                     <Separator className="my-2" />
-                                    <Button 
-                                        variant="ghost" 
-                                        size="sm" 
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
                                         className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 h-8"
                                         onClick={() => handleDelete(period.id)}
                                     >
@@ -230,7 +230,7 @@ export default function SpecialPeriodsDialog({
                         const targetLabel = Array.isArray(period.targetUserIds) && period.targetUserIds.length > 0
                             ? `Chỉ định ${period.targetUserIds.length} user`
                             : 'Tất cả user';
-                        
+
                         return (
                             <TableRow key={period.id}>
                                 <TableCell className="font-medium">{period.name}</TableCell>
@@ -239,16 +239,16 @@ export default function SpecialPeriodsDialog({
                                 <TableCell className="text-xs text-muted-foreground">{targetLabel}</TableCell>
                                 <TableCell className="text-center">
                                     <Badge variant="secondary" className={cn(
-                                        period.multiplier >= 3 ? "bg-red-100 text-red-800" : 
-                                        period.multiplier >= 2 ? "bg-orange-100 text-orange-800" : ""
+                                        period.multiplier >= 3 ? "bg-red-100 text-red-800" :
+                                            period.multiplier >= 2 ? "bg-orange-100 text-orange-800" : ""
                                     )}>
                                         x{period.multiplier}
                                     </Badge>
                                 </TableCell>
                                 <TableCell className="text-right">
-                                    <Button 
-                                        variant="ghost" 
-                                        size="icon" 
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
                                         className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
                                         onClick={() => handleDelete(period.id)}
                                     >
@@ -264,7 +264,7 @@ export default function SpecialPeriodsDialog({
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
+        <Dialog open={isOpen} onOpenChange={onClose} dialogTag="special-periods-dialog" parentDialogTag="root">
             <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
                 <DialogHeader className="p-6 pb-4 border-b bg-muted/10">
                     <div className="flex items-center gap-2">
@@ -293,18 +293,18 @@ export default function SpecialPeriodsDialog({
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <Label>Tên dịp</Label>
-                                        <Input 
-                                            placeholder="VD: Tết Nguyên Đán" 
-                                            value={newName} 
+                                        <Input
+                                            placeholder="VD: Tết Nguyên Đán"
+                                            value={newName}
                                             onChange={(e) => setNewName(e.target.value)}
                                         />
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Hệ số lương (x)</Label>
-                                        <Input 
-                                            type="number" 
-                                            step="0.5" 
-                                            value={newMultiplier} 
+                                        <Input
+                                            type="number"
+                                            step="0.5"
+                                            value={newMultiplier}
                                             onChange={(e) => setNewMultiplier(e.target.value)}
                                         />
                                     </div>
@@ -348,12 +348,12 @@ export default function SpecialPeriodsDialog({
                                                 ) : (
                                                     filteredUsers.map((user) => (
                                                         <div key={user.uid} className="flex items-center space-x-2">
-                                                            <Checkbox 
-                                                                id={`user-${user.uid}`} 
+                                                            <Checkbox
+                                                                id={`user-${user.uid}`}
                                                                 checked={selectedUserIds.includes(user.uid)}
                                                                 onCheckedChange={() => toggleUser(user.uid)}
                                                             />
-                                                            <Label 
+                                                            <Label
                                                                 htmlFor={`user-${user.uid}`}
                                                                 className="text-sm font-normal cursor-pointer flex-1"
                                                             >
@@ -398,8 +398,8 @@ export default function SpecialPeriodsDialog({
                                             </Popover>
                                             <div className="relative w-24 shrink-0">
                                                 <Clock className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                                                <Input 
-                                                    type="time" 
+                                                <Input
+                                                    type="time"
                                                     className="pl-8"
                                                     value={startTime}
                                                     onChange={(e) => setStartTime(e.target.value)}
@@ -434,8 +434,8 @@ export default function SpecialPeriodsDialog({
                                             </Popover>
                                             <div className="relative w-24 shrink-0">
                                                 <Clock className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                                                <Input 
-                                                    type="time" 
+                                                <Input
+                                                    type="time"
                                                     className="pl-8"
                                                     value={endTime}
                                                     onChange={(e) => setEndTime(e.target.value)}

@@ -349,7 +349,7 @@ export function BusyEvidenceDialog({ open, onOpenChange, schedule, currentUser, 
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} dialogTag="busy-evidence-dialog" parentDialogTag="root">
       <DialogContent className="max-w-4xl max-h-[92vh] flex flex-col p-0 overflow-hidden border-none sm:rounded-2xl">
         <DialogHeader className="p-4 pb-0 space-y-1">
           <div className="flex items-center gap-3">
@@ -380,9 +380,9 @@ export function BusyEvidenceDialog({ open, onOpenChange, schedule, currentUser, 
           <div className="flex-1 flex flex-col min-h-0">
             <div className="px-4 py-2">
               <div className={cn(
-                'flex items-center gap-3 rounded-xl border px-4 py-2.5 text-xs sm:text-sm transition-all duration-300', 
-                pendingCount > 0 
-                  ? 'border-amber-200 bg-amber-50/50 dark:border-amber-900/40 dark:bg-amber-900/10' 
+                'flex items-center gap-3 rounded-xl border px-4 py-2.5 text-xs sm:text-sm transition-all duration-300',
+                pendingCount > 0
+                  ? 'border-amber-200 bg-amber-50/50 dark:border-amber-900/40 dark:bg-amber-900/10'
                   : 'border-emerald-200 bg-emerald-50/50 dark:border-emerald-900/40 dark:bg-emerald-900/10'
               )}>
                 <div className={cn(
@@ -423,8 +423,8 @@ export function BusyEvidenceDialog({ open, onOpenChange, schedule, currentUser, 
                   const isSubmitted = !!submitted;
 
                   return (
-                    <div 
-                      key={shift.id} 
+                    <div
+                      key={shift.id}
                       className={cn(
                         "group relative overflow-hidden rounded-xl border transition-all duration-300",
                         isSubmitted ? "border-emerald-100 bg-emerald-50/20 dark:border-emerald-900/30 dark:bg-emerald-900/5 shadow-none" : "bg-card border-slate-200 dark:border-slate-800 shadow-sm"
@@ -461,7 +461,7 @@ export function BusyEvidenceDialog({ open, onOpenChange, schedule, currentUser, 
                               </div>
                             </div>
                           </div>
-                          
+
                           <div className="flex items-center gap-1.5 self-start shrink-0">
                             <Badge variant="destructive" className="rounded-md font-bold text-[10px] h-5">
                               {getShiftMissingDetails(shift, allUsers).text}
@@ -495,22 +495,22 @@ export function BusyEvidenceDialog({ open, onOpenChange, schedule, currentUser, 
                                 <span className="text-rose-500">*</span>
                               </label>
                               <div className="flex items-center gap-1.5">
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
+                                <Button
+                                  variant="outline"
+                                  size="sm"
                                   className="h-8 px-2.5 text-[11px] rounded-lg border-slate-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900"
                                   onClick={() => setActiveCameraShiftId(shift.id)}
                                 >
-                                  <Camera className="mr-1.5 h-3.5 w-3.5 text-primary" /> 
+                                  <Camera className="mr-1.5 h-3.5 w-3.5 text-primary" />
                                   Chụp
                                 </Button>
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
+                                <Button
+                                  variant="outline"
+                                  size="sm"
                                   className="h-8 px-2.5 text-[11px] rounded-lg border-slate-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900"
                                   onClick={() => fileInputRefs.current[shift.id]?.click()}
                                 >
-                                  <Upload className="mr-1.5 h-3.5 w-3.5 text-primary" /> 
+                                  <Upload className="mr-1.5 h-3.5 w-3.5 text-primary" />
                                   Tải lên
                                 </Button>
                                 <input
@@ -608,8 +608,8 @@ export function BusyEvidenceDialog({ open, onOpenChange, schedule, currentUser, 
                           </div>
 
                           <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
-                            <Button 
-                              onClick={() => handleSubmitEvidence(shift.id)} 
+                            <Button
+                              onClick={() => handleSubmitEvidence(shift.id)}
                               disabled={draft.isSubmitting || (isSubmitted && !draft.dirty)}
                               size="sm"
                               className={cn(
@@ -640,6 +640,7 @@ export function BusyEvidenceDialog({ open, onOpenChange, schedule, currentUser, 
         onClose={() => setActiveCameraShiftId(null)}
         onSubmit={handleCameraSubmit}
         captureMode="both"
+        parentDialogTag="busy-evidence-dialog"
       />
     </Dialog>
   );

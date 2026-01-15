@@ -31,8 +31,8 @@ export default function IssueNotesDialog({ isOpen, onOpenChange }: { isOpen: boo
       const q = query(collection(db, 'issue_notes'), orderBy('date', 'desc'));
       const unsubNotes = onSnapshot(q, (snapshot) => {
         const notes = snapshot.docs.map(doc => ({
-            ...doc.data(),
-            id: doc.id,
+          ...doc.data(),
+          id: doc.id,
         } as IssueNote));
         setNotes(notes);
       });
@@ -106,22 +106,22 @@ export default function IssueNotesDialog({ isOpen, onOpenChange }: { isOpen: boo
   const areAllOpen = sortedDates.length > 0 && openAccordionItems.length === sortedDates.length;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <Dialog open={isOpen} onOpenChange={onOpenChange} dialogTag="issue-notes-dialog" parentDialogTag="root">
       <DialogContent className="max-w-2xl bg-white dark:bg-card">
         <DialogHeader>
           <DialogTitle>Báo cáo Vấn đề & Ghi chú</DialogTitle>
           <DialogDescription>
-            Tổng hợp tất cả các ghi chú và vấn đề phát sinh từ báo cáo của nhân viên. 
+            Tổng hợp tất cả các ghi chú và vấn đề phát sinh từ báo cáo của nhân viên.
             {lastScanDate && ` Lần quét cuối: ${lastScanDate}`}
           </DialogDescription>
         </DialogHeader>
         <div className="flex justify-end -mb-2">
-            {sortedDates.length > 1 && (
-                <Button variant="outline" size="sm" onClick={handleToggleAll}>
-                    <ChevronsDownUp className="mr-2 h-4 w-4" />
-                    {areAllOpen ? 'Thu gọn tất cả' : 'Mở rộng tất cả'}
-                </Button>
-            )}
+          {sortedDates.length > 1 && (
+            <Button variant="outline" size="sm" onClick={handleToggleAll}>
+              <ChevronsDownUp className="mr-2 h-4 w-4" />
+              {areAllOpen ? 'Thu gọn tất cả' : 'Mở rộng tất cả'}
+            </Button>
+          )}
         </div>
         <div className="max-h-[60vh] overflow-y-auto -mx-6 px-6 py-4">
           {isLoading ? (
@@ -141,12 +141,12 @@ export default function IssueNotesDialog({ isOpen, onOpenChange }: { isOpen: boo
                     <div className="space-y-3">
                       {groupedNotes[date].map(note => (
                         <div key={note.id} className="p-3 border rounded-md bg-muted/50">
-                           <blockquote className="border-l-4 pl-3 italic text-sm">
-                                {note.note}
-                           </blockquote>
-                           <p className="text-xs text-muted-foreground text-right mt-2">
-                             - {note.staffName} ({note.shiftName})
-                           </p>
+                          <blockquote className="border-l-4 pl-3 italic text-sm">
+                            {note.note}
+                          </blockquote>
+                          <p className="text-xs text-muted-foreground text-right mt-2">
+                            - {note.staffName} ({note.shiftName})
+                          </p>
                         </div>
                       ))}
                     </div>
@@ -163,7 +163,7 @@ export default function IssueNotesDialog({ isOpen, onOpenChange }: { isOpen: boo
         </div>
         <DialogFooter>
           <Button onClick={handleScan} disabled={isScanning}>
-            {isScanning ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Wand2 className="mr-2 h-4 w-4"/>}
+            {isScanning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
             Quét báo cáo mới
           </Button>
         </DialogFooter>

@@ -108,7 +108,7 @@ export default function WorkHistoryDialog({ isOpen, onClose, user }: WorkHistory
   }, [records]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="work-history-dialog" parentDialogTag="root">
       <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Lịch sử làm việc của bạn</DialogTitle>
@@ -205,7 +205,7 @@ export default function WorkHistoryDialog({ isOpen, onClose, user }: WorkHistory
                   (record.specialPeriodAppliedId ?? null) !== null ||
                   (typeof record.salaryMultiplierApplied === 'number' && record.salaryMultiplierApplied !== 1);
                 return (
-                  <Card 
+                  <Card
                     key={record.id}
                     className={cn(
                       "transition-colors",
@@ -223,8 +223,8 @@ export default function WorkHistoryDialog({ isOpen, onClose, user }: WorkHistory
                           </div>
                           {isWithinSpecialPeriod && typeof record.hourlyRate === 'number' && (
                             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                              <Badge 
-                                variant="secondary" 
+                              <Badge
+                                variant="secondary"
                                 className={cn(
                                   "text-xs",
                                   isWithinSpecialPeriod && "bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/50 dark:text-amber-200"
@@ -287,7 +287,7 @@ export default function WorkHistoryDialog({ isOpen, onClose, user }: WorkHistory
                       (record.specialPeriodAppliedId ?? null) !== null ||
                       (typeof record.salaryMultiplierApplied === 'number' && record.salaryMultiplierApplied !== 1);
                     return (
-                      <TableRow 
+                      <TableRow
                         key={record.id}
                         className={cn(
                           isWithinSpecialPeriod && "bg-amber-50/50 hover:bg-amber-100/50 dark:bg-amber-950/20 dark:hover:bg-amber-900/30"

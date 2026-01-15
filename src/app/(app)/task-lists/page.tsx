@@ -260,7 +260,7 @@ function AiAssistant({
             </Card>
 
             {/* Add Preview Dialog */}
-            <Dialog open={showAddPreview} onOpenChange={setShowAddPreview}>
+            <Dialog open={showAddPreview} onOpenChange={setShowAddPreview} dialogTag="task-add-preview-dialog" parentDialogTag="root">
                 <DialogContent className="max-w-2xl">
                     <AlertDialogHeader>
                         <AlertDialogTitle>Xem trước các công việc sẽ được thêm</AlertDialogTitle>
@@ -287,7 +287,7 @@ function AiAssistant({
             </Dialog>
 
             {/* Sort Preview Dialog */}
-            <Dialog open={showSortPreview} onOpenChange={setShowSortPreview}>
+            <Dialog open={showSortPreview} onOpenChange={setShowSortPreview} dialogTag="task-sort-preview-dialog" parentDialogTag="root">
                 <DialogContent className="max-w-4xl">
                     <AlertDialogHeader>
                         <AlertDialogTitle>Xem trước thứ tự sắp xếp mới</AlertDialogTitle>

@@ -74,7 +74,7 @@ export default function ManualAttendanceDialog({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="manual-attendance-dialog" parentDialogTag="root">
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Chấm công thủ công</DialogTitle>

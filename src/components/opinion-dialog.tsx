@@ -35,7 +35,7 @@ const OpinionDialog = ({ isOpen, onClose, onSubmit, taskText, initialValue = '' 
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()} dialogTag="opinion-dialog" parentDialogTag="root">
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Ghi nhận ý kiến cho:</DialogTitle>

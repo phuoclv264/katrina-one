@@ -64,7 +64,7 @@ export default function EditAttendanceDialog({
   if (!record) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="edit-attendance-dialog" parentDialogTag="root">
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Chỉnh sửa Chấm công</DialogTitle>

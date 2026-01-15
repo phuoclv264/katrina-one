@@ -60,7 +60,7 @@ export default function BulkSalaryDialog({
   });
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="bulk-salary-dialog" parentDialogTag="root">
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Quản lý Lương nhân viên</DialogTitle>
@@ -69,25 +69,25 @@ export default function BulkSalaryDialog({
           </DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-[60vh] pr-4">
-            <div className="py-4 space-y-4">
+          <div className="py-4 space-y-4">
             {sortedUsers.map(user => (
-                <div key={user.uid} className="grid grid-cols-3 items-center gap-4 py-1 break-words">
-                    <div className="col-span-1">
-                        <Label htmlFor={`rate-${user.uid}`} className="font-semibold">{user.displayName}</Label>
-                        <p className="text-xs text-muted-foreground">{user.role}</p>
-                    </div>
-                    <Input
-                        id={`rate-${user.uid}`}
-                        type="number"
-                        value={rates[user.uid] || ''}
-                        onChange={(e) => handleRateChange(user.uid, e.target.value)}
-                        className="col-span-2"
-                        placeholder="Nhập mức lương..."
-                        onFocus={(e) => e.target.select()}
-                    />
+              <div key={user.uid} className="grid grid-cols-3 items-center gap-4 py-1 break-words">
+                <div className="col-span-1">
+                  <Label htmlFor={`rate-${user.uid}`} className="font-semibold">{user.displayName}</Label>
+                  <p className="text-xs text-muted-foreground">{user.role}</p>
                 </div>
+                <Input
+                  id={`rate-${user.uid}`}
+                  type="number"
+                  value={rates[user.uid] || ''}
+                  onChange={(e) => handleRateChange(user.uid, e.target.value)}
+                  className="col-span-2"
+                  placeholder="Nhập mức lương..."
+                  onFocus={(e) => e.target.select()}
+                />
+              </div>
             ))}
-            </div>
+          </div>
         </ScrollArea>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={isSaving}>Hủy</Button>

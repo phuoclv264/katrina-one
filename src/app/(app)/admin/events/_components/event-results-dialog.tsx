@@ -72,14 +72,14 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers }:
     useEffect(() => {
         if (isOpen) fetchResults();
     }, [isOpen, fetchResults]);
-    
+
     const allCandidates = useMemo(() => [...(event.candidates || []), ...(event.options || [])], [event]);
 
     const results = useMemo<EventResult[]>(() => {
         if (event.type === 'vote' || event.type === 'multi-vote') {
             const voteCounts: { [key: string]: number } = {};
             const votersByCandidate: { [key: string]: { name: string; userId: string }[] } = {};
-            
+
             allCandidates.forEach(c => {
                 voteCounts[c.id] = 0;
                 votersByCandidate[c.id] = [];
@@ -90,7 +90,7 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers }:
                     if (voteCounts.hasOwnProperty(candidateId)) {
                         voteCounts[candidateId]++;
                         if (!event.anonymousResults) {
-                           votersByCandidate[candidateId].push({ name: vote.userDisplay.name, userId: vote.userId || vote.id });
+                            votersByCandidate[candidateId].push({ name: vote.userDisplay.name, userId: vote.userId || vote.id });
                         }
                     }
                 });
@@ -109,8 +109,8 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers }:
                 }))
                 .sort((a, b) => b.votes - a.votes) as EventResult[];
         }
-        
-         if (event.type === 'review') {
+
+        if (event.type === 'review') {
             const reviewData: { [key: string]: { ratings: number[], comments: { text: string, author: string }[] } } = {};
             allCandidates.forEach(c => {
                 reviewData[c.id] = { ratings: [], comments: [] };
@@ -123,7 +123,7 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers }:
                     });
                 }
                 if (vote.comments) {
-                     Object.entries(vote.comments).forEach(([candidateId, comment]) => {
+                    Object.entries(vote.comments).forEach(([candidateId, comment]) => {
                         if (reviewData[candidateId] && comment) {
                             reviewData[candidateId].comments.push({ text: comment, author: event.anonymousResults ? 'Ẩn danh' : vote.userDisplay.name });
                         }
@@ -140,7 +140,7 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers }:
                 // include vote fields for consistency
                 votes: 0,
                 voters: []
-            })).sort((a,b) => b.avgRating - a.avgRating) as EventResult[];
+            })).sort((a, b) => b.avgRating - a.avgRating) as EventResult[];
         }
 
         return [] as EventResult[];
@@ -225,15 +225,15 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers }:
                                     <BarChart data={results} layout="vertical" margin={{ left: 20, right: 30, top: 10, bottom: 10 }}>
                                         <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(0,0,0,0.05)" />
                                         <XAxis type="number" hide />
-                                        <YAxis 
-                                            type="category" 
-                                            dataKey="name" 
-                                            width={100} 
-                                            tick={{ fontSize: 11, fontWeight: 600 }} 
+                                        <YAxis
+                                            type="category"
+                                            dataKey="name"
+                                            width={100}
+                                            tick={{ fontSize: 11, fontWeight: 600 }}
                                             axisLine={false}
                                             tickLine={false}
                                         />
-                                        <Tooltip 
+                                        <Tooltip
                                             cursor={{ fill: 'rgba(0,0,0,0.02)' }}
                                             content={({ active, payload }) => {
                                                 if (active && payload && payload.length) {
@@ -313,17 +313,17 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers }:
                                         <div className="flex items-center gap-3 bg-white/50 p-3 rounded-2xl border border-white shadow-sm">
                                             <div className="space-y-1 flex-1">
                                                 <Label className="text-[10px] font-bold uppercase text-muted-foreground">Số người thắng</Label>
-                                                <input 
-                                                    className="w-full bg-transparent border-none focus:ring-0 text-xl font-black p-0" 
-                                                    type="number" 
-                                                    min={1} 
-                                                    max={Math.max(1, votes.length)} 
-                                                    value={winnerCount} 
-                                                    onChange={(e) => setWinnerCount(Math.max(1, Number(e.target.value) || 1))} 
+                                                <input
+                                                    className="w-full bg-transparent border-none focus:ring-0 text-xl font-black p-0"
+                                                    type="number"
+                                                    min={1}
+                                                    max={Math.max(1, votes.length)}
+                                                    value={winnerCount}
+                                                    onChange={(e) => setWinnerCount(Math.max(1, Number(e.target.value) || 1))}
                                                 />
                                             </div>
-                                            <Button 
-                                                size="lg" 
+                                            <Button
+                                                size="lg"
                                                 onClick={async () => {
                                                     if (votes.length === 0) { toast.error('Chưa có người tham gia để rút thăm.'); return; }
                                                     try {
@@ -463,9 +463,9 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers }:
                                             </div>
                                         </div>
                                         {user && (user.uid === event.ownerId || user.role === 'Chủ nhà hàng') && (
-                                            <Button 
-                                                size="sm" 
-                                                variant="ghost" 
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
                                                 className="text-destructive hover:bg-destructive/10 font-bold text-xs opacity-0 group-hover:opacity-100 transition-opacity"
                                                 onClick={async () => {
                                                     const voters = (votes || []).filter(v => (v.votes || []).includes(res.id) || (v.ratings && v.ratings[res.id] !== undefined) || (v.comments && v.comments[res.id]));
@@ -519,7 +519,7 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers }:
                                                     </div>
                                                     <div className="flex items-center gap-2">
                                                         {user && (user.uid === event.ownerId || user.role === 'Chủ nhà hàng') && (
-                                                            <button 
+                                                            <button
                                                                 onClick={async () => {
                                                                     if (!confirm(`Xóa báo cáo của ${event.anonymousResults ? 'Ẩn danh' : (v.userDisplay?.name || v.userId)}? (Sẽ xóa toàn bộ bài gửi của người này)`)) return;
                                                                     try {
@@ -551,7 +551,7 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers }:
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+        <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }} dialogTag="event-results-dialog" parentDialogTag="root">
             <DialogContent className="max-w-2xl p-0 overflow-hidden border-none shadow-2xl flex flex-col max-h-[90vh]">
                 <div className="bg-primary/5 px-6 py-5 border-b flex items-center justify-between">
                     <DialogHeader>
@@ -563,10 +563,10 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers }:
                             Xem thống kê chi tiết và quản lý các lượt tham gia.
                         </DialogDescription>
                     </DialogHeader>
-                    <Button 
-                        variant="outline" 
-                        size="icon" 
-                        onClick={fetchResults} 
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={fetchResults}
                         disabled={isLoading}
                         className="rounded-full h-9 w-9 bg-white shadow-sm border-muted hover:bg-primary/5 hover:text-primary transition-all"
                     >
@@ -588,4 +588,3 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers }:
     );
 }
 
-    

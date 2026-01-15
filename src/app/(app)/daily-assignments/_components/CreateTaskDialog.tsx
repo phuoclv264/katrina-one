@@ -44,12 +44,12 @@ export default function CreateTaskDialog({ isOpen, onOpenChange, newTask, setNew
   }, [allUsers, userFilter]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => onOpenChange(open)}>
+    <Dialog open={isOpen} onOpenChange={(open) => onOpenChange(open)} dialogTag="create-task-dialog" parentDialogTag="root">
       <DialogContent className="max-w-2xl p-0 overflow-hidden border-none shadow-2xl">
         <div className="bg-primary px-5 py-4 text-primary-foreground relative overflow-hidden">
           <div className="absolute top-0 right-0 -mr-8 -mt-8 h-32 w-32 rounded-full bg-white/10 blur-3xl" />
           <div className="absolute bottom-0 left-0 -ml-8 -mb-8 h-24 w-24 rounded-full bg-black/10 blur-2xl" />
-          
+
           <DialogHeader className="relative z-10">
             <DialogTitle className="text-2xl sm:text-3xl font-black uppercase tracking-tight">{isEditing ? 'Chỉnh sửa nhiệm vụ' : 'Giao việc mới'}</DialogTitle>
             <DialogDescription className="text-primary-foreground/80 font-medium italic sm:not-italic text-xs sm:text-sm">
@@ -65,7 +65,7 @@ export default function CreateTaskDialog({ isOpen, onOpenChange, newTask, setNew
               <div className="h-4 w-1 bg-primary rounded-full" />
               <h3 className="text-xs font-black uppercase tracking-[0.2em]">Thông tin cơ bản</h3>
             </div>
-            
+
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Tiêu đề nhiệm vụ</Label>
@@ -106,7 +106,7 @@ export default function CreateTaskDialog({ isOpen, onOpenChange, newTask, setNew
                 <div className="h-4 w-1 bg-primary rounded-full" />
                 <h3 className="text-xs font-black uppercase tracking-[0.2em]">Người nhận việc</h3>
               </div>
-              
+
               <div className="flex p-1 bg-muted/50 rounded-xl w-fit border border-muted-foreground/5">
                 <Button
                   variant={newTask.targetMode === 'roles' ? 'secondary' : 'ghost'}
@@ -201,13 +201,13 @@ export default function CreateTaskDialog({ isOpen, onOpenChange, newTask, setNew
                 <div className="h-4 w-1 bg-primary rounded-full" />
                 <h3 className="text-xs font-black uppercase tracking-[0.2em]">Ảnh hướng dẫn</h3>
               </div>
-              
+
               <div
                 onClick={() => setInstructionCameraOpen(true)}
                 className={cn(
                   "relative flex aspect-square sm:aspect-auto sm:h-full min-h-[120px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed transition-all overflow-hidden group",
-                  newTask.media.length > 0 
-                    ? "border-primary/40 bg-primary/5" 
+                  newTask.media.length > 0
+                    ? "border-primary/40 bg-primary/5"
                     : "border-muted-foreground/20 bg-muted/10 hover:bg-muted/20 hover:border-primary/30"
                 )}
               >
@@ -238,9 +238,9 @@ export default function CreateTaskDialog({ isOpen, onOpenChange, newTask, setNew
               Hủy bỏ
             </Button>
           </DialogClose>
-          <Button 
-            onClick={onCreate} 
-            disabled={isCreating} 
+          <Button
+            onClick={onCreate}
+            disabled={isCreating}
             className="h-11 min-w-[180px] font-black uppercase tracking-wider text-xs shadow-xl shadow-primary/20"
           >
             {isCreating ? (

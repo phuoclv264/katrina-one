@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea'; 
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -10,7 +10,7 @@ import { Wand2, Loader2, Edit, Trash2, X, Send, Upload, Eye } from 'lucide-react
 import { toast } from '@/components/ui/pro-toast';
 import { callRefineText } from '@/lib/ai-service';
 import type { WhistleblowingReport, AuthUser, ManagedUser, ReportComment, CommentMedia } from '@/lib/types';
-import Image from 'next/image'; 
+import Image from 'next/image';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -50,16 +50,16 @@ export default function CommentDialog({
     const [isAnonymous, setIsAnonymous] = useState(true);
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    
+
     const [commentPhotoIds, setCommentPhotoIds] = useState<string[]>([]);
     const [commentMedia, setCommentMedia] = useState<{ id: string; url: string; type: 'photo' | 'video' }[]>([]);
-    
+
     const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
     const [editingText, setEditingText] = useState('');
-    
+
     const scrollAreaRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    
+
     const handleCommentDialogSubmit = async (reportId: string, commentText: string, medias: CommentMedia[], isAnonymous: boolean) => {
         setIsSubmitting(true);
         try {
@@ -71,9 +71,9 @@ export default function CommentDialog({
 
     const handleSubmit = async () => {
         if (!commentText.trim() && commentMedia.length === 0) return;
-        
+
         await handleCommentDialogSubmit(report.id, commentText, commentMedia, isAnonymous);
-        
+
         setCommentText('');
         setCommentMedia([]);
 
@@ -137,7 +137,7 @@ export default function CommentDialog({
             setEditingText('');
         }
     };
-    
+
     const getCommenterDisplayName = (comment: ReportComment, currentReport: WhistleblowingReport): string => {
         if (comment.isAnonymous) {
             return report.anonymousNameMap?.[comment.authorId] || 'Ẩn danh';
@@ -165,15 +165,15 @@ export default function CommentDialog({
 
     return (
         <TooltipProvider>
-            <Dialog open={isOpen} onOpenChange={onClose}>
-                <DialogContent 
+            <Dialog open={isOpen} onOpenChange={onClose} dialogTag="comment-dialog" parentDialogTag="root">
+                <DialogContent
                     className="max-w-2xl h-[90vh] flex flex-col p-0 bg-white dark:bg-card rounded-xl shadow-lg"
                 >
-                     <div id="comment-lightbox-container"></div>
+                    <div id="comment-lightbox-container"></div>
                     <DialogHeader className="p-4 sm:p-6 pb-2 border-b shrink-0">
                         <DialogTitle className="text-xl">Thảo luận về bài đăng</DialogTitle>
                         <DialogDescription className="truncate">
-                           "{report.title}"
+                            "{report.title}"
                         </DialogDescription>
                     </DialogHeader>
 
@@ -184,7 +184,7 @@ export default function CommentDialog({
                                 const canDelete = isMyComment || currentUser.role === 'Chủ nhà hàng';
                                 const isEditingThis = editingCommentId === comment.id;
                                 const displayName = getCommenterDisplayName(comment, report);
-                                
+
                                 return (
                                     <div key={comment.id} className="flex items-start gap-3">
                                         <Card className={cn("flex-1 rounded-xl shadow-sm", isMyComment ? "bg-primary/5" : "bg-muted/50")}>
@@ -217,7 +217,7 @@ export default function CommentDialog({
                                                 </div>
                                                 {isEditingThis ? (
                                                     <div className="space-y-2 mt-1">
-                                                        <Textarea value={editingText} onChange={(e) => setEditingText(e.target.value)} rows={2} autoFocus/>
+                                                        <Textarea value={editingText} onChange={(e) => setEditingText(e.target.value)} rows={2} autoFocus />
                                                         <div className="flex justify-end gap-2">
                                                             <Button variant="ghost" size="sm" onClick={() => setEditingCommentId(null)}>Hủy</Button>
                                                             <Button size="sm" onClick={handleSaveEdit}>Lưu</Button>
@@ -225,23 +225,23 @@ export default function CommentDialog({
                                                     </div>
                                                 ) : (
                                                     <>
-                                                    <p className="text-sm whitespace-pre-wrap leading-relaxed">{comment.content}</p>
-                                                    {(comment.media && comment.media.length > 0) && (
-                                                        <div className="mt-2 flex gap-2 flex-wrap">
-                                                            {comment.media.map((mediaItem, index) => (
-                                                                <button key={index} onClick={() => handleOpenCommentLightbox(comment.media!, index)} className="relative w-20 h-20 rounded-md overflow-hidden hover:opacity-90 transition-opacity bg-muted">
-                                                                    {mediaItem.type === 'photo' ? (
-                                                                        <Image src={mediaItem.url} alt={`Comment media ${index + 1}`} fill className="object-cover" />
-                                                                    ) : (
-                                                                        <>
-                                                                            <video src={`${mediaItem.url}#t=0.1`} preload="metadata" muted playsInline className="w-full h-full object-cover" />
-                                                                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center"><Video className="h-8 w-8 text-white" /></div>
-                                                                        </>
-                                                                    )}
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    )}
+                                                        <p className="text-sm whitespace-pre-wrap leading-relaxed">{comment.content}</p>
+                                                        {(comment.media && comment.media.length > 0) && (
+                                                            <div className="mt-2 flex gap-2 flex-wrap">
+                                                                {comment.media.map((mediaItem, index) => (
+                                                                    <button key={index} onClick={() => handleOpenCommentLightbox(comment.media!, index)} className="relative w-20 h-20 rounded-md overflow-hidden hover:opacity-90 transition-opacity bg-muted">
+                                                                        {mediaItem.type === 'photo' ? (
+                                                                            <Image src={mediaItem.url} alt={`Comment media ${index + 1}`} fill className="object-cover" />
+                                                                        ) : (
+                                                                            <>
+                                                                                <video src={`${mediaItem.url}#t=0.1`} preload="metadata" muted playsInline className="w-full h-full object-cover" />
+                                                                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center"><Video className="h-8 w-8 text-white" /></div>
+                                                                            </>
+                                                                        )}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        )}
                                                     </>
                                                 )}
                                             </CardContent>
@@ -249,134 +249,134 @@ export default function CommentDialog({
                                     </div>
                                 );
                             })}
-                             {(!report.comments || report.comments.length === 0) && (
+                            {(!report.comments || report.comments.length === 0) && (
                                 <p className="text-sm text-center text-muted-foreground py-10">Chưa có bình luận nào. Hãy là người đầu tiên!</p>
-                             )}
+                            )}
                         </div>
                     </ScrollArea>
-                    
+
                     <DialogFooter className="border-t bg-muted/30 p-3">
                         <div className="flex flex-col w-full gap-2">
 
                             {/* Hàng 1: các nút chức năng */}
                             <div className="flex flex-wrap items-center justify-between bg-white dark:bg-card rounded-xl shadow-sm p-2 border border-muted">
-                            <div className="flex items-center gap-1 flex-wrap">
-                                {/* Nút AI */}
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" onClick={handleRefineComment} disabled={isAiLoading || !commentText}>
-                                            {isAiLoading ? <Loader2 className="h-5 w-5 animate-spin"/> : <Wand2 className="h-5 w-5" />}
-                                        </Button>
-                                    </TooltipTrigger>
-                                <TooltipContent>Chuốt lại câu từ</TooltipContent>
-                                </Tooltip>
+                                <div className="flex items-center gap-1 flex-wrap">
+                                    {/* Nút AI */}
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button variant="ghost" size="icon" onClick={handleRefineComment} disabled={isAiLoading || !commentText}>
+                                                {isAiLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Wand2 className="h-5 w-5" />}
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Chuốt lại câu từ</TooltipContent>
+                                    </Tooltip>
 
-                                {/* Nút Upload ảnh */}
-                                <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => fileInputRef.current?.click()}
-                                    disabled={isSubmitting}
-                                    >
-                                    <Upload className="h-5 w-5" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Tải ảnh lên</TooltipContent>
-                                </Tooltip>
-                                <input
-                                type="file"
-                                ref={fileInputRef}
-                                onChange={handleFileChange}
-                                className="hidden"
-                                accept="image/*,video/*"
-                                multiple
-                                />
+                                    {/* Nút Upload ảnh */}
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => fileInputRef.current?.click()}
+                                                disabled={isSubmitting}
+                                            >
+                                                <Upload className="h-5 w-5" />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Tải ảnh lên</TooltipContent>
+                                    </Tooltip>
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        onChange={handleFileChange}
+                                        className="hidden"
+                                        accept="image/*,video/*"
+                                        multiple
+                                    />
 
-                                {/* Nút xem / xóa ảnh nếu có ảnh */}
-                                {commentMedia.length > 0 && (
-                                <>
-                                    <div className="flex flex-wrap gap-1">
-                                        {commentMedia.map((media, index) => (
-                                            <div key={media.id} className="relative group">
-                                                <button onClick={() => handleOpenCommentLightbox(commentMedia, index)} className="relative w-10 h-10 rounded-md overflow-hidden bg-muted">
-                                                    {media.type === 'photo' ? (
-                                                        <Image src={media.url} alt={`Preview ${index}`} fill className="object-cover" />
-                                                    ) : (
-                                                        <div className="w-full h-full flex items-center justify-center">
-                                                            <Video className="h-5 w-5 text-muted-foreground" />
-                                                        </div>
-                                                    )}
-                                                </button>
-                                                <Button
-                                                    variant="destructive"
-                                                    size="icon"
-                                                    className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                                    onClick={() => handleDeletePreviewMedia(media.id)}
-                                                >
-                                                    <X className="h-2.5 w-2.5" />
-                                                </Button>
+                                    {/* Nút xem / xóa ảnh nếu có ảnh */}
+                                    {commentMedia.length > 0 && (
+                                        <>
+                                            <div className="flex flex-wrap gap-1">
+                                                {commentMedia.map((media, index) => (
+                                                    <div key={media.id} className="relative group">
+                                                        <button onClick={() => handleOpenCommentLightbox(commentMedia, index)} className="relative w-10 h-10 rounded-md overflow-hidden bg-muted">
+                                                            {media.type === 'photo' ? (
+                                                                <Image src={media.url} alt={`Preview ${index}`} fill className="object-cover" />
+                                                            ) : (
+                                                                <div className="w-full h-full flex items-center justify-center">
+                                                                    <Video className="h-5 w-5 text-muted-foreground" />
+                                                                </div>
+                                                            )}
+                                                        </button>
+                                                        <Button
+                                                            variant="destructive"
+                                                            size="icon"
+                                                            className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                                            onClick={() => handleDeletePreviewMedia(media.id)}
+                                                        >
+                                                            <X className="h-2.5 w-2.5" />
+                                                        </Button>
+                                                    </div>
+                                                ))}
                                             </div>
-                                        ))}
-                                    </div>
 
-                                    <Button
-                                    variant="link"
-                                    size="sm"
-                                    className="text-destructive h-auto p-1"
-                                    onClick={() => {
-                                        commentMedia.forEach((media) => handleDeletePreviewMedia(media.id));
-                                    }}
-                                    >
-                                    Xóa
-                                    </Button>
-                                </>
-                                )}
-                            </div>
+                                            <Button
+                                                variant="link"
+                                                size="sm"
+                                                className="text-destructive h-auto p-1"
+                                                onClick={() => {
+                                                    commentMedia.forEach((media) => handleDeletePreviewMedia(media.id));
+                                                }}
+                                            >
+                                                Xóa
+                                            </Button>
+                                        </>
+                                    )}
+                                </div>
 
-                            {/* Toggle ẩn danh */}
-                            <div className="flex items-center space-x-2">
-                                <Switch id="anonymous-comment-switch" checked={isAnonymous} onCheckedChange={setIsAnonymous} />
-                                <Label htmlFor="anonymous-comment-switch" className="text-sm font-medium whitespace-nowrap">Ẩn danh</Label>
-                            </div>
+                                {/* Toggle ẩn danh */}
+                                <div className="flex items-center space-x-2">
+                                    <Switch id="anonymous-comment-switch" checked={isAnonymous} onCheckedChange={setIsAnonymous} />
+                                    <Label htmlFor="anonymous-comment-switch" className="text-sm font-medium whitespace-nowrap">Ẩn danh</Label>
+                                </div>
                             </div>
 
                             {/* Hàng 2: input + gửi */}
                             <div className="flex items-end gap-2 bg-white dark:bg-card rounded-xl shadow-sm p-2 border border-muted">
-                            <Textarea
-                                placeholder="Nhập nội dung..."
-                                value={commentText}
-                                onChange={(e) => {
-                                setCommentText(e.target.value);
-                                const el = e.target as HTMLTextAreaElement;
-                                el.style.height = "auto";
-                                el.style.height = Math.min(el.scrollHeight, 72) + "px"; // giãn tối đa 3 dòng
-                                }}
-                                disabled={isSubmitting}
-                                rows={1}
-                                className="flex-1 resize-none border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm bg-transparent leading-[1.5] py-[10px] transition-all"
-                                style={{
-                                height: "auto",
-                                minHeight: "24px", // 1 dòng
-                                maxHeight: "72px",
-                                overflowY: "auto",
-                                }}
-                            />
+                                <Textarea
+                                    placeholder="Nhập nội dung..."
+                                    value={commentText}
+                                    onChange={(e) => {
+                                        setCommentText(e.target.value);
+                                        const el = e.target as HTMLTextAreaElement;
+                                        el.style.height = "auto";
+                                        el.style.height = Math.min(el.scrollHeight, 72) + "px"; // giãn tối đa 3 dòng
+                                    }}
+                                    disabled={isSubmitting}
+                                    rows={1}
+                                    className="flex-1 resize-none border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm bg-transparent leading-[1.5] py-[10px] transition-all"
+                                    style={{
+                                        height: "auto",
+                                        minHeight: "24px", // 1 dòng
+                                        maxHeight: "72px",
+                                        overflowY: "auto",
+                                    }}
+                                />
 
-                            {/* Nút gửi */}
-                            <Button
-                                size="icon"
-                                onClick={handleSubmit}
-                                disabled={isSubmitting || (!commentText.trim() && commentMedia.length === 0)}
-                                className="h-9 w-9 rounded-full"
-                            >
-                                {isSubmitting ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                <Send className="h-4 w-4" />
-                                )}
-                            </Button>
+                                {/* Nút gửi */}
+                                <Button
+                                    size="icon"
+                                    onClick={handleSubmit}
+                                    disabled={isSubmitting || (!commentText.trim() && commentMedia.length === 0)}
+                                    className="h-9 w-9 rounded-full"
+                                >
+                                    {isSubmitting ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <Send className="h-4 w-4" />
+                                    )}
+                                </Button>
                             </div>
                         </div>
                     </DialogFooter>

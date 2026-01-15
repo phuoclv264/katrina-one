@@ -121,7 +121,7 @@ export default function CashHandoverDialog({
     } else {
       localPhotos.forEach(p => URL.revokeObjectURL(p.url));
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, resetState]);
 
   const handleActualCashChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -187,14 +187,14 @@ export default function CashHandoverDialog({
   };
 
   const dialogTitle = isOwnerView && countToEdit ? "Chi tiết Kiểm kê" : "Bàn giao tiền mặt";
-  
+
   const discrepancy = (actualCashCounted !== null && expectedCash !== undefined)
     ? actualCashCounted - expectedCash
     : 0;
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog open={open} onOpenChange={onOpenChange} dialogTag="cash-handover-dialog" parentDialogTag="root">
         <DialogContent className="max-w-md h-full md:h-auto md:max-h-[90vh] flex flex-col p-0">
           <DialogHeader className="p-6 pb-4 border-b shrink-0 bg-muted/30">
             <DialogTitle className="text-2xl flex items-center gap-2"><Wallet /> {dialogTitle}</DialogTitle>
@@ -238,9 +238,9 @@ export default function CashHandoverDialog({
                         </div>
                       )}
                       <Separator />
-                       <div className="flex justify-between items-center pt-2">
-                          <p className="font-semibold text-base flex items-center gap-2"><Wallet className="h-5 w-5"/>Tiền mặt dự kiến</p>
-                          <p className="text-xl font-bold">{expectedCash.toLocaleString('vi-VN')}đ</p>
+                      <div className="flex justify-between items-center pt-2">
+                        <p className="font-semibold text-base flex items-center gap-2"><Wallet className="h-5 w-5" />Tiền mặt dự kiến</p>
+                        <p className="text-xl font-bold">{expectedCash.toLocaleString('vi-VN')}đ</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -258,7 +258,7 @@ export default function CashHandoverDialog({
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <Textarea ref={discrepancyReasonRef} placeholder="Nhập lý do chênh lệch ở đây..." value={discrepancyReason} onChange={e => setDiscrepancyReason(e.target.value)} disabled={!isOwnerView && !!countToEdit} />
-                       <div className="space-y-2">
+                      <div className="space-y-2">
                         {(!countToEdit || isOwnerView) && (
                           <Button variant="outline" className="w-full h-12" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-5 w-5" /> Chụp ảnh bằng chứng</Button>
                         )}
@@ -292,7 +292,7 @@ export default function CashHandoverDialog({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <CameraDialog isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onSubmit={handleCapturePhotos} captureMode="photo" />
+      <CameraDialog isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onSubmit={handleCapturePhotos} captureMode="photo" parentDialogTag="cash-handover-dialog" />
     </>
   );
 }

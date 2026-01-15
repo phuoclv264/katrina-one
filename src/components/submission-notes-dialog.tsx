@@ -34,7 +34,7 @@ const SubmissionNotesDialog = ({ isOpen, onClose, onSubmit, isSubmitting }: Subm
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()} dialogTag="submission-notes-dialog" parentDialogTag="root">
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Ghi chú cuối ca</DialogTitle>

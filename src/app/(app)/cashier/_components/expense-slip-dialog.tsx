@@ -61,37 +61,37 @@ function EditItemPopover({ item, onSave, children, inventoryItem, dialogRef }: {
         <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>{children}</PopoverTrigger>
             <PopoverContent className="w-80" container={dialogRef?.current}>
-                    <div className="grid gap-4">
-                        <div className="space-y-2">
-                            <h4 className="font-medium leading-none">{item.name}</h4>
-                            <p className="text-sm text-muted-foreground">Nhập số lượng, đơn vị và đơn giá.</p>
-                        </div>
-                        <div className="grid gap-2">
-                            {canSelectUnit && (
-                                <div className="grid grid-cols-3 items-center gap-4">
-                                    <Label htmlFor="unit">Đơn vị</Label>
-                                    <Combobox
-                                        value={selectedUnit}
-                                        onChange={(v) => setSelectedUnit(v)}
-                                        options={availableUnits.map(unitName => ({ value: unitName, label: unitName }))}
-                                        className="col-span-2 h-8"
-                                        compact
-                                        searchable={false}
-                                    />
-                                </div>
-                            )}
-                            <div className="grid grid-cols-3 items-center gap-4">
-                                <Label htmlFor="quantity">Số lượng</Label>
-                                <Input id="quantity" type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="col-span-2 h-8" onFocus={(e) => e.target.select()} />
-                            </div>
-                            <div className="grid grid-cols-3 items-center gap-4">
-                                <Label htmlFor="unitPrice">Đơn giá</Label>
-                                <Input id="unitPrice" type="number" value={unitPrice} onChange={(e) => setUnitPrice(Number(e.target.value))} className="col-span-2 h-8" onFocus={(e) => e.target.select()} />
-                            </div>
-                        </div>
-                        <Button onClick={handleSave}>Lưu</Button>
+                <div className="grid gap-4">
+                    <div className="space-y-2">
+                        <h4 className="font-medium leading-none">{item.name}</h4>
+                        <p className="text-sm text-muted-foreground">Nhập số lượng, đơn vị và đơn giá.</p>
                     </div>
-                </PopoverContent>
+                    <div className="grid gap-2">
+                        {canSelectUnit && (
+                            <div className="grid grid-cols-3 items-center gap-4">
+                                <Label htmlFor="unit">Đơn vị</Label>
+                                <Combobox
+                                    value={selectedUnit}
+                                    onChange={(v) => setSelectedUnit(v)}
+                                    options={availableUnits.map(unitName => ({ value: unitName, label: unitName }))}
+                                    className="col-span-2 h-8"
+                                    compact
+                                    searchable={false}
+                                />
+                            </div>
+                        )}
+                        <div className="grid grid-cols-3 items-center gap-4">
+                            <Label htmlFor="quantity">Số lượng</Label>
+                            <Input id="quantity" type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="col-span-2 h-8" onFocus={(e) => e.target.select()} />
+                        </div>
+                        <div className="grid grid-cols-3 items-center gap-4">
+                            <Label htmlFor="unitPrice">Đơn giá</Label>
+                            <Input id="unitPrice" type="number" value={unitPrice} onChange={(e) => setUnitPrice(Number(e.target.value))} className="col-span-2 h-8" onFocus={(e) => e.target.select()} />
+                        </div>
+                    </div>
+                    <Button onClick={handleSave}>Lưu</Button>
+                </div>
+            </PopoverContent>
         </Popover>
     );
 }
@@ -192,7 +192,7 @@ function AiPreviewDialog({
 
     return (
         <>
-            <Dialog open={open} onOpenChange={onOpenChange}>
+            <Dialog open={open} onOpenChange={onOpenChange} dialogTag="expense-slip-ai-preview-dialog" parentDialogTag="expense-slip-dialog">
                 <DialogContent className="max-w-4xl">
                     <DialogHeader>
                         <DialogTitle>Kết quả quét hóa đơn</DialogTitle>
@@ -650,7 +650,7 @@ export default function ExpenseSlipDialog({
 
     return (
         <>
-            <Dialog open={open} onOpenChange={onOpenChange}>
+            <Dialog open={open} onOpenChange={onOpenChange} dialogTag="expense-slip-dialog" parentDialogTag="root">
                 <DialogContent
                     ref={dialogRef}
                     className="max-w-4xl p-0 h-[90vh] flex flex-col"
@@ -943,6 +943,7 @@ export default function ExpenseSlipDialog({
                 onSubmit={handleAttachmentPhotoCapture}
                 captureMode="photo"
                 isHD={true}
+                parentDialogTag="expense-slip-dialog"
             />
             {extractionResult && (
                 <AiPreviewDialog

@@ -338,7 +338,7 @@ export default function AutoScheduleDialog({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="auto-schedule-dialog" parentDialogTag="root">
       <DialogContent className="max-w-6xl h-[90vh] flex flex-col p-0 overflow-hidden">
         <DialogHeader className="px-4 pt-4 pb-4 border-b">
           <DialogTitle className="tracking-tight">Xếp lịch tự động</DialogTitle>

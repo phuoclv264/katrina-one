@@ -328,8 +328,8 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
                 <div className="flex items-center justify-between gap-2 mb-4">
                     <div className="flex items-center gap-2">
                         <Badge className={cn("h-6 px-2.5 rounded-full border-none font-black text-[9px] sm:text-[10px] tracking-tight uppercase", typeConfig.className)}>
-                             <TypeIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-1.5" />
-                             {typeConfig.text}
+                            <TypeIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-1.5" />
+                            {typeConfig.text}
                         </Badge>
                         <div className={cn("flex items-center gap-1.5 h-6 px-2.5 rounded-full font-black text-[9px] sm:text-[10px] tracking-tight uppercase", statusConfig.className)}>
                             <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", statusConfig.dot)} />
@@ -341,7 +341,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
 
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-6 bg-white dark:bg-slate-950 p-3.5 sm:p-4 rounded-[20px] sm:rounded-[24px] border border-slate-100 dark:border-slate-800 shadow-sm">
                     <UserBlock user={requester} shift={shiftA} label="Người gửi" />
-                    
+
                     {payload.isSwapRequest && (
                         <div className="hidden sm:flex items-center justify-center">
                             <ChevronsDownUp className="w-5 h-5 text-slate-200 rotate-90" />
@@ -524,7 +524,7 @@ export default function PassRequestsDialog({
     if (!currentUser) return null;
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
+        <Dialog open={isOpen} onOpenChange={onClose} dialogTag="pass-requests-dialog" parentDialogTag="root">
             <DialogContent className="w-[94vw] sm:max-w-2xl h-[90vh] sm:h-[85vh] flex flex-col p-0 overflow-hidden rounded-[38px] sm:rounded-[40px] border-none shadow-3xl bg-white dark:bg-slate-950">
                 <div className="p-5 sm:p-6 pb-2">
                     <DialogHeader className="space-y-4">
@@ -547,14 +547,14 @@ export default function PassRequestsDialog({
                 <Tabs defaultValue="pending" className="flex-grow flex flex-col overflow-hidden">
                     <div className="px-5 sm:px-6">
                         <TabsList className="flex w-full h-11 sm:h-12 p-1.5 bg-slate-100 dark:bg-slate-900 rounded-[18px] sm:rounded-[20px] gap-1">
-                            <TabsTrigger 
+                            <TabsTrigger
                                 value="pending"
                                 className="flex-1 rounded-[13px] sm:rounded-[14px] text-[10px] sm:text-xs font-black tracking-tight data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-sm data-[state=active]:text-indigo-500 px-1"
                             >
                                 Đang chờ
                                 {pendingRequests.length > 0 && <Badge className="ml-1.5 sm:ml-2 h-4.5 px-1.5 rounded-md bg-indigo-500 text-white border-none font-black text-[9px]">{pendingRequests.length}</Badge>}
                             </TabsTrigger>
-                            <TabsTrigger 
+                            <TabsTrigger
                                 value="history"
                                 className="flex-1 rounded-[13px] sm:rounded-[14px] text-[10px] sm:text-xs font-black tracking-tight data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-sm data-[state=active]:text-slate-500 px-1"
                             >
@@ -630,7 +630,7 @@ export default function PassRequestsDialog({
                         </TabsContent>
                     </ScrollArea>
                 </Tabs>
-                
+
                 <div className="p-5 sm:p-6 pt-2 border-t border-slate-100 dark:border-slate-800">
                     <Button variant="ghost" className="w-full h-11 sm:h-12 rounded-xl sm:rounded-2xl font-black text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-900 transition-all text-[11px] sm:text-xs uppercase tracking-widest" onClick={onClose}>
                         ĐÓNG

@@ -523,7 +523,7 @@ export default function MonthlyStaffReportDialog({ isOpen, onOpenChange }: Month
 
     return (
         <>
-            <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <Dialog open={isOpen} onOpenChange={onOpenChange} dialogTag="monthly-staff-report-dialog" parentDialogTag="root">
                 <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
                     {/* Portal for the lightbox */}
                     <div id="monthly-report-lightbox-portal"></div>

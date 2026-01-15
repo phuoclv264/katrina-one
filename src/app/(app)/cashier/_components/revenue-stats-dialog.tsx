@@ -65,7 +65,7 @@ const InputField = React.memo(({ id, label, value, onChange, originalValue, isIm
     disabled?: boolean;
 }) => {
     const [localValue, setLocalValue] = useState(String(value));
-    
+
     useEffect(() => {
         setLocalValue(String(value));
     }, [value]);
@@ -75,25 +75,25 @@ const InputField = React.memo(({ id, label, value, onChange, originalValue, isIm
             onChange(localValue);
         }
     };
-    
+
     const isEdited = originalValue !== undefined && value !== originalValue;
 
     return (
         <div key={id} className="grid grid-cols-2 items-center gap-2">
             <Label htmlFor={id} className={cn(isSubtle ? "text-sm text-muted-foreground" : "text-base", "text-right flex items-center gap-2 justify-end", isImportant && "font-bold")}>
-                 {isEdited && <Edit className="h-3 w-3 text-yellow-500" />}
+                {isEdited && <Edit className="h-3 w-3 text-yellow-500" />}
                 {label}
             </Label>
-            <Input 
-              id={id} 
-              type="number" 
-              value={localValue}
-              onChange={e => setLocalValue(e.target.value)}
-              onBlur={handleBlur}
-              onFocus={(e) => e.target.select()}
-              placeholder="0" 
-              className={cn(isImportant ? "h-11" : "h-9", "text-right", inputClassName)} 
-              disabled={disabled}
+            <Input
+                id={id}
+                type="number"
+                value={localValue}
+                onChange={e => setLocalValue(e.target.value)}
+                onBlur={handleBlur}
+                onFocus={(e) => e.target.select()}
+                placeholder="0"
+                className={cn(isImportant ? "h-11" : "h-9", "text-right", inputClassName)}
+                disabled={disabled}
             />
         </div>
     );
@@ -132,7 +132,7 @@ export default function RevenueStatsDialog({
     const [isCameraOpen, setIsCameraOpen] = useState(false);
 
     const displayImageDataUri = newImageDataUri || (existingStats?.invoiceImageUrl);
-    
+
     const canEdit = useMemo(() => {
         if (isOwnerView) return true; // Owner can always edit
         if (existingStats) {
@@ -141,11 +141,11 @@ export default function RevenueStatsDialog({
         }
         // Cashier creating new entry is always allowed.
         return true;
-    }, [isOwnerView, existingStats, reporter]); 
+    }, [isOwnerView, existingStats, reporter]);
 
 
     const resetFormState = useCallback((statsToLoad: RevenueStats | null) => {
-        if(statsToLoad){
+        if (statsToLoad) {
             setNetRevenue(statsToLoad.netRevenue || 0);
             setDeliveryPartnerPayout(statsToLoad.deliveryPartnerPayout || 0);
             setRevenueByPaymentMethod(statsToLoad.revenueByPaymentMethod || initialPaymentMethods);
@@ -158,7 +158,7 @@ export default function RevenueStatsDialog({
             setRevenueByPaymentMethod(initialPaymentMethods);
             setReportTimestamp(null);
             setNewImageDataUri(null);
-            setAiOriginalData(null); 
+            setAiOriginalData(null);
         }
         setAiError(null);
         setServerErrorDialog({ open: false, imageUri: null });
@@ -189,7 +189,7 @@ export default function RevenueStatsDialog({
     }, [revenueByPaymentMethod]);
 
     const isRevenueMismatch = netRevenue > 0 && Math.abs(netRevenue - totalPaymentMethods) > 1; // Allow for rounding errors
-    
+
     const wasEditedByCashier = existingStats?.isEdited || false;
 
     const handleSave = () => {
@@ -205,7 +205,7 @@ export default function RevenueStatsDialog({
 
         let isAiFlag = false;
         const currentDataForComparison = { netRevenue, deliveryPartnerPayout, revenueByPaymentMethod };
-        
+
         if (aiOriginalData) {
             const aiDataForComparison = {
                 netRevenue: aiOriginalData.netRevenue || 0,
@@ -214,7 +214,7 @@ export default function RevenueStatsDialog({
             };
             isAiFlag = isEqual(currentDataForComparison, aiDataForComparison);
         } else if (existingStats?.isAiGenerated) {
-             const existingDataForComparison = {
+            const existingDataForComparison = {
                 netRevenue: existingStats.netRevenue || 0,
                 deliveryPartnerPayout: existingStats.deliveryPartnerPayout || 0,
                 revenueByPaymentMethod: existingStats.revenueByPaymentMethod || initialPaymentMethods,
@@ -230,19 +230,19 @@ export default function RevenueStatsDialog({
             reportTimestamp: reportTimestamp,
             isAiGenerated: isAiFlag,
         };
-        
+
         let isEditedNow = false;
         if (aiOriginalData) {
-             if (netRevenue !== aiOriginalData.netRevenue) isEditedNow = true;
-             if (deliveryPartnerPayout !== aiOriginalData.deliveryPartnerPayout) isEditedNow = true;
-             if (!isEditedNow) {
-                 for (const key in revenueByPaymentMethod) {
+            if (netRevenue !== aiOriginalData.netRevenue) isEditedNow = true;
+            if (deliveryPartnerPayout !== aiOriginalData.deliveryPartnerPayout) isEditedNow = true;
+            if (!isEditedNow) {
+                for (const key in revenueByPaymentMethod) {
                     if (revenueByPaymentMethod[key as keyof typeof revenueByPaymentMethod] !== aiOriginalData.revenueByPaymentMethod?.[key as keyof typeof initialPaymentMethods]) {
                         isEditedNow = true;
                         break;
                     }
                 }
-             }
+            }
         } else if (existingStats) {
             const hasBeenEdited = useMemo(() => {
                 if (!existingStats) return false;
@@ -260,7 +260,7 @@ export default function RevenueStatsDialog({
 
         onSave(dataToSave as Omit<RevenueStats, 'id' | 'date' | 'createdAt' | 'createdBy' | 'isEdited'>, isEditedNow || wasEditedByCashier);
     }
-    
+
     const processImage = async (imageUri: string) => {
         setIsOcrLoading(true);
         setAiError(null);
@@ -287,14 +287,14 @@ export default function RevenueStatsDialog({
 
 
             if (!isOwnerView && !isToday(reportDate)) {
-                 setAiError(`Phiếu này từ ngày ${format(reportDate, 'dd/MM/yyyy')}. Vui lòng sử dụng phiếu của ngày hôm nay.`);
-                 return;
+                setAiError(`Phiếu này từ ngày ${format(reportDate, 'dd/MM/yyyy')}. Vui lòng sử dụng phiếu của ngày hôm nay.`);
+                return;
             }
-             if (isOwnerView && !isSameDay(reportDate, targetDate)) {
-                 setAiError(`Ngày trên phiếu (${format(reportDate, 'dd/MM/yyyy')}) không khớp với ngày bạn đang thao tác (${format(targetDate, 'dd/MM/yyyy')}).`);
-                 return;
+            if (isOwnerView && !isSameDay(reportDate, targetDate)) {
+                setAiError(`Ngày trên phiếu (${format(reportDate, 'dd/MM/yyyy')}) không khớp với ngày bạn đang thao tác (${format(targetDate, 'dd/MM/yyyy')}).`);
+                return;
             }
-            
+
             setReportTimestamp(result.reportTimestamp || null);
 
             const aiData = {
@@ -303,32 +303,32 @@ export default function RevenueStatsDialog({
                 revenueByPaymentMethod: { ...initialPaymentMethods, ...result.revenueByPaymentMethod },
                 reportTimestamp: result.reportTimestamp,
             };
-            
+
             setNetRevenue(aiData.netRevenue);
             setDeliveryPartnerPayout(aiData.deliveryPartnerPayout);
             setRevenueByPaymentMethod(aiData.revenueByPaymentMethod);
-            
+
             setAiOriginalData(aiData);
 
             toast.success('Đã điền dữ liệu từ ảnh. Vui lòng kiểm tra lại.');
-            
+
         } catch (error: any) {
-             if (error.message && (error.message.includes('503 Service Unavailable') || error.message.includes('429 Too Many Requests'))) {
+            if (error.message && (error.message.includes('503 Service Unavailable') || error.message.includes('429 Too Many Requests'))) {
                 setServerErrorDialog({ open: true, imageUri });
-             } else {
+            } else {
                 console.error('OCR Error:', error);
                 setAiError('Lỗi AI: Không thể đọc dữ liệu từ ảnh.');
-             }
+            }
         } finally {
             setIsOcrLoading(false);
             toast.dismiss(toastId);
         }
     };
-    
+
     const handleManualEntry = () => {
         const imageUri = serverErrorDialog.imageUri;
         if (!imageUri) return;
-    
+
         setNewImageDataUri(imageUri);
         setNetRevenue(0);
         setDeliveryPartnerPayout(0);
@@ -340,7 +340,7 @@ export default function RevenueStatsDialog({
             revenueByPaymentMethod: initialPaymentMethods,
             reportTimestamp: undefined,
         });
-    
+
         setServerErrorDialog({ open: false, imageUri: null });
         toast.success("Chuyển sang nhập thủ công.");
     };
@@ -356,12 +356,12 @@ export default function RevenueStatsDialog({
             processImage(imageUri);
         };
         reader.readAsDataURL(file);
-        
-        if(fileInputRef.current) {
+
+        if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
     };
-    
+
     const handleCapturePhoto = async (media: MediaItem[]) => {
         setIsCameraOpen(false);
         const photo = media.find(m => m.type === 'photo');
@@ -378,12 +378,12 @@ export default function RevenueStatsDialog({
     };
     const handleRescan = async () => {
         if (!displayImageDataUri) return;
-        
+
         setIsOcrLoading(true);
 
         // If it's a firebase URL, we need to proxy it to get a data URI
         if (displayImageDataUri.startsWith('https://')) {
-             try {
+            try {
                 const response = await fetch(`/api/image-proxy?url=${encodeURIComponent(displayImageDataUri)}`);
                 if (!response.ok) throw new Error('Proxy failed');
                 const { dataUri } = await response.json();
@@ -393,7 +393,7 @@ export default function RevenueStatsDialog({
                 setIsOcrLoading(false);
             }
         } else {
-             // It's already a data URI (from a new upload)
+            // It's already a data URI (from a new upload)
             await processImage(displayImageDataUri);
         }
     }
@@ -412,13 +412,13 @@ export default function RevenueStatsDialog({
     };
     return (
         <>
-            <Dialog open={open} onOpenChange={onOpenChange}>
+            <Dialog open={open} onOpenChange={onOpenChange} dialogTag="revenue-stats-dialog" parentDialogTag="root">
                 <DialogContent className="max-w-xl h-full md:h-[95vh] flex flex-col p-0" onPointerDownOutside={(e) => e.preventDefault()}>
                     <div id="revenue-stats-lightbox-container"></div>
                     <DialogHeader className="p-6 pb-4 border-b bg-muted/30">
-                         <DialogTitle>{isOwnerView && !existingStats ? 'Tạo Thống kê Doanh thu' : (isOwnerView ? 'Chi tiết Thống kê Doanh thu' : 'Nhập Thống kê Doanh thu')}</DialogTitle>
-                         <DialogDescription>
-                             {isOwnerView && !existingStats
+                        <DialogTitle>{isOwnerView && !existingStats ? 'Tạo Thống kê Doanh thu' : (isOwnerView ? 'Chi tiết Thống kê Doanh thu' : 'Nhập Thống kê Doanh thu')}</DialogTitle>
+                        <DialogDescription>
+                            {isOwnerView && !existingStats
                                 ? `Ngày: ${dateForNewEntry ? format(parseISO(dateForNewEntry), 'dd/MM/yyyy') : 'N/A'} - Lập bởi: ${reporter?.displayName || 'N/A'}`
                                 : (isOwnerView
                                     ? `Ngày: ${existingStats ? format(parseISO(existingStats.date), 'dd/MM/yyyy') : 'N/A'} - Lập bởi: ${existingStats?.createdBy.userName || 'N/A'}`
@@ -432,11 +432,11 @@ export default function RevenueStatsDialog({
                         <div className="space-y-6 p-6">
                             <Card className="flex-grow flex flex-col">
                                 <CardHeader className="pb-2">
-                                     <CardTitle className="text-base flex items-center justify-between">
-                                        <span className="flex items-center gap-2"><ImageIcon/> Ảnh phiếu thống kê</span>
+                                    <CardTitle className="text-base flex items-center justify-between">
+                                        <span className="flex items-center gap-2"><ImageIcon /> Ảnh phiếu thống kê</span>
                                         {canEdit && isOwnerView && displayImageDataUri &&
                                             <Button variant="secondary" size="sm" onClick={handleRescan} disabled={isOcrLoading || isProcessing}>
-                                                {isOcrLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <RefreshCw className="mr-2 h-4 w-4"/>}
+                                                {isOcrLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
                                                 Quét lại
                                             </Button>
                                         }
@@ -461,7 +461,7 @@ export default function RevenueStatsDialog({
                                             </Alert>
                                             <Button variant="secondary" className="w-full" onClick={handleManualEntryFromError}><FileText className="mr-2 h-4 w-4" /> Nhập thủ công</Button>
                                         </div>
-                                     )}
+                                    )}
                                     {canEdit && (
                                         <div className="flex flex-col sm:flex-row gap-2 w-full max-w-sm">
                                             {isOwnerView ? (
@@ -525,14 +525,14 @@ export default function RevenueStatsDialog({
                                                     disabled={!canEdit}
                                                 />
                                             )}
-                                             <div className={cn("text-right pt-2 mt-2 border-t font-semibold rounded-b-lg p-2 -mx-4 -mb-3", isRevenueMismatch ? "bg-destructive/10 text-destructive" : "bg-muted/50 text-muted-foreground")}>
+                                            <div className={cn("text-right pt-2 mt-2 border-t font-semibold rounded-b-lg p-2 -mx-4 -mb-3", isRevenueMismatch ? "bg-destructive/10 text-destructive" : "bg-muted/50 text-muted-foreground")}>
                                                 <p className="text-sm">Tổng PTTT: {totalPaymentMethods.toLocaleString('vi-VN')}đ</p>
                                                 {isRevenueMismatch && <p className="text-xs">Không khớp Doanh thu Net!</p>}
                                             </div>
                                         </CardContent>
                                     </Card>
-                                    
-                                     <Card>
+
+                                    <Card>
                                         <CardContent className="p-4 space-y-4">
                                             <InputField
                                                 id="deliveryPayout"
@@ -580,13 +580,14 @@ export default function RevenueStatsDialog({
                 captureMode="photo"
                 singlePhotoMode={true}
                 isHD={true}
+                parentDialogTag="revenue-stats-dialog"
             />
 
             <AlertDialog open={showMissingImageAlert} onOpenChange={setShowMissingImageAlert}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle className="flex items-center gap-2">
-                            <AlertCircle className="text-destructive"/>
+                            <AlertCircle className="text-destructive" />
                             Yêu cầu ảnh phiếu thống kê mới
                         </AlertDialogTitle>
                         <AlertDialogDescription>
@@ -598,8 +599,8 @@ export default function RevenueStatsDialog({
                             setShowMissingImageAlert(false);
                             fileInputRef.current?.click();
                         }}>
-                             <Upload className="mr-2 h-4 w-4" />
-                             Tải ảnh lên
+                            <Upload className="mr-2 h-4 w-4" />
+                            Tải ảnh lên
                         </Button>
                     </div>
                     <AlertDialogFooter className='sm:justify-start mt-2'>
@@ -611,20 +612,20 @@ export default function RevenueStatsDialog({
             <AlertDialog open={serverErrorDialog.open}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                         <AlertDialogTitle className="flex items-center gap-2">
-                            <ServerCrash className="text-destructive"/>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                            <ServerCrash className="text-destructive" />
                             Lỗi phân tích ảnh
                         </AlertDialogTitle>
                         <AlertDialogDescription>
-                           Mô hình AI đang gặp sự cố hoặc quá tải. Vui lòng chọn một trong các tùy chọn sau.
+                            Mô hình AI đang gặp sự cố hoặc quá tải. Vui lòng chọn một trong các tùy chọn sau.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="flex-col sm:flex-row gap-2">
                         <Button variant="outline" className="w-full" onClick={() => setServerErrorDialog({ open: false, imageUri: null })}>Hủy</Button>
                         <Button variant="secondary" className="w-full" onClick={() => processImage(serverErrorDialog.imageUri!)}>
-                           <RefreshCw className="mr-2 h-4 w-4" /> Thử lại
+                            <RefreshCw className="mr-2 h-4 w-4" /> Thử lại
                         </Button>
-                         <Button className="w-full" onClick={handleManualEntry}>
+                        <Button className="w-full" onClick={handleManualEntry}>
                             <FileText className="mr-2 h-4 w-4" /> Nhập thủ công
                         </Button>
                     </AlertDialogFooter>

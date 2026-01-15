@@ -123,52 +123,52 @@ export const SubmitAllDialog: React.FC<SubmitAllDialogProps> = ({ open, onClose,
             </TableRow>
           </TableHeader>
           <TableBody>
-          {selectableViolations.map(v => (
-            <TableRow key={v.id} onClick={isProcessing || v.alreadySubmitted ? undefined : () => toggleSelect(v.id)} className={v.alreadySubmitted ? "opacity-60" : "hover:bg-muted/30 cursor-pointer"}>
-              <TableCell>
-                <Checkbox
-                  checked={selectedIds.includes(v.id)}
-                  onCheckedChange={() => toggleSelect(v.id)}
-                  disabled={isProcessing || v.alreadySubmitted}
-                  aria-label={`select-${v.id}`}
-                />
-              </TableCell>
-              <TableCell>
-                <span className="text-sm">
-                  {v.createdAt && format(new Date(v.createdAt.toString()), 'dd/MM/yyyy HH:mm')}
-                </span>
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{(v.users || []).map((u: any) => u.name).join(', ')}</span>
-                </div>
-              </TableCell>
-              <TableCell>
-                <Badge variant="outline" className="font-normal">{v.categoryName}</Badge>
-              </TableCell>
-              <TableCell>
-                <p className="text-sm whitespace-normal break-words">{v.content}</p>
-              </TableCell>
-              <TableCell className="text-right">
-                <span className="font-semibold text-base">{(v.userCost || 0).toLocaleString('vi-VN')}</span>
-                <span className="text-xs text-muted-foreground ml-1">₫</span>
-              </TableCell>
-            </TableRow>
-          ))}
-          {selectableViolations.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={6} className="text-center py-12">
-                <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                  <FileText className="h-12 w-12 opacity-20" />
-                  <p>Không có vi phạm để nộp</p>
-                </div>
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-    </div>
+            {selectableViolations.map(v => (
+              <TableRow key={v.id} onClick={isProcessing || v.alreadySubmitted ? undefined : () => toggleSelect(v.id)} className={v.alreadySubmitted ? "opacity-60" : "hover:bg-muted/30 cursor-pointer"}>
+                <TableCell>
+                  <Checkbox
+                    checked={selectedIds.includes(v.id)}
+                    onCheckedChange={() => toggleSelect(v.id)}
+                    disabled={isProcessing || v.alreadySubmitted}
+                    aria-label={`select-${v.id}`}
+                  />
+                </TableCell>
+                <TableCell>
+                  <span className="text-sm">
+                    {v.createdAt && format(new Date(v.createdAt.toString()), 'dd/MM/yyyy HH:mm')}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">{(v.users || []).map((u: any) => u.name).join(', ')}</span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline" className="font-normal">{v.categoryName}</Badge>
+                </TableCell>
+                <TableCell>
+                  <p className="text-sm whitespace-normal break-words">{v.content}</p>
+                </TableCell>
+                <TableCell className="text-right">
+                  <span className="font-semibold text-base">{(v.userCost || 0).toLocaleString('vi-VN')}</span>
+                  <span className="text-xs text-muted-foreground ml-1">₫</span>
+                </TableCell>
+              </TableRow>
+            ))}
+            {selectableViolations.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-12">
+                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                    <FileText className="h-12 w-12 opacity-20" />
+                    <p>Không có vi phạm để nộp</p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </>
   );
 
@@ -254,7 +254,7 @@ export const SubmitAllDialog: React.FC<SubmitAllDialogProps> = ({ open, onClose,
   );
 
   return (
-    <Dialog open={open} onOpenChange={v => !v && onClose()}>
+    <Dialog open={open} onOpenChange={v => !v && onClose()} dialogTag="submit-all-violations-dialog" parentDialogTag="root">
       <DialogContent className={`${isMobile ? "max-w-md" : "max-w-5xl"} max-h-[90vh] overflow-hidden`}>
         <DialogHeader className="sticky top-0 z-30 border-b">
           <DialogTitle>Nộp bằng chứng cho nhiều vi phạm</DialogTitle>

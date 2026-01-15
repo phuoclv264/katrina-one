@@ -245,7 +245,7 @@ export default function CheckInCard() {
     const mainButtonText = isCheckedIn ? 'Chấm công ra' : 'Chấm công vào';
 
     if (authLoading || isLoading) {
-        return null; 
+        return null;
     }
 
     return (
@@ -256,10 +256,10 @@ export default function CheckInCard() {
             )}>
                 {isCheckedIn && checkInPhotoUrl && (
                     <div className="absolute inset-0 z-0">
-                        <Image 
-                            src={checkInPhotoUrl} 
-                            alt="Check-in photo" 
-                            fill 
+                        <Image
+                            src={checkInPhotoUrl}
+                            alt="Check-in photo"
+                            fill
                             className="object-cover"
                         />
                         <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
@@ -293,8 +293,8 @@ export default function CheckInCard() {
                             </div>
                             <div className={cn(
                                 "px-3 py-1 rounded-full text-xs font-semibold border",
-                                isCheckedIn 
-                                    ? "bg-green-500/20 border-green-400/30 text-green-100" 
+                                isCheckedIn
+                                    ? "bg-green-500/20 border-green-400/30 text-green-100"
                                     : "bg-zinc-100 border-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-400"
                             )}>
                                 {isCheckedIn ? (isOnBreak ? 'Đang nghỉ' : 'Đang làm việc') : 'Chưa vào ca'}
@@ -304,8 +304,8 @@ export default function CheckInCard() {
                         <div className="grid grid-cols-2 gap-3 sm:gap-4">
                             <div className={cn(
                                 "rounded-2xl p-3 sm:p-4 border",
-                                isCheckedIn 
-                                    ? "bg-white/10 backdrop-blur-md border-white/10" 
+                                isCheckedIn
+                                    ? "bg-white/10 backdrop-blur-md border-white/10"
                                     : "bg-zinc-50 dark:bg-zinc-800/50 border-zinc-100 dark:border-zinc-800"
                             )}>
                                 <p className={cn(
@@ -319,8 +319,8 @@ export default function CheckInCard() {
                             </div>
                             <div className={cn(
                                 "rounded-2xl p-3 sm:p-4 border",
-                                isCheckedIn 
-                                    ? "bg-white/10 backdrop-blur-md border-white/10" 
+                                isCheckedIn
+                                    ? "bg-white/10 backdrop-blur-md border-white/10"
                                     : "bg-zinc-50 dark:bg-zinc-800/50 border-zinc-100 dark:border-zinc-800"
                             )}>
                                 <p className={cn(
@@ -336,12 +336,12 @@ export default function CheckInCard() {
                             </div>
                         </div>
 
-                        <Button 
-                            size="xl" 
+                        <Button
+                            size="xl"
                             className={cn(
                                 "w-full rounded-2xl font-bold text-md sm:text-lg py-2 sm:py-3 shadow-lg transition-all active:scale-[0.98]",
-                                isCheckedIn 
-                                    ? "bg-gradient-to-r from-rose-500 to-red-600 text-white shadow-rose-500/25 hover:shadow-rose-500/40" 
+                                isCheckedIn
+                                    ? "bg-gradient-to-r from-rose-500 to-red-600 text-white shadow-rose-500/25 hover:shadow-rose-500/40"
                                     : "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-blue-600/25 hover:shadow-blue-600/40"
                             )}
                             onClick={handleCheckInOrOut}
@@ -358,12 +358,12 @@ export default function CheckInCard() {
                         {/* Secondary Actions */}
                         <div className="space-y-3">
                             {isCheckedIn && (user?.role === 'Quản lý') && (
-                                <Button 
-                                    variant="outline" 
+                                <Button
+                                    variant="outline"
                                     className={cn(
                                         "w-full h-10 sm:h-12 rounded-xl border transition-colors",
-                                        isCheckedIn 
-                                            ? "bg-white/10 border-white/20 text-white hover:bg-white/20" 
+                                        isCheckedIn
+                                            ? "bg-white/10 border-white/20 text-white hover:bg-white/20"
                                             : "border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
                                     )}
                                     onClick={handleToggleBreak}
@@ -373,10 +373,10 @@ export default function CheckInCard() {
                                     {isOnBreak ? 'Tiếp tục' : 'Nghỉ ngơi'}
                                 </Button>
                             )}
-                            
+
                             {!isCheckedIn && todaysShifts.length > 0 && (
-                                <Button 
-                                    variant="ghost" 
+                                <Button
+                                    variant="ghost"
                                     className="w-full h-10 sm:h-12 rounded-xl text-zinc-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                                     onClick={handleOpenLateRequestDialog}
                                     disabled={isProcessing || hasPendingLateRequest}
@@ -386,12 +386,12 @@ export default function CheckInCard() {
                                 </Button>
                             )}
 
-                            <Button 
-                                variant="outline" 
+                            <Button
+                                variant="outline"
                                 className={cn(
                                     "w-full h-10 sm:h-12 rounded-xl border transition-colors",
-                                    isCheckedIn 
-                                        ? "bg-white/10 border-white/20 text-white hover:bg-white/20" 
+                                    isCheckedIn
+                                        ? "bg-white/10 border-white/20 text-white hover:bg-white/20"
                                         : "border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
                                 )}
                                 onClick={() => setIsWorkHistoryOpen(true)}
@@ -412,13 +412,13 @@ export default function CheckInCard() {
                                         "text-sm font-bold",
                                         isCheckedIn ? "text-white" : "text-zinc-900 dark:text-white"
                                     )}>Hoạt động gần đây</h3>
-                                    <Button 
-                                        variant="ghost" 
-                                        size="sm" 
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
                                         className={cn(
                                             "h-8 text-xs",
                                             isCheckedIn ? "text-blue-100 hover:bg-white/10" : "text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
-                                        )} 
+                                        )}
                                         onClick={() => setIsHistoryOpen(true)}
                                     >
                                         Xem tất cả <ChevronRight className="ml-1 h-3 w-3" />
@@ -428,15 +428,15 @@ export default function CheckInCard() {
                                     {attendanceRecords.slice(0, 2).map((record) => (
                                         <div key={record.id} className={cn(
                                             "flex items-center justify-between p-2 rounded-lg border",
-                                            isCheckedIn 
-                                                ? "bg-white/10 backdrop-blur-md border-white/10" 
+                                            isCheckedIn
+                                                ? "bg-white/10 backdrop-blur-md border-white/10"
                                                 : "bg-zinc-50 dark:bg-zinc-800/50 border-zinc-100 dark:border-zinc-800"
                                         )}>
                                             <div className="flex items-center gap-3">
                                                 <div className={cn(
                                                     "h-10 w-10 rounded-xl flex items-center justify-center",
-                                                    record.checkOutTime 
-                                                        ? (isCheckedIn ? "bg-green-400/20 text-green-300" : "bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400") 
+                                                    record.checkOutTime
+                                                        ? (isCheckedIn ? "bg-green-400/20 text-green-300" : "bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400")
                                                         : (isCheckedIn ? "bg-blue-400/20 text-blue-200" : "bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400")
                                                 )}>
                                                     {record.checkOutTime ? <CheckCircle className="h-5 w-5" /> : <Clock className="h-5 w-5" />}
@@ -489,7 +489,7 @@ export default function CheckInCard() {
                 isHD={true}
             />
 
-            <Dialog open={isLateReasonDialogOpen} onOpenChange={setIsLateReasonDialogOpen}>
+            <Dialog open={isLateReasonDialogOpen} onOpenChange={setIsLateReasonDialogOpen} dialogTag="late-reason-dialog" parentDialogTag="root">
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Xin đi trễ</DialogTitle>
@@ -500,16 +500,16 @@ export default function CheckInCard() {
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
                             <Label>Lý do đi trễ</Label>
-                            <Input 
-                                placeholder="Ví dụ: Kẹt xe, hỏng xe..." 
+                            <Input
+                                placeholder="Ví dụ: Kẹt xe, hỏng xe..."
                                 value={lateReason}
                                 onChange={(e) => setLateReason(e.target.value)}
                             />
                         </div>
                         <div className="space-y-2">
                             <Label>Số phút trễ dự kiến</Label>
-                            <Input 
-                                type="number" 
+                            <Input
+                                type="number"
                                 min="1"
                                 value={estimatedLateMinutes}
                                 onChange={(e) => setEstimatedLateMinutes(e.target.value)}
@@ -543,7 +543,7 @@ export default function CheckInCard() {
                 </DialogContent>
             </Dialog>
 
-            <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
+            <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen} dialogTag="history-dialog" parentDialogTag="root">
                 <DialogContent className="max-w-md">
                     <DialogHeader>
                         <DialogTitle>Lịch sử chấm công hôm nay</DialogTitle>
@@ -603,7 +603,7 @@ export default function CheckInCard() {
                 </AlertDialogContent>
             </AlertDialog>
 
-            <Dialog open={isOffShiftReasonDialogOpen} onOpenChange={setIsOffShiftReasonDialogOpen}>
+            <Dialog open={isOffShiftReasonDialogOpen} onOpenChange={setIsOffShiftReasonDialogOpen} dialogTag="off-shift-reason-dialog" parentDialogTag="root">
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Lý do chấm công ngoài giờ</DialogTitle>
@@ -626,10 +626,10 @@ export default function CheckInCard() {
             </Dialog>
 
             {user && (
-                <WorkHistoryDialog 
-                    isOpen={isWorkHistoryOpen} 
-                    onClose={() => setIsWorkHistoryOpen(false)} 
-                    user={user} 
+                <WorkHistoryDialog
+                    isOpen={isWorkHistoryOpen}
+                    onClose={() => setIsWorkHistoryOpen(false)}
+                    user={user}
                 />
             )}
         </>
