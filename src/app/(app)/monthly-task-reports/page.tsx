@@ -487,7 +487,7 @@ function MonthlyTaskReportsView() {
                                                         </div>
                                                       )}
                                                       <div className="pt-2 border-t border-primary/10">
-                                                        <AlertDialog>
+                                                        <AlertDialog parentDialogTag="root">
                                                           <AlertDialogTrigger asChild>
                                                             <Button variant="ghost" size="sm" className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 h-8 text-xs" disabled={isDeleting}>{isDeleting ? (<Loader2 className="h-3 w-3 animate-spin mr-2" />) : (<Trash2 className="h-3 w-3 mr-2" />)}Xóa báo cáo</Button>
                                                           </AlertDialogTrigger>

@@ -15,16 +15,17 @@ type MySentReportsDialogProps = {
     reports: WhistleblowingReport[];
     userId: string;
     onViewReport: (reportId: string) => void;
+    parentDialogTag: string;
 };
 
-export default function MySentReportsDialog({ isOpen, onClose, reports, userId, onViewReport }: MySentReportsDialogProps) {
+export default function MySentReportsDialog({ isOpen, onClose, reports, userId, onViewReport, parentDialogTag }: MySentReportsDialogProps) {
 
     const myReports = useMemo(() => {
         return reports.filter(report => report.reporterId === userId);
     }, [reports, userId]);
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose} dialogTag="my-sent-reports-dialog" parentDialogTag="root">
+        <Dialog open={isOpen} onOpenChange={onClose} dialogTag="my-sent-reports-dialog" parentDialogTag={parentDialogTag}>
             <DialogContent className="max-w-2xl h-[90vh] flex flex-col p-0">
                 <DialogHeader className="p-6 pb-4 border-b">
                     <DialogTitle>Các bài tố cáo đã gửi</DialogTitle>

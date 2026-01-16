@@ -25,6 +25,7 @@ type ReportDialogProps = {
     reportToEdit?: WhistleblowingReport | null;
     currentUserName: string;
     currentUserRole: string;
+    parentDialogTag: string;
 };
 
 type LocalAttachment = {
@@ -33,7 +34,7 @@ type LocalAttachment = {
     file: File;
 };
 
-export default function ReportDialog({ isOpen, onClose, onSave, allUsers, reportToEdit, currentUserName, currentUserRole }: ReportDialogProps) {
+export default function ReportDialog({ isOpen, onClose, onSave, allUsers, reportToEdit, currentUserName, currentUserRole, parentDialogTag }: ReportDialogProps) {
     const isEditMode = !!reportToEdit;
     const shouldShowAllUsers = currentUserName.includes('Không chọn') || currentUserRole === 'Chủ nhà hàng';
 
@@ -154,7 +155,7 @@ export default function ReportDialog({ isOpen, onClose, onSave, allUsers, report
 
     return (
         <>
-            <Dialog open={isOpen} onOpenChange={onClose} dialogTag="report-dialog" parentDialogTag="root">
+            <Dialog open={isOpen} onOpenChange={onClose} dialogTag="report-dialog" parentDialogTag={parentDialogTag}>
                 <DialogContent className="sm:max-w-[625px] bg-white dark:bg-card p-0 h-[90vh] flex flex-col">
                     <DialogHeader className="p-4 sm:p-6 pb-2 shrink-0">
                         <DialogTitle>{isEditMode ? 'Chỉnh sửa bài đăng' : 'Tạo bài tố cáo mới'}</DialogTitle>

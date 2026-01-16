@@ -21,6 +21,7 @@ import { useLightbox } from '@/contexts/lightbox-context';
 type MonthlyStaffReportDialogProps = {
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
+    parentDialogTag: string;
 };
 
 type MonthlyUserData = {
@@ -38,13 +39,13 @@ type GroupedTask = {
     completions: (CompletionRecord & { reportDate: string; shiftName: string })[];
 };
 
-function StaffMonthlyDetails({ user, data, tasksByShift, bartenderTasks, comprehensiveTasks, onOpenLightbox }: { 
-    user: ManagedUser, data: MonthlyUserData, 
+function StaffMonthlyDetails({ user, data, tasksByShift, bartenderTasks, comprehensiveTasks, onOpenLightbox }: {
+    user: ManagedUser, data: MonthlyUserData,
     tasksByShift: TasksByShift | null,
     bartenderTasks: TaskSection[] | null,
     comprehensiveTasks: ComprehensiveTaskSection[] | null,
     onOpenLightbox: (slides: { src: string, description?: string }[], index: number) => void;
- }) {
+}) {
     const allPhotos = useMemo(() => {
         return data.shiftReports.flatMap(report =>
             Object.values(report.completedTasks).flatMap(completions =>
@@ -97,9 +98,9 @@ function StaffMonthlyDetails({ user, data, tasksByShift, bartenderTasks, compreh
 
         data.shiftReports.forEach(report => {
             const getTaskDef = findTaskDef(report);
-            const shiftName = tasksByShift?.[report.shiftKey]?.name || 
-                              (report.shiftKey === 'bartender_hygiene' ? 'Vệ sinh quầy' : 
-                              (report.shiftKey === 'manager_comprehensive' ? 'Kiểm tra toàn diện' : 'Không rõ'));
+            const shiftName = tasksByShift?.[report.shiftKey]?.name ||
+                (report.shiftKey === 'bartender_hygiene' ? 'Vệ sinh quầy' :
+                    (report.shiftKey === 'manager_comprehensive' ? 'Kiểm tra toàn diện' : 'Không rõ'));
 
             Object.entries(report.completedTasks).forEach(([taskId, completions]) => {
                 const taskDef = getTaskDef(taskId);
@@ -176,7 +177,7 @@ function StaffMonthlyDetails({ user, data, tasksByShift, bartenderTasks, compreh
                                                             </p>
                                                             {comp.value !== undefined && (
                                                                 <Badge variant={comp.value ? "default" : "destructive"} className="mt-1">
-                                                                    {comp.value ? <ThumbsUp className="h-3 w-3 mr-1"/> : <ThumbsDown className="h-3 w-3 mr-1"/>}
+                                                                    {comp.value ? <ThumbsUp className="h-3 w-3 mr-1" /> : <ThumbsDown className="h-3 w-3 mr-1" />}
                                                                     {comp.value ? "Đảm bảo" : "Không"}
                                                                 </Badge>
                                                             )}
@@ -210,7 +211,7 @@ function StaffMonthlyDetails({ user, data, tasksByShift, bartenderTasks, compreh
                     </AccordionItem>
                 )}
                 {completedTasks.undoneTasks.length > 0 && (
-                     <AccordionItem value="tasks-undone">
+                    <AccordionItem value="tasks-undone">
                         <AccordionTrigger><ListX className="mr-2 h-4 w-4" />Công việc chưa làm ({completedTasks.undoneTasks.length})</AccordionTrigger>
                         <AccordionContent>
                             <ScrollArea className="h-72">
@@ -334,8 +335,8 @@ function TaskCentricView({ allUsers, monthlyData, tasksByShift, bartenderTasks, 
             userData.shiftReports.forEach(report => {
                 const getTaskDef = findTaskDef(report);
                 const reportType = tasksByShift?.[report.shiftKey] ? 'Checklist' :
-                                  (report.shiftKey === 'bartender_hygiene' ? 'Vệ sinh quầy' :
-                                  (report.shiftKey === 'manager_comprehensive' ? 'Kiểm tra toàn diện' : 'Báo cáo khác'));
+                    (report.shiftKey === 'bartender_hygiene' ? 'Vệ sinh quầy' :
+                        (report.shiftKey === 'manager_comprehensive' ? 'Kiểm tra toàn diện' : 'Báo cáo khác'));
 
                 Object.entries(report.completedTasks).forEach(([taskId, completions]) => {
                     const taskDef = getTaskDef(taskId);
@@ -382,50 +383,50 @@ function TaskCentricView({ allUsers, monthlyData, tasksByShift, bartenderTasks, 
                                 const totalCompletionsB = Object.values(b.completionsByUser).reduce((sum, u) => sum + u.completions.length, 0);
                                 return totalCompletionsB - totalCompletionsA;
                             })
-                            .map(([taskText, taskData]) => {
-                                const sortedUsers = Object.values(taskData.completionsByUser).sort((a, b) => b.completions.length - a.completions.length);
-                                return (
-                                    <AccordionItem value={taskText} key={taskText} className="border rounded-md bg-muted/50">
-                                        <AccordionTrigger className="px-3 py-2 text-sm font-medium hover:no-underline">
-                                            {taskText} ({sortedUsers.reduce((sum, u) => sum + u.completions.length, 0)})
-                                        </AccordionTrigger>
-                                        <AccordionContent className="p-3 border-t">
-                                            <ul className="space-y-3">
-                                                {sortedUsers.map(({ user, completions }) => (
-                                                    <li key={user.uid} className="text-sm p-2 border rounded-md bg-background">
-                                                        <div className="flex items-center gap-2 mb-2">
-                                                            <Avatar className="h-6 w-6">
-                                                                <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${user.displayName}`} />
-                                                                <AvatarFallback>{user.displayName.charAt(0)}</AvatarFallback>
-                                                            </Avatar>
-                                                            <p className="font-semibold">{user.displayName} <span className="font-normal text-muted-foreground">({completions.length} lần)</span></p>
-                                                        </div>
-                                                        <ul className="space-y-1 pl-4 border-l-2 ml-3">
-                                                            <div className="grid grid-flow-row grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-1 ml-3">
-                                                                {completions.sort((a, b) => (a.reportDate + a.timestamp).localeCompare(b.reportDate + b.timestamp)).map((comp, i) => (
-                                                                    <li key={i} className="text-xs text-muted-foreground flex items-center">
-                                                                        {format(parseISO(comp.reportDate), 'dd/MM')} {comp.timestamp}
-                                                                        {comp.photos && comp.photos.length > 0 && (
-                                                                            <button onClick={() => onOpenLightbox(
-                                                                                comp.photos!.map(p => ({
-                                                                                    src: p,
-                                                                                    description: `${taskText} - ${user.displayName} - ${format(parseISO(comp.reportDate), 'dd/MM/yy')} ${comp.timestamp}`
-                                                                                })), 0
-                                                                            )} className="ml-2">
-                                                                                <Camera className="h-3 w-3 inline-block text-primary" />
-                                                                            </button>
-                                                                        )}
-                                                                    </li>
-                                                                ))}
+                                .map(([taskText, taskData]) => {
+                                    const sortedUsers = Object.values(taskData.completionsByUser).sort((a, b) => b.completions.length - a.completions.length);
+                                    return (
+                                        <AccordionItem value={taskText} key={taskText} className="border rounded-md bg-muted/50">
+                                            <AccordionTrigger className="px-3 py-2 text-sm font-medium hover:no-underline">
+                                                {taskText} ({sortedUsers.reduce((sum, u) => sum + u.completions.length, 0)})
+                                            </AccordionTrigger>
+                                            <AccordionContent className="p-3 border-t">
+                                                <ul className="space-y-3">
+                                                    {sortedUsers.map(({ user, completions }) => (
+                                                        <li key={user.uid} className="text-sm p-2 border rounded-md bg-background">
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                <Avatar className="h-6 w-6">
+                                                                    <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${user.displayName}`} />
+                                                                    <AvatarFallback>{user.displayName.charAt(0)}</AvatarFallback>
+                                                                </Avatar>
+                                                                <p className="font-semibold">{user.displayName} <span className="font-normal text-muted-foreground">({completions.length} lần)</span></p>
                                                             </div>
-                                                        </ul>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </AccordionContent>
-                                    </AccordionItem>
-                                );
-                            })}
+                                                            <ul className="space-y-1 pl-4 border-l-2 ml-3">
+                                                                <div className="grid grid-flow-row grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-1 ml-3">
+                                                                    {completions.sort((a, b) => (a.reportDate + a.timestamp).localeCompare(b.reportDate + b.timestamp)).map((comp, i) => (
+                                                                        <li key={i} className="text-xs text-muted-foreground flex items-center">
+                                                                            {format(parseISO(comp.reportDate), 'dd/MM')} {comp.timestamp}
+                                                                            {comp.photos && comp.photos.length > 0 && (
+                                                                                <button onClick={() => onOpenLightbox(
+                                                                                    comp.photos!.map(p => ({
+                                                                                        src: p,
+                                                                                        description: `${taskText} - ${user.displayName} - ${format(parseISO(comp.reportDate), 'dd/MM/yy')} ${comp.timestamp}`
+                                                                                    })), 0
+                                                                                )} className="ml-2">
+                                                                                    <Camera className="h-3 w-3 inline-block text-primary" />
+                                                                                </button>
+                                                                            )}
+                                                                        </li>
+                                                                    ))}
+                                                                </div>
+                                                            </ul>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </AccordionContent>
+                                        </AccordionItem>
+                                    );
+                                })}
                         </Accordion>
                     </AccordionContent>
                 </AccordionItem>
@@ -434,7 +435,7 @@ function TaskCentricView({ allUsers, monthlyData, tasksByShift, bartenderTasks, 
     );
 }
 
-export default function MonthlyStaffReportDialog({ isOpen, onOpenChange }: MonthlyStaffReportDialogProps) {
+export default function MonthlyStaffReportDialog({ isOpen, onOpenChange, parentDialogTag }: MonthlyStaffReportDialogProps) {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [isLoading, setIsLoading] = useState(false);
     const [viewMode, setViewMode] = useState<'byStaff' | 'byTask'>('byStaff');
@@ -523,7 +524,7 @@ export default function MonthlyStaffReportDialog({ isOpen, onOpenChange }: Month
 
     return (
         <>
-            <Dialog open={isOpen} onOpenChange={onOpenChange} dialogTag="monthly-staff-report-dialog" parentDialogTag="root">
+            <Dialog open={isOpen} onOpenChange={onOpenChange} dialogTag="monthly-staff-report-dialog" parentDialogTag={parentDialogTag}>
                 <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
                     {/* Portal for the lightbox */}
                     <div id="monthly-report-lightbox-portal"></div>
@@ -597,12 +598,12 @@ export default function MonthlyStaffReportDialog({ isOpen, onOpenChange }: Month
                                     })}
                                 </Accordion>
                             ) : (
-                                <TaskCentricView 
+                                <TaskCentricView
                                     allUsers={allUsers}
                                     monthlyData={monthlyData}
-                                    tasksByShift={tasksByShift} 
-                                    bartenderTasks={bartenderTasks} 
-                                    comprehensiveTasks={comprehensiveTasks} 
+                                    tasksByShift={tasksByShift}
+                                    bartenderTasks={bartenderTasks}
+                                    comprehensiveTasks={comprehensiveTasks}
                                     onOpenLightbox={openLightbox} />
                             )}
                         </div>

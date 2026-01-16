@@ -367,9 +367,10 @@ type ProductEditDialogProps = {
   globalUnits: GlobalUnit[];
   onGlobalUnitsChange: (newUnits: GlobalUnit[]) => void;
   canManageUnits: boolean;
+  parentDialogTag: string;
 };
 
-export default function ProductEditDialog({ isOpen, onClose, onSave, productToEdit, inventoryList, allProducts, onInventoryItemUpdate, globalUnits, onGlobalUnitsChange, canManageUnits }: ProductEditDialogProps) {
+export default function ProductEditDialog({ isOpen, onClose, onSave, productToEdit, inventoryList, allProducts, onInventoryItemUpdate, globalUnits, onGlobalUnitsChange, canManageUnits, parentDialogTag }: ProductEditDialogProps) {
   const [product, setProduct] = useState<Partial<Product>>({});
   const [isAddIngredientOpen, setIsAddIngredientOpen] = useState(false);
 
@@ -608,7 +609,7 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
               {isProcessing ? 'Đang lưu...' : 'Lưu mặt hàng'}
             </Button>
           </DialogFooter>
-          <AlertDialog open={isConfirmCloseOpen} onOpenChange={setIsConfirmCloseOpen}>
+          <AlertDialog open={isConfirmCloseOpen} onOpenChange={setIsConfirmCloseOpen} parentDialogTag="root">
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Hủy các thay đổi?</AlertDialogTitle>

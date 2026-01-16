@@ -25,9 +25,10 @@ type EventResultsDialogProps = {
     onClose: () => void;
     event: Event;
     allUsers: ManagedUser[];
+    parentDialogTag: string;
 };
 
-export default function EventResultsDialog({ isOpen, onClose, event, allUsers }: EventResultsDialogProps) {
+export default function EventResultsDialog({ isOpen, onClose, event, allUsers, parentDialogTag }: EventResultsDialogProps) {
     const [votes, setVotes] = useState<EventVote[]>([]);
     const [draws, setDraws] = useState<PrizeDrawResult[]>([]);
     const [winnerCount, setWinnerCount] = useState<number>(1);
@@ -551,7 +552,7 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers }:
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }} dialogTag="event-results-dialog" parentDialogTag="root">
+        <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }} dialogTag="event-results-dialog" parentDialogTag={parentDialogTag}>
             <DialogContent className="max-w-2xl p-0 overflow-hidden border-none shadow-2xl flex flex-col max-h-[90vh]">
                 <div className="bg-primary/5 px-6 py-5 border-b flex items-center justify-between">
                     <DialogHeader>

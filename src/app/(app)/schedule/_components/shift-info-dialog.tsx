@@ -35,6 +35,7 @@ type ShiftInfoDialogProps = {
     onDirectPassRequest: (shift: AssignedShift, targetUser: ManagedUser, isSwap: boolean, targetUserShift: AssignedShift | null) => Promise<void>;
     isProcessing: boolean;
     notifications: Notification[];
+    parentDialogTag: string;
 };
 
 type ColleagueInfo = {
@@ -53,6 +54,7 @@ export default function ShiftInfoDialog({
     onDirectPassRequest,
     isProcessing,
     notifications,
+    parentDialogTag
 }: ShiftInfoDialogProps) {
     const { user: currentUser } = useAuth();
     const [processingUserId, setProcessingUserId] = useState<string | null>(null);
@@ -142,7 +144,7 @@ export default function ShiftInfoDialog({
 
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose} dialogTag="shift-info-dialog" parentDialogTag="root">
+        <Dialog open={isOpen} onOpenChange={onClose} dialogTag="shift-info-dialog" parentDialogTag={parentDialogTag}>
             <DialogContent className="w-[92vw] sm:max-w-lg p-0 overflow-hidden rounded-[38px] sm:rounded-[40px] border-none shadow-3xl bg-white dark:bg-slate-950">
                 <div className="p-4 sm:p-5 pb-0">
                     <DialogHeader className="space-y-4">

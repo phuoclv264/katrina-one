@@ -26,7 +26,7 @@ const weekDays = [
   { label: 'CN', value: 0 }
 ];
 
-export default function ShiftTemplatesDialog({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
+export default function ShiftTemplatesDialog({ isOpen, onClose, parentDialogTag }: { isOpen: boolean, onClose: () => void, parentDialogTag: string }) {
   const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState<string | null>(null);
@@ -132,7 +132,7 @@ export default function ShiftTemplatesDialog({ isOpen, onClose }: { isOpen: bool
 
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="shift-templates-dialog" parentDialogTag="root">
+    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="shift-templates-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Quản lý Mẫu ca làm việc</DialogTitle>

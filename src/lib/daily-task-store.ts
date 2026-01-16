@@ -17,7 +17,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { format, addMonths, startOfMonth } from 'date-fns';
-import type { DailyTask, DailyTaskReport, DailyTaskTargetMode, MediaItem, SimpleUser, UserRole } from './types';
+import type { DailyTask, DailyTaskReport, DailyTaskTargetMode, MediaAttachment, MediaItem, SimpleUser, UserRole } from './types';
 import { uploadMedia, deleteFileByUrl } from './data-store-helpers';
 
 const DAILY_TASKS_COLLECTION = 'daily_tasks';
@@ -42,6 +42,7 @@ type CreateDailyTaskInput = {
   targetRoles?: UserRole[];
   targetUserIds?: string[];
   media?: MediaItem[];
+  existingMedia?: MediaAttachment[];
   createdBy: SimpleUser;
   createdByRole: UserRole;
 };
@@ -178,6 +179,8 @@ export async function createDailyTask(input: CreateDailyTaskInput): Promise<Dail
 
   if (media && media.length > 0) {
     taskData.media = media;
+  } else if (input.existingMedia && input.existingMedia.length > 0) {
+    taskData.media = input.existingMedia;
   }
 
   const task = taskData as DailyTask;

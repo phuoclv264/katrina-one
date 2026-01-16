@@ -37,6 +37,7 @@ type Props = {
   constraints: ScheduleCondition[];
   onApplyAssignments: (assignments: { shiftId: string; userId: string; userName?: string; assignedRole?: UserRole | 'Bất kỳ' }[], strategy: 'merge' | 'replace') => void;
   shiftTemplates: ShiftTemplate[];
+  parentDialogTag: string;
 };
 
 type EditableAssignment = { shiftId: string; userId: string; selected: boolean; assignedRole?: UserRole | 'Bất kỳ' };
@@ -64,6 +65,7 @@ export default function AutoScheduleDialog({
   constraints,
   onApplyAssignments,
   shiftTemplates,
+  parentDialogTag
 }: Props) {
   const [editableConstraints, setEditableConstraints] = useState<ScheduleCondition[]>(constraints || []);
   const [result, setResult] = useState<ScheduleRunResult | null>(null);
@@ -338,7 +340,7 @@ export default function AutoScheduleDialog({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="auto-schedule-dialog" parentDialogTag="root">
+    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="auto-schedule-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent className="max-w-6xl h-[90vh] flex flex-col p-0 overflow-hidden">
         <DialogHeader className="px-4 pt-4 pb-4 border-b">
           <DialogTitle className="tracking-tight">Xếp lịch tự động</DialogTitle>

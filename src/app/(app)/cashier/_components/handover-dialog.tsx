@@ -110,6 +110,7 @@ type HandoverDialogProps = {
     reporter?: AuthUser;
     dateForNewEntry?: string | null;
     isOwnerView?: boolean;
+    parentDialogTag: string;
 };
 
 
@@ -123,6 +124,7 @@ export default function HandoverDialog({
     reporter,
     dateForNewEntry = null,
     isOwnerView = false,
+    parentDialogTag
 }: HandoverDialogProps) {
     const dataSectionRef = useRef<HTMLDivElement>(null);
     const localReportId = useMemo(() => {
@@ -510,7 +512,7 @@ export default function HandoverDialog({
 
     return (
         <>
-            <Dialog open={open} onOpenChange={onOpenChange} dialogTag="handover-dialog" parentDialogTag="root">
+            <Dialog open={open} onOpenChange={onOpenChange} dialogTag="handover-dialog" parentDialogTag={parentDialogTag}>
                 <DialogContent className="max-w-xl h-[95vh] flex flex-col p-0">
                     <DialogHeader className="shrink-0 p-6 pb-4 border-b bg-muted/30">
                         <DialogTitle>{dialogTitle}</DialogTitle>
@@ -636,7 +638,7 @@ export default function HandoverDialog({
                 parentDialogTag="handover-dialog"
             />
 
-            <AlertDialog open={serverErrorDialog.open}>
+            <AlertDialog open={serverErrorDialog.open} parentDialogTag="root">
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitleComponent className="flex items-center gap-2">

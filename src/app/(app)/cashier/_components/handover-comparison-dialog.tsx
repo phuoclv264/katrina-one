@@ -28,6 +28,7 @@ type HandoverComparisonDialogProps = {
   onNavigateToExpenses: () => void;
   onNavigateToRevenue: () => void;
   onConfirm: () => void;
+  parentDialogTag: string;
 };
 
 export default function HandoverComparisonDialog({
@@ -37,12 +38,13 @@ export default function HandoverComparisonDialog({
   onNavigateToExpenses,
   onNavigateToRevenue,
   onConfirm,
+  parentDialogTag,
 }: HandoverComparisonDialogProps) {
   const hasMismatch = comparisonResult && comparisonResult.some(item => !item.isMatch);
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange} dialogTag="handover-comparison-dialog" parentDialogTag="root">
+      <Dialog open={open} onOpenChange={onOpenChange} dialogTag="handover-comparison-dialog" parentDialogTag={parentDialogTag}>
         <DialogContent
           className="max-w-md md:max-w-4xl h-full md:h-auto md:max-h-[90vh] flex flex-col p-0 rounded-lg"
         >

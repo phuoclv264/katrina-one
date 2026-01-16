@@ -26,6 +26,7 @@ interface WeekScheduleDialogProps {
   currentUser?: AuthUser | null;
   evidences?: ShiftBusyEvidence[];
   onOpenBusyEvidence?: (relevantShifts: AssignedShift[]) => void;
+  parentDialogTag: string;
 }
 
 const roleOrder: Record<UserRole, number> = {
@@ -68,6 +69,7 @@ export default function WeekScheduleDialog({
   currentUser,
   evidences = [],
   onOpenBusyEvidence,
+  parentDialogTag
 }: WeekScheduleDialogProps) {
   const [weekOffset, setWeekOffset] = useState(0);
   const [weekInterval, setWeekInterval] = useState(initialWeekInterval);
@@ -150,7 +152,7 @@ export default function WeekScheduleDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} dialogTag="week-schedule-dialog" parentDialogTag="root">
+    <Dialog open={open} onOpenChange={onOpenChange} dialogTag="week-schedule-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent className="max-w-6xl max-h-[95vh] p-0 overflow-hidden flex flex-col border-none sm:rounded-2xl">
         <DialogHeader className="p-4 sm:p-6 pb-2 sm:pb-3 pr-12 sm:pr-16 border-b border-slate-100 dark:border-slate-800 shrink-0">
           <div className="flex items-center justify-between gap-4">

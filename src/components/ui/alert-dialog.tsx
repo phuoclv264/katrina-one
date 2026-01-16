@@ -22,12 +22,15 @@ import {
 
 type AlertDialogProps = Omit<React.ComponentPropsWithoutRef<typeof Dialog>, 'dialogTag' | 'parentDialogTag'> & {
   dialogTag?: string;
-  parentDialogTag?: string;
+  // Parent dialog tag must be provided by callers so they explicitly set the
+  // relationship between nested dialogs. Do not provide a default here.
+  parentDialogTag: string;
 };
 
 const AlertDialog = (props: AlertDialogProps) => {
-  // Provide sensible defaults so callers don't need to pass tags everywhere.
-  const { dialogTag = 'alert-dialog', parentDialogTag = 'root', ...rest } = props as any;
+  // Note: we intentionally do NOT provide a default for parentDialogTag. Callers
+  // must pass it explicitly so nested dialog relationships are clear.
+  const { dialogTag = 'alert-dialog', parentDialogTag, ...rest } = props as any;
   // Dialog registers with useDialogBackHandler internally and requires tags
   return <Dialog dialogTag={dialogTag} parentDialogTag={parentDialogTag} {...(rest as any)} />;
 }

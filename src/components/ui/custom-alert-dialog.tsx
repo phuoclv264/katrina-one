@@ -47,7 +47,7 @@ export function CustomAlertDialog({
     showConfirm = true,
     showCancel = true
 }: CustomAlertDialogProps) {
-    
+
     const handleConfirm = async (e: React.MouseEvent) => {
         if (onConfirm) {
             e.preventDefault();
@@ -85,7 +85,7 @@ export function CustomAlertDialog({
     };
 
     return (
-        <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
+        <AlertDialog open={isOpen} onOpenChange={onOpenChange} parentDialogTag="root">
             <AlertDialogContent className={cn(
                 "rounded-[42px] p-0 overflow-hidden border-none shadow-[0_32px_64px_-12px_rgba(0,0,0,0.14)] bg-white dark:bg-slate-950",
                 maxWidthClasses[maxWidth]
@@ -122,10 +122,10 @@ export function CustomAlertDialog({
                             </AlertDialogDescription>
                         </div>
                     </AlertDialogHeader>
-                    
+
                     <AlertDialogFooter className="mt-12 flex-col-reverse sm:flex-row gap-3">
                         {showCancel && (
-                            <AlertDialogCancel 
+                            <AlertDialogCancel
                                 onClick={onCancel}
                                 disabled={isLoading}
                                 className="h-14 flex-1 rounded-2xl font-black border-none bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700/80 transition-all active:scale-[0.98]"
@@ -148,7 +148,7 @@ export function CustomAlertDialog({
                         )}
                     </AlertDialogFooter>
                 </div>
-                
+
                 {/* Decorative background element */}
                 <div className={cn(
                     "absolute -bottom-24 -left-24 h-48 w-48 rounded-full blur-[80px] opacity-10 pointer-events-none",

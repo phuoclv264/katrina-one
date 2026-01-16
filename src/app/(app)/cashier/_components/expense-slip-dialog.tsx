@@ -102,7 +102,8 @@ function AiPreviewDialog({
     extractionResult,
     inventoryList,
     onConfirm,
-    allAttachmentPhotos
+    allAttachmentPhotos,
+    parentDialogTag,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -110,6 +111,7 @@ function AiPreviewDialog({
     inventoryList: InventoryItem[];
     onConfirm: (items: ExpenseItem[], totalDiscount: number) => void;
     allAttachmentPhotos: { id: string, url: string }[];
+    parentDialogTag: string;
 }) {
 
     const handleConfirm = () => {
@@ -192,7 +194,7 @@ function AiPreviewDialog({
 
     return (
         <>
-            <Dialog open={open} onOpenChange={onOpenChange} dialogTag="expense-slip-ai-preview-dialog" parentDialogTag="expense-slip-dialog">
+            <Dialog open={open} onOpenChange={onOpenChange} dialogTag="expense-slip-ai-preview-dialog" parentDialogTag={parentDialogTag}>
                 <DialogContent className="max-w-4xl">
                     <DialogHeader>
                         <DialogTitle>Kết quả quét hóa đơn</DialogTitle>
@@ -264,6 +266,7 @@ type ExpenseSlipDialogProps = {
     otherCostCategories: OtherCostCategory[];
     isOwnerView?: boolean; // Optional prop to control view
     dateForNewEntry?: string | null;
+    parentDialogTag: string;
 };
 
 export default function ExpenseSlipDialog({
@@ -277,6 +280,7 @@ export default function ExpenseSlipDialog({
     otherCostCategories,
     isOwnerView = false,
     dateForNewEntry = null,
+    parentDialogTag,
 }: ExpenseSlipDialogProps) {
     const isMobile = useIsMobile();
     const dialogRef = useRef<HTMLDivElement>(null);
@@ -650,7 +654,7 @@ export default function ExpenseSlipDialog({
 
     return (
         <>
-            <Dialog open={open} onOpenChange={onOpenChange} dialogTag="expense-slip-dialog" parentDialogTag="root">
+            <Dialog open={open} onOpenChange={onOpenChange} dialogTag="expense-slip-dialog" parentDialogTag={parentDialogTag}>
                 <DialogContent
                     ref={dialogRef}
                     className="max-w-4xl p-0 h-[90vh] flex flex-col"
@@ -953,6 +957,7 @@ export default function ExpenseSlipDialog({
                     inventoryList={inventoryList}
                     onConfirm={handleAiConfirm}
                     allAttachmentPhotos={allAttachmentPhotos}
+                    parentDialogTag='expense-slip-dialog'
                 />
             )}
         </>

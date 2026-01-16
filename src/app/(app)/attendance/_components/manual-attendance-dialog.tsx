@@ -14,6 +14,7 @@ export default function ManualAttendanceDialog({
   onClose,
   users,
   onSave,
+  parentDialogTag,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -23,6 +24,7 @@ export default function ManualAttendanceDialog({
     checkInTime: Date;
     checkOutTime: Date;
   }) => Promise<void>;
+  parentDialogTag: string;
 }) {
   const [selectedUserId, setSelectedUserId] = useState('');
   const [checkIn, setCheckIn] = useState('');
@@ -74,7 +76,7 @@ export default function ManualAttendanceDialog({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="manual-attendance-dialog" parentDialogTag="root">
+    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="manual-attendance-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Chấm công thủ công</DialogTitle>

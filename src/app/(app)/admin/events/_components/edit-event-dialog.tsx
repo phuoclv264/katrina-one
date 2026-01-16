@@ -21,6 +21,7 @@ interface EditEventDialogProps {
     eventToEdit: Event | null;
     onSave: (event: Omit<Event, 'id'>, id?: string) => Promise<void>;
     allUsers: ManagedUser[];
+    parentDialogTag: string;
 }
 
 const ROLES_OPTIONS: { value: UserRole; label: string }[] = [
@@ -30,7 +31,7 @@ const ROLES_OPTIONS: { value: UserRole; label: string }[] = [
     { value: 'Quản lý', label: 'Quản lý' },
 ];
 
-export default function EditEventDialog({ isOpen, onClose, eventToEdit, onSave, allUsers }: EditEventDialogProps) {
+export default function EditEventDialog({ isOpen, onClose, eventToEdit, onSave, allUsers, parentDialogTag }: EditEventDialogProps) {
     const [eventData, setEventData] = useState<Partial<Event>>({});
     const [isSaving, setIsSaving] = useState(false);
     const [newOption, setNewOption] = useState('');
@@ -95,7 +96,7 @@ export default function EditEventDialog({ isOpen, onClose, eventToEdit, onSave, 
             setIsSaving(false);
         }
     };
-    
+
     const handleAddOption = () => {
         if (newOption.trim()) {
             const newCandidate: EventCandidate = { id: `option_${Date.now()}`, name: newOption.trim() };
@@ -103,13 +104,13 @@ export default function EditEventDialog({ isOpen, onClose, eventToEdit, onSave, 
             setNewOption('');
         }
     };
-    
+
     const handleDeleteOption = (id: string) => {
         handleFieldChange('options', (eventData.options || []).filter(o => o.id !== id));
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
+        <Dialog open={isOpen} onOpenChange={onClose} dialogTag='edit-event-dialog' parentDialogTag={parentDialogTag}>
             <DialogContent className="max-w-3xl p-0 overflow-hidden border-none shadow-2xl flex flex-col max-h-[90vh]">
                 <div className="bg-primary/5 px-6 py-4 border-b">
                     <DialogHeader>
@@ -134,21 +135,21 @@ export default function EditEventDialog({ isOpen, onClose, eventToEdit, onSave, 
                             <div className="grid gap-4 pl-6 border-l-2 border-muted ml-2">
                                 <div className="space-y-2">
                                     <Label htmlFor="title" className="text-sm font-medium">Tiêu đề sự kiện</Label>
-                                    <Input 
-                                        id="title" 
+                                    <Input
+                                        id="title"
                                         placeholder="Ví dụ: Bình chọn nhân viên xuất sắc tháng 12"
-                                        value={eventData.title || ''} 
-                                        onChange={(e) => handleFieldChange('title', e.target.value)} 
+                                        value={eventData.title || ''}
+                                        onChange={(e) => handleFieldChange('title', e.target.value)}
                                         className="bg-muted/30 focus-visible:ring-primary"
                                     />
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="description" className="text-sm font-medium">Mô tả chi tiết</Label>
-                                    <Textarea 
-                                        id="description" 
+                                    <Textarea
+                                        id="description"
                                         placeholder="Mô tả mục đích hoặc hướng dẫn tham gia..."
-                                        value={eventData.description || ''} 
-                                        onChange={(e) => handleFieldChange('description', e.target.value)} 
+                                        value={eventData.description || ''}
+                                        onChange={(e) => handleFieldChange('description', e.target.value)}
                                         className="bg-muted/30 min-h-[100px] focus-visible:ring-primary"
                                     />
                                 </div>
@@ -174,8 +175,8 @@ export default function EditEventDialog({ isOpen, onClose, eventToEdit, onSave, 
                                         onClick={() => handleFieldChange('type', t.id)}
                                         className={cn(
                                             "flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all text-center gap-1",
-                                            eventData.type === t.id 
-                                                ? "border-primary bg-primary/5 text-primary shadow-sm" 
+                                            eventData.type === t.id
+                                                ? "border-primary bg-primary/5 text-primary shadow-sm"
                                                 : "border-muted bg-transparent hover:border-muted-foreground/30 text-muted-foreground"
                                         )}
                                     >
@@ -195,24 +196,24 @@ export default function EditEventDialog({ isOpen, onClose, eventToEdit, onSave, 
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pl-6 border-l-2 border-muted ml-2">
                                 <div className="space-y-2">
-                                    <Label htmlFor="startAt" className="text-xs font-medium flex items-center gap-1"><Calendar className="h-3 w-3"/> Bắt đầu</Label>
+                                    <Label htmlFor="startAt" className="text-xs font-medium flex items-center gap-1"><Calendar className="h-3 w-3" /> Bắt đầu</Label>
                                     <Input id="startAt" type="datetime-local" value={timestampToString(eventData.startAt)} onChange={e => handleFieldChange('startAt', e.target.value)} className="bg-muted/30 text-xs" />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="endAt" className="text-xs font-medium flex items-center gap-1"><Calendar className="h-3 w-3"/> Kết thúc</Label>
+                                    <Label htmlFor="endAt" className="text-xs font-medium flex items-center gap-1"><Calendar className="h-3 w-3" /> Kết thúc</Label>
                                     <Input id="endAt" type="datetime-local" value={timestampToString(eventData.endAt)} onChange={e => handleFieldChange('endAt', e.target.value)} className="bg-muted/30 text-xs" />
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="status" className="text-xs font-medium">Trạng thái</Label>
-                                    <Combobox 
+                                    <Combobox
                                         options={[
-                                            {value: 'draft', label: 'Bản nháp'}, 
-                                            {value: 'active', label: 'Kích hoạt'}, 
-                                            {value: 'closed', label: 'Đã đóng'}
-                                        ]} 
-                                        value={eventData.status} 
-                                        onChange={(v) => handleFieldChange('status', v)} 
-                                        compact 
+                                            { value: 'draft', label: 'Bản nháp' },
+                                            { value: 'active', label: 'Kích hoạt' },
+                                            { value: 'closed', label: 'Đã đóng' }
+                                        ]}
+                                        value={eventData.status}
+                                        onChange={(v) => handleFieldChange('status', v)}
+                                        compact
                                         className="bg-muted/30"
                                     />
                                 </div>
@@ -243,7 +244,7 @@ export default function EditEventDialog({ isOpen, onClose, eventToEdit, onSave, 
                                         <UserCheck className="h-4 w-4" />
                                         Danh sách ứng viên / Lựa chọn
                                     </Label>
-                                    
+
                                     {(eventData.type === 'review' || eventData.type === 'vote' || eventData.type === 'multi-vote') && (
                                         <div className="space-y-2">
                                             <Label className="text-xs text-muted-foreground">Chọn từ danh sách nhân viên:</Label>
@@ -265,21 +266,21 @@ export default function EditEventDialog({ isOpen, onClose, eventToEdit, onSave, 
                                         <div className="space-y-3 pt-2 border-t border-dashed">
                                             <Label className="text-xs text-muted-foreground">Hoặc thêm lựa chọn tuỳ chỉnh:</Label>
                                             <div className="flex gap-2">
-                                                <Input 
-                                                    value={newOption} 
-                                                    onChange={e => setNewOption(e.target.value)} 
+                                                <Input
+                                                    value={newOption}
+                                                    onChange={e => setNewOption(e.target.value)}
                                                     placeholder="Tên lựa chọn mới..."
                                                     className="bg-muted/30 h-9"
                                                     onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddOption())}
                                                 />
-                                                <Button size="sm" onClick={handleAddOption} className="shrink-0"><Plus className="h-4 w-4"/></Button>
+                                                <Button size="sm" onClick={handleAddOption} className="shrink-0"><Plus className="h-4 w-4" /></Button>
                                             </div>
                                             <div className="flex flex-wrap gap-2">
                                                 {(eventData.options || []).map(opt => (
                                                     <div key={opt.id} className="flex items-center gap-1.5 pl-3 pr-1 py-1 bg-primary/10 text-primary rounded-full text-xs font-medium border border-primary/20">
                                                         {opt.name}
                                                         <button onClick={() => handleDeleteOption(opt.id)} className="hover:bg-primary/20 rounded-full p-0.5 transition-colors">
-                                                            <Trash2 className="h-3 w-3"/>
+                                                            <Trash2 className="h-3 w-3" />
                                                         </button>
                                                     </div>
                                                 ))}
@@ -294,12 +295,12 @@ export default function EditEventDialog({ isOpen, onClose, eventToEdit, onSave, 
                                         <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg space-y-2">
                                             <Label htmlFor="maxVotesPerUser" className="text-xs font-bold text-amber-800">Giới hạn số lượt chọn</Label>
                                             <div className="flex items-center gap-3">
-                                                <Input 
-                                                    id="maxVotesPerUser" 
-                                                    type="number" 
-                                                    min={1} 
-                                                    value={eventData.maxVotesPerUser ?? ''} 
-                                                    onChange={(e) => handleFieldChange('maxVotesPerUser', e.target.value ? Number(e.target.value) : undefined)} 
+                                                <Input
+                                                    id="maxVotesPerUser"
+                                                    type="number"
+                                                    min={1}
+                                                    value={eventData.maxVotesPerUser ?? ''}
+                                                    onChange={(e) => handleFieldChange('maxVotesPerUser', e.target.value ? Number(e.target.value) : undefined)}
                                                     className="w-24 bg-white border-amber-200 h-8 text-sm"
                                                 />
                                                 <p className="text-[10px] text-amber-700 leading-tight">Mỗi người dùng được phép chọn tối đa bao nhiêu mục.</p>
@@ -346,7 +347,7 @@ export default function EditEventDialog({ isOpen, onClose, eventToEdit, onSave, 
                     <DialogFooter className="gap-2 sm:gap-0">
                         <Button variant="ghost" onClick={onClose} className="font-bold">Hủy bỏ</Button>
                         <Button onClick={handleSave} disabled={isSaving} className="min-w-[140px] font-bold shadow-lg shadow-primary/20">
-                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
                             {eventToEdit ? 'Lưu thay đổi' : 'Tạo sự kiện ngay'}
                         </Button>
                     </DialogFooter>

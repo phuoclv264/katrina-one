@@ -50,12 +50,14 @@ export function UnderstaffedEvidenceDialog({
   schedule,
   allUsers,
   evidences,
+  parentDialogTag
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   schedule: Schedule | null;
   allUsers: ManagedUser[];
   evidences: ShiftBusyEvidence[];
+  parentDialogTag: string;
 }) {
   const { openLightbox } = useLightbox();
 
@@ -466,7 +468,7 @@ export function UnderstaffedEvidenceDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} dialogTag="understaffed-evidence-dialog" parentDialogTag="root">
+    <Dialog open={open} onOpenChange={onOpenChange} dialogTag="understaffed-evidence-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent className="max-w-5xl max-h-[92vh] flex flex-col min-h-0 p-0 overflow-hidden sm:rounded-3xl border-none shadow-2xl">
         <DialogHeader className="p-8 pb-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

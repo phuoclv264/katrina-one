@@ -209,16 +209,18 @@ export default function UserDetailsDialog({
     onClose,
     user,
     weekAvailability,
+    parentDialogTag,
 }: {
     isOpen: boolean;
     onClose: () => void;
     user: ManagedUser;
     weekAvailability: Availability[];
+    parentDialogTag: string;
 }) {
     if (!user) return null;
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose} dialogTag="user-details-dialog" parentDialogTag="root">
+        <Dialog open={isOpen} onOpenChange={onClose} dialogTag="user-details-dialog" parentDialogTag={parentDialogTag}>
             <DialogContent className="max-w-4xl">
                 <DialogHeader>
                     <DialogTitle>Chi tiết: {user.displayName}</DialogTitle>

@@ -33,6 +33,7 @@ type RevenueStatsDialogProps = {
     isOwnerView?: boolean;
     reporter?: AuthUser;
     dateForNewEntry?: string | null;
+    parentDialogTag: string;
 };
 
 const initialPaymentMethods = {
@@ -110,6 +111,7 @@ export default function RevenueStatsDialog({
     isOwnerView = false,
     reporter,
     dateForNewEntry,
+    parentDialogTag,
 }: RevenueStatsDialogProps) {
     const { openLightbox } = useLightbox();
     // Form state
@@ -412,7 +414,7 @@ export default function RevenueStatsDialog({
     };
     return (
         <>
-            <Dialog open={open} onOpenChange={onOpenChange} dialogTag="revenue-stats-dialog" parentDialogTag="root">
+            <Dialog open={open} onOpenChange={onOpenChange} dialogTag="revenue-stats-dialog" parentDialogTag={parentDialogTag}>
                 <DialogContent className="max-w-xl h-full md:h-[95vh] flex flex-col p-0" onPointerDownOutside={(e) => e.preventDefault()}>
                     <div id="revenue-stats-lightbox-container"></div>
                     <DialogHeader className="p-6 pb-4 border-b bg-muted/30">
@@ -583,7 +585,7 @@ export default function RevenueStatsDialog({
                 parentDialogTag="revenue-stats-dialog"
             />
 
-            <AlertDialog open={showMissingImageAlert} onOpenChange={setShowMissingImageAlert}>
+            <AlertDialog open={showMissingImageAlert} onOpenChange={setShowMissingImageAlert} parentDialogTag="root">
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle className="flex items-center gap-2">
@@ -609,7 +611,7 @@ export default function RevenueStatsDialog({
                 </AlertDialogContent>
             </AlertDialog>
 
-            <AlertDialog open={serverErrorDialog.open}>
+            <AlertDialog open={serverErrorDialog.open} parentDialogTag="root">
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle className="flex items-center gap-2">

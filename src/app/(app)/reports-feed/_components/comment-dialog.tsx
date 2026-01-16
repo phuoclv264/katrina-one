@@ -32,6 +32,7 @@ type CommentDialogProps = {
     onCommentEdit: (violationId: string, commentId: string, newText: string) => void;
     onCommentDelete: (violationId: string, commentId: string) => void;
     onOpenLightbox: (slides: Slide[], index?: number) => void;
+    parentDialogTag: string;
 };
 
 
@@ -44,7 +45,8 @@ export default function CommentDialog({
     onCommentSubmit,
     onCommentEdit,
     onCommentDelete,
-    onOpenLightbox
+    onOpenLightbox,
+    parentDialogTag,
 }: CommentDialogProps) {
     const [commentText, setCommentText] = useState('');
     const [isAnonymous, setIsAnonymous] = useState(true);
@@ -165,7 +167,7 @@ export default function CommentDialog({
 
     return (
         <TooltipProvider>
-            <Dialog open={isOpen} onOpenChange={onClose} dialogTag="comment-dialog" parentDialogTag="root">
+            <Dialog open={isOpen} onOpenChange={onClose} dialogTag="comment-dialog" parentDialogTag={parentDialogTag}>
                 <DialogContent
                     className="max-w-2xl h-[90vh] flex flex-col p-0 bg-white dark:bg-card rounded-xl shadow-lg"
                 >
@@ -197,7 +199,7 @@ export default function CommentDialog({
                                                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEditClick(comment)}><Edit className="h-3 w-3" /></Button>
                                                         )}
                                                         {canDelete && !isEditingThis && (
-                                                            <AlertDialog>
+                                                            <AlertDialog parentDialogTag="root">
                                                                 <AlertDialogTrigger asChild>
                                                                     <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive"><Trash2 className="h-3 w-3" /></Button>
                                                                 </AlertDialogTrigger>

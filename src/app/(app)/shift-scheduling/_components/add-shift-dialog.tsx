@@ -22,9 +22,10 @@ type AddShiftDialogProps = {
   onSave: (templateId: string) => void;
   templates: ShiftTemplate[];
   date: Date | null;
+  parentDialogTag: string;
 };
 
-export default function AddShiftDialog({ isOpen, onClose, onSave, templates, date }: AddShiftDialogProps) {
+export default function AddShiftDialog({ isOpen, onClose, onSave, templates, date, parentDialogTag }: AddShiftDialogProps) {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
 
   if (!date) return null;
@@ -36,7 +37,7 @@ export default function AddShiftDialog({ isOpen, onClose, onSave, templates, dat
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="add-shift-dialog" parentDialogTag="root">
+    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="add-shift-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Thêm ca làm việc</DialogTitle>

@@ -44,6 +44,7 @@ type ShiftAssignmentDialogProps = {
   onClose: () => void;
   allShiftsOnDay: AssignedShift[];
   passRequestingUser?: AssignedUser | null;
+  parentDialogTag: string;
 };
 
 const roleOrder: Record<UserRole, number> = {
@@ -75,6 +76,7 @@ export default function ShiftAssignmentDialog({
   onClose,
   allShiftsOnDay,
   passRequestingUser,
+  parentDialogTag
 }: ShiftAssignmentDialogProps) {
 
   const isPassAssignmentMode = !!passRequestingUser;
@@ -277,7 +279,7 @@ export default function ShiftAssignmentDialog({
   );
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="shift-assignment-dialog" parentDialogTag="root">
+    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="shift-assignment-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>{isPassAssignmentMode ? 'Chỉ định ca thay thế' : `Phân công: ${shift.label}`}</DialogTitle>
@@ -322,7 +324,7 @@ export default function ShiftAssignmentDialog({
           <Button onClick={handleSave}>Lưu thay đổi</Button>
         </DialogFooter>
 
-        <AlertDialog open={!!conflictError} onOpenChange={() => setConflictError(null)}>
+        <AlertDialog open={!!conflictError} onOpenChange={() => setConflictError(null)} parentDialogTag="root">
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle className="flex items-center gap-2"><AlertCircle className="text-destructive" />Lỗi: Phân công bị trùng</AlertDialogTitle>

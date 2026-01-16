@@ -138,9 +138,12 @@ function RuleEditor({ rule, onUpdate, onDelete, isEditing, onMove, canMoveUp, ca
 }
 
 
-export default function ViolationCategoryManagementDialog({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
+export default function ViolationCategoryManagementDialog({ isOpen, onClose, parentDialogTag }: { isOpen: boolean, onClose: () => void, parentDialogTag: string }) {
   const [categoryData, setCategoryData] = useState<ViolationCategoryData>({ list: [], generalRules: [], generalNote: '' });
   const [isLoading, setIsLoading] = useState(true);
+  // Require parent dialog tag so caller specifies nesting explicitly
+  // (e.g., parentDialogTag="root" or parentDialogTag="violation-dialog").
+  // Update signature to accept parentDialogTag.
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [currentEditingValues, setCurrentEditingValues] = useState<Omit<ViolationCategory, 'id'>>({ name: '', severity: 'low', calculationType: 'fixed', fineAmount: 0, finePerUnit: 0, unitLabel: 'phút' });
   const [isEditingGeneralRules, setIsEditingGeneralRules] = useState(false);
@@ -302,7 +305,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
 
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="violation-category-management-dialog" parentDialogTag="root">
+    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="violation-category-management-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent className="max-w-xl bg-white dark:bg-card">
         <DialogHeader>
           <DialogTitle>Quản lý Loại Vi phạm</DialogTitle>
@@ -463,7 +466,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose }: {
                         }}>
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <AlertDialog>
+                        <AlertDialog parentDialogTag="root">
                           <AlertDialogTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
                               <Trash2 className="h-4 w-4" />

@@ -24,9 +24,10 @@ type Props = {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (pin: string) => void;
+  parentDialogTag: string;
 };
 
-export default function PinDialog({ isOpen, onClose, onSubmit }: Props) {
+export default function PinDialog({ isOpen, onClose, onSubmit, parentDialogTag }: Props) {
   const [pin, setPin] = useState('');
 
   useEffect(() => {
@@ -43,7 +44,7 @@ export default function PinDialog({ isOpen, onClose, onSubmit }: Props) {
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="pin-dialog" parentDialogTag="root">
+    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="pin-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

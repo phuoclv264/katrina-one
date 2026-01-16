@@ -47,7 +47,7 @@ const RevenueStatsList = React.memo(({ stats, onEdit, onDelete, processingItemId
                     : format(new Date(stat.createdAt as string), 'HH:mm');
 
                 return (
-                    <Card 
+                    <Card
                         key={stat.id}
                         ref={el => {
                             if (el) itemRefs.current.set(highlightKey, el);
@@ -80,7 +80,7 @@ const RevenueStatsList = React.memo(({ stats, onEdit, onDelete, processingItemId
                                 </div>
                                 <div className="flex items-center gap-1">
                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => onEdit(stat)}><Edit className="h-4 w-4" /></Button>
-                                    <AlertDialog>
+                                    <AlertDialog parentDialogTag="root">
                                         <AlertDialogTrigger asChild>
                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/70 hover:text-destructive hover:bg-destructive/10" disabled={isProcessing}><Trash2 className="h-4 w-4" /></Button>
                                         </AlertDialogTrigger>

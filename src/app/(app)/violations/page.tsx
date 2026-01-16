@@ -326,7 +326,6 @@ function ViolationsView() {
   const handleOpenBulkSubmit = (violationIds: string[]) => {
     if (violationIds.length > 0) {
       setViolationsToSubmit(violationIds);
-      setIsSubmitAllOpen(false); // Close selection dialog
       setBulkPenaltyCaptureMode('video');
       setIsBulkCameraOpen(true); // Open camera
     }
@@ -335,9 +334,7 @@ function ViolationsView() {
   const handleBulkPenaltySubmit = async (media: { id: string; type: 'photo' | 'video' }[]) => {
     if (!user) return;
     if (violationsToSubmit.length === 0 || media.length === 0) {
-      // If user closes camera without submitting, reopen the selection dialog
       setIsBulkCameraOpen(false);
-      setIsSubmitAllOpen(true);
       return;
     }
 
@@ -527,9 +524,9 @@ function ViolationsView() {
                 options={displayUsers.map(u => ({ value: u.uid, label: u.displayName }))}
                 value={filterUsers.map(u => u.uid)}
                 onChange={(vals) => {
-                   const selectedIds = vals as string[];
-                   const selected = displayUsers.filter(u => selectedIds.includes(u.uid));
-                   setFilterUsers(selected);
+                  const selectedIds = vals as string[];
+                  const selected = displayUsers.filter(u => selectedIds.includes(u.uid));
+                  setFilterUsers(selected);
                 }}
                 multiple={true}
                 placeholder="Chọn nhân viên..."
@@ -687,6 +684,7 @@ function ViolationsView() {
             user={{ id: user.uid, name: user.displayName }}
             onSubmit={handleOpenBulkSubmit}
             isProcessing={isProcessing}
+            parentDialogTag='root'
           />
         </Suspense>
       )}
@@ -703,6 +701,7 @@ function ViolationsView() {
           categories={categoryData.list}
           onCategoriesChange={handleCategoriesChange}
           canManage={isOwner}
+          parentDialogTag="root"
         />
       )}
 
@@ -710,6 +709,7 @@ function ViolationsView() {
         <ViolationCategoryManagementDialog
           isOpen={isCategoryDialogOpen}
           onClose={() => setIsCategoryDialogOpen(false)}
+          parentDialogTag="root"
         />
       )}
 
@@ -718,6 +718,7 @@ function ViolationsView() {
         onClose={() => setIsInfoDialogOpen(false)}
         categories={categoryData.list}
         generalRules={categoryData.generalRules}
+        parentDialogTag="root"
       />
 
       <CameraDialog
@@ -725,17 +726,16 @@ function ViolationsView() {
         onClose={() => setIsPenaltyCameraOpen(false)}
         onSubmit={handlePenaltySubmit}
         captureMode={penaltyCaptureMode}
+        parentDialogTag="root"
       />
 
       {/* Camera for bulk submission */}
       <CameraDialog
         isOpen={isBulkCameraOpen}
-        onClose={() => {
-          setIsBulkCameraOpen(false);
-          setIsSubmitAllOpen(true); // Reopen dialog if camera is closed manually
-        }}
+        onClose={() => setIsBulkCameraOpen(false)}
         onSubmit={handleBulkPenaltySubmit}
-        captureMode={bulkPenaltyCaptureMode}
+        captureMode="video"
+        parentDialogTag="submit-all-violations-dialog"
       />
 
     </>
@@ -744,7 +744,7 @@ function ViolationsView() {
 
 export default function ViolationsPage() {
   return (
-    <Suspense fallback={<LoadingPage />}> 
+    <Suspense fallback={<LoadingPage />}>
       <ViolationsView />
     </Suspense>
   );

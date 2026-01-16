@@ -95,7 +95,7 @@ function CleanupDialog({ className }: CleanupDialogProps) {
                     <DialogClose asChild>
                         <Button variant="outline">Hủy</Button>
                     </DialogClose>
-                    <AlertDialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
+                    <AlertDialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen} parentDialogTag="root">
                         <AlertDialogTrigger asChild>
                             <Button variant="destructive" disabled={isProcessing}>
                                 {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

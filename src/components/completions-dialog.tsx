@@ -28,9 +28,10 @@ type Props = {
   currentCompletions?: CompletionRecord[];
   onDeleteCurrentCompletion?: (index: number) => void;
   onDeleteCurrentPhoto?: (completionIndex: number, photoId: string) => void;
+  parentDialogTag: string;
 };
 
-export default function CompletionsDialog({ open, onOpenChange, otherStaffCompletions, taskType, onOpenLightbox, taskName, currentStaffName = 'Bạn', currentCompletions = [], onDeleteCurrentCompletion, onDeleteCurrentPhoto }: Props) {
+export default function CompletionsDialog({ open, onOpenChange, otherStaffCompletions, taskType, onOpenLightbox, taskName, currentStaffName = 'Bạn', currentCompletions = [], onDeleteCurrentCompletion, onDeleteCurrentPhoto, parentDialogTag }: Props) {
   const flattened = React.useMemo(() => {
     const out: { staffName: string; userId?: string; completion: CompletionRecord; origin?: 'self' | 'other'; selfIndex?: number }[] = [];
 
@@ -82,7 +83,7 @@ export default function CompletionsDialog({ open, onOpenChange, otherStaffComple
   }, [open, currentCompletions]);
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog open={open} onOpenChange={onOpenChange} parentDialogTag={parentDialogTag}>
       <AlertDialogContent className="rounded-3xl max-w-2xl border-none shadow-2xl p-0 overflow-hidden">
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white text-center sm:text-left">
           <AlertDialogHeader>
@@ -172,8 +173,8 @@ export default function CompletionsDialog({ open, onOpenChange, otherStaffComple
                         <div className="grid grid-cols-6 sm:grid-cols-8 gap-2 mt-2">
                           {(() => {
                             const permanent = entry.completion.photos || [];
-                            const local = (entry.origin === 'self' && entry.completion.photoIds) ? entry.completion.photoIds.map(id => ({ id, url: localPhotoUrls.get(id) })).filter(x => x.url) as {id:string,url:string}[] : [];
-                            const all = [...permanent.map(url => ({ id: undefined as string|undefined, url })), ...local.map(x => ({ id: x.id, url: x.url }))];
+                            const local = (entry.origin === 'self' && entry.completion.photoIds) ? entry.completion.photoIds.map(id => ({ id, url: localPhotoUrls.get(id) })).filter(x => x.url) as { id: string, url: string }[] : [];
+                            const all = [...permanent.map(url => ({ id: undefined as string | undefined, url })), ...local.map(x => ({ id: x.id, url: x.url }))];
                             return all.map((item, pIdx) => (
                               <div
                                 key={`${item.url}-${pIdx}`}

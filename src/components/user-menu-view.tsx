@@ -8,10 +8,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { 
-  LogOut, User, CalendarDays, CheckSquare, Coffee, Banknote, UserCog, 
-  BarChart3, FileText, DollarSign, CalendarClock, Users2, ClipboardList, 
-  UtensilsCrossed, ListChecks, Package, FileSignature, History, ShieldX, 
+import {
+  LogOut, User, CalendarDays, CheckSquare, Coffee, Banknote, UserCog,
+  BarChart3, FileText, DollarSign, CalendarClock, Users2, ClipboardList,
+  UtensilsCrossed, ListChecks, Package, FileSignature, History, ShieldX,
   MessageSquare, ChevronRight, Sparkles, UserCircle
 } from 'lucide-react';
 import { cn, getInitials } from '@/lib/utils';
@@ -40,7 +40,7 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
     let primaryItems: any[] = [];
     let secondaryItems: { role: string; item: any }[] = [];
 
-    switch(user?.role) {
+    switch (user?.role) {
       case 'Phục vụ': primaryItems.push(
         { href: '/shifts', label: 'Bảng điều khiển', icon: CheckSquare },
         commonScheduleMenu,
@@ -94,18 +94,18 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
     const primaryHrefs = new Set(primaryItems.map(item => item.href));
 
     if (isOnActiveShift) {
-      if(user?.secondaryRoles?.includes('Phục vụ') && !primaryHrefs.has('/shifts')) {
+      if (user?.secondaryRoles?.includes('Phục vụ') && !primaryHrefs.has('/shifts')) {
         secondaryItems.push({ role: 'Phục vụ', item: { href: '/shifts', label: 'Checklist Công việc', icon: CheckSquare } });
       }
-      if(user?.secondaryRoles?.includes('Pha chế') && !primaryHrefs.has('/bartender')) {
-         secondaryItems.push({ role: 'Pha chế', item: { href: '/bartender/hygiene-report', label: 'Báo cáo Vệ sinh quầy', icon: ClipboardList } });
-         secondaryItems.push({ role: 'Pha chế', item: { href: '/bartender/inventory', label: 'Kiểm kê Tồn kho', icon: History } });
+      if (user?.secondaryRoles?.includes('Pha chế') && !primaryHrefs.has('/bartender')) {
+        secondaryItems.push({ role: 'Pha chế', item: { href: '/bartender/hygiene-report', label: 'Báo cáo Vệ sinh quầy', icon: ClipboardList } });
+        secondaryItems.push({ role: 'Pha chế', item: { href: '/bartender/inventory', label: 'Kiểm kê Tồn kho', icon: History } });
       }
-      if(user?.secondaryRoles?.includes('Quản lý') && !primaryHrefs.has('/manager')) {
-          secondaryItems.push({ role: 'Quản lý', item: { href: '/manager/comprehensive-report', label: 'Phiếu kiểm tra toàn diện', icon: FileText } });
+      if (user?.secondaryRoles?.includes('Quản lý') && !primaryHrefs.has('/manager')) {
+        secondaryItems.push({ role: 'Quản lý', item: { href: '/manager/comprehensive-report', label: 'Phiếu kiểm tra toàn diện', icon: FileText } });
       }
-      if(user?.secondaryRoles?.includes('Thu ngân') && !primaryHrefs.has('/cashier')) {
-          secondaryItems.push({ role: 'Thu ngân', item: { href: '/cashier', label: 'Báo cáo Thu ngân', icon: Banknote } });
+      if (user?.secondaryRoles?.includes('Thu ngân') && !primaryHrefs.has('/cashier')) {
+        secondaryItems.push({ role: 'Thu ngân', item: { href: '/cashier', label: 'Báo cáo Thu ngân', icon: Banknote } });
       }
     }
 
@@ -117,7 +117,7 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
   const handleNavigate = (href: string) => {
     // Check if this is a "Home" link (Dashboard/Overview)
     const isHomeLink = ['/shifts', '/bartender', '/manager', '/admin'].includes(href);
-    
+
     if (isHomeLink && onNavigateToHome) {
       onNavigateToHome();
     } else if (onNavigate) {
@@ -132,49 +132,49 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
       {/* Header Profile Section */}
       <div className="p-6 pb-2">
         <div className="flex items-start justify-between mb-6">
-           <div className="flex flex-col gap-1">
-              <h2 className="text-2xl font-bold tracking-tight">Xin chào,</h2>
-              <h3 className="text-xl font-semibold text-primary">{user.displayName}</h3>
-           </div>
-           <Avatar className="h-16 w-16 border-2 border-background shadow-lg">
-              <AvatarImage src={user.photoURL || ''} />
-              <AvatarFallback className="bg-primary text-primary-foreground text-lg">
-                {getInitials(user.displayName || 'User')}
-              </AvatarFallback>
-           </Avatar>
+          <div className="flex flex-col gap-1">
+            <h2 className="text-2xl font-bold tracking-tight">Xin chào,</h2>
+            <h3 className="text-xl font-semibold text-primary">{user.displayName}</h3>
+          </div>
+          <Avatar className="h-16 w-16 border-2 border-background shadow-lg">
+            <AvatarImage src={user.photoURL || ''} />
+            <AvatarFallback className="bg-primary text-primary-foreground text-lg">
+              {getInitials(user.displayName || 'User')}
+            </AvatarFallback>
+          </Avatar>
         </div>
-        
+
         <div className="flex items-center justify-between gap-2 mb-2">
-           <Badge variant="secondary" className="px-3 py-1 text-sm font-medium capitalize shadow-sm">
-              {user.role}
-           </Badge>
-           <div className="flex gap-1">
-             <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setProfileOpen(true)}
-                className="text-muted-foreground hover:text-primary hover:bg-primary/10"
-              >
-                <UserCircle className="w-4 h-4 mr-2" />
-                Hồ sơ
-              </Button>
-             <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={logout} 
+          <Badge variant="secondary" className="px-3 py-1 text-sm font-medium capitalize shadow-sm">
+            {user.role}
+          </Badge>
+          <div className="flex gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setProfileOpen(true)}
+              className="text-muted-foreground hover:text-primary hover:bg-primary/10"
+            >
+              <UserCircle className="w-4 h-4 mr-2" />
+              Hồ sơ
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={logout}
               disabled={loading}
               className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
             >
               <LogOut className="w-4 h-4 mr-2" />
               Đăng xuất
             </Button>
-           </div>
+          </div>
         </div>
       </div>
 
       <Separator className="mb-4" />
-      
-      <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
+
+      <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} parentDialogTag="root" />
 
       {/* Menu Items */}
       <ScrollArea className="flex-1 px-4 pb-6">
@@ -205,7 +205,7 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
                   Vai trò phụ
                 </span>
               </div>
-              
+
               <div className="space-y-3">
                 {secondaryItems.map(({ role, item }, idx) => (
                   <div key={`${role}-${idx}`} className="relative">
@@ -232,7 +232,7 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
             </div>
           )}
         </div>
-        
+
         <div className="h-6" /> {/* Bottom spacer */}
       </ScrollArea>
     </div>

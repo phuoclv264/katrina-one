@@ -27,9 +27,10 @@ type AvailabilityDialogProps = {
   selectedDate: Date | null;
   existingAvailability: TimeSlot[];
   shiftTemplates: ShiftTemplate[];
+  parentDialogTag: string;
 };
 
-export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDate, existingAvailability, shiftTemplates }: AvailabilityDialogProps) {
+export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDate, existingAvailability, shiftTemplates, parentDialogTag }: AvailabilityDialogProps) {
   const [selectedSlots, setSelectedSlots] = useState<TimeSlot[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -122,7 +123,7 @@ export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDa
   if (!selectedDate) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="availability-dialog" parentDialogTag="root">
+    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="availability-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent className="w-[92vw] sm:max-w-md p-0 overflow-hidden rounded-[38px] sm:rounded-[40px] border-none shadow-3xl bg-white dark:bg-slate-950">
         <div className="p-5 sm:p-6 pb-0">
           <DialogHeader className="space-y-4">

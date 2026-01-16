@@ -8,25 +8,25 @@ import { LoadingPage } from '@/components/loading/LoadingPage';
 import { toast } from '@/components/ui/pro-toast';
 import { getISOWeek, getISOWeekYear, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, isSameDay, isBefore, isSameWeek, getDay, startOfToday, parseISO, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { 
-    ChevronLeft, 
-    ChevronRight, 
-    UserCheck, 
-    Clock, 
-    ShieldCheck, 
-    Info, 
-    CheckCircle, 
-    X, 
-    MoreVertical, 
-    MessageSquareWarning, 
-    Send, 
-    ArrowRight, 
-    ChevronsDownUp, 
-    MailQuestion, 
-    Save, 
-    Settings, 
-    FileSignature, 
-    Loader2, 
+import {
+    ChevronLeft,
+    ChevronRight,
+    UserCheck,
+    Clock,
+    ShieldCheck,
+    Info,
+    CheckCircle,
+    X,
+    MoreVertical,
+    MessageSquareWarning,
+    Send,
+    ArrowRight,
+    ChevronsDownUp,
+    MailQuestion,
+    Save,
+    Settings,
+    FileSignature,
+    Loader2,
     Users,
     Sun,
     CloudSun,
@@ -760,14 +760,14 @@ export default function ScheduleView() {
                                                                             </Button>
                                                                         </DropdownMenuTrigger>
                                                                         <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl shadow-xl">
-                                                                            <DropdownMenuItem 
+                                                                            <DropdownMenuItem
                                                                                 onSelect={() => { setActiveShiftForInfo(shift); setIsInfoDialogOpen(true); }}
                                                                                 className="rounded-xl flex items-center gap-3 py-3 px-4 cursor-pointer"
                                                                             >
                                                                                 <Users className="h-4 w-4 text-blue-500" />
                                                                                 <span className="font-bold text-sm">Chi tiết ca</span>
                                                                             </DropdownMenuItem>
-                                                                            <DropdownMenuItem 
+                                                                            <DropdownMenuItem
                                                                                 onSelect={() => setShiftToPass(shift)}
                                                                                 className="rounded-xl flex items-center gap-3 py-3 px-4 focus:bg-red-50 dark:focus:bg-red-950/30 text-red-600 dark:text-red-400 cursor-pointer group/item"
                                                                             >
@@ -812,6 +812,7 @@ export default function ScheduleView() {
                 currentUser={user}
                 evidences={busyEvidences}
                 onOpenBusyEvidence={(shifts) => { setBusyDialogRelevantShifts(shifts); setIsBusyEvidenceDialogOpen(true); }}
+                parentDialogTag='root'
             />
 
             <BusyEvidenceDialog
@@ -823,6 +824,7 @@ export default function ScheduleView() {
                 evidences={busyEvidences}
                 relevantShifts={busyDialogRelevantShifts}
                 allUsers={allUsers}
+                parentDialogTag='week-schedule-dialog'
             />
 
             <AvailabilityDialog
@@ -832,6 +834,7 @@ export default function ScheduleView() {
                 selectedDate={selectedDateForAvailability}
                 existingAvailability={selectedDateForAvailability ? userAvailability.get(format(selectedDateForAvailability, 'yyyy-MM-dd')) || [] : []}
                 shiftTemplates={shiftTemplates}
+                parentDialogTag='root'
             />
 
             <PassRequestsDialog
@@ -849,6 +852,7 @@ export default function ScheduleView() {
                 onRejectApproval={handleRejectApproval}
                 processingNotificationId={processingNotificationId}
                 schedule={schedule}
+                parentDialogTag='root'
             />
 
             {activeShiftForInfo && schedule && (
@@ -861,6 +865,7 @@ export default function ScheduleView() {
                     onDirectPassRequest={handleDirectPassRequest}
                     isProcessing={isHandlingConflict || !!processingNotificationId}
                     notifications={notifications}
+                    parentDialogTag='root'
                 />
             )}
 
@@ -869,7 +874,7 @@ export default function ScheduleView() {
                 onOpenChange={(open) => !open && setShiftToPass(null)}
                 variant="destructive"
                 icon={LogOut}
-                title={<>Xác nhận <br/> Pass ca!</>}
+                title={<>Xác nhận <br /> Pass ca!</>}
                 description={
                     <>
                         Bạn có chắc chắn muốn gửi yêu cầu pass ca <span className="font-black text-slate-900 dark:text-slate-200">{shiftToPass?.label}</span> không?
@@ -887,12 +892,12 @@ export default function ScheduleView() {
                 }}
             />
 
-            <CustomAlertDialog 
+            <CustomAlertDialog
                 isOpen={conflictDialog.isOpen}
                 onOpenChange={(open) => { if (!open) setConflictDialog({ isOpen: false, oldRequest: null, newRequestFn: () => { } }) }}
                 variant="warning"
                 icon={MessageSquareWarning}
-                title={<>Yêu cầu bị <br/> Trùng lặp!</>}
+                title={<>Yêu cầu bị <br /> Trùng lặp!</>}
                 description={
                     <div className="space-y-6">
                         <p>Hệ thống phát hiện bạn đã có một yêu cầu khác đang chờ xử lý cho ca này.</p>

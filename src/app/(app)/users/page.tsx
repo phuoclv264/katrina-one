@@ -335,7 +335,7 @@ export default function UsersPage() {
                                             <Button variant="outline" size="sm" onClick={() => handleEditClick(u)} disabled={isProcessing}>
                                                 <Edit className="mr-2 h-4 w-4" /> Sửa
                                             </Button>
-                                            <AlertDialog>
+                                            <AlertDialog parentDialogTag="root">
                                                 <AlertDialogTrigger asChild>
                                                     <Button variant="destructive" size="sm" disabled={u.uid === user?.uid || isProcessing}>
                                                         <Trash2 className="mr-2 h-4 w-4" /> Xóa
@@ -392,7 +392,7 @@ export default function UsersPage() {
                                                     <Edit className="h-4 w-4" />
                                                     <span className="sr-only">Sửa</span>
                                                 </Button>
-                                                <AlertDialog>
+                                                <AlertDialog parentDialogTag="root">
                                                     <AlertDialogTrigger asChild>
                                                         <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" disabled={u.uid === user?.uid || isProcessing}>
                                                             <Trash2 className="h-4 w-4" />

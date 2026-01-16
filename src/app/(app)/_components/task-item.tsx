@@ -236,6 +236,7 @@ const TaskItemComponent = ({
         currentCompletions={completions}
         onDeleteCurrentCompletion={(index) => onDeleteCompletion(task.id, index)}
         onDeleteCurrentPhoto={(completionIndex, photoId) => onDeletePhoto(task.id, completionIndex, photoId, true)}
+        parentDialogTag="root"
       />
 
       {/* Photo action moved to bottom (hidden for single-completion tasks after done) */}

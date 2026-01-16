@@ -18,9 +18,10 @@ interface SubmitAllDialogProps {
   user: ViolationUser;
   onSubmit: (violationIds: string[]) => void;
   isProcessing: boolean;
+  parentDialogTag: string;
 }
 
-export const SubmitAllDialog: React.FC<SubmitAllDialogProps> = ({ open, onClose, violations, user, onSubmit, isProcessing }) => {
+export const SubmitAllDialog: React.FC<SubmitAllDialogProps> = ({ open, onClose, violations, user, onSubmit, isProcessing, parentDialogTag }) => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const isMobile = useIsMobile();
@@ -254,7 +255,7 @@ export const SubmitAllDialog: React.FC<SubmitAllDialogProps> = ({ open, onClose,
   );
 
   return (
-    <Dialog open={open} onOpenChange={v => !v && onClose()} dialogTag="submit-all-violations-dialog" parentDialogTag="root">
+    <Dialog open={open} onOpenChange={v => !v && onClose()} dialogTag="submit-all-violations-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent className={`${isMobile ? "max-w-md" : "max-w-5xl"} max-h-[90vh] overflow-hidden`}>
         <DialogHeader className="sticky top-0 z-30 border-b">
           <DialogTitle>Nộp bằng chứng cho nhiều vi phạm</DialogTitle>

@@ -63,6 +63,7 @@ export default function QuickEventsCard() {
                     onClose={() => setIsVoteModalOpen(false)}
                     event={selectedEvent}
                     currentUser={user}
+                    parentDialogTag="root"
                 />
             )}
         </>

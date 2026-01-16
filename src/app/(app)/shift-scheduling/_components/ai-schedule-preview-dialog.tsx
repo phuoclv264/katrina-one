@@ -18,13 +18,14 @@ type Props = {
   allUsers: ManagedUser[];
   canAccept: boolean;
   onAccept: (schedule: Schedule) => void;
+  parentDialogTag: string;
 };
 
 const getUserName = (uid: string, allUsers: ManagedUser[]) => allUsers.find(u => u.uid === uid)?.displayName || uid;
 
 const userKey = (u: AssignedUser) => u.userId;
 
-export default function AiSchedulePreviewDialog({ isOpen, onClose, proposed, current, explanation, warnings, allUsers, canAccept, onAccept }: Props) {
+export default function AiSchedulePreviewDialog({ isOpen, onClose, proposed, current, explanation, warnings, allUsers, canAccept, onAccept, parentDialogTag }: Props) {
   const currentById = useMemo(() => new Map((current?.shifts || []).map(s => [s.id, s])), [current]);
   const proposedById = useMemo(() => new Map((proposed?.shifts || []).map(s => [s.id, s])), [proposed]);
 
@@ -54,7 +55,7 @@ export default function AiSchedulePreviewDialog({ isOpen, onClose, proposed, cur
   }, [current, proposed, currentById, proposedById]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="ai-schedule-preview-dialog" parentDialogTag="root">
+    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="ai-schedule-preview-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>Xem trước lịch AI</DialogTitle>

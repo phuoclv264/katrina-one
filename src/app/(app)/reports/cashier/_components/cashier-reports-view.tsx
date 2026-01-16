@@ -36,11 +36,13 @@ import { useIsMobile } from '@/hooks/use-mobile';
 function AddDocumentDialog({
   isOpen,
   onOpenChange,
-  onConfirm
+  onConfirm,
+  parentDialogTag
 }: {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: (date: Date, action: 'revenue' | 'expense' | 'incident' | 'handover') => void;
+  parentDialogTag: string;
 }) {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [action, setAction] = useState<'revenue' | 'expense' | 'incident' | 'handover'>('revenue');
@@ -49,14 +51,16 @@ function AddDocumentDialog({
   const handleConfirm = () => {
     if (date) {
       onConfirm(date, action);
-      onOpenChange(false);
+      // Keep the AddDocumentDialog open so the child dialog opens with
+      // parentDialogTag="add-document-dialog" (caller will set activeParentDialogTag).
+      // Do NOT close here.
     } else {
       toast.error("Vui lòng chọn một ngày.");
     }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange} dialogTag="add-document-dialog" parentDialogTag="root">
+    <Dialog open={isOpen} onOpenChange={onOpenChange} dialogTag="add-document-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent className="bg-white dark:bg-card">
         <DialogHeader>
           <DialogTitle>Bổ sung chứng từ</DialogTitle>
@@ -161,6 +165,10 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
   const [isUnpaidSlipsDialogOpen, setIsUnpaidSlipsDialogOpen] = useState(false);
   const [isCashHandoverDialogOpen, setIsCashHandoverDialogOpen] = useState(false);
   const [isAddDocumentDialogOpen, setIsAddDocumentDialogOpen] = useState(false);
+
+  // Track which dialog should be treated as the parent when opening child dialogs.
+  // This allows opening dialogs either from the root page or from within the AddDocumentDialog.
+  const [activeParentDialogTag, setActiveParentDialogTag] = useState<string>('root');
 
   const [slipToEdit, setSlipToEdit] = useState<ExpenseSlip | null>(null);
   const [revenueStatsToEdit, setRevenueStatsToEdit] = useState<RevenueStats | null>(null);
@@ -366,6 +374,11 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
     }
   }, [sortedDatesInMonth]);
 
+  useEffect(() => {
+    if (!isAddDocumentDialogOpen) setActiveParentDialogTag('root');
+    else setActiveParentDialogTag('add-document-dialog');
+  }, [isAddDocumentDialogOpen]);
+
   const monthlyRevenueStats = useMemo(() => revenueStats.filter(stat => isSameMonth(parseISO(stat.date), currentMonth)), [revenueStats, currentMonth]);
   const monthlyExpenseSlips = useMemo(() => expenseSlips.filter(slip => isSameMonth(parseISO(slip.date), currentMonth)), [expenseSlips, currentMonth]);
   const monthlyIncidents = useMemo(() => incidents.filter(i => isSameMonth(parseISO(i.date), currentMonth)), [incidents, currentMonth]);
@@ -388,6 +401,12 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
   const handleEditIncident = useCallback((incident: IncidentReport) => { setDateForNewEntry(null); setIncidentToEdit(incident); setIsIncidentDialogOpen(true); }, []);
   const handleEditCashHandover = useCallback((handover: CashHandoverReport) => { setDateForNewEntry(null); setCashHandoverToEdit(handover); setIsCashHandoverDialogOpen(true); }, []);
 
+  // Ensure top-level opens use root as parent
+  const handleEditExpenseWithRoot = useCallback((slip: ExpenseSlip) => { setActiveParentDialogTag('root'); handleEditExpense(slip); }, [handleEditExpense]);
+  const handleEditRevenueWithRoot = useCallback((stats: RevenueStats) => { setActiveParentDialogTag('root'); handleEditRevenue(stats); }, [handleEditRevenue]);
+  const handleEditIncidentWithRoot = useCallback((incident: IncidentReport) => { setActiveParentDialogTag('root'); handleEditIncident(incident); }, [handleEditIncident]);
+  const handleEditCashHandoverWithRoot = useCallback((handover: CashHandoverReport) => { setActiveParentDialogTag('root'); handleEditCashHandover(handover); }, [handleEditCashHandover]);
+
   const handleViewFinalHandover = useCallback((handover: CashHandoverReport) => {
     setFinalHandoverToView(handover);
     setIsFinalHandoverViewOpen(true);
@@ -397,18 +416,23 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
     setDateForNewEntry(format(date, 'yyyy-MM-dd'));
     switch (action) {
       case 'revenue':
+        // When opened via the Add Document dialog, set parent tag accordingly so nested dialogs use it
+        setActiveParentDialogTag('add-document-dialog');
         setRevenueStatsToEdit(null);
         setIsRevenueDialogOpen(true);
         break;
       case 'expense':
+        setActiveParentDialogTag('add-document-dialog');
         setSlipToEdit(null);
         setIsExpenseDialogOpen(true);
         break;
       case 'incident':
+        setActiveParentDialogTag('add-document-dialog');
         setIncidentToEdit(null);
         setIsIncidentDialogOpen(true);
         break;
       case 'handover': // Mở dialog bàn giao cuối ca
+        setActiveParentDialogTag('add-document-dialog');
         setFinalHandoverToView(null);
         setIsFinalHandoverViewOpen(true);
         break;
@@ -688,11 +712,11 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
                     key={date}
                     date={date}
                     dayReports={dayReports}
-                    onEditRevenue={handleEditRevenue}
+                    onEditRevenue={handleEditRevenueWithRoot}
                     onDeleteRevenue={handleDeleteRevenue}
-                    onEditExpense={handleEditExpense}
+                    onEditExpense={handleEditExpenseWithRoot}
                     onDeleteExpense={handleDeleteExpense}
-                    onEditIncident={handleEditIncident}
+                    onEditIncident={handleEditIncidentWithRoot}
                     onDeleteIncident={handleDeleteIncident}
                     onOpenLightbox={(photos: string[], index?: number) => openLightbox(photos.map((p: string) => ({ src: p })), index ?? 0)}
                     onEditCashHandover={handleEditCashHandover}
@@ -709,12 +733,13 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
         )}
       </div>
 
-      <OtherCostCategoryDialog open={isOtherCostCategoryDialogOpen} onOpenChange={setIsOtherCostCategoryDialogOpen} />
-      <IncidentCategoryDialog open={isIncidentCategoryDialogOpen} onOpenChange={setIsIncidentCategoryDialogOpen} />
+      <OtherCostCategoryDialog open={isOtherCostCategoryDialogOpen} onOpenChange={setIsOtherCostCategoryDialogOpen} parentDialogTag="root" />
+      <IncidentCategoryDialog open={isIncidentCategoryDialogOpen} onOpenChange={setIsIncidentCategoryDialogOpen} parentDialogTag="root" />
       <AddDocumentDialog
         isOpen={isAddDocumentDialogOpen}
         onOpenChange={setIsAddDocumentDialogOpen}
         onConfirm={handleAddDocumentConfirm}
+        parentDialogTag='root'
       />
 
       <UnpaidSlipsDialog
@@ -724,6 +749,7 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
         inventoryList={inventoryList}
         onMarkAsPaid={handleMarkDebtsAsPaid}
         onUndoPayment={handleUndoDebtPayment}
+        parentDialogTag="root"
       />
 
       <OwnerCashierDialogs
@@ -759,6 +785,7 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
         canManageCategories={user?.role === 'Chủ nhà hàng'}
         dateForNewEntry={dateForNewEntry}
         reporter={user}
+        parentDialogTag={activeParentDialogTag}
       />
 
     </>

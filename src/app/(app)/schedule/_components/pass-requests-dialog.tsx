@@ -235,7 +235,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
                 return (
                     <div className="flex gap-2 w-full sm:w-auto">
                         <Button variant="secondary" size="sm" onClick={() => onAssign(notification)} disabled={isProcessing} className="flex-1"><UserCheck className="mr-2 h-4 w-4" />Chỉ định</Button>
-                        <AlertDialog>
+                        <AlertDialog parentDialogTag="root">
                             <AlertDialogTrigger asChild>
                                 <Button variant="destructive" size="sm" disabled={isProcessing} className="flex-1">
                                     {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
@@ -291,7 +291,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
             if (status === 'resolved' && currentUser.role === 'Chủ nhà hàng') {
                 return (
                     <div className="flex gap-2 w-full sm:w-auto">
-                        <AlertDialog>
+                        <AlertDialog parentDialogTag="root">
                             <AlertDialogTrigger asChild>
                                 <Button variant="outline" size="sm" disabled={isProcessing}>
                                     {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Undo className="mr-2 h-4 w-4" />}
@@ -300,7 +300,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
                             </AlertDialogTrigger>
                             <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hoàn tác yêu cầu?</AlertDialogTitle></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Không</AlertDialogCancel><AlertDialogAction onClick={() => onRevert(notification)}>Xác nhận</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
                         </AlertDialog>
-                        <AlertDialog>
+                        <AlertDialog parentDialogTag="root">
                             <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-9 w-9"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
                             <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa khỏi lịch sử?</AlertDialogTitle></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => onDeleteHistory(notification.id)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
                         </AlertDialog>
@@ -309,7 +309,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
             }
             if (status === 'cancelled' && currentUser.role === 'Chủ nhà hàng') {
                 return (
-                    <AlertDialog>
+                    <AlertDialog parentDialogTag="root">
                         <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-9 w-9"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
                         <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa khỏi lịch sử?</AlertDialogTitle></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => onDeleteHistory(notification.id)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
                     </AlertDialog>
@@ -398,6 +398,7 @@ type PassRequestsDialogProps = {
     onRejectApproval: (notificationId: string) => void;
     processingNotificationId: string | null;
     schedule: Schedule | null;
+    parentDialogTag: string;
 }
 
 
@@ -416,6 +417,7 @@ export default function PassRequestsDialog({
     onRejectApproval,
     processingNotificationId,
     schedule,
+    parentDialogTag,
 }: PassRequestsDialogProps) {
     const { user: currentUser } = useAuth();
     const { toast } = useToast();
@@ -524,7 +526,7 @@ export default function PassRequestsDialog({
     if (!currentUser) return null;
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose} dialogTag="pass-requests-dialog" parentDialogTag="root">
+        <Dialog open={isOpen} onOpenChange={onClose} dialogTag="pass-requests-dialog" parentDialogTag={parentDialogTag}>
             <DialogContent className="w-[94vw] sm:max-w-2xl h-[90vh] sm:h-[85vh] flex flex-col p-0 overflow-hidden rounded-[38px] sm:rounded-[40px] border-none shadow-3xl bg-white dark:bg-slate-950">
                 <div className="p-5 sm:p-6 pb-2">
                     <DialogHeader className="space-y-4">

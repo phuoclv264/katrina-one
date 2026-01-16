@@ -14,11 +14,13 @@ export default function EditAttendanceDialog({
   onClose,
   record,
   onSave,
+  parentDialogTag,
 }: {
   isOpen: boolean;
   onClose: () => void;
   record: AttendanceRecord | null;
   onSave: (id: string, data: { checkInTime: Date, checkOutTime?: Date, hourlyRate?: number }) => void;
+  parentDialogTag: string;
 }) {
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
@@ -64,7 +66,7 @@ export default function EditAttendanceDialog({
   if (!record) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="edit-attendance-dialog" parentDialogTag="root">
+    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="edit-attendance-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Chỉnh sửa Chấm công</DialogTitle>

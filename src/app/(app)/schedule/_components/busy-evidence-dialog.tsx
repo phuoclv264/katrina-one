@@ -59,6 +59,7 @@ type BusyEvidenceDialogProps = {
   evidences: ShiftBusyEvidence[];
   relevantShifts: AssignedShift[]; // Provided by WeekScheduleDialog — do not recalculate locally
   allUsers: ManagedUser[]; // required to compute effective assigned roles
+  parentDialogTag: string;
 };
 
 const toDate = (value: ShiftBusyEvidence['submittedAt']) => {
@@ -91,7 +92,7 @@ const getWeekRange = (weekId: string) => {
   return { start: weekStart, end: weekEnd };
 };
 
-export function BusyEvidenceDialog({ open, onOpenChange, schedule, currentUser, weekId, evidences, relevantShifts, allUsers }: BusyEvidenceDialogProps) {
+export function BusyEvidenceDialog({ open, onOpenChange, schedule, currentUser, weekId, evidences, relevantShifts, allUsers, parentDialogTag }: BusyEvidenceDialogProps) {
   const [drafts, setDrafts] = useState<Record<string, DraftState>>({});
   const [activeCameraShiftId, setActiveCameraShiftId] = useState<string | null>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -349,7 +350,7 @@ export function BusyEvidenceDialog({ open, onOpenChange, schedule, currentUser, 
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} dialogTag="busy-evidence-dialog" parentDialogTag="root">
+    <Dialog open={open} onOpenChange={onOpenChange} dialogTag="busy-evidence-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent className="max-w-4xl max-h-[92vh] flex flex-col p-0 overflow-hidden border-none sm:rounded-2xl">
         <DialogHeader className="p-4 pb-0 space-y-1">
           <div className="flex items-center gap-3">

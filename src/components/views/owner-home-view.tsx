@@ -15,7 +15,8 @@ import type {
   MonthlyTaskAssignment,
   MonthlyTask,
   IncidentReport,
-  InventoryItem,  CashHandoverReport,} from '@/lib/types';
+  InventoryItem, CashHandoverReport,
+} from '@/lib/types';
 import {
   format,
   startOfToday,
@@ -49,7 +50,7 @@ import { toDateSafe, cn, selectLatestRevenueStats } from '@/lib/utils';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
 
 interface OwnerHomeViewProps {
-    isStandalone?: boolean;
+  isStandalone?: boolean;
 }
 
 export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
@@ -526,8 +527,8 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
       <main className="flex-1 overflow-y-auto px-1 py-3 md:p-6 lg:p-8 scroll-smooth">
         <div className="flex flex-col gap-4 md:gap-6 pb-20 md:pb-8">
           {/* KPI Metrics */}
-          <KPIMetricsSection 
-            metrics={kpiMetrics} 
+          <KPIMetricsSection
+            metrics={kpiMetrics}
             onViewDetails={() => setIsCashierDataDialogOpen(true)}
           />
 
@@ -554,8 +555,8 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
                   nav.push(path);
                 }
               }} />
-              <MonthlyStaffReportDialog isOpen={isMonthlyReportOpen} onOpenChange={(open: boolean) => setIsMonthlyReportOpen(open)} />
-              <SalaryManagementDialog isOpen={isSalaryDialogOpen} onClose={() => setIsSalaryDialogOpen(false)} allUsers={allUsers} />
+              <MonthlyStaffReportDialog isOpen={isMonthlyReportOpen} onOpenChange={(open: boolean) => setIsMonthlyReportOpen(open)} parentDialogTag="root" />
+              <SalaryManagementDialog isOpen={isSalaryDialogOpen} onClose={() => setIsSalaryDialogOpen(false)} allUsers={allUsers} parentDialogTag="root" />
               <RecurringTasksCard monthlyTasks={monthlyTasks} taskAssignments={taskAssignments} staffDirectory={allUsers} />
             </div>
           </div>
@@ -567,7 +568,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
         </div>
       </main>
 
-      <CashierDataDialog 
+      <CashierDataDialog
         isOpen={isCashierDataDialogOpen}
         onOpenChange={setIsCashierDataDialogOpen}
         dateLabel={dateFilter === 'today' ? 'Hôm nay' : dateFilter === 'yesterday' ? 'Hôm qua' : 'Tuần này'}

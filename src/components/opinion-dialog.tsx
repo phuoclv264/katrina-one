@@ -18,9 +18,10 @@ type OpinionDialogProps = {
   onSubmit: (opinionText: string) => void;
   taskText: string;
   initialValue?: string;
+  parentDialogTag: string;
 };
 
-const OpinionDialog = ({ isOpen, onClose, onSubmit, taskText, initialValue = '' }: OpinionDialogProps) => {
+const OpinionDialog = ({ isOpen, onClose, onSubmit, taskText, initialValue = '', parentDialogTag }: OpinionDialogProps) => {
   const [opinionText, setOpinionText] = useState(initialValue);
 
   // Reset text when dialog is opened for a new task
@@ -35,7 +36,7 @@ const OpinionDialog = ({ isOpen, onClose, onSubmit, taskText, initialValue = '' 
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()} dialogTag="opinion-dialog" parentDialogTag="root">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()} dialogTag="opinion-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Ghi nhận ý kiến cho:</DialogTitle>

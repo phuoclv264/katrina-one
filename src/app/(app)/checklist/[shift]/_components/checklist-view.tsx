@@ -1074,6 +1074,7 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
         onClose={handleCameraClose}
         onSubmit={handleCapturePhotos}
         captureMode="photo"
+        parentDialogTag="root"
       />
 
       <OpinionDialog
@@ -1082,9 +1083,10 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
         onSubmit={handleSaveOpinion}
         taskText={activeTask?.text || ''}
         initialValue={activeTask ? (report.completedTasks[activeTask.id]?.[0]?.opinion || '') : ''}
+        parentDialogTag="root"
       />
 
-      <AlertDialog open={showSyncDialog && !isSubmitting} onOpenChange={setShowSyncDialog}>
+      <AlertDialog open={showSyncDialog && !isSubmitting} onOpenChange={setShowSyncDialog} parentDialogTag="root">
         <AlertDialogContent className="rounded-3xl">
           {syncStatus === 'local-newer' && (
             <>

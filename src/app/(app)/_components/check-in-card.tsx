@@ -487,6 +487,7 @@ export default function CheckInCard() {
                 captureMode="photo"
                 singlePhotoMode={true}
                 isHD={true}
+                parentDialogTag="root"
             />
 
             <Dialog open={isLateReasonDialogOpen} onOpenChange={setIsLateReasonDialogOpen} dialogTag="late-reason-dialog" parentDialogTag="root">
@@ -589,7 +590,7 @@ export default function CheckInCard() {
                 </DialogContent>
             </Dialog>
 
-            <AlertDialog open={showOldShiftAlert} onOpenChange={setShowOldShiftAlert}>
+            <AlertDialog open={showOldShiftAlert} onOpenChange={setShowOldShiftAlert} parentDialogTag="root">
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Cảnh báo ca làm việc cũ</AlertDialogTitle>
@@ -630,6 +631,7 @@ export default function CheckInCard() {
                     isOpen={isWorkHistoryOpen}
                     onClose={() => setIsWorkHistoryOpen(false)}
                     user={user}
+                    parentDialogTag='root'
                 />
             )}
         </>

@@ -23,6 +23,7 @@ type SalaryManagementDialogProps = {
     isOpen: boolean;
     onClose: () => void;
     allUsers: ManagedUser[];
+    parentDialogTag: string;
 };
 
 const calculateSalarySheet = async (
@@ -140,7 +141,7 @@ const calculateSalarySheet = async (
     };
 };
 
-export default function SalaryManagementDialog({ isOpen, onClose, allUsers }: SalaryManagementDialogProps) {
+export default function SalaryManagementDialog({ isOpen, onClose, allUsers, parentDialogTag }: SalaryManagementDialogProps & { parentDialogTag: string }) {
     const { user: currentUser } = useAuth();
     const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
     const [salarySheet, setSalarySheet] = useState<MonthlySalarySheet | null>(null);
@@ -339,7 +340,7 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers }: Sa
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose} dialogTag="salary-management-dialog" parentDialogTag="root">
+        <Dialog open={isOpen} onOpenChange={onClose} dialogTag="salary-management-dialog" parentDialogTag={parentDialogTag}>
             <DialogContent className="max-w-4xl sm:h-[90vh] h-[100vh] flex flex-col p-0">
                 <DialogHeader className="flex flex-row items-center gap-2 px-4 py-2 border-b">
                     <DialogTitle className="text-base sm:text-lg">Quản lý Bảng lương</DialogTitle>

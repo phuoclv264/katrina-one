@@ -573,7 +573,7 @@ function InventoryReportView() {
                                                             Xem
                                                         </Button>
                                                         {user?.role === 'Chủ nhà hàng' && (
-                                                            <AlertDialog>
+                                                            <AlertDialog parentDialogTag="root">
                                                                 <AlertDialogTrigger asChild>
                                                                     <Button variant="ghost" size="icon" className="text-destructive h-9 w-9" disabled={isProcessing}>
                                                                         <Trash2 className="h-4 w-4" />

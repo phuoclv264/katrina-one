@@ -26,8 +26,8 @@ const IncidentList = React.memo(({ incidents, onEdit, onDelete, onOpenLightbox, 
                 const isProcessing = processingItemId === incident.id;
                 const highlightKey = `incident-${incident.id}`;
                 return (
-                    <Card 
-                        key={incident.id} 
+                    <Card
+                        key={incident.id}
                         ref={el => {
                             if (el) itemRefs.current.set(highlightKey, el); else itemRefs.current.delete(highlightKey);
                         }}
@@ -59,7 +59,7 @@ const IncidentList = React.memo(({ incidents, onEdit, onDelete, onOpenLightbox, 
                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => onOpenLightbox(incident.photos, 0)}><Eye className="h-4 w-4" /></Button>
                                     )}
                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => onEdit(incident)}><Edit className="h-4 w-4" /></Button>
-                                    <AlertDialog>
+                                    <AlertDialog parentDialogTag="root">
                                         <AlertDialogTrigger asChild>
                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/70 hover:text-destructive hover:bg-destructive/10" disabled={isProcessing}><Trash2 className="h-4 w-4" /></Button>
                                         </AlertDialogTrigger>
@@ -71,7 +71,7 @@ const IncidentList = React.memo(({ incidents, onEdit, onDelete, onOpenLightbox, 
                                 </div>
                             </div>
                         </CardContent>
-                         {isProcessing && (<div className="absolute inset-0 bg-white/80 dark:bg-black/80 flex items-center justify-center z-10"><Loader2 className="h-6 w-6 animate-spin text-destructive"/><span className="ml-2 text-sm font-medium text-destructive">Đang xóa...</span></div>)}
+                        {isProcessing && (<div className="absolute inset-0 bg-white/80 dark:bg-black/80 flex items-center justify-center z-10"><Loader2 className="h-6 w-6 animate-spin text-destructive" /><span className="ml-2 text-sm font-medium text-destructive">Đang xóa...</span></div>)}
                     </Card>
                 );
             })}

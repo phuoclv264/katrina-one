@@ -21,9 +21,10 @@ import { Loader2, Save } from 'lucide-react';
 interface ProfileDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  parentDialogTag: string;
 }
 
-export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
+export function ProfileDialog({ open, onOpenChange, parentDialogTag }: ProfileDialogProps) {
   const { user } = useAuth();
   const [displayName, setDisplayName] = useState('');
   const [photoURL, setPhotoURL] = useState<string | null>(null);
@@ -61,7 +62,7 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} dialogTag="profile-dialog" parentDialogTag="root">
+    <Dialog open={open} onOpenChange={onOpenChange} dialogTag="profile-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Hồ sơ cá nhân</DialogTitle>

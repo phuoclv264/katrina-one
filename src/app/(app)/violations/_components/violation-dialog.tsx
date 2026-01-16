@@ -19,6 +19,7 @@ import { photoStore } from '@/lib/photo-store';
 import { v4 as uuidv4 } from 'uuid';
 
 export function ViolationDialog({
+  parentDialogTag,
   open,
   onOpenChange,
   onSave,
@@ -31,6 +32,7 @@ export function ViolationDialog({
   onCategoriesChange,
   canManage,
 }: {
+  parentDialogTag: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (data: any, id?: string) => void;
@@ -160,7 +162,7 @@ export function ViolationDialog({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange} dialogTag="violation-dialog" parentDialogTag="root">
+      <Dialog open={open} onOpenChange={onOpenChange} dialogTag="violation-dialog" parentDialogTag={parentDialogTag}>
         <DialogContent className="bg-white dark:bg-card">
           <DialogHeader>
             <DialogTitle>{dialogTitle}</DialogTitle>

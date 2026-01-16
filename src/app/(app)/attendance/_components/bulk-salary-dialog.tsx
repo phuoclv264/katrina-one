@@ -14,12 +14,14 @@ export default function BulkSalaryDialog({
   users,
   onSave,
   isSaving,
+  parentDialogTag,
 }: {
   isOpen: boolean;
   onClose: () => void;
   users: ManagedUser[];
   onSave: (rates: { [userId: string]: number }) => Promise<void>;
   isSaving: boolean;
+  parentDialogTag: string;
 }) {
   const [rates, setRates] = useState<{ [userId: string]: number }>({});
 
@@ -60,7 +62,7 @@ export default function BulkSalaryDialog({
   });
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="bulk-salary-dialog" parentDialogTag="root">
+    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="bulk-salary-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Quản lý Lương nhân viên</DialogTitle>

@@ -45,8 +45,8 @@ const StarRating = ({ rating, onRatingChange, disabled = false }: { rating: numb
                 >
                     <Star
                         className={`h-7 w-7 transition-all duration-200 ${star <= (hovered || rating)
-                                ? 'text-yellow-400 fill-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.4)]'
-                                : 'text-muted-foreground/30'
+                            ? 'text-yellow-400 fill-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.4)]'
+                            : 'text-muted-foreground/30'
                             }`}
                     />
                 </motion.button>
@@ -60,9 +60,10 @@ type VoteModalProps = {
     onClose: () => void;
     event: Event;
     currentUser: AuthUser;
+    parentDialogTag: string;
 };
 
-export default function VoteModal({ isOpen, onClose, event, currentUser }: VoteModalProps) {
+export default function VoteModal({ isOpen, onClose, event, currentUser, parentDialogTag }: VoteModalProps) {
     const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
     const [userVote, setUserVote] = useState<EventVote | null | undefined>(undefined); // undefined means still loading
     const [isProcessing, setIsProcessing] = useState(false);
@@ -319,10 +320,10 @@ export default function VoteModal({ isOpen, onClose, event, currentUser }: VoteM
                                     <Card
                                         id={`candidate-card-${candidate.id}`}
                                         className={`overflow-hidden transition-all duration-300 ${missingReviewIds.includes(candidate.id)
-                                                ? 'ring-2 ring-red-500 shadow-md shadow-red-100 dark:shadow-red-900/20'
-                                                : ratings[candidate.id]
-                                                    ? 'border-primary/30 bg-primary/5'
-                                                    : 'hover:border-primary/20'
+                                            ? 'ring-2 ring-red-500 shadow-md shadow-red-100 dark:shadow-red-900/20'
+                                            : ratings[candidate.id]
+                                                ? 'border-primary/30 bg-primary/5'
+                                                : 'hover:border-primary/20'
                                             }`}
                                     >
                                         <CardContent className="p-5 space-y-4">
@@ -404,7 +405,7 @@ export default function VoteModal({ isOpen, onClose, event, currentUser }: VoteM
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose} dialogTag="vote-modal" parentDialogTag="root">
+        <Dialog open={isOpen} onOpenChange={onClose} dialogTag="vote-modal" parentDialogTag={parentDialogTag}>
             <DialogContent className="max-w-md p-0 overflow-hidden flex flex-col min-h-0 max-h-[90vh] sm:rounded-2xl">
                 <DialogHeader className="p-6 pb-4 border-b bg-muted/5 flex-shrink-0">
                     <div className="flex items-center gap-3 mb-1">

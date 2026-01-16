@@ -193,10 +193,12 @@ export default function HistoryAndReportsDialog({
     isOpen,
     onClose,
     allUsers,
+    parentDialogTag
 }: {
     isOpen: boolean;
     onClose: () => void;
     allUsers: ManagedUser[];
+    parentDialogTag: string;
 }) {
     const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
@@ -207,7 +209,7 @@ export default function HistoryAndReportsDialog({
     }, [isOpen, allUsers, selectedUserId]);
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose} dialogTag="history-reports-dialog" parentDialogTag="root">
+        <Dialog open={isOpen} onOpenChange={onClose} dialogTag="history-reports-dialog" parentDialogTag={parentDialogTag}>
             <DialogContent className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Lịch sử & Thống kê</DialogTitle>

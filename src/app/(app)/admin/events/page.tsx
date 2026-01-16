@@ -95,18 +95,18 @@ function EventsPageComponent() {
       setIsProcessing(null);
     }
   };
-  
+
   const handleDeleteEvent = async (eventId: string) => {
-      setIsProcessing(eventId);
-      try {
-        await deleteEvent(eventId);
-        toast.success('Đã xóa sự kiện thành công.');
-      } catch (error) {
-          console.error("Failed to delete event:", error);
-          toast.error("Không thể xóa sự kiện. Vui lòng thử lại.");
-      } finally {
-          setIsProcessing(null);
-      }
+    setIsProcessing(eventId);
+    try {
+      await deleteEvent(eventId);
+      toast.success('Đã xóa sự kiện thành công.');
+    } catch (error) {
+      console.error("Failed to delete event:", error);
+      toast.error("Không thể xóa sự kiện. Vui lòng thử lại.");
+    } finally {
+      setIsProcessing(null);
+    }
   };
 
   const formatTimestamp = (ts: Timestamp | Date | string) => {
@@ -156,30 +156,30 @@ function EventsPageComponent() {
                       {formatTimestamp(event.startAt)} - {formatTimestamp(event.endAt)}
                     </TableCell>
                     <TableCell className="text-right">
-                       <DropdownMenu modal={false}>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" disabled={!!isProcessing}><MoreHorizontal className="h-4 w-4"/></Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                                <DropdownMenuItem onSelect={() => handleOpenResultsDialog(event)}><BarChart2 className="mr-2 h-4 w-4"/>Xem kết quả</DropdownMenuItem>
-                                <DropdownMenuItem onSelect={() => handleOpenFormDialog(event)}><Edit className="mr-2 h-4 w-4"/>Sửa</DropdownMenuItem>
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4"/>Xóa</DropdownMenuItem>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>Xóa sự kiện "{event.title}"?</AlertDialogTitle>
-                                            <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn sự kiện và tất cả dữ liệu liên quan (phiếu bầu, bình luận...).</AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => handleDeleteEvent(event.id)}>Xóa</AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                      <DropdownMenu modal={false}>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" disabled={!!isProcessing}><MoreHorizontal className="h-4 w-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem onSelect={() => handleOpenResultsDialog(event)}><BarChart2 className="mr-2 h-4 w-4" />Xem kết quả</DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => handleOpenFormDialog(event)}><Edit className="mr-2 h-4 w-4" />Sửa</DropdownMenuItem>
+                          <AlertDialog parentDialogTag="root">
+                            <AlertDialogTrigger asChild>
+                              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" />Xóa</DropdownMenuItem>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Xóa sự kiện "{event.title}"?</AlertDialogTitle>
+                                <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn sự kiện và tất cả dữ liệu liên quan (phiếu bầu, bình luận...).</AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteEvent(event.id)}>Xóa</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))
@@ -188,13 +188,14 @@ function EventsPageComponent() {
           </Table>
         </CardContent>
       </Card>
-      
+
       <EditEventDialog
         isOpen={isFormDialogOpen}
         onClose={() => setIsFormDialogOpen(false)}
         eventToEdit={eventToEdit}
         onSave={handleSaveEvent}
         allUsers={users}
+        parentDialogTag="root"
       />
       {eventForResults && (
         <EventResultsDialog
@@ -202,6 +203,7 @@ function EventsPageComponent() {
           onClose={() => setIsResultsDialogOpen(false)}
           event={eventForResults}
           allUsers={users}
+          parentDialogTag='root'
         />
       )}
     </div>
@@ -210,9 +212,9 @@ function EventsPageComponent() {
 
 
 export default function EventsPage() {
-    return (
-        <Suspense fallback={<LoadingPage/>}>
-            <EventsPageComponent />
-        </Suspense>
-    )
+  return (
+    <Suspense fallback={<LoadingPage />}>
+      <EventsPageComponent />
+    </Suspense>
+  )
 }

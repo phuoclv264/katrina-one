@@ -579,7 +579,7 @@ export default function ComprehensiveChecklistPage() {
                                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingSection({ title: section.title, newTitle: section.title })}>
                                                     <Pencil className="h-4 w-4" />
                                                 </Button>
-                                                <AlertDialog>
+                                                <AlertDialog parentDialogTag="root">
                                                     <AlertDialogTrigger asChild>
                                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
                                                             <Trash2 className="h-4 w-4" />

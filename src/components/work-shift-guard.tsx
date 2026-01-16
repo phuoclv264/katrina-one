@@ -39,7 +39,7 @@ export default function WorkShiftGuard({ children, redirectPath }: WorkShiftGuar
 
   if (!isCheckedIn) {
     return (
-      <AlertDialog open={true} onOpenChange={() => {}}>
+      <AlertDialog open={true} onOpenChange={() => { }} parentDialogTag="root">
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Chưa chấm công</AlertDialogTitle>

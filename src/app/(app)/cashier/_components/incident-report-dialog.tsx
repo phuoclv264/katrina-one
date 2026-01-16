@@ -31,6 +31,7 @@ type IncidentReportDialogProps = {
     incidentToEdit: IncidentReport | null;
     isSelfConfession?: boolean;
     onCategoriesChange: (newCategories: IncidentCategory[]) => void;
+    parentDialogTag: string;
 };
 
 export default function IncidentReportDialog({
@@ -44,6 +45,7 @@ export default function IncidentReportDialog({
     incidentToEdit,
     isSelfConfession = false,
     onCategoriesChange,
+    parentDialogTag
 }: IncidentReportDialogProps) {
     const [content, setContent] = useState('');
     const [cost, setCost] = useState(0);
@@ -188,7 +190,7 @@ export default function IncidentReportDialog({
 
     return (
         <>
-            <Dialog open={open} onOpenChange={(open) => !open && onOpenChange(false)} dialogTag="incident-report-dialog" parentDialogTag="root">
+            <Dialog open={open} onOpenChange={(open) => !open && onOpenChange(false)} dialogTag="incident-report-dialog" parentDialogTag={parentDialogTag}>
                 <DialogContent className="sm:max-w-md bg-card flex flex-col h-[90vh] p-0">
                     <DialogHeader className="shrink-0 p-6 pb-4 border-b bg-muted/30">
                         <DialogTitle>{dialogTitle}</DialogTitle>

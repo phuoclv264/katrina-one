@@ -243,7 +243,7 @@ export default function AttendanceTable({
 
                   {/* Hành động */}
                   <TableCell className="align-top text-right">
-                    <AlertDialog>
+                    <AlertDialog parentDialogTag="root">
                       <DropdownMenu modal={false}>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon">
@@ -293,6 +293,7 @@ export default function AttendanceTable({
           onClose={() => setIsRateDialogOpen(false)}
           record={recordToEditRate}
           onSave={handleSaveRate}
+          parentDialogTag="root"
         />
       )}
     </>

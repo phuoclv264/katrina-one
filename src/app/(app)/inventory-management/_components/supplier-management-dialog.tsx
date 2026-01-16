@@ -22,9 +22,10 @@ type SupplierManagementDialogProps = {
   onClose: () => void;
   initialSuppliers: Suppliers;
   onSave: (updatedSuppliers: Suppliers) => void;
+  parentDialogTag: string;
 };
 
-export default function SupplierManagementDialog({ isOpen, onClose, initialSuppliers, onSave }: SupplierManagementDialogProps) {
+export default function SupplierManagementDialog({ isOpen, onClose, initialSuppliers, onSave, parentDialogTag }: SupplierManagementDialogProps) {
   const [suppliers, setSuppliers] = useState<string[]>([]);
   const [newSupplierName, setNewSupplierName] = useState('');
   const [editingSupplier, setEditingSupplier] = useState<{ oldName: string; newName: string } | null>(null);
@@ -67,7 +68,7 @@ export default function SupplierManagementDialog({ isOpen, onClose, initialSuppl
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="supplier-management-dialog" parentDialogTag="root">
+    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="supplier-management-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Quản lý Nhà Cung Cấp</DialogTitle>
@@ -102,7 +103,7 @@ export default function SupplierManagementDialog({ isOpen, onClose, initialSuppl
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingSupplier({ oldName: supplier, newName: supplier })}>
                     <Edit className="h-4 w-4" />
                   </Button>
-                  <AlertDialog>
+                  <AlertDialog parentDialogTag="root">
                     <AlertDialogTrigger asChild>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
                         <Trash2 className="h-4 w-4" />

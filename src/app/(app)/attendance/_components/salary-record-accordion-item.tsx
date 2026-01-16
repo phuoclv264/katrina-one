@@ -109,7 +109,7 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
             }
         }, [monthId, record.userId, localBonusAmount, onRecordUpdated]);
 
-    const handleTogglePaymentStatus = useCallback(async () => {
+        const handleTogglePaymentStatus = useCallback(async () => {
             if (!currentUser || !monthId || !record.userId) return;
 
             const newStatus = record.paymentStatus === 'paid' ? 'unpaid' : 'paid';
@@ -122,7 +122,7 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
                 setIsPayDialogOpen(true);
                 return;
             }
-                setIsUpdatingPaymentStatus(true);
+            setIsUpdatingPaymentStatus(true);
             const toastId = toast.loading('Đang cập nhật trạng thái...');
             try {
                 await dataStore.updateSalaryPayment(monthId, record.userId, newStatus);
@@ -205,7 +205,7 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
                                             </Button>
                                         </div>
                                     </div>
-                                     <div className="space-y-2">
+                                    <div className="space-y-2">
                                         <Label htmlFor={`bonus-${record.userId}`}>Thưởng</Label>
                                         <div className="flex items-center gap-2">
                                             <Input
@@ -386,7 +386,7 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
                         )}
                     </div>
                 </AccordionContent>
-                <AlertDialog open={isPayDialogOpen} onOpenChange={setIsPayDialogOpen}>
+                <AlertDialog open={isPayDialogOpen} onOpenChange={setIsPayDialogOpen} parentDialogTag='root'>
                     <AlertDialogContent>
                         <AlertDialogHeader>
                             <AlertDialogTitle>Xác nhận trả lương</AlertDialogTitle>
@@ -413,7 +413,7 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
                                         <span className={cn(violationPenaltyTotals.unpaid > 0 ? 'text-destructive font-semibold' : 'text-muted-foreground')}>
                                             {violationPenaltyTotals.unpaid.toLocaleString('vi-VN')}đ
                                         </span>
-                                    )</span>
+                                        )</span>
                                 </span>
                             </div>
                             {record.paymentStatus && <div className="flex justify-between"><span className="font-medium">Trạng thái</span><span>{record.paymentStatus === 'paid' ? 'Đã trả' : 'Chưa trả'}</span></div>}
@@ -442,7 +442,7 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
                                 />
                                 <span className="text-lg font-semibold">đ</span>
                             </div>
-                        </div> 
+                        </div>
                         <AlertDialogFooter>
                             <AlertDialogCancel>Hủy</AlertDialogCancel>
                             <AlertDialogAction

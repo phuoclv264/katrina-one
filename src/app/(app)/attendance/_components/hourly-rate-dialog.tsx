@@ -13,11 +13,13 @@ export default function HourlyRateDialog({
   onClose,
   record,
   onSave,
+  parentDialogTag,
 }: {
   isOpen: boolean;
   onClose: () => void;
   record: AttendanceRecord;
   onSave: (recordId: string, newRate: number) => void;
+  parentDialogTag: string;
 }) {
   const [rate, setRate] = useState(record.hourlyRate || 0);
 
@@ -37,7 +39,7 @@ export default function HourlyRateDialog({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="hourly-rate-dialog" parentDialogTag="root">
+    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="hourly-rate-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Chỉnh sửa lương theo giờ</DialogTitle>

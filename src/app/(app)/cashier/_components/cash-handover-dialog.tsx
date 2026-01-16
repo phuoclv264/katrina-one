@@ -28,6 +28,7 @@ type CashHandoverDialogProps = {
   dateForNewEntry?: string | null; // To specify date for new entries in owner view
   linkedRevenueStats?: RevenueStats | null; // New prop
   linkedExpenseSlips?: ExpenseSlip[]; // New prop
+  parentDialogTag: string;
 };
 
 export default function CashHandoverDialog({
@@ -41,6 +42,7 @@ export default function CashHandoverDialog({
   dateForNewEntry = null,
   linkedRevenueStats = null, // Default value
   linkedExpenseSlips = [], // Default value
+  parentDialogTag,
 }: CashHandoverDialogProps) {
   const discrepancyReasonRef = useRef<HTMLTextAreaElement>(null);
   const [actualCashCounted, setActualCashCounted] = useState<number | null>(null);
@@ -194,7 +196,7 @@ export default function CashHandoverDialog({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange} dialogTag="cash-handover-dialog" parentDialogTag="root">
+      <Dialog open={open} onOpenChange={onOpenChange} dialogTag="cash-handover-dialog" parentDialogTag={parentDialogTag}>
         <DialogContent className="max-w-md h-full md:h-auto md:max-h-[90vh] flex flex-col p-0">
           <DialogHeader className="p-6 pb-4 border-b shrink-0 bg-muted/30">
             <DialogTitle className="text-2xl flex items-center gap-2"><Wallet /> {dialogTitle}</DialogTitle>

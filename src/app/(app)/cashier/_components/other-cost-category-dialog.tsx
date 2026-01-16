@@ -31,7 +31,7 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 
 
-export default function OtherCostCategoryDialog({ open, onOpenChange }: { open: boolean, onOpenChange: (open: boolean) => void }) {
+export default function OtherCostCategoryDialog({ open, onOpenChange, parentDialogTag }: { open: boolean, onOpenChange: (open: boolean) => void, parentDialogTag: string }) {
   const [categories, setCategories] = useState<OtherCostCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -86,7 +86,7 @@ export default function OtherCostCategoryDialog({ open, onOpenChange }: { open: 
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} dialogTag="other-cost-category-dialog" parentDialogTag="root">
+    <Dialog open={open} onOpenChange={onOpenChange} dialogTag="other-cost-category-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Quản lý Loại chi phí khác</DialogTitle>
@@ -128,7 +128,7 @@ export default function OtherCostCategoryDialog({ open, onOpenChange }: { open: 
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingCategory(cat)}>
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <AlertDialog>
+                    <AlertDialog parentDialogTag="root">
                       <AlertDialogTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" disabled={cat.name === 'Khác'}>
                           <Trash2 className="h-4 w-4" />

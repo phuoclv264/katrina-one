@@ -373,7 +373,7 @@ export default function ProductManagementPage() {
                                     {isEditMode ? 'Xong' : 'Sửa'}
                                 </Button>
                                 {isEditMode && selectedProductIds.size > 0 && (
-                                    <AlertDialog>
+                                    <AlertDialog parentDialogTag="root">
                                         <AlertDialogTrigger asChild>
                                             <Button variant="destructive" size="sm">
                                                 <Trash2 className="mr-2 h-4 w-4" />
@@ -492,7 +492,7 @@ export default function ProductManagementPage() {
                                                                                         </Button>
                                                                                     </div>
                                                                                 ) : (
-                                                                                    <AlertDialog>
+                                                                                    <AlertDialog parentDialogTag="root">
                                                                                         <AlertDialogTrigger asChild>
                                                                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => e.stopPropagation()}><Trash2 className="h-4 w-4" /></Button>
                                                                                         </AlertDialogTrigger>
@@ -565,6 +565,7 @@ export default function ProductManagementPage() {
                 globalUnits={globalUnits}
                 onGlobalUnitsChange={handleGlobalUnitsChange}
                 canManageUnits={user?.role === 'Chủ nhà hàng'}
+                parentDialogTag="root"
             />
         </>
     );

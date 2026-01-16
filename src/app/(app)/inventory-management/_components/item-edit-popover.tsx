@@ -280,6 +280,7 @@ export default function ItemEditPopover({
     onSupplierChange,
     onGlobalUnitsChange,
     children
+    , parentDialogTag
 }: {
     item: InventoryItem;
     suppliers: string[];
@@ -289,6 +290,7 @@ export default function ItemEditPopover({
     onSupplierChange: (newSupplier: string) => void;
     onGlobalUnitsChange: (newUnits: GlobalUnit[]) => void;
     children: React.ReactNode;
+    parentDialogTag: string;
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const [item, setItem] = useState(initialItem);
@@ -384,7 +386,7 @@ export default function ItemEditPopover({
 
 
     return (
-        <Dialog open={isOpen} onOpenChange={handleCloseDialog} dialogTag={`item-edit-dialog-${initialItem.id}`} parentDialogTag="root">
+        <Dialog open={isOpen} onOpenChange={handleCloseDialog} dialogTag={`item-edit-dialog-${initialItem.id}`} parentDialogTag={parentDialogTag}>
             <DialogTrigger asChild>{children}</DialogTrigger>
             <DialogContent className="w-full h-full max-w-none sm:max-w-2xl sm:h-auto sm:rounded-lg p-0 gap-0 bg-card flex flex-col">
                 <DialogHeader className="p-6 pb-2 flex-shrink-0">
@@ -514,7 +516,7 @@ export default function ItemEditPopover({
                     <Button onClick={handleSave}>Lưu thay đổi</Button>
                 </DialogFooter>
 
-                <AlertDialog open={isConfirmCloseOpen} onOpenChange={setIsConfirmCloseOpen}>
+                <AlertDialog open={isConfirmCloseOpen} onOpenChange={setIsConfirmCloseOpen} parentDialogTag='root'>
                     <AlertDialogContent>
                         <AlertDialogHeader>
                             <AlertDialogTitle>Hủy bỏ các thay đổi?</AlertDialogTitle>

@@ -17,6 +17,7 @@ type SuggestionsDialogProps = {
     initialSuggestions: InventoryOrderSuggestion;
     inventoryList: InventoryItem[];
     onSubmit: (finalSuggestions: InventoryOrderSuggestion) => void;
+    parentDialogTag: string;
 };
 
 type EditedOrderItem = {
@@ -31,6 +32,7 @@ export function SuggestionsDialog({
     initialSuggestions,
     inventoryList,
     onSubmit,
+    parentDialogTag,
 }: SuggestionsDialogProps) {
     const [editedOrders, setEditedOrders] = useState<Record<string, EditedOrderItem[]>>({});
     const [openSuppliers, setOpenSuppliers] = useState<string[]>([]);
@@ -136,7 +138,7 @@ export function SuggestionsDialog({
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()} dialogTag="inventory-suggestions-dialog" parentDialogTag="root">
+        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()} dialogTag="inventory-suggestions-dialog" parentDialogTag={parentDialogTag}>
             <DialogContent className="max-w-2xl h-full md:h-auto md:max-h-[90vh] flex flex-col">
                 <DialogHeader className="shrink-0">
                     <DialogTitle>Xác nhận Đề xuất Đặt hàng</DialogTitle>

@@ -31,9 +31,10 @@ type Props = {
   allUsers: ManagedUser[];
   roles: UserRole[];
   isEditing?: boolean;
+  parentDialogTag: string;
 };
 
-export default function CreateTaskDialog({ isOpen, onOpenChange, newTask, setNewTask, onCreate, isCreating, setInstructionCameraOpen, allUsers, roles, isEditing }: Props) {
+export default function CreateTaskDialog({ isOpen, onOpenChange, newTask, setNewTask, onCreate, isCreating, setInstructionCameraOpen, allUsers, roles, isEditing, parentDialogTag }: Props) {
   const [userFilter, setUserFilter] = React.useState('');
   const filteredUsers = React.useMemo(() => {
     const q = normalizeSearchString(userFilter);
@@ -44,13 +45,13 @@ export default function CreateTaskDialog({ isOpen, onOpenChange, newTask, setNew
   }, [allUsers, userFilter]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => onOpenChange(open)} dialogTag="create-task-dialog" parentDialogTag="root">
+    <Dialog open={isOpen} onOpenChange={(open) => onOpenChange(open)} dialogTag="create-task-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent className="max-w-2xl p-0 overflow-hidden border-none shadow-2xl">
         <div className="bg-primary px-5 py-4 text-primary-foreground relative overflow-hidden">
           <div className="absolute top-0 right-0 -mr-8 -mt-8 h-32 w-32 rounded-full bg-white/10 blur-3xl" />
           <div className="absolute bottom-0 left-0 -ml-8 -mb-8 h-24 w-24 rounded-full bg-black/10 blur-2xl" />
 
-          <DialogHeader className="relative z-10">
+          <DialogHeader className="relative">
             <DialogTitle className="text-2xl sm:text-3xl font-black uppercase tracking-tight">{isEditing ? 'Chỉnh sửa nhiệm vụ' : 'Giao việc mới'}</DialogTitle>
             <DialogDescription className="text-primary-foreground/80 font-medium italic sm:not-italic text-xs sm:text-sm">
               {isEditing ? 'Cập nhật tiêu đề, mô tả, ngày hoặc ảnh hướng dẫn.' : 'Xác định nội dung, người nhận và hình ảnh hướng dẫn cho nhiệm vụ hôm nay.'}

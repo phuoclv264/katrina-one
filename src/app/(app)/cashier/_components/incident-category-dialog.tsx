@@ -29,7 +29,7 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 
 
-export default function IncidentCategoryDialog({ open, onOpenChange }: { open: boolean, onOpenChange: (open: boolean) => void }) {
+export default function IncidentCategoryDialog({ open, onOpenChange, parentDialogTag }: { open: boolean, onOpenChange: (open: boolean) => void, parentDialogTag: string }) {
   const [categories, setCategories] = useState<IncidentCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -84,7 +84,7 @@ export default function IncidentCategoryDialog({ open, onOpenChange }: { open: b
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} dialogTag="incident-category-dialog" parentDialogTag="root">
+    <Dialog open={open} onOpenChange={onOpenChange} dialogTag="incident-category-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Quản lý Loại Sự cố</DialogTitle>
@@ -126,7 +126,7 @@ export default function IncidentCategoryDialog({ open, onOpenChange }: { open: b
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingCategory(cat)}>
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <AlertDialog>
+                    <AlertDialog parentDialogTag="root">
                       <AlertDialogTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
                           <Trash2 className="h-4 w-4" />

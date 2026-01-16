@@ -658,7 +658,7 @@ export default function BartenderTasksPage() {
                                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingTask({ sectionTitle: section.title, taskId: task.id, newText: task.text, newType: task.type })}>
                                                                 <Pencil className="h-4 w-4" />
                                                             </Button>
-                                                            <AlertDialog>
+                                                            <AlertDialog parentDialogTag="root">
                                                                 <AlertDialogTrigger asChild>
                                                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
                                                                         <Trash2 className="h-4 w-4" />

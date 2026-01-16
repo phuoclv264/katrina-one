@@ -18,9 +18,10 @@ type SubmissionNotesDialogProps = {
   onClose: () => void;
   onSubmit: (notes: string) => void;
   isSubmitting: boolean;
+  parentDialogTag: string;
 };
 
-const SubmissionNotesDialog = ({ isOpen, onClose, onSubmit, isSubmitting }: SubmissionNotesDialogProps) => {
+const SubmissionNotesDialog = ({ isOpen, onClose, onSubmit, isSubmitting, parentDialogTag }: SubmissionNotesDialogProps) => {
   const [notes, setNotes] = useState('');
 
   useEffect(() => {
@@ -34,7 +35,7 @@ const SubmissionNotesDialog = ({ isOpen, onClose, onSubmit, isSubmitting }: Subm
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()} dialogTag="submission-notes-dialog" parentDialogTag="root">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()} dialogTag="submission-notes-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Ghi chú cuối ca</DialogTitle>

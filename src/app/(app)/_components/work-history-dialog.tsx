@@ -29,9 +29,10 @@ type WorkHistoryDialogProps = {
   isOpen: boolean;
   onClose: () => void;
   user: AuthUser;
+  parentDialogTag: string;
 };
 
-export default function WorkHistoryDialog({ isOpen, onClose, user }: WorkHistoryDialogProps) {
+export default function WorkHistoryDialog({ isOpen, onClose, user, parentDialogTag }: WorkHistoryDialogProps) {
   const isMobile = useIsMobile();
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: startOfMonth(new Date()),
@@ -108,7 +109,7 @@ export default function WorkHistoryDialog({ isOpen, onClose, user }: WorkHistory
   }, [records]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="work-history-dialog" parentDialogTag="root">
+    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="work-history-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Lịch sử làm việc của bạn</DialogTitle>

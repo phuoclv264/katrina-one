@@ -29,7 +29,7 @@ type CameraDialogProps = {
   singlePhotoMode?: boolean;
   captureMode?: 'photo' | 'video' | 'both';
   isHD?: boolean;
-  parentDialogTag?: string;
+  parentDialogTag: string;
 };
 
 const PORTRAIT_ASPECT_RATIO = 3 / 4; // width:height = 3:4
@@ -133,7 +133,7 @@ export default function CameraDialog({
   singlePhotoMode = false,
   captureMode = 'photo',
   isHD = false,
-  parentDialogTag = 'root',
+  parentDialogTag,
 }: CameraDialogProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -221,8 +221,18 @@ export default function CameraDialog({
         height: { ideal: target.height },
       };
 
-      const constraints = { video: videoConstraints, audio: currentMode === 'video' };
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      // Start camera with video-only. Defer microphone permission until recording starts to avoid
+      // blocking camera on devices without a microphone or when microphone permission is denied.
+      let stream: MediaStream | null = null;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints });
+      } catch (err) {
+        // Rethrow so outer catch handles error messaging and UI updates
+        throw err;
+      }
+
+      if (!stream) throw new Error('Failed to acquire media stream.');
+
       streamRef.current = stream;
 
       if (videoRef.current) {
@@ -403,10 +413,22 @@ export default function CameraDialog({
       const canvasStream = canvas.captureStream(30); // This has the video track with overlay
       const videoTrackWithOverlay = canvasStream.getVideoTracks()[0];
 
-      // Get audio tracks from the original stream, if they exist
-      const audioTracks = streamRef.current.getAudioTracks();
+      // Get existing audio tracks, or attempt to request microphone now if none present.
+      let audioTracks = streamRef.current.getAudioTracks();
+      if (!audioTracks || audioTracks.length === 0) {
+        try {
+          const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          audioTracks = audioStream.getAudioTracks();
+          // Attach audio tracks to the main stream so they stop when the camera stream is stopped
+          audioTracks.forEach(track => streamRef.current?.addTrack(track));
+        } catch (err: any) {
+          // Microphone unavailable or permission denied - proceed without audio
+          toast.warning('Không tìm thấy micro hoặc quyền micro bị từ chối — quay video sẽ không có âm thanh.');
+          audioTracks = [];
+        }
+      }
 
-      // Combine video with overlay and original audio
+      // Combine video with overlay and original audio (if any)
       const combinedStream = new MediaStream([videoTrackWithOverlay, ...audioTracks]);
 
       if (!supportedMimeType) {

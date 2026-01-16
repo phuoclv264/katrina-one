@@ -494,7 +494,7 @@ export function IndividualTask({ assignment, shiftTemplates }: TaskReportingCard
         )}
       </div>
 
-      <CameraDialog isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onSubmit={handleMediaSubmit} captureMode="both" />
+      <CameraDialog isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onSubmit={handleMediaSubmit} captureMode="both" parentDialogTag="root" />
     </>
   )
 }

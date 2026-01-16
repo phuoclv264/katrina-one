@@ -29,6 +29,7 @@ type SpecialPeriodsDialogProps = {
     users: ManagedUser[];
     onCreateSpecialPeriod: (payload: Omit<SpecialPeriod, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
     onDeleteSpecialPeriod: (id: string) => Promise<void>;
+    parentDialogTag: string;
 };
 
 export default function SpecialPeriodsDialog({
@@ -38,6 +39,7 @@ export default function SpecialPeriodsDialog({
     users,
     onCreateSpecialPeriod,
     onDeleteSpecialPeriod,
+    parentDialogTag,
 }: SpecialPeriodsDialogProps) {
     const isMobile = useIsMobile();
     const [isAdding, setIsAdding] = useState(false);
@@ -264,7 +266,7 @@ export default function SpecialPeriodsDialog({
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose} dialogTag="special-periods-dialog" parentDialogTag="root">
+        <Dialog open={isOpen} onOpenChange={onClose} dialogTag="special-periods-dialog" parentDialogTag={parentDialogTag}>
             <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
                 <DialogHeader className="p-6 pb-4 border-b bg-muted/10">
                     <div className="flex items-center gap-2">

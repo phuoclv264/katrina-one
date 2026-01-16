@@ -179,9 +179,9 @@ export function Combobox({
                     {selectedValues.map((val) => {
                       const option = options.find((o) => o.value === val)
                       return (
-                        <Badge 
-                          key={val} 
-                          variant="secondary" 
+                        <Badge
+                          key={val}
+                          variant="secondary"
                           className={cn(
                             "rounded-sm px-1.5 py-0.5 text-xs font-medium border border-border/50 bg-secondary/50 text-secondary-foreground hover:bg-secondary/70",
                             compact && "px-1 py-0 text-[10px] h-5 leading-none"
@@ -293,8 +293,8 @@ export function Combobox({
                       </div>
                       {onDelete && (
                         <div onClick={(e) => e.stopPropagation()} className="ml-2 shrink-0">
-                           {confirmDelete ? (
-                            <AlertDialog>
+                          {confirmDelete ? (
+                            <AlertDialog parentDialogTag="root">
                               <AlertDialogTrigger asChild>
                                 <Button
                                   variant="ghost"

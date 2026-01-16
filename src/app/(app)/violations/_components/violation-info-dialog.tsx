@@ -22,6 +22,7 @@ type ViolationInfoDialogProps = {
   onClose: () => void;
   categories: ViolationCategory[];
   generalRules?: FineRule[];
+  parentDialogTag: string;
 };
 
 const getSeverityBadgeClass = (severity: ViolationCategory['severity']) => {
@@ -40,7 +41,7 @@ const severityOrder: Record<ViolationCategory['severity'], number> = {
   high: 3
 };
 
-export default function ViolationInfoDialog({ isOpen, onClose, categories, generalRules = [] }: ViolationInfoDialogProps) {
+export default function ViolationInfoDialog({ isOpen, onClose, categories, generalRules = [], parentDialogTag }: ViolationInfoDialogProps) {
   const sortedCategories = useMemo(() => {
     return [...categories].sort((a, b) => {
       const severityA = severityOrder[a.severity] || 99;
@@ -81,7 +82,7 @@ export default function ViolationInfoDialog({ isOpen, onClose, categories, gener
   }, [generalRules]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="violation-info-dialog" parentDialogTag="root">
+    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="violation-info-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent className="max-w-2xl h-[90vh] flex flex-col bg-white dark:bg-card p-0">
         <DialogHeader className="p-4 border-b">
           <DialogTitle className="text-lg">Chính sách phạt</DialogTitle>

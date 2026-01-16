@@ -31,6 +31,7 @@ type UnpaidSlipsDialogProps = {
     onMarkAsPaid: (items: { slipId: string, supplier: string }[]) => Promise<void>;
     onUndoPayment: (slipId: string, supplier: string) => Promise<void>;
     inventoryList: InventoryItem[];
+    parentDialogTag: string;
 };
 
 type GroupedBySupplier = {
@@ -57,7 +58,7 @@ const getSlipContentName = (item: ExpenseItem): string => {
     return item.name;
 }
 
-export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, onMarkAsPaid, onUndoPayment, inventoryList }: UnpaidSlipsDialogProps) {
+export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, onMarkAsPaid, onUndoPayment, inventoryList, parentDialogTag }: UnpaidSlipsDialogProps) {
     const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
     const [isProcessing, setIsProcessing] = useState(false);
 
@@ -226,7 +227,7 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose} dialogTag="unpaid-slips-dialog" parentDialogTag="root">
+        <Dialog open={isOpen} onOpenChange={onClose} dialogTag="unpaid-slips-dialog" parentDialogTag={parentDialogTag}>
             <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 bg-white dark:bg-card rounded-xl shadow-lg">
                 <DialogHeader className="p-4 sm:p-6 pb-0 sticky top-0 bg-muted/30 dark:bg-card/50 backdrop-blur-sm z-10 rounded-t-xl">
                     <DialogTitle>Công nợ Chuyển khoản</DialogTitle>

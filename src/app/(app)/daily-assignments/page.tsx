@@ -115,9 +115,6 @@ function DailyAssignmentsPageContent() {
     }
 
     try {
-      // Convert existing MediaAttachment[] into MediaItem[] (id can be a URL)
-      const mediaForNewTask = (original.media || []).map((m: any) => ({ id: m.url || m.id, type: m.type }));
-
       await dataStore.createDailyTask({
         title: original.title,
         description: original.description,
@@ -125,7 +122,7 @@ function DailyAssignmentsPageContent() {
         targetMode: original.targetMode,
         targetRoles: original.targetMode === 'roles' ? original.targetRoles : [],
         targetUserIds: original.targetMode === 'users' ? original.targetUserIds : [],
-        media: mediaForNewTask,
+        existingMedia: original.media || [],
         createdBy: { userId: user.uid, userName: user.displayName },
         createdByRole: user.role as UserRole,
       });
@@ -537,6 +534,7 @@ function DailyAssignmentsPageContent() {
                 setInstructionCameraOpen={setInstructionCameraOpen}
                 allUsers={allUsers}
                 roles={ROLES}
+                parentDialogTag="root"
               />
             </>
           )}
@@ -716,6 +714,7 @@ function DailyAssignmentsPageContent() {
         isOpen={isInstructionCameraOpen}
         onClose={() => setInstructionCameraOpen(false)}
         onSubmit={addInstructionMedia}
+        parentDialogTag="create-task-dialog"
         captureMode="both"
       />
 
@@ -728,6 +727,7 @@ function DailyAssignmentsPageContent() {
           }
         }}
         captureMode="both"
+        parentDialogTag="root"
       />
     </div>
   );
