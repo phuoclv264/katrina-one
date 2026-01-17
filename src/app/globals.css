@@ -98,6 +98,18 @@ body {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  /* When the bottom nav is visible (html.bottom-nav-visible), ensure
+     the user menu footer sits above it and the scroll area has extra padding. */
+  html.bottom-nav-visible .user-menu-footer {
+    /* bottom nav height (h-16) + any handset safe-area inset */
+    padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0));
+  }
+
+  html.bottom-nav-visible .user-menu-scroll {
+    /* add nav height + existing scroll padding (pb-6 = 1.5rem) + safe-area inset */
+    padding-bottom: calc(4rem + 1.5rem + env(safe-area-inset-bottom, 0));
+  }
 }
 
 @keyframes fadeIn {

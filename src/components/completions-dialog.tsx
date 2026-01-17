@@ -192,6 +192,17 @@ export default function CompletionsDialog({ open, onOpenChange, otherStaffComple
 
                     {/* Content Section */}
                     <div className="space-y-4">
+                      {entry.completion.note && (
+                        <div className="relative">
+                          <div className="absolute left-4 top-4 text-amber-500">
+                             <MessageSquare className="h-4 w-4" />
+                          </div>
+                          <div className="bg-amber-50/50 rounded-2xl p-4 pl-11 text-[15px] font-medium text-amber-800 leading-relaxed border border-amber-100/50 italic">
+                            "{entry.completion.note}"
+                          </div>
+                        </div>
+                      )}
+
                       {taskType === 'opinion' && entry.completion.opinion && (
                         <div className="relative">
                           <div className="absolute left-4 top-4 text-slate-300">

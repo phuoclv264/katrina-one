@@ -81,6 +81,7 @@ export type CompletionRecord = {
   photos?: string[]; // Permanent Firebase Storage URLs
   value?: boolean; // For boolean tasks (Yes/No)
   opinion?: string; // For opinion tasks
+  note?: string; // For general notes/comments on the task
 };
 
 export type TaskCompletion = {

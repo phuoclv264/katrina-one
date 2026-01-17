@@ -32,6 +32,7 @@ type TaskItemProps = {
   onPhotoAction: (task: Task, completionIndex?: number | null) => void;
   onBooleanAction: (taskId: string, value: boolean) => void;
   onOpinionAction: (task: Task) => void;
+  onNoteAction: (task: Task) => void;
   onDeleteCompletion: (taskId: string, completionIndex: number) => void;
   onDeletePhoto: (taskId: string, completionIndex: number, photoId: string, isLocal: boolean) => void;
   onToggleExpand: (taskId: string) => void;
@@ -49,6 +50,7 @@ const TaskItemComponent = ({
   onPhotoAction,
   onBooleanAction,
   onOpinionAction,
+  onNoteAction,
   onDeleteCompletion,
   onDeletePhoto,
   onToggleExpand,
@@ -115,6 +117,12 @@ const TaskItemComponent = ({
   const [showOtherCompletionsDialog, setShowOtherCompletionsDialog] = useState(false);
 
 
+  const hasNote = React.useMemo(() => {
+    const hasMyNote = completions.some(c => c.note);
+    const hasOtherNote = otherStaffCompletions?.some(s => s.completions.some(c => c.note));
+    return hasMyNote || hasOtherNote;
+  }, [completions, otherStaffCompletions]);
+
   return (
     <div className={cn(
       'group relative flex flex-col h-full min-w-0 w-full rounded-2xl transition-all duration-300 p-3',
@@ -134,6 +142,20 @@ const TaskItemComponent = ({
               {task.text}
             </h3>
           </div>
+          <Button
+            size="icon"
+            variant="ghost"
+            className={cn(
+              "h-7 w-7 rounded-lg shrink-0 transition-all",
+              hasNote 
+                ? "text-primary bg-primary/10 shadow-sm border border-primary/20 hover:bg-primary/20" 
+                : "text-slate-400 hover:text-primary hover:bg-primary/5"
+            )}
+            onClick={() => onNoteAction(task)}
+            disabled={isReadonly}
+          >
+            <MessageSquareText className={cn("h-4 w-4", hasNote && "fill-current")} />
+          </Button>
         </div>
 
         {/* Action Buttons */}

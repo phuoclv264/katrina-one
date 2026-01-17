@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { motion, AnimatePresence } from 'framer-motion';
 import CameraDialog from '@/components/camera-dialog';
 import OpinionDialog from '@/components/opinion-dialog';
+import TaskNoteDialog from '@/components/task-note-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { Badge } from '@/components/ui/badge';
@@ -61,11 +62,10 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
 
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('checking');
   const [showSyncDialog, setShowSyncDialog] = useState(false);
-  const [submissionNotes, setSubmissionNotes] = useState('');
-  const [notesError, setNotesError] = useState(false);
 
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isOpinionOpen, setIsOpinionOpen] = useState(false);
+  const [isNoteOpen, setIsNoteOpen] = useState(false);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [activeCompletionIndex, setActiveCompletionIndex] = useState<number | null>(null);
 
@@ -236,7 +236,6 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
           const serverReport = await dataStore.overwriteLocalReport(user.uid, shiftKey);
           if (isMounted) {
             setReport(serverReport);
-            setSubmissionNotes(serverReport.issues || '');
             setSyncStatus('synced');
           }
         } catch (error) {
@@ -263,7 +262,6 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
           const { report: loadedReport, status } = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Nhân viên', shiftKey);
           if (isMounted) {
             setReport(loadedReport);
-            setSubmissionNotes(loadedReport.issues || '');
             setSyncStatus(status);
             if (status === 'local-newer' || status === 'server-newer') {
               setShowSyncDialog(true);
@@ -340,14 +338,6 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
     });
   }, []);
 
-  const handleNotesChange = useCallback((notes: string) => {
-    if (notesError) {
-      setNotesError(false);
-    }
-    setSubmissionNotes(notes);
-    updateLocalReport(prevReport => ({ ...prevReport, issues: notes }));
-  }, [updateLocalReport, notesError]);
-
   const handleCameraClose = useCallback(() => {
     setIsCameraOpen(false);
     setActiveTask(null);
@@ -388,6 +378,11 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
     setIsOpinionOpen(true);
   }
 
+  const handleNoteTaskAction = (task: Task) => {
+    setActiveTask(task);
+    setIsNoteOpen(true);
+  }
+
   const handleSaveOpinion = async (opinionText: string) => {
     if (!activeTask) return;
 
@@ -405,6 +400,29 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
       return newReport;
     });
     handleOpinionClose();
+  }
+
+  const handleSaveNote = async (noteText: string) => {
+    if (!activeTask) return;
+
+    updateLocalReport(prevReport => {
+      const newReport = { ...prevReport };
+      const newCompletedTasks = { ...newReport.completedTasks };
+      const taskCompletions = [...(newCompletedTasks[activeTask.id] || [])];
+
+      const newCompletion: CompletionRecord = {
+        timestamp: format(new Date(), 'HH:mm'),
+        note: noteText.trim() || undefined,
+      };
+
+      // Always prepend to task complications
+      taskCompletions.unshift(newCompletion);
+      newCompletedTasks[activeTask.id] = taskCompletions;
+      newReport.completedTasks = newCompletedTasks;
+      return newReport;
+    });
+    setIsNoteOpen(false);
+    setActiveTask(null);
   }
 
   const handleCapturePhotos = useCallback(async (media: { id: string; type: 'photo' | 'video' }[]) => {
@@ -524,29 +542,12 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
       return;
     }
 
-    // --- Validation for end-of-shift notes ---
-    const endOfShiftSection = shift.sections.find(s => s.title === 'Cuối ca');
-    if (endOfShiftSection) {
-      const endOfShiftTaskIds = new Set(endOfShiftSection.tasks.map(t => t.id));
-      const hasCompletedEndOfShiftTask = Object.keys(report.completedTasks).some(
-        taskId => endOfShiftTaskIds.has(taskId) && report.completedTasks[taskId].length > 0
-      );
-
-      if (hasCompletedEndOfShiftTask && (!submissionNotes || submissionNotes.trim() === '')) {
-        toast.error("Vui lòng nhập ghi chú cuối ca trước khi gửi báo cáo.");
-        setNotesError(true);
-        notesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return;
-      }
-    }
-    // --- End Validation ---
-
     const startTime = Date.now();
     setIsSubmitting(true);
     setShowSyncDialog(false);
     const toastId = toast.loading("Đang gửi báo cáo...");
 
-    const finalReport = { ...report, issues: submissionNotes || null };
+    const finalReport = { ...report };
 
     try {
       await dataStore.submitReport(finalReport);
@@ -574,7 +575,6 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
     try {
       const serverReport = await dataStore.overwriteLocalReport(user.uid, shiftKey);
       setReport(serverReport);
-      setSubmissionNotes(serverReport.issues || '');
       setSyncStatus('synced');
       setHasUnsubmittedChanges(false);
       toast.success("Tải thành công! Báo cáo đã được cập nhật.", { id: toastId });
@@ -852,6 +852,7 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
                                 onBooleanAction={handleBooleanTaskAction}
                                 onPhotoAction={handlePhotoTaskAction}
                                 onOpinionAction={handleOpinionTaskAction}
+                                onNoteAction={handleNoteTaskAction}
                                 onDeletePhoto={handleDeletePhoto}
                                 onDeleteCompletion={handleDeleteCompletion}
                                 onToggleExpand={toggleExpandTask}
@@ -940,6 +941,7 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
                                 onBooleanAction={handleBooleanTaskAction}
                                 onPhotoAction={handlePhotoTaskAction}
                                 onOpinionAction={handleOpinionTaskAction}
+                                onNoteAction={handleNoteTaskAction}
                                 onDeletePhoto={handleDeletePhoto}
                                 onDeleteCompletion={handleDeleteCompletion}
                                 onToggleExpand={toggleExpandTask}
@@ -991,6 +993,7 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
                               onPhotoAction={handlePhotoTaskAction}
                               onBooleanAction={handleBooleanTaskAction}
                               onOpinionAction={handleOpinionTaskAction}
+                              onNoteAction={handleNoteTaskAction}
                               onDeleteCompletion={handleDeleteCompletion}
                               onDeletePhoto={handleDeletePhoto}
                               onToggleExpand={toggleExpandTask}
@@ -1011,36 +1014,6 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
             );
           })}
         </Tabs>
-
-        {/* Notes Section - Always at bottom of content */}
-        <div className="mt-8 pt-6 border-t border-dashed">
-          <Card className={cn(
-            "border-2 overflow-hidden transition-all duration-300",
-            notesError ? "border-red-200 bg-red-50/30" : "border-primary/20 bg-primary/5"
-          )}>
-            <div className="p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <MessageSquare className="w-4 h-4 text-primary" />
-                </div>
-                <h3 className="text-sm font-bold text-primary uppercase tracking-tight">Ghi chú bàn giao</h3>
-              </div>
-              <textarea
-                ref={notesSectionRef}
-                className="w-full min-h-[120px] p-3 text-sm bg-background border-2 border-primary/10 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all resize-none placeholder:text-muted-foreground/50"
-                placeholder="Nhập ghi chú bàn giao cho ca sau hoặc nhắn gửi quản lý..."
-                value={submissionNotes}
-                onChange={(e) => handleNotesChange(e.target.value)}
-                disabled={isReadonly || isSubmitting}
-              />
-              {notesError && (
-                <p className="text-[10px] font-bold text-red-600 uppercase tracking-wider animate-pulse">
-                  Vui lòng nhập ghi chú cuối ca trước khi gửi báo cáo.
-                </p>
-              )}
-            </div>
-          </Card>
-        </div>
       </div>
 
       {/* --- Floating Action Button --- */}
@@ -1083,6 +1056,15 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
         onSubmit={handleSaveOpinion}
         taskText={activeTask?.text || ''}
         initialValue={activeTask ? (report.completedTasks[activeTask.id]?.[0]?.opinion || '') : ''}
+        parentDialogTag="root"
+      />
+
+      <TaskNoteDialog
+        isOpen={isNoteOpen}
+        onClose={() => setIsNoteOpen(false)}
+        onSubmit={handleSaveNote}
+        taskText={activeTask?.text || ''}
+        initialValue={activeTask ? (report.completedTasks[activeTask.id]?.find(c => c.note)?.note || '') : ''}
         parentDialogTag="root"
       />
 

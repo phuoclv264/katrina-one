@@ -7,7 +7,7 @@ import { useSearchParams } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import { getQueryParamWithMobileHashFallback } from '@/lib/url-params';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Check, Camera, MessageSquareWarning, Clock, X, Droplets, UtensilsCrossed, Wind, Users, Trash2, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Check, Camera, MessageSquareWarning, Clock, X, Droplets, UtensilsCrossed, Wind, Users, Trash2, Loader2, AlertCircle, MessageSquareText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import type { ShiftReport, CompletionRecord, TaskSection } from '@/lib/types';
@@ -380,6 +380,13 @@ function HygieneReportView() {
                                                                                     </div>
                                                                                 ) : (
                                                                                     <p className="text-xs text-muted-foreground italic">Không có ảnh nào được chụp cho lần thực hiện này.</p>
+                                                                                )}
+
+                                                                                {completion.note && (
+                                                                                    <div className="mt-2 flex items-start gap-1.5 p-2 bg-amber-500/5 border border-amber-500/10 rounded-lg">
+                                                                                        <MessageSquareText className="h-3 w-3 text-amber-500 mt-1 shrink-0" />
+                                                                                        <p className="text-xs italic text-amber-900 leading-relaxed font-medium">"{completion.note}"</p>
+                                                                                    </div>
                                                                                 )}
                                                                             </div>
                                                                         ))}

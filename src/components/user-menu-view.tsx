@@ -226,7 +226,7 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
         <div className="h-6" /> {/* Bottom spacer */}
       </ScrollArea>
 
-      <div className="sticky bottom-0 z-10 p-4 border-t bg-background/50">
+      <div className="bottom-0 z-10 p-4 border-t bg-background/50 user-menu-footer">
         <Button
           variant="destructive"
           size="sm"

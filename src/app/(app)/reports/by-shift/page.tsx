@@ -6,7 +6,7 @@ import { dataStore } from '@/lib/data-store';
 import { getQueryParamWithMobileHashFallback } from '@/lib/url-params';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Check, Camera, MessageSquareWarning, Clock, X, Image as ImageIcon, Sunrise, Activity, Sunset, CheckCircle, Users, Trash2, Loader2, AlertCircle, FilePen, Info, ListTodo, UserCheck, ListX, Eye, ThumbsUp, ThumbsDown, MapPin } from 'lucide-react';
+import { ArrowLeft, Check, Camera, MessageSquareWarning, MessageSquareText, Clock, X, Image as ImageIcon, Sunrise, Activity, Sunset, CheckCircle, Users, Trash2, Loader2, AlertCircle, FilePen, Info, ListTodo, UserCheck, ListX, Eye, ThumbsUp, ThumbsDown, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import type { ShiftReport, CompletionRecord, TasksByShift, Shift, Schedule, ManagedUser } from '@/lib/types';
@@ -85,7 +85,6 @@ function ShiftSummaryCard({
 
 
         const allCompletedTasks = new Map<string, { staffName: string; completion: CompletionRecord }[]>();
-        const notes = reports.filter(r => r.issues?.trim()).map(r => ({ staffName: r.staffName, issues: r.issues! }));
 
         reports.forEach(report => {
             for (const taskId in report.completedTasks) {
@@ -99,6 +98,24 @@ function ShiftSummaryCard({
                 allCompletedTasks.get(taskId)!.push(...completionsWithStaff);
             }
         });
+
+        // Collect all task-specific notes
+        const taskNotes: { staffName: string; taskText: string; note: string; timestamp: string }[] = [];
+        allCompletedTasks.forEach((completions, taskId) => {
+            const task = shift.sections.flatMap(s => s.tasks).find(t => t.id === taskId);
+            if (!task) return;
+            completions.forEach(c => {
+                if (c.completion.note) {
+                    taskNotes.push({
+                        staffName: c.staffName,
+                        taskText: task.text,
+                        note: c.completion.note,
+                        timestamp: c.completion.timestamp
+                    });
+                }
+            });
+        });
+        taskNotes.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 
         // Sort completions by timestamp
         allCompletedTasks.forEach((completions) => {
@@ -146,7 +163,7 @@ function ShiftSummaryCard({
             assignedUsers,
             submittedUsers,
             absentUsers,
-            notes,
+            notes: taskNotes,
         };
     }, [shift, shiftKey, date, reports, schedule, allUsers]);
 
@@ -182,6 +199,12 @@ function ShiftSummaryCard({
                                     )}
                                     {item.taskType === 'opinion' && comp.completion.opinion && (
                                         <p className="text-xs italic bg-muted p-2 rounded-md border mt-1">"{comp.completion.opinion}"</p>
+                                    )}
+                                    {comp.completion.note && (
+                                        <div className="mt-1 flex items-start gap-1.5 p-2 bg-amber-500/5 border border-amber-500/10 rounded-lg">
+                                            <MessageSquareText className="h-3 w-3 text-amber-500 mt-1 shrink-0" />
+                                            <p className="text-xs italic text-amber-900 leading-relaxed font-medium">"{comp.completion.note}"</p>
+                                        </div>
                                     )}
                                 </div>
                                 {(comp.completion.photos && comp.completion.photos.length > 0) && (
@@ -238,15 +261,29 @@ function ShiftSummaryCard({
                 </div>
 
                 {summary.notes.length > 0 && (
-                    <div>
-                        <h4 className="font-semibold flex items-center gap-2 mb-2"><MessageSquareWarning /> Ghi chú từ nhân viên</h4>
-                        <div className="space-y-2">
-                            {summary.notes.map((note, index) => (
-                                <div key={index} className="p-3 bg-card rounded-md border text-sm">
-                                    <blockquote className="border-l-4 pl-3 italic">
-                                        {note.issues}
-                                    </blockquote>
-                                    <p className="text-right font-semibold mt-1">- {note.staffName}</p>
+                    <div className="pt-4 border-t">
+                        <h4 className="font-semibold flex items-center gap-2 mb-3 text-amber-900">
+                            <MessageSquareText className="h-5 w-5" /> Ghi chú & Báo cáo chi tiết
+                        </h4>
+                        <div className="space-y-3">
+                            {summary.notes.map((note, idx) => (
+                                <div key={idx} className="p-3 bg-white border-l-4 border-amber-500 rounded-r-xl shadow-sm space-y-2">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-6 w-6 rounded-full bg-amber-100 flex items-center justify-center text-[10px] font-bold text-amber-700">
+                                                {note.staffName.split(' ').pop()?.[0] || 'N'}
+                                            </div>
+                                            <span className="text-[11px] font-bold text-slate-700">{note.staffName}</span>
+                                        </div>
+                                        <span className="text-[10px] font-mono text-slate-400">{note.timestamp}</span>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] uppercase font-black tracking-wider text-slate-400">Công việc:</p>
+                                        <p className="text-[13px] font-bold text-slate-800 leading-snug">{note.taskText}</p>
+                                    </div>
+                                    <div className="bg-amber-50/50 p-2.5 rounded-lg border border-amber-100/50">
+                                        <p className="text-[14px] font-medium text-amber-900 leading-relaxed italic">"{note.note}"</p>
+                                    </div>
                                 </div>
                             ))}
                         </div>
