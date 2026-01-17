@@ -22,6 +22,7 @@ import {
     AlertDialogDescription,
     AlertDialogFooter,
     AlertDialogHeader,
+    AlertDialogIcon,
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
@@ -235,14 +236,26 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
                 return (
                     <div className="flex gap-2 w-full sm:w-auto">
                         <Button variant="secondary" size="sm" onClick={() => onAssign(notification)} disabled={isProcessing} className="flex-1"><UserCheck className="mr-2 h-4 w-4" />Chỉ định</Button>
-                        <AlertDialog parentDialogTag="root">
+                        <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                             <AlertDialogTrigger asChild>
                                 <Button variant="destructive" size="sm" disabled={isProcessing} className="flex-1">
                                     {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
                                     Hủy
                                 </Button>
                             </AlertDialogTrigger>
-                            <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hủy yêu cầu?</AlertDialogTitle></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Không</AlertDialogCancel><AlertDialogAction onClick={() => onCancel(notification.id)}>Xác nhận Hủy</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogIcon icon={Trash2} />
+                                    <div className="space-y-2 text-center sm:text-left">
+                                        <AlertDialogTitle>Hủy yêu cầu?</AlertDialogTitle>
+                                        <AlertDialogDescription>Hành động này sẽ hủy yêu cầu và không thể hoàn tác.</AlertDialogDescription>
+                                    </div>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Không</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => onCancel(notification.id)}>Xác nhận Hủy</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
                         </AlertDialog>
                     </div>
                 );
@@ -291,27 +304,63 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
             if (status === 'resolved' && currentUser.role === 'Chủ nhà hàng') {
                 return (
                     <div className="flex gap-2 w-full sm:w-auto">
-                        <AlertDialog parentDialogTag="root">
+                        <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="warning">
                             <AlertDialogTrigger asChild>
                                 <Button variant="outline" size="sm" disabled={isProcessing}>
                                     {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Undo className="mr-2 h-4 w-4" />}
                                     Hoàn tác
                                 </Button>
                             </AlertDialogTrigger>
-                            <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hoàn tác yêu cầu?</AlertDialogTitle></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Không</AlertDialogCancel><AlertDialogAction onClick={() => onRevert(notification)}>Xác nhận</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogIcon icon={Undo} />
+                                    <div className="space-y-2 text-center sm:text-left">
+                                        <AlertDialogTitle>Hoàn tác yêu cầu?</AlertDialogTitle>
+                                        <AlertDialogDescription>Hành động này sẽ khôi phục trạng thái trước đó của yêu cầu.</AlertDialogDescription>
+                                    </div>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Không</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => onRevert(notification)}>Xác nhận</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
                         </AlertDialog>
-                        <AlertDialog parentDialogTag="root">
+                        <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                             <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-9 w-9"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                            <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa khỏi lịch sử?</AlertDialogTitle></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => onDeleteHistory(notification.id)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogIcon icon={Trash2} />
+                                    <div className="space-y-2 text-center sm:text-left">
+                                        <AlertDialogTitle>Xóa khỏi lịch sử?</AlertDialogTitle>
+                                        <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn thông báo này khỏi lịch sử.</AlertDialogDescription>
+                                    </div>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => onDeleteHistory(notification.id)}>Xóa</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
                         </AlertDialog>
                     </div>
                 );
             }
             if (status === 'cancelled' && currentUser.role === 'Chủ nhà hàng') {
                 return (
-                    <AlertDialog parentDialogTag="root">
+                    <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                         <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-9 w-9"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa khỏi lịch sử?</AlertDialogTitle></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => onDeleteHistory(notification.id)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogIcon icon={Trash2} />
+                                <div className="space-y-2 text-center sm:text-left">
+                                    <AlertDialogTitle>Xóa khỏi lịch sử?</AlertDialogTitle>
+                                    <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn thông báo này khỏi lịch sử.</AlertDialogDescription>
+                                </div>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => onDeleteHistory(notification.id)}>Xóa</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
                     </AlertDialog>
                 );
             }

@@ -523,7 +523,7 @@ export default function CameraDialog({
       <DialogContent
         overlayClassName="bg-transparent"
         hideClose={true}
-        className="max-w-3xl p-0 overflow-hidden border-none bg-transparent sm:rounded-[40px] shadow-2xl"
+        className="max-h-[95vh] max-w-3xl p-0 overflow-hidden border-none bg-transparent sm:rounded-[40px] shadow-2xl"
       >
         <div className="relative h-[90vh] sm:h-[80vh] w-full flex flex-col">
           {/* Main Camera View - Absolutely positioned to fill background */}

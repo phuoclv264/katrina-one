@@ -27,6 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
+  AlertDialogIcon,
 } from "@/components/ui/alert-dialog";
 import { v4 as uuidv4 } from 'uuid';
 import { cn, normalizeSearchString } from '@/lib/utils';
@@ -466,7 +467,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose, par
                         }}>
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <AlertDialog parentDialogTag="root">
+                        <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                           <AlertDialogTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
                               <Trash2 className="h-4 w-4" />
@@ -474,8 +475,11 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose, par
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>Xóa "{category.name}"?</AlertDialogTitle>
-                              <AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription>
+                              <AlertDialogIcon icon={Trash2} />
+                              <div className="space-y-2 text-center sm:text-left">
+                                <AlertDialogTitle>Xóa "{category.name}"?</AlertDialogTitle>
+                                <AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription>
+                              </div>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Hủy</AlertDialogCancel>

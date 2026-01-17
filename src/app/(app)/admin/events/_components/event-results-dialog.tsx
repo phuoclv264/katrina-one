@@ -17,6 +17,7 @@ import { Separator } from '@/components/ui/separator';
 import { toast } from '@/components/ui/pro-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn, formatTime } from '@/lib/utils';
+import { getEffectiveStatus, getStatusConfig } from '@/lib/events-utils';
 import { Label } from '@/components/ui/label';
 import { formatWithOptions } from 'util';
 
@@ -200,17 +201,24 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
                                 </div>
                             </CardContent>
                         </Card>
-                        <Card className="bg-amber-50 border-none shadow-none">
-                            <CardContent className="p-4 flex items-center gap-4">
-                                <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-                                    <CheckCircle2 className="h-5 w-5 text-amber-600" />
-                                </div>
-                                <div>
-                                    <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Trạng thái</p>
-                                    <p className="text-lg font-bold capitalize">{event.status === 'active' ? 'Đang diễn ra' : event.status === 'closed' ? 'Đã kết thúc' : 'Bản nháp'}</p>
-                                </div>
-                            </CardContent>
-                        </Card>
+                        {/* Status summary uses shared helper for consistent labels/colors */}
+                        {(() => {
+                            const effectiveStatus = getEffectiveStatus(event.status, event.endAt);
+                            const cfg = getStatusConfig(effectiveStatus);
+                            return (
+                                <Card className={`border-none shadow-none ${cfg.bg}`}>
+                                    <CardContent className="p-4 flex items-center gap-4">
+                                        <div className="h-10 w-10 rounded-full bg-white/0 flex items-center justify-center shrink-0">
+                                            <CheckCircle2 className={`h-5 w-5 ${cfg.color}`} />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Trạng thái</p>
+                                            <p className="text-lg font-bold">{cfg.label}</p>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            );
+                        })() }
                     </div>
 
                     {(event.type === 'vote' || event.type === 'multi-vote') && (

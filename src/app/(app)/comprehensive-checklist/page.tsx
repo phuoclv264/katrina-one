@@ -14,7 +14,18 @@ import { useRouter } from 'nextjs-toploader/app';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Combobox } from "@/components/combobox";
 import { Label } from '@/components/ui/label';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { 
+    AlertDialog, 
+    AlertDialogAction, 
+    AlertDialogCancel, 
+    AlertDialogContent, 
+    AlertDialogDescription, 
+    AlertDialogFooter, 
+    AlertDialogHeader, 
+    AlertDialogTitle, 
+    AlertDialogTrigger,
+    AlertDialogIcon 
+} from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { callGenerateComprehensiveTasks } from '@/lib/ai-service';
@@ -147,10 +158,13 @@ function AiAssistant({
             <Dialog open={showPreview} onOpenChange={setShowPreview} dialogTag="comp-checklist-preview-dialog" parentDialogTag="root">
                 <DialogContent className="max-w-2xl">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Xem trước các hạng mục sẽ được thêm</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            AI đã phân tích đầu vào của bạn. Kiểm tra lại danh sách dưới đây trước khi thêm chúng vào khu vực <span className="font-bold">"{targetSection}"</span>.
-                        </AlertDialogDescription>
+                        <AlertDialogIcon icon={Wand2} />
+                        <div className="space-y-2 text-center sm:text-left">
+                            <AlertDialogTitle>Xem trước các hạng mục sẽ được thêm</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                AI đã phân tích đầu vào của bạn. Kiểm tra lại danh sách dưới đây trước khi thêm chúng vào khu vực <span className="font-bold">"{targetSection}"</span>.
+                            </AlertDialogDescription>
+                        </div>
                     </AlertDialogHeader>
                     <div className="max-h-[50vh] overflow-y-auto p-2 border rounded-md">
                         <ul className="space-y-2">
@@ -579,7 +593,7 @@ export default function ComprehensiveChecklistPage() {
                                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingSection({ title: section.title, newTitle: section.title })}>
                                                     <Pencil className="h-4 w-4" />
                                                 </Button>
-                                                <AlertDialog parentDialogTag="root">
+                                                <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                                                     <AlertDialogTrigger asChild>
                                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
                                                             <Trash2 className="h-4 w-4" />
@@ -587,10 +601,13 @@ export default function ComprehensiveChecklistPage() {
                                                     </AlertDialogTrigger>
                                                     <AlertDialogContent>
                                                         <AlertDialogHeader>
-                                                            <AlertDialogTitle>Xóa khu vực "{section.title}"?</AlertDialogTitle>
-                                                            <AlertDialogDescription>
-                                                                Hành động này không thể được hoàn tác. Việc này sẽ xóa vĩnh viễn khu vực và tất cả các hạng mục công việc bên trong nó.
-                                                            </AlertDialogDescription>
+                                                            <AlertDialogIcon icon={Trash2} />
+                                                            <div className="space-y-2 text-center sm:text-left">
+                                                                <AlertDialogTitle>Xóa khu vực "{section.title}"?</AlertDialogTitle>
+                                                                <AlertDialogDescription>
+                                                                    Hành động này không thể được hoàn tác. Việc này sẽ xóa vĩnh viễn khu vực và tất cả các hạng mục công việc bên trong nó.
+                                                                </AlertDialogDescription>
+                                                            </div>
                                                         </AlertDialogHeader>
                                                         <AlertDialogFooter>
                                                             <AlertDialogCancel>Hủy</AlertDialogCancel>

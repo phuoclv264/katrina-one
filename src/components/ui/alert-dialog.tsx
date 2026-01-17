@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { Loader2, LucideIcon } from 'lucide-react';
 import { buttonVariants } from "@/components/ui/button"
 import {
   Dialog,
@@ -16,23 +17,50 @@ import {
   DialogClose,
 } from "@/components/ui/dialog"
 
+const variantStyles = {
+    primary: {
+        iconBg: "bg-blue-100/50 dark:bg-blue-900/20",
+        iconHalo: "bg-blue-100 dark:bg-blue-900/40",
+        iconColor: "text-blue-600 dark:text-blue-400",
+        button: "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-blue-500/25",
+    },
+    destructive: {
+        iconBg: "bg-red-100/50 dark:bg-red-950/20",
+        iconHalo: "bg-red-100 dark:bg-red-950/40",
+        iconColor: "text-red-600 dark:text-red-400",
+        button: "bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white shadow-red-500/25",
+    },
+    warning: {
+        iconBg: "bg-amber-100/50 dark:bg-amber-950/20",
+        iconHalo: "bg-amber-100 dark:bg-amber-950/40",
+        iconColor: "text-amber-600 dark:text-amber-400",
+        button: "bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-amber-500/25",
+    }
+};
+
+const AlertDialogContext = React.createContext<{
+  variant: 'primary' | 'destructive' | 'warning';
+}>({ variant: 'primary' });
+
 // Re-implement the AlertDialog API on top of the Dialog components so we no longer use
 // @radix-ui/react-alert-dialog. This keeps the alert-style API but uses the shared Dialog
 // implementation (which registers with the global overlay reset system).
 
 type AlertDialogProps = Omit<React.ComponentPropsWithoutRef<typeof Dialog>, 'dialogTag' | 'parentDialogTag'> & {
+  variant?: 'primary' | 'destructive' | 'warning';
   dialogTag?: string;
   // Parent dialog tag must be provided by callers so they explicitly set the
   // relationship between nested dialogs. Do not provide a default here.
-  parentDialogTag: string;
+  parentDialogTag?: string;
 };
 
 const AlertDialog = (props: AlertDialogProps) => {
-  // Note: we intentionally do NOT provide a default for parentDialogTag. Callers
-  // must pass it explicitly so nested dialog relationships are clear.
-  const { dialogTag = 'alert-dialog', parentDialogTag, ...rest } = props as any;
-  // Dialog registers with useDialogBackHandler internally and requires tags
-  return <Dialog dialogTag={dialogTag} parentDialogTag={parentDialogTag} {...(rest as any)} />;
+  const { variant = 'primary', dialogTag = 'alert-dialog', parentDialogTag = 'root', ...rest } = props;
+  return (
+    <AlertDialogContext.Provider value={{ variant }}>
+      <Dialog dialogTag={dialogTag} parentDialogTag={parentDialogTag} {...rest} />
+    </AlertDialogContext.Provider>
+  );
 }
 
 const AlertDialogTrigger = DialogTrigger
@@ -44,14 +72,47 @@ const AlertDialogOverlay = DialogOverlay
 type AlertDialogContentProps = React.ComponentPropsWithoutRef<typeof BaseDialogContent> & {
   // Optional container element to mount the portal into (passed to DialogPortal `container` prop).
   portalContainer?: Element | null;
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+};
+
+const maxWidthClasses = {
+    sm: 'max-w-sm',
+    md: 'max-w-md',
+    lg: 'max-w-lg',
+    xl: 'max-w-xl',
+    '2xl': 'max-w-2xl'
 };
 
 const AlertDialogContent = React.forwardRef<
   React.ElementRef<typeof BaseDialogContent>,
   AlertDialogContentProps
->(({ className, portalContainer, ...props }, ref) => (
-  <BaseDialogContent ref={ref} portalContainer={portalContainer} className={cn(className)} {...props} />
-))
+>(({ className, portalContainer, maxWidth = 'md', children, ...props }, ref) => {
+  const { variant } = React.useContext(AlertDialogContext);
+  
+  return (
+    <BaseDialogContent 
+      ref={ref} 
+      portalContainer={portalContainer} 
+      className={cn(
+        "rounded-[42px] p-0 overflow-hidden border-none shadow-[0_32px_64px_-12px_rgba(0,0,0,0.14)] bg-white dark:bg-slate-950",
+        maxWidthClasses[maxWidth],
+        className
+      )} 
+      hideClose
+      {...props} 
+    >
+        <div className="p-6 pb-6 relative">
+            {children}
+            
+            {/* Decorative background element */}
+            <div className={cn(
+                "absolute -bottom-24 -left-24 h-48 w-48 rounded-full blur-[80px] opacity-10 pointer-events-none",
+                variantStyles[variant].iconHalo
+            )} />
+        </div>
+    </BaseDialogContent>
+  )
+})
 AlertDialogContent.displayName = "AlertDialogContent"
 
 const AlertDialogHeader = ({
@@ -60,7 +121,7 @@ const AlertDialogHeader = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col space-y-2 text-center sm:text-left",
+      "flex flex-col space-y-4 text-center sm:text-left",
       className
     )}
     {...props}
@@ -74,7 +135,7 @@ const AlertDialogFooter = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2",
+      "mt-8 flex flex-col-reverse sm:flex-row sm:justify-end gap-3",
       className
     )}
     {...props}
@@ -88,7 +149,7 @@ const AlertDialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogTitle
     ref={ref}
-    className={cn("text-lg font-semibold", className)}
+    className={cn("text-2xl font-black tracking-tight text-slate-900 dark:text-slate-50 leading-[1.1] border-none", className)}
     {...props}
   />
 ))
@@ -100,7 +161,7 @@ const AlertDialogDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogDescription
     ref={ref}
-    className={cn("text-sm text-muted-foreground", className)}
+    className={cn("text-[15px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed pt-2", className)}
     {...props}
   />
 ))
@@ -108,12 +169,25 @@ AlertDialogDescription.displayName = DialogDescription.displayName
 
 const AlertDialogAction = React.forwardRef<
   HTMLButtonElement,
-  React.ButtonHTMLAttributes<HTMLButtonElement>
->(({ className, ...props }, ref) => (
-  // Action does not auto-close by default. Keep it as a plain button so callers can
-  // perform async work and close the dialog manually when appropriate.
-  <button ref={ref} className={cn(buttonVariants(), className)} {...props} />
-))
+  React.ButtonHTMLAttributes<HTMLButtonElement> & { isLoading?: boolean }
+>(({ className, isLoading, children, ...props }, ref) => {
+  const { variant } = React.useContext(AlertDialogContext);
+  return (
+    <button 
+      ref={ref} 
+      className={cn(
+        "h-12 flex-[1.4] rounded-2xl font-black py-1.5 transition-all shadow-[0_12px_24px_-8px] active:scale-[0.98] border-t border-white/20 dark:border-white/5 focus:outline-none focus-visible:outline-none",
+        variantStyles[variant].button,
+        className
+      )} 
+      disabled={isLoading || props.disabled}
+      {...props} 
+    >
+      {isLoading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+      <span className="tracking-tight">{children}</span>
+    </button>
+  );
+})
 AlertDialogAction.displayName = "AlertDialogAction"
 
 const AlertDialogCancel = React.forwardRef<
@@ -122,10 +196,111 @@ const AlertDialogCancel = React.forwardRef<
 >(({ className, ...props }, ref) => (
   // Cancel should close the dialog immediately
   <DialogClose asChild>
-    <button ref={ref} className={cn(buttonVariants({ variant: "outline" }), "mt-2 sm:mt-0", className)} {...props} />
+    <button 
+      ref={ref} 
+      className={cn(
+        "h-12 flex-1 rounded-2xl font-black py-1.5 border-none bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700/80 transition-all active:scale-[0.98] focus:outline-none focus-visible:outline-none",
+        className
+      )} 
+      {...props} 
+    />
   </DialogClose>
 ))
 AlertDialogCancel.displayName = "AlertDialogCancel"
+
+const AlertDialogIcon = ({ icon: Icon }: { icon: LucideIcon }) => {
+  const { variant } = React.useContext(AlertDialogContext);
+  return (
+    <div className="flex justify-center sm:justify-start">
+        <div className={cn(
+            "relative h-16 w-16 rounded-[24px] flex items-center justify-center transition-transform hover:scale-105 duration-500",
+            variantStyles[variant].iconBg
+        )}>
+            <div className={cn(
+                "absolute inset-1.5 rounded-[20px] opacity-50 blur-xl animate-pulse",
+                variantStyles[variant].iconHalo
+            )} />
+            <div className={cn(
+                "h-11 w-11 rounded-[18px] flex items-center justify-center z-10 shadow-inner border border-white/20 dark:border-white/5",
+                variantStyles[variant].iconHalo
+            )}>
+                <Icon className={cn("h-6 w-6", variantStyles[variant].iconColor)} />
+            </div>
+        </div>
+    </div>
+  );
+}
+
+// Convenience high-level components
+interface HighLevelAlertDialogProps {
+    isOpen: boolean;
+    onOpenChange: (open: boolean) => void;
+    title: React.ReactNode;
+    description: React.ReactNode;
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm?: () => void | Promise<void>;
+    onCancel?: () => void;
+    variant?: 'primary' | 'destructive' | 'warning';
+    icon?: LucideIcon;
+    isLoading?: boolean;
+    maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+    showConfirm?: boolean;
+    showCancel?: boolean;
+    dialogTag?: string;
+    parentDialogTag?: string;
+}
+
+const CustomAlertDialog = ({
+    isOpen,
+    onOpenChange,
+    title,
+    description,
+    confirmText = "Xác nhận",
+    cancelText = "Hủy",
+    onConfirm,
+    onCancel,
+    variant = 'primary',
+    icon,
+    isLoading = false,
+    maxWidth = 'md',
+    showConfirm = true,
+    showCancel = true,
+    dialogTag ='alert-dialog',
+    parentDialogTag = 'root'
+}: HighLevelAlertDialogProps) => {
+    return (
+        <AlertDialog open={isOpen} onOpenChange={onOpenChange} variant={variant} dialogTag={dialogTag} parentDialogTag={parentDialogTag}>
+            <AlertDialogContent maxWidth={maxWidth}>
+                <AlertDialogHeader className="sm:flex-row sm:space-y-0 sm:gap-5 items-center sm:items-start">
+                    {icon && (
+                        <div className="flex-shrink-0">
+                            <AlertDialogIcon icon={icon} />
+                        </div>
+                    )}
+                    <div className="flex-1 space-y-1.5 text-center sm:text-left sm:pt-1">
+                        <AlertDialogTitle className="text-2xl leading-tight">{title}</AlertDialogTitle>
+                        <AlertDialogDescription asChild>
+                            <div className="text-[15px]">{description}</div>
+                        </AlertDialogDescription>
+                    </div>
+                </AlertDialogHeader>
+                <AlertDialogFooter className="mt-6">
+                    {showCancel && (
+                        <AlertDialogCancel onClick={onCancel} disabled={isLoading}>
+                            {cancelText}
+                        </AlertDialogCancel>
+                    )}
+                    {showConfirm && (
+                        <AlertDialogAction onClick={onConfirm} isLoading={isLoading}>
+                            {confirmText}
+                        </AlertDialogAction>
+                    )}
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    );
+}
 
 export {
   AlertDialog,
@@ -139,4 +314,6 @@ export {
   AlertDialogDescription,
   AlertDialogAction,
   AlertDialogCancel,
+  AlertDialogIcon,
+  CustomAlertDialog
 }

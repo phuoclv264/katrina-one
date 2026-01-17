@@ -11,7 +11,7 @@ import { LoadingPage } from '@/components/loading/LoadingPage';
 import { CalendarClock, Plus, Edit, Trash2, Loader2, RefreshCw } from 'lucide-react';
 import { dataStore } from '@/lib/data-store';
 import type { MonthlyTask, UserRole, ManagedUser } from '@/lib/types';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogIcon, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from '@/components/ui/pro-toast';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -250,7 +250,7 @@ function EditTaskForm({
                             </label>
                         </div>
                         <div className="pt-2">
-                            <AlertDialog parentDialogTag="root">
+                            <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="warning">
                                 <AlertDialogTrigger asChild>
                                     <Button variant="outline" size="sm">
                                         <RefreshCw className="mr-2 h-4 w-4" />Tạo lại ngày ngẫu nhiên
@@ -258,10 +258,13 @@ function EditTaskForm({
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                     <AlertDialogHeader>
-                                        <AlertDialogTitle>Tạo lại ngày ngẫu nhiên?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            Bạn có muốn thêm các ngày ngẫu nhiên mới (giữ nguyên các ngày hiện có) hay thay thế toàn bộ danh sách bằng các ngày mới?
-                                        </AlertDialogDescription>
+                                        <AlertDialogIcon icon={RefreshCw} />
+                                        <div className="space-y-2 text-center sm:text-left">
+                                            <AlertDialogTitle>Tạo lại ngày ngẫu nhiên?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                Bạn có muốn thêm các ngày ngẫu nhiên mới (giữ nguyên các ngày hiện có) hay thay thế toàn bộ danh sách bằng các ngày mới?
+                                            </AlertDialogDescription>
+                                        </div>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                         <AlertDialogCancel>Hủy</AlertDialogCancel>
@@ -684,7 +687,7 @@ function MonthlyTasksPageContent() {
                                         <Button variant="ghost" size="icon" onClick={() => setEditingTaskId(task.id)}>
                                             <Edit className="h-4 w-4" />
                                         </Button>
-                                        <AlertDialog parentDialogTag="root">
+                                        <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                                             <AlertDialogTrigger asChild>
                                                 <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
                                                     <Trash2 className="h-4 w-4" />
@@ -692,10 +695,13 @@ function MonthlyTasksPageContent() {
                                             </AlertDialogTrigger>
                                             <AlertDialogContent>
                                                 <AlertDialogHeader>
-                                                    <AlertDialogTitle>Xác nhận xóa?</AlertDialogTitle>
-                                                    <AlertDialogDescription>
-                                                        Bạn có chắc muốn xóa công việc "{task.name}" không?
-                                                    </AlertDialogDescription>
+                                                    <AlertDialogIcon icon={Trash2} />
+                                                    <div className="space-y-2 text-center sm:text-left">
+                                                        <AlertDialogTitle>Xác nhận xóa?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            Bạn có chắc muốn xóa công việc "{task.name}" không? Hành động này không thể hoàn tác.
+                                                        </AlertDialogDescription>
+                                                    </div>
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter>
                                                     <AlertDialogCancel>Hủy</AlertDialogCancel>

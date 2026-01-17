@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, AlertDialogOverlay } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, AlertDialogOverlay, AlertDialogIcon } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
 import type { AssignedShift, AttendanceRecord } from '@/lib/types';
@@ -590,13 +590,16 @@ export default function CheckInCard() {
                 </DialogContent>
             </Dialog>
 
-            <AlertDialog open={showOldShiftAlert} onOpenChange={setShowOldShiftAlert} parentDialogTag="root">
+            <AlertDialog open={showOldShiftAlert} onOpenChange={setShowOldShiftAlert} dialogTag="alert-dialog" parentDialogTag="root" variant="warning">
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Cảnh báo ca làm việc cũ</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Không thể kết thúc ca làm việc trước ngày hôm nay, vui lòng liên hệ chủ quán.
-                        </AlertDialogDescription>
+                        <AlertDialogIcon icon={AlertTriangle} />
+                        <div className="space-y-2 text-center sm:text-left">
+                            <AlertDialogTitle>Cảnh báo ca làm việc cũ</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Không thể kết thúc ca làm việc trước ngày hôm nay, vui lòng liên hệ chủ quán.
+                            </AlertDialogDescription>
+                        </div>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel onClick={() => setShowOldShiftAlert(false)}>Hủy</AlertDialogCancel>

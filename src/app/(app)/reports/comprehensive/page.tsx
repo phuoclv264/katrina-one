@@ -16,7 +16,7 @@ import { Combobox } from '@/components/combobox';
 import { useAuth } from '@/hooks/use-auth';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useToast } from '@/components/ui/use-toast';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogIcon, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Timestamp } from 'firebase/firestore';
@@ -217,7 +217,7 @@ function ComprehensiveReportView() {
                     className="w-full"
                   />
                   {selectedReportId && (
-                    <AlertDialog parentDialogTag="root">
+                    <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                       <AlertDialogTrigger asChild>
                         <Button variant="destructive" size="icon" disabled={isProcessing}>
                           <Trash2 className="h-4 w-4" />
@@ -225,13 +225,13 @@ function ComprehensiveReportView() {
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle className="flex items-center gap-2">
-                            <AlertCircle className="text-destructive" />
-                            Xác nhận xóa báo cáo?
-                          </AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Hành động này sẽ xóa vĩnh viễn báo cáo của <span className="font-bold">{report?.staffName}</span> và tất cả hình ảnh liên quan. Hành động này không thể được hoàn tác.
-                          </AlertDialogDescription>
+                          <AlertDialogIcon icon={Trash2} />
+                          <div className="space-y-2 text-center sm:text-left">
+                            <AlertDialogTitle>Xác nhận xóa báo cáo?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Hành động này sẽ xóa vĩnh viễn báo cáo của <span className="font-bold">{report?.staffName}</span> và tất cả hình ảnh liên quan. Không thể hoàn tác.
+                            </AlertDialogDescription>
+                          </div>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Hủy</AlertDialogCancel>

@@ -15,6 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
+  AlertDialogIcon,
 } from "@/components/ui/alert-dialog"
 import {
   Command,
@@ -294,7 +295,7 @@ export function Combobox({
                       {onDelete && (
                         <div onClick={(e) => e.stopPropagation()} className="ml-2 shrink-0">
                           {confirmDelete ? (
-                            <AlertDialog parentDialogTag="root">
+                            <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                               <AlertDialogTrigger asChild>
                                 <Button
                                   variant="ghost"
@@ -306,15 +307,17 @@ export function Combobox({
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete "{option.label}"?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    {deleteMessage}
-                                  </AlertDialogDescription>
+                                  <AlertDialogIcon icon={Trash2} />
+                                  <div className="space-y-2 text-center sm:text-left">
+                                    <AlertDialogTitle>Delete "{option.label}"?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      {deleteMessage}
+                                    </AlertDialogDescription>
+                                  </div>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                                   <AlertDialogAction
-                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                     onClick={() => onDelete(option.value)}
                                   >
                                     Delete

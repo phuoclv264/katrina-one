@@ -7,7 +7,7 @@ import { ThumbsUp, ThumbsDown, MessageSquare, Eye, EyeOff, Loader2, Trash2, User
 import { cn, getInitials } from '@/lib/utils';
 import type { WhistleblowingReport, AuthUser, ManagedUser, ReportComment, Attachment, CommentMedia } from '@/lib/types';
 import Image from 'next/image';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogIcon, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import CommentDialog from './comment-dialog';
 import { toast } from '@/components/ui/pro-toast';
@@ -276,7 +276,7 @@ export default function ReportCard({
                             </Tooltip>
                         )}
                         {(isMyReport || isOwner) && (
-                            <AlertDialog parentDialogTag="root">
+                            <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <AlertDialogTrigger asChild>
@@ -287,8 +287,11 @@ export default function ReportCard({
                                 </Tooltip>
                                 <AlertDialogContent>
                                     <AlertDialogHeader>
-                                        <AlertDialogTitle>Xóa bài tố cáo?</AlertDialogTitle>
-                                        <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn bài đăng và tất cả bình luận. Không thể hoàn tác.</AlertDialogDescription>
+                                        <AlertDialogIcon icon={Trash2} />
+                                        <div className="space-y-2 text-center sm:text-left">
+                                            <AlertDialogTitle>Xóa bài tố cáo?</AlertDialogTitle>
+                                            <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn bài đăng và tất cả bình luận. Không thể hoàn tác.</AlertDialogDescription>
+                                        </div>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                         <AlertDialogCancel>Hủy</AlertDialogCancel>

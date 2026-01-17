@@ -158,16 +158,6 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
               <UserCircle className="w-4 h-4 mr-2" />
               Hồ sơ
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={logout}
-              disabled={loading}
-              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              Đăng xuất
-            </Button>
           </div>
         </div>
       </div>
@@ -235,6 +225,19 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
 
         <div className="h-6" /> {/* Bottom spacer */}
       </ScrollArea>
+
+      <div className="sticky bottom-0 z-10 p-4 border-t bg-background/50">
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={logout}
+          disabled={loading}
+          className="w-full justify-center"
+        >
+          <LogOut className="w-4 h-4 mr-2" />
+          Đăng xuất
+        </Button>
+      </div>
     </div>
   );
 }

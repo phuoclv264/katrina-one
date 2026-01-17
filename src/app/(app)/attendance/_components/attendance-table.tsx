@@ -6,7 +6,7 @@ import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn, getInitials } from '@/lib/utils';
 import { getStatusInfo, findShiftForRecord } from '@/lib/attendance-utils';
-import { Edit2, Trash2, MoreVertical } from 'lucide-react';
+import { Edit2, Trash2, MoreVertical, AlertCircle } from 'lucide-react';
 import Image from 'next/image';
 import HourlyRateDialog from './hourly-rate-dialog';
 import { dataStore } from '@/lib/data-store';
@@ -19,7 +19,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle, 
+  AlertDialogTrigger,
+  AlertDialogIcon 
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import React from 'react';
@@ -243,7 +254,7 @@ export default function AttendanceTable({
 
                   {/* Hành động */}
                   <TableCell className="align-top text-right">
-                    <AlertDialog parentDialogTag="root">
+                    <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                       <DropdownMenu modal={false}>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon">
@@ -264,10 +275,13 @@ export default function AttendanceTable({
 
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Xác nhận xóa?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Hành động này không thể hoàn tác. Bạn có chắc chắn muốn xóa bản ghi chấm công này không?
-                          </AlertDialogDescription>
+                          <AlertDialogIcon icon={Trash2} />
+                          <div className="space-y-2 text-center sm:text-left">
+                            <AlertDialogTitle>Xác nhận xóa?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Hành động này không thể hoàn tác. Bạn có chắc chắn muốn xóa bản ghi chấm công này không?
+                            </AlertDialogDescription>
+                          </div>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Hủy</AlertDialogCancel>

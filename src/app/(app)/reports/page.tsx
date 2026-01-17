@@ -15,7 +15,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogTrigger } from '@/components/ui/dialog'; // This is a duplicate import, but let's keep it for safety.
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogIcon, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import IssueNotesDialog from './_components/IssueNotesDialog';
@@ -95,7 +95,7 @@ function CleanupDialog({ className }: CleanupDialogProps) {
                     <DialogClose asChild>
                         <Button variant="outline">Hủy</Button>
                     </DialogClose>
-                    <AlertDialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen} parentDialogTag="root">
+                    <AlertDialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen} dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                         <AlertDialogTrigger asChild>
                             <Button variant="destructive" disabled={isProcessing}>
                                 {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -104,13 +104,13 @@ function CleanupDialog({ className }: CleanupDialogProps) {
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                             <AlertDialogHeader>
-                                <AlertDialogTitle className="flex items-center gap-2">
-                                    <ShieldAlert className="text-destructive" />
-                                    Bạn có hoàn toàn chắc chắn không?
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    Hành động này không thể được hoàn tác. Tất cả các báo cáo cũ hơn <span className="font-bold">{daysToKeep}</span> ngày sẽ bị <span className="font-bold text-destructive">xóa vĩnh viễn</span> khỏi hệ thống.
-                                </AlertDialogDescription>
+                                <AlertDialogIcon icon={ShieldAlert} />
+                                <div className="space-y-2 text-center sm:text-left">
+                                    <AlertDialogTitle>Bạn có hoàn toàn chắc chắn không?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Hành động này không thể được hoàn tác. Tất cả các báo cáo cũ hơn <span className="font-bold">{daysToKeep}</span> ngày sẽ bị <span className="font-bold text-destructive">xóa vĩnh viễn</span> khỏi hệ thống.
+                                    </AlertDialogDescription>
+                                </div>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                                 <AlertDialogCancel>Hủy</AlertDialogCancel>
@@ -165,6 +165,7 @@ function AdminTools() {
             <MonthlyStaffReportDialog
                 isOpen={isMonthlyReportOpen}
                 onOpenChange={setIsMonthlyReportOpen}
+                parentDialogTag="root"
             />
         </Card>
     );

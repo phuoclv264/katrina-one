@@ -428,7 +428,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
 
     switch (path) {
       case '/':
-        return children;
+        return <div key={`children-${refreshTrigger}`}>{children}</div>;
       case '/shifts':
         return <ShiftsPage />;
       case '/bartender':
@@ -492,13 +492,13 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
       case '/manager/comprehensive-report':
         return <ManagerComprehensiveReportPage />;
       default:
-        return children;
+        return <div key={`children-${refreshTrigger}`}>{children}</div>;
     }
   };
 
   const renderContent = () => {
     if (virtualHref) return renderVirtualRoute(virtualHref);
-    if (!isTabContent) return children;
+    if (!isTabContent) return <div key={`children-${refreshTrigger}`}>{children}</div>;
 
     switch (activeTab) {
       case 'menu':
@@ -537,7 +537,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
     <div className="flex flex-col min-h-[calc(100vh-3.5rem)] md:hidden">
       <MobileNavigationProvider value={mobileNavApi}>
         <AppNavigationProvider>
-          <div className={cn("flex-1 pb-16", isTabContent && "p-4")}>
+          <div key={`tab-content-${activeTab}-${virtualHref ?? 'null'}-${refreshTrigger}`} className={cn("flex-1 pb-16", isTabContent && "p-4")}>
             {renderContent()}
           </div>
         </AppNavigationProvider>

@@ -3,7 +3,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogIcon, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Edit, Trash2, Eye, Loader2 } from 'lucide-react';
 import type { IncidentReport } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
@@ -59,13 +59,22 @@ const IncidentList = React.memo(({ incidents, onEdit, onDelete, onOpenLightbox, 
                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => onOpenLightbox(incident.photos, 0)}><Eye className="h-4 w-4" /></Button>
                                     )}
                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => onEdit(incident)}><Edit className="h-4 w-4" /></Button>
-                                    <AlertDialog parentDialogTag="root">
+                                    <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                                         <AlertDialogTrigger asChild>
                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/70 hover:text-destructive hover:bg-destructive/10" disabled={isProcessing}><Trash2 className="h-4 w-4" /></Button>
                                         </AlertDialogTrigger>
                                         <AlertDialogContent>
-                                            <AlertDialogHeader><AlertDialogTitle>Xóa sự cố?</AlertDialogTitle></AlertDialogHeader>
-                                            <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => onDelete(incident.id)}>Xóa</AlertDialogAction></AlertDialogFooter>
+                                            <AlertDialogHeader>
+                                                <AlertDialogIcon icon={Trash2} />
+                                                <div className="space-y-2 text-center sm:text-left">
+                                                    <AlertDialogTitle>Xóa sự cố?</AlertDialogTitle>
+                                                    <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn sự cố và không thể hoàn tác.</AlertDialogDescription>
+                                                </div>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => onDelete(incident.id)}>Xóa</AlertDialogAction>
+                                            </AlertDialogFooter>
                                         </AlertDialogContent>
                                     </AlertDialog>
                                 </div>

@@ -2,7 +2,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogIcon, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Edit, Trash2, Loader2, TrendingUp, TrendingDown, Wand2 } from 'lucide-react';
 import type { RevenueStats } from '@/lib/types';
@@ -80,13 +80,22 @@ const RevenueStatsList = React.memo(({ stats, onEdit, onDelete, processingItemId
                                 </div>
                                 <div className="flex items-center gap-1">
                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => onEdit(stat)}><Edit className="h-4 w-4" /></Button>
-                                    <AlertDialog parentDialogTag="root">
+                                    <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                                         <AlertDialogTrigger asChild>
                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/70 hover:text-destructive hover:bg-destructive/10" disabled={isProcessing}><Trash2 className="h-4 w-4" /></Button>
                                         </AlertDialogTrigger>
                                         <AlertDialogContent>
-                                            <AlertDialogHeader><AlertDialogTitle>Xóa phiếu thống kê?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn phiếu và không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader>
-                                            <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => onDelete(stat.id)}>Xóa</AlertDialogAction></AlertDialogFooter>
+                                            <AlertDialogHeader>
+                                                <AlertDialogIcon icon={Trash2} />
+                                                <div className="space-y-2 text-center sm:text-left">
+                                                    <AlertDialogTitle>Xóa phiếu thống kê?</AlertDialogTitle>
+                                                    <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn phiếu và không thể hoàn tác.</AlertDialogDescription>
+                                                </div>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => onDelete(stat.id)}>Xóa</AlertDialogAction>
+                                            </AlertDialogFooter>
                                         </AlertDialogContent>
                                     </AlertDialog>
                                 </div>

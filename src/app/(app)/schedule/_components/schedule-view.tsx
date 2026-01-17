@@ -37,7 +37,6 @@ import {
 } from 'lucide-react';
 import type { Schedule, Availability, TimeSlot, AssignedShift, Notification, UserRole, ShiftTemplate, AuthUser, ManagedUser, AssignedUser, SimpleUser, ShiftBusyEvidence } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { CustomAlertDialog } from '@/components/ui/custom-alert-dialog';
 import AvailabilityDialog from './availability-dialog';
 import PassRequestsDialog from './pass-requests-dialog';
 import {
@@ -56,6 +55,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
     AlertDialogTrigger,
+    CustomAlertDialog,
 } from "@/components/ui/alert-dialog"
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';

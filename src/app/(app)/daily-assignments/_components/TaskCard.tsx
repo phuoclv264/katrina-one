@@ -245,12 +245,11 @@ export default function TaskCard({ task, reports, canSubmit, pendingMedia, pendi
                         variant="outline" 
                         onClick={() => onSetActiveTaskForProof(task.id)}
                         className={cn(
-                          "h-10 text-[11px] font-bold bg-background transition-all border-dashed shadow-none",
-                          pendingMedia.length > 0 ? "border-primary text-primary" : "text-muted-foreground"
+                          "h-10 text-[11px] font-bold bg-background transition-all border-dashed shadow-none border-primary text-primary"
                         )}
                       >
-                        <Camera className={cn("mr-2 h-4 w-4", pendingMedia.length > 0 ? "text-primary" : "text-muted-foreground")} />
-                        {pendingMedia.length > 0 ? `${pendingMedia.length} Ảnh` : "Chụp bằng chứng"}
+                        <Camera className={cn("mr-2 h-4 w-4")} />
+                        {pendingMedia.length > 0 ? `${pendingMedia.length} Ảnh` : "Bằng chứng"}
                       </Button>
 
                       <Button
@@ -264,7 +263,7 @@ export default function TaskCard({ task, reports, canSubmit, pendingMedia, pendi
                         ) : (
                           <Send className="mr-2 h-4 w-4" />
                         )}
-                        Gửi báo cáo
+                        Gửi
                       </Button>
                     </div>
                   </div>

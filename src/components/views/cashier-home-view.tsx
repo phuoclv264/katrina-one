@@ -15,7 +15,7 @@ import type { ExpenseSlip, IncidentReport, RevenueStats, ManagedUser, InventoryI
 import { dataStore } from '@/lib/data-store';
 import { format, parseISO } from 'date-fns';
 import { toast } from '@/components/ui/pro-toast';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, AlertDialogIcon } from '@/components/ui/alert-dialog';
 import ExpenseSlipDialog from '@/app/(app)/cashier/_components/expense-slip-dialog';
 import IncidentReportDialog from '@/app/(app)/cashier/_components/incident-report-dialog';
 import RevenueStatsDialog from '@/app/(app)/cashier/_components/revenue-stats-dialog';
@@ -725,9 +725,21 @@ function CashierDashboardPageComponent({ isStandalone = false }: CashierDashboar
                                                         {canEdit && (
                                                             <div className="flex justify-end gap-2 mt-2 border-t pt-2">
                                                                 <Button variant="ghost" size="sm" onClick={() => handleEditRevenue(stat)}><Edit className="mr-2 h-4 w-4" />Sửa</Button>
-                                                                <AlertDialog parentDialogTag="root">
+                                                                <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                                                                     <AlertDialogTrigger asChild><Button variant="ghost" size="sm" className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Xóa</Button></AlertDialogTrigger>
-                                                                    <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa phiếu thống kê?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteRevenue(stat.id)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                                                                    <AlertDialogContent>
+                                                                        <AlertDialogHeader>
+                                                                            <AlertDialogIcon icon={Trash2} />
+                                                                            <div className="space-y-2 text-center sm:text-left">
+                                                                                <AlertDialogTitle>Xóa phiếu thống kê?</AlertDialogTitle>
+                                                                                <AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription>
+                                                                            </div>
+                                                                        </AlertDialogHeader>
+                                                                        <AlertDialogFooter>
+                                                                            <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                                            <AlertDialogAction onClick={() => handleDeleteRevenue(stat.id)}>Xóa</AlertDialogAction>
+                                                                        </AlertDialogFooter>
+                                                                    </AlertDialogContent>
                                                                 </AlertDialog>
                                                             </div>
                                                         )}
@@ -772,9 +784,21 @@ function CashierDashboardPageComponent({ isStandalone = false }: CashierDashboar
                                                                 {canEdit && !isShiftFinalized && (
                                                                     <>
                                                                         <Button variant="ghost" size="icon" onClick={() => handleEditRevenue(stat)}><Edit className="h-4 w-4" /></Button>
-                                                                        <AlertDialog parentDialogTag="root">
+                                                                        <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                                                                             <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                                                                            <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa phiếu thống kê?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteRevenue(stat.id)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                                                                            <AlertDialogContent>
+                                                                                <AlertDialogHeader>
+                                                                                    <AlertDialogIcon icon={Trash2} />
+                                                                                    <div className="space-y-2 text-center sm:text-left">
+                                                                                        <AlertDialogTitle>Xóa phiếu thống kê?</AlertDialogTitle>
+                                                                                        <AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription>
+                                                                                    </div>
+                                                                                </AlertDialogHeader>
+                                                                                <AlertDialogFooter>
+                                                                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                                                    <AlertDialogAction onClick={() => handleDeleteRevenue(stat.id)}>Xóa</AlertDialogAction>
+                                                                                </AlertDialogFooter>
+                                                                            </AlertDialogContent>
                                                                         </AlertDialog>
                                                                     </>
                                                                 )}
@@ -833,9 +857,21 @@ function CashierDashboardPageComponent({ isStandalone = false }: CashierDashboar
                                                         {canEdit && (
                                                             <div className="flex justify-end gap-2 mt-2 border-t pt-2">
                                                                 <Button variant="ghost" size="sm" onClick={() => handleEditSlip(slip)} disabled={isProcessing}><Edit className="mr-2 h-4 w-4" />Sửa</Button>
-                                                                <AlertDialog parentDialogTag="root">
+                                                                <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                                                                     <AlertDialogTrigger asChild><Button variant="ghost" size="sm" className="text-destructive" disabled={isProcessing}><Trash2 className="mr-2 h-4 w-4" />Xóa</Button></AlertDialogTrigger>
-                                                                    <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xác nhận xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => dataStore.deleteExpenseSlip(slip).then(() => toast.success("Đã xóa phiếu chi.")).catch(() => toast.error("Lỗi xóa phiếu chi."))}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                                                                    <AlertDialogContent>
+                                                                        <AlertDialogHeader>
+                                                                            <AlertDialogIcon icon={Trash2} />
+                                                                            <div className="space-y-2 text-center sm:text-left">
+                                                                                <AlertDialogTitle>Xác nhận xóa?</AlertDialogTitle>
+                                                                                <AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription>
+                                                                            </div>
+                                                                        </AlertDialogHeader>
+                                                                        <AlertDialogFooter>
+                                                                            <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                                            <AlertDialogAction onClick={() => dataStore.deleteExpenseSlip(slip).then(() => toast.success("Đã xóa phiếu chi.")).catch(() => toast.error("Lỗi xóa phiếu chi."))}>Xóa</AlertDialogAction>
+                                                                        </AlertDialogFooter>
+                                                                    </AlertDialogContent>
                                                                 </AlertDialog>
                                                             </div>
                                                         )}
@@ -902,7 +938,7 @@ function CashierDashboardPageComponent({ isStandalone = false }: CashierDashboar
                                                                         <Button variant="ghost" size="icon" onClick={() => handleEditSlip(slip)} disabled={isProcessing}>
                                                                             <Edit className="h-4 w-4" />
                                                                         </Button>
-                                                                        <AlertDialog parentDialogTag="root">
+                                                                        <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                                                                             <AlertDialogTrigger asChild>
                                                                                 <Button variant="ghost" size="icon" className="text-destructive" disabled={isProcessing}>
                                                                                     <Trash2 className="h-4 w-4" />
@@ -910,8 +946,11 @@ function CashierDashboardPageComponent({ isStandalone = false }: CashierDashboar
                                                                             </AlertDialogTrigger>
                                                                             <AlertDialogContent>
                                                                                 <AlertDialogHeader>
-                                                                                    <AlertDialogTitle>Xác nhận xóa phiếu chi?</AlertDialogTitle>
-                                                                                    <AlertDialogDescription>Hành động này không thể được hoàn tác và sẽ xóa tất cả ảnh đính kèm.</AlertDialogDescription>
+                                                                                    <AlertDialogIcon icon={Trash2} />
+                                                                                    <div className="space-y-2 text-center sm:text-left">
+                                                                                        <AlertDialogTitle>Xác nhận xóa phiếu chi?</AlertDialogTitle>
+                                                                                        <AlertDialogDescription>Hành động này không thể được hoàn tác và sẽ xóa tất cả ảnh đính kèm.</AlertDialogDescription>
+                                                                                    </div>
                                                                                 </AlertDialogHeader>
                                                                                 <AlertDialogFooter>
                                                                                     <AlertDialogCancel>Hủy</AlertDialogCancel>
@@ -986,13 +1025,25 @@ function CashierDashboardPageComponent({ isStandalone = false }: CashierDashboar
                                                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditCashCount(handover)}>
                                                     <Edit className="h-4 w-4" />
                                                 </Button>
-                                                                <AlertDialog parentDialogTag="root">
+                                                                <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                                                     <AlertDialogTrigger asChild>
                                                         <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive">
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>
                                                     </AlertDialogTrigger>
-                                                    <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xác nhận xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteCashCount(handover.id)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogIcon icon={Trash2} />
+                                                            <div className="space-y-2 text-center sm:text-left">
+                                                                <AlertDialogTitle>Xác nhận xóa?</AlertDialogTitle>
+                                                                <AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription>
+                                                            </div>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                            <AlertDialogAction onClick={() => handleDeleteCashCount(handover.id)}>Xóa</AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
                                                 </AlertDialog>
                                             </CardFooter>
                                         )} */}
@@ -1033,9 +1084,20 @@ function CashierDashboardPageComponent({ isStandalone = false }: CashierDashboar
                                                         <div className="flex justify-end gap-2 mt-2 border-t pt-2">
                                                             {incident.photos && incident.photos.length > 0 && <Button variant="outline" size="sm" onClick={() => openLightbox(incident.photos.map(p => ({ src: p })))}>Xem {incident.photos.length} ảnh</Button>}
                                                             <Button variant="ghost" size="sm" onClick={() => handleEditIncident(incident)}><Edit className="mr-2 h-4 w-4" />Sửa</Button>
-                                                            <AlertDialog parentDialogTag="root">
+                                                            <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                                                                 <AlertDialogTrigger asChild><Button variant="ghost" size="sm" className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Xóa</Button></AlertDialogTrigger>
-                                                                <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Xóa ghi nhận này?</AlertDialogTitle></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteIncident(incident)}>Xóa</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                                                                <AlertDialogContent>
+                                                                    <AlertDialogHeader>
+                                                                        <AlertDialogIcon icon={Trash2} />
+                                                                        <div className="space-y-2 text-center sm:text-left">
+                                                                            <AlertDialogTitle>Xóa ghi nhận này?</AlertDialogTitle>
+                                                                        </div>
+                                                                    </AlertDialogHeader>
+                                                                    <AlertDialogFooter>
+                                                                        <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                                        <AlertDialogAction onClick={() => handleDeleteIncident(incident)}>Xóa</AlertDialogAction>
+                                                                    </AlertDialogFooter>
+                                                                </AlertDialogContent>
                                                             </AlertDialog>
                                                         </div>
                                                     )}

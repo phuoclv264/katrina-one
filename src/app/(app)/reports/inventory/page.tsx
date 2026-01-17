@@ -14,7 +14,7 @@ import { ArrowLeft, ShoppingCart, CheckCircle, AlertCircle, Star, Clock, User, H
 import { toast } from '@/components/ui/pro-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { format } from "date-fns";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogIcon, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, } from "@/components/ui/dialog"
 import { useLightbox } from '@/contexts/lightbox-context';
 import { useRouter } from 'nextjs-toploader/app';
@@ -573,7 +573,7 @@ function InventoryReportView() {
                                                             Xem
                                                         </Button>
                                                         {user?.role === 'Chủ nhà hàng' && (
-                                                            <AlertDialog parentDialogTag="root">
+                                                            <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                                                                 <AlertDialogTrigger asChild>
                                                                     <Button variant="ghost" size="icon" className="text-destructive h-9 w-9" disabled={isProcessing}>
                                                                         <Trash2 className="h-4 w-4" />
@@ -581,10 +581,13 @@ function InventoryReportView() {
                                                                 </AlertDialogTrigger>
                                                                 <AlertDialogContent>
                                                                     <AlertDialogHeader>
-                                                                        <AlertDialogTitle>Xóa báo cáo này?</AlertDialogTitle>
-                                                                        <AlertDialogDescription>
-                                                                            Hành động này sẽ xóa vĩnh viễn báo cáo của <span className="font-semibold">{report.staffName}</span> vào lúc <span className="font-semibold">{format(new Date(report.submittedAt as string), "HH:mm, dd/MM/yyyy")}</span> và tất cả hình ảnh liên quan. Hành động này không thể được hoàn tác.
-                                                                        </AlertDialogDescription>
+                                                                        <AlertDialogIcon icon={Trash2} />
+                                                                        <div className="space-y-2 text-center sm:text-left">
+                                                                            <AlertDialogTitle>Xóa báo cáo này?</AlertDialogTitle>
+                                                                            <AlertDialogDescription>
+                                                                                Hành động này sẽ xóa vĩnh viễn báo cáo của <span className="font-semibold">{report.staffName}</span> vào lúc <span className="font-semibold">{format(new Date(report.submittedAt as string), "HH:mm, dd/MM/yyyy")}</span> và tất cả hình ảnh liên quan. Hành động này không thể được hoàn tác.
+                                                                            </AlertDialogDescription>
+                                                                        </div>
                                                                     </AlertDialogHeader>
                                                                     <AlertDialogFooter>
                                                                         <AlertDialogCancel>Hủy</AlertDialogCancel>

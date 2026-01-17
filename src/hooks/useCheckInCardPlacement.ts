@@ -3,7 +3,7 @@ import { useAuth } from './use-auth';
 import { dataStore } from '@/lib/data-store';
 
 export function useCheckInCardPlacement() {
-  const { user, isOnActiveShift, activeShifts } = useAuth();
+  const { user, isOnActiveShift, activeShifts, refreshTrigger } = useAuth();
   const [isCheckedIn, setIsCheckedIn] = useState(false);
 
   useEffect(() => {
@@ -13,7 +13,7 @@ export function useCheckInCardPlacement() {
       });
       return () => unsub();
     }
-  }, [user]);
+  }, [user, refreshTrigger]);
 
   const showCheckInCardOnTop = useMemo(() => {
     // Condition 1: User is in an active shift but hasn't checked in yet.

@@ -11,7 +11,7 @@ import { toast } from '@/components/ui/pro-toast';
 import { callRefineText } from '@/lib/ai-service';
 import type { WhistleblowingReport, AuthUser, ManagedUser, ReportComment, CommentMedia } from '@/lib/types';
 import Image from 'next/image';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogIcon, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -199,14 +199,17 @@ export default function CommentDialog({
                                                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEditClick(comment)}><Edit className="h-3 w-3" /></Button>
                                                         )}
                                                         {canDelete && !isEditingThis && (
-                                                            <AlertDialog parentDialogTag="root">
+                                                            <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                                                                 <AlertDialogTrigger asChild>
                                                                     <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive"><Trash2 className="h-3 w-3" /></Button>
                                                                 </AlertDialogTrigger>
                                                                 <AlertDialogContent>
                                                                     <AlertDialogHeader>
-                                                                        <AlertDialogTitle>Xóa bình luận?</AlertDialogTitle>
-                                                                        <AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription>
+                                                                        <AlertDialogIcon icon={Trash2} />
+                                                                        <div className="space-y-2 text-center sm:text-left">
+                                                                            <AlertDialogTitle>Xóa bình luận?</AlertDialogTitle>
+                                                                            <AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription>
+                                                                        </div>
                                                                     </AlertDialogHeader>
                                                                     <AlertDialogFooter>
                                                                         <AlertDialogCancel>Hủy</AlertDialogCancel>

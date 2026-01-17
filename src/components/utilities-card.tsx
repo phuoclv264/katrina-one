@@ -62,12 +62,8 @@ export default function UtilitiesCard() {
       });
     }
 
-    // Manager utility: Giao việc
-    if (user.role === 'Quản lý' || user.role === 'Chủ nhà hàng') {
-      actions.push({ label: 'Giao việc cần làm', subLabel: 'Quản lý', icon: ListChecks, href: '/daily-assignments', color: 'blue' as const });
-    } else {
-      actions.push({ label: 'Công việc cần làm', subLabel: user.role, icon: ListChecks, href: '/daily-assignments', color: 'blue' as const });
-    }
+    // (Daily assignments handled separately below; only show when there are pending items.)
+    // Managers can still access the Giao việc screen via navigation if needed.
 
     // Add role-specific utilities (existing behavior)
     // Pha chế
@@ -91,7 +87,7 @@ export default function UtilitiesCard() {
     const todayKey = new Date().toISOString().slice(0, 10);
     return todayTasks.some((t) => {
       if (!t) return false;
-      if (t.status !== 'open') return false;
+      if (t.status === 'completed') return false;
       if (t.assignedDate !== todayKey) return false;
       if (t.targetMode === 'roles') {
         return (t.targetRoles || []).includes(role);
@@ -103,7 +99,24 @@ export default function UtilitiesCard() {
     });
   }, [todayTasks, user]);
 
-  if (!user || (!user.secondaryRoles || user.secondaryRoles.length === 0) && !(user.role === 'Quản lý' || user.role === 'Chủ nhà hàng')) return null;
+  const pendingDailyCount = useMemo(() => {
+    if (!user) return 0;
+    const uid = user.uid;
+    const role = user.role as UserRole;
+    const todayKey = new Date().toISOString().slice(0, 10);
+    return todayTasks.reduce((count, t) => {
+      if (!t) return count;
+      if (t.status === 'completed') return count;
+      if (t.assignedDate !== todayKey) return count;
+      if (t.targetMode === 'roles' && (t.targetRoles || []).includes(role)) return count + 1;
+      if (t.targetMode === 'users' && (t.targetUserIds || []).includes(uid)) return count + 1;
+      return count;
+    }, 0);
+  }, [todayTasks, user]);
+
+  const showDailyCardForManager = user?.role === 'Quản lý' || user?.role === 'Chủ nhà hàng';
+
+  if (!user || (!user.secondaryRoles || user.secondaryRoles.length === 0) && !showDailyCardForManager) return null;
 
   return (
     <div className="space-y-3">
@@ -115,14 +128,27 @@ export default function UtilitiesCard() {
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        {secondaryActions.map((action, index) => {
-          const isDaily = action.href === '/daily-assignments';
+      <div className="grid grid-cols-2 gap-3 auto-rows-fr">
+        {(showDailyCardForManager || hasPendingDailyAssignment) && (
+          <div className="relative col-span-2">
+            <DashboardActionCard
+              label={showDailyCardForManager ? 'Giao việc cần làm' : (pendingDailyCount > 1 ? `Bạn có ${pendingDailyCount} công việc` : 'Bạn có công việc mới')}
+              subLabel={showDailyCardForManager ? (pendingDailyCount > 0 ? `Có ${pendingDailyCount} nhiệm vụ chờ` : 'Giao và quản lý công việc') : 'Mở danh sách công việc'}
+              icon={ListChecks}
+              onClick={() => nav.push('/daily-assignments')}
+              color={showDailyCardForManager ? 'amber' : 'rose'}
+              variant={'primary'}
+              className={showDailyCardForManager ? 'shadow-lg' : 'shadow-lg'}
+            />
+            {pendingDailyCount > 0 && (
+              <span className="absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full bg-rose-500 text-white text-[12px] flex items-center justify-center font-bold">{pendingDailyCount}</span>
+            )}
+          </div>
+        )}
+
+        {secondaryActions.filter(a => a.href !== '/daily-assignments').map((action, index) => {
           return (
             <div key={index} className="relative">
-              {isDaily && hasPendingDailyAssignment && (
-                <span className="absolute -top-2 -right-2 z-20 w-4 h-4 rounded-full bg-rose-500 text-white text-[10px] flex items-center justify-center font-bold">!</span>
-              )}
               <DashboardActionCard
                 label={action.label}
                 subLabel={action.subLabel}

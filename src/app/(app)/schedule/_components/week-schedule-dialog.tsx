@@ -153,7 +153,7 @@ export default function WeekScheduleDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} dialogTag="week-schedule-dialog" parentDialogTag={parentDialogTag}>
-      <DialogContent className="max-w-6xl max-h-[95vh] p-0 overflow-hidden flex flex-col border-none sm:rounded-2xl">
+      <DialogContent className="max-w-6xl p-0 overflow-hidden flex flex-col border-none sm:rounded-2xl">
         <DialogHeader className="p-4 sm:p-6 pb-2 sm:pb-3 pr-12 sm:pr-16 border-b border-slate-100 dark:border-slate-800 shrink-0">
           <div className="flex items-center justify-between gap-4">
             <DialogTitle className="text-l sm:text-2xl font-bold font-headline tracking-tight">Lịch làm việc tuần</DialogTitle>

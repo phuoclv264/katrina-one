@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { LoadingPage } from '@/components/loading/LoadingPage';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, AlertDialogIcon } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -335,7 +335,7 @@ export default function UsersPage() {
                                             <Button variant="outline" size="sm" onClick={() => handleEditClick(u)} disabled={isProcessing}>
                                                 <Edit className="mr-2 h-4 w-4" /> Sửa
                                             </Button>
-                                            <AlertDialog parentDialogTag="root">
+                                            <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                                                 <AlertDialogTrigger asChild>
                                                     <Button variant="destructive" size="sm" disabled={u.uid === user?.uid || isProcessing}>
                                                         <Trash2 className="mr-2 h-4 w-4" /> Xóa
@@ -343,10 +343,13 @@ export default function UsersPage() {
                                                 </AlertDialogTrigger>
                                                 <AlertDialogContent>
                                                     <AlertDialogHeader>
-                                                        <AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle>
-                                                        <AlertDialogDescription>
-                                                            Hành động này sẽ xóa thông tin của người dùng <span className="font-bold">{u.displayName}</span> khỏi hệ thống. Người dùng này sẽ không thể đăng nhập được nữa. Hành động này không thể được hoàn tác.
-                                                        </AlertDialogDescription>
+                                                        <AlertDialogIcon icon={Trash2} />
+                                                        <div className="space-y-2 text-center sm:text-left">
+                                                            <AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle>
+                                                            <AlertDialogDescription>
+                                                                Hành động này sẽ xóa thông tin của người dùng <span className="font-bold">{u.displayName}</span> khỏi hệ thống. Người dùng này sẽ không thể đăng nhập được nữa. Hành động này không thể được hoàn tác.
+                                                            </AlertDialogDescription>
+                                                        </div>
                                                     </AlertDialogHeader>
                                                     <AlertDialogFooter>
                                                         <AlertDialogCancel>Hủy</AlertDialogCancel>
@@ -392,7 +395,7 @@ export default function UsersPage() {
                                                     <Edit className="h-4 w-4" />
                                                     <span className="sr-only">Sửa</span>
                                                 </Button>
-                                                <AlertDialog parentDialogTag="root">
+                                                <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                                                     <AlertDialogTrigger asChild>
                                                         <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" disabled={u.uid === user?.uid || isProcessing}>
                                                             <Trash2 className="h-4 w-4" />
@@ -401,10 +404,13 @@ export default function UsersPage() {
                                                     </AlertDialogTrigger>
                                                     <AlertDialogContent>
                                                         <AlertDialogHeader>
-                                                            <AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle>
-                                                            <AlertDialogDescription>
-                                                                Hành động này sẽ xóa thông tin của người dùng <span className="font-bold">{u.displayName}</span> khỏi hệ thống. Người dùng này sẽ không thể đăng nhập được nữa. Hành động này không thể được hoàn tác.
-                                                            </AlertDialogDescription>
+                                                            <AlertDialogIcon icon={Trash2} />
+                                                            <div className="space-y-2 text-center sm:text-left">
+                                                                <AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle>
+                                                                <AlertDialogDescription>
+                                                                    Hành động này sẽ xóa thông tin của người dùng <span className="font-bold">{u.displayName}</span> khỏi hệ thống. Người dùng này sẽ không thể đăng nhập được nữa. Hành động này không thể được hoàn tác.
+                                                                </AlertDialogDescription>
+                                                            </div>
                                                         </AlertDialogHeader>
                                                         <AlertDialogFooter>
                                                             <AlertDialogCancel>Hủy</AlertDialogCancel>

@@ -15,7 +15,7 @@ import { Combobox } from '@/components/combobox';
 import { useAuth } from '@/hooks/use-auth';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useToast } from '@/components/ui/use-toast';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogIcon, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
 import { getISOWeek, getISOWeekYear } from 'date-fns';
 import { useLightbox } from '@/contexts/lightbox-context';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
@@ -623,7 +623,7 @@ function ReportView() {
                                             className="w-full"
                                         />
                                         {user?.role === 'Chủ nhà hàng' && selectedReportId && selectedReportId !== 'summary' && (
-                                            <AlertDialog parentDialogTag="root">
+                                            <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                                                 <AlertDialogTrigger asChild>
                                                     <Button variant="destructive" size="icon" disabled={isProcessing}>
                                                         <Trash2 className="h-4 w-4" />
@@ -631,13 +631,13 @@ function ReportView() {
                                                 </AlertDialogTrigger>
                                                 <AlertDialogContent>
                                                     <AlertDialogHeader>
-                                                        <AlertDialogTitle className="flex items-center gap-2">
-                                                            <AlertCircle className="text-destructive" />
-                                                            Xác nhận xóa báo cáo?
-                                                        </AlertDialogTitle>
-                                                        <AlertDialogDescription>
-                                                            Hành động này sẽ xóa vĩnh viễn báo cáo của <span className="font-bold">{reportToView?.staffName}</span> và tất cả hình ảnh liên quan. Hành động này không thể được hoàn tác.
-                                                        </AlertDialogDescription>
+                                                        <AlertDialogIcon icon={Trash2} />
+                                                        <div className="space-y-2 text-center sm:text-left">
+                                                            <AlertDialogTitle>Xác nhận xóa báo cáo?</AlertDialogTitle>
+                                                            <AlertDialogDescription>
+                                                                Hành động này sẽ xóa vĩnh viễn báo cáo của <span className="font-bold">{reportToView?.staffName}</span> và tất cả hình ảnh liên quan. Hành động này không thể được hoàn tác.
+                                                            </AlertDialogDescription>
+                                                        </div>
                                                     </AlertDialogHeader>
                                                     <AlertDialogFooter>
                                                         <AlertDialogCancel>Hủy</AlertDialogCancel>

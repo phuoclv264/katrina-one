@@ -13,7 +13,18 @@ import { LoadingPage } from '@/components/loading/LoadingPage';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'nextjs-toploader/app';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+    AlertDialogIcon
+} from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { callGenerateBartenderTasks, callSortTasks } from '@/lib/ai-service';
@@ -658,14 +669,20 @@ export default function BartenderTasksPage() {
                                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingTask({ sectionTitle: section.title, taskId: task.id, newText: task.text, newType: task.type })}>
                                                                 <Pencil className="h-4 w-4" />
                                                             </Button>
-                                                            <AlertDialog parentDialogTag="root">
+                                                            <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                                                                 <AlertDialogTrigger asChild>
                                                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
                                                                         <Trash2 className="h-4 w-4" />
                                                                     </Button>
                                                                 </AlertDialogTrigger>
                                                                 <AlertDialogContent>
-                                                                    <AlertDialogHeader><AlertDialogTitle>Xóa công việc?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription></AlertDialogHeader>
+                                                                    <AlertDialogHeader>
+                                                                        <AlertDialogIcon icon={Trash2} />
+                                                                        <div className="space-y-2 text-center sm:text-left">
+                                                                            <AlertDialogTitle>Xóa công việc?</AlertDialogTitle>
+                                                                            <AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription>
+                                                                        </div>
+                                                                    </AlertDialogHeader>
                                                                     <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteTask(section.title, task.id)}>Xóa</AlertDialogAction></AlertDialogFooter>
                                                                 </AlertDialogContent>
                                                             </AlertDialog>

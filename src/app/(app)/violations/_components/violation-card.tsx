@@ -4,7 +4,7 @@ import React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, AlertDialogIcon } from '@/components/ui/alert-dialog';
 import { Edit, Trash2, Eye, FilePlus2, Flag, MessageSquare, Loader2, CheckCircle } from 'lucide-react';
 import type { Violation, ViolationCategory, ViolationUser, ViolationComment, ViolationCategoryData, PenaltySubmission, ManagedUser, MediaAttachment } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -121,7 +121,7 @@ export const ViolationCard = React.forwardRef<HTMLDivElement, ViolationCardProps
                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(v)}>
                                     <Edit className="h-4 w-4" />
                                 </Button>
-                                <AlertDialog parentDialogTag="root">
+                                <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                                     <AlertDialogTrigger asChild>
                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" disabled={isItemProcessing}>
                                             <Trash2 className="h-4 w-4" />
@@ -129,8 +129,11 @@ export const ViolationCard = React.forwardRef<HTMLDivElement, ViolationCardProps
                                     </AlertDialogTrigger>
                                     <AlertDialogContent>
                                         <AlertDialogHeader>
-                                            <AlertDialogTitle>Xóa vi phạm?</AlertDialogTitle>
-                                            <AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription>
+                                            <AlertDialogIcon icon={Trash2} />
+                                            <div className="space-y-2 text-center sm:text-left">
+                                                <AlertDialogTitle>Xóa vi phạm?</AlertDialogTitle>
+                                                <AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription>
+                                            </div>
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
                                             <AlertDialogCancel>Hủy</AlertDialogCancel>

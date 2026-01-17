@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { useAuth, type AuthUser } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, AlertDialogIcon } from '@/components/ui/alert-dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Edit, Trash2, Camera, Loader2 } from 'lucide-react';
 import type { Violation, ViolationComment } from '@/lib/types';
@@ -92,7 +92,7 @@ export function CommentSection({
                       <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEditClick(comment)}>
                         <Edit className="h-3 w-3" />
                       </Button>
-                      <AlertDialog parentDialogTag="root">
+                      <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                         <AlertDialogTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive">
                             <Trash2 className="h-3 w-3" />
@@ -100,8 +100,11 @@ export function CommentSection({
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Xóa bình luận?</AlertDialogTitle>
-                            <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn bình luận này và các hình ảnh đính kèm. Không thể hoàn tác.</AlertDialogDescription>
+                            <AlertDialogIcon icon={Trash2} />
+                            <div className="space-y-2 text-center sm:text-left">
+                              <AlertDialogTitle>Xóa bình luận?</AlertDialogTitle>
+                              <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn bình luận này và các hình ảnh đính kèm. Không thể hoàn tác.</AlertDialogDescription>
+                            </div>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Hủy</AlertDialogCancel>

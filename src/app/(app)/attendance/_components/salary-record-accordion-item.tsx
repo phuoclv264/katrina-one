@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, AlertTriangle, FileX } from 'lucide-react';
+import { Loader2, AlertTriangle, FileX, DollarSign } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 import { toast } from '@/components/ui/pro-toast';
@@ -17,7 +17,7 @@ import { findShiftForRecord, getStatusInfo } from '@/lib/attendance-utils';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogIcon, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 type SalaryRecordAccordionItemProps = {
     record: SalaryRecord;
@@ -386,13 +386,16 @@ const SalaryRecordAccordionItem: React.FC<SalaryRecordAccordionItemProps> = Reac
                         )}
                     </div>
                 </AccordionContent>
-                <AlertDialog open={isPayDialogOpen} onOpenChange={setIsPayDialogOpen} parentDialogTag='root'>
+                <AlertDialog dialogTag="alert-dialog" open={isPayDialogOpen} onOpenChange={setIsPayDialogOpen} parentDialogTag='root' variant="warning">
                     <AlertDialogContent>
                         <AlertDialogHeader>
-                            <AlertDialogTitle>Xác nhận trả lương</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Số tiền đề xuất: {finalTakeHomePay.toLocaleString('vi-VN')}đ. Nhập số tiền thực trả:
-                            </AlertDialogDescription>
+                            <AlertDialogIcon icon={DollarSign} />
+                            <div className="space-y-2 text-center sm:text-left">
+                                <AlertDialogTitle>Xác nhận trả lương</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Số tiền đề xuất: {finalTakeHomePay.toLocaleString('vi-VN')}đ. Nhập số tiền thực trả:
+                                </AlertDialogDescription>
+                            </div>
                         </AlertDialogHeader>
 
                         {/* Staff quick info */}

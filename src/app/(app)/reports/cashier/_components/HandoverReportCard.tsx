@@ -4,7 +4,7 @@ import React from 'react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogIcon, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Edit, Trash2, Loader2, ClipboardCheck, FileSignature } from 'lucide-react';
 import type { CashHandoverReport, RevenueStats, ExpenseSlip } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
@@ -99,12 +99,18 @@ const HandoverReportCard = React.memo(({
                                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10" onClick={() => onViewFinalHandover(handover)}><FileSignature className="h-4 w-4" /></Button>
                                             )}
                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => onEditCashHandover(handover)}><Edit className="h-4 w-4" /></Button>
-                                            <AlertDialog parentDialogTag="root">
+                                            <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                                                 <AlertDialogTrigger asChild>
                                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/70 hover:text-destructive hover:bg-destructive/10" disabled={isProcessing}><Trash2 className="h-4 w-4" /></Button>
                                                 </AlertDialogTrigger>
                                                 <AlertDialogContent>
-                                                    <AlertDialogHeader><AlertDialogTitle>Xóa biên bản này?</AlertDialogTitle></AlertDialogHeader>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogIcon icon={Trash2} />
+                                                        <div className="space-y-2 text-center sm:text-left">
+                                                            <AlertDialogTitle>Xóa biên bản này?</AlertDialogTitle>
+                                                            <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn biên bản bàn giao và không thể hoàn tác.</AlertDialogDescription>
+                                                        </div>
+                                                    </AlertDialogHeader>
                                                     <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => onDeleteCashHandover(handover.id)}>Xóa</AlertDialogAction></AlertDialogFooter>
                                                 </AlertDialogContent>
                                             </AlertDialog>

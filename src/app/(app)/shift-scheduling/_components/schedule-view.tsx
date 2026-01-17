@@ -51,7 +51,7 @@ import { toast } from '@/components/ui/pro-toast';
 import ShiftAssignmentDialog from './shift-assignment-popover'; // Renaming this import for clarity, but it's the right file
 import ShiftTemplatesDialog from './shift-templates-dialog';
 import TotalHoursTracker from './total-hours-tracker';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, AlertDialogIcon } from '@/components/ui/alert-dialog';
 import HistoryAndReportsDialog from './history-reports-dialog';
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -1070,7 +1070,7 @@ export default function ScheduleView() {
                             <div className="flex-1" />
                             <div className="flex items-center justify-end gap-4 flex-wrap">
                                 {user?.role === 'Chủ nhà hàng' && (!localSchedule || !localSchedule.status || localSchedule.status === 'proposed') && !hasUnsavedChanges && (
-                                    <AlertDialog open={showAdminActionConfirm} onOpenChange={setShowAdminActionConfirm} parentDialogTag="root">
+                                    <AlertDialog open={showAdminActionConfirm} onOpenChange={setShowAdminActionConfirm} dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                                         <AlertDialogTrigger asChild>
                                             <Button variant="destructive" disabled={isSubmitting}>
                                                 <FileX2 className="mr-2 h-4 w-4" />
@@ -1079,15 +1079,18 @@ export default function ScheduleView() {
                                         </AlertDialogTrigger>
                                         <AlertDialogContent>
                                             <AlertDialogHeader>
-                                                <AlertDialogTitle>
-                                                    {localSchedule?.status === 'proposed' ? 'Từ chối lịch đề xuất?' : 'Tạo lịch nháp mới?'}
-                                                </AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    {localSchedule?.status === 'proposed'
-                                                        ? "Hành động này sẽ chuyển lịch trở lại trạng thái 'Bản nháp', cho phép Quản lý tiếp tục chỉnh sửa."
-                                                        : "Tuần này chưa có lịch. Hành động này sẽ tạo một lịch nháp mới dựa trên các mẫu ca hiện có."
-                                                    }
-                                                </AlertDialogDescription>
+                                                <AlertDialogIcon icon={FileX2} />
+                                                <div className="space-y-2 text-center sm:text-left">
+                                                    <AlertDialogTitle>
+                                                        {localSchedule?.status === 'proposed' ? 'Từ chối lịch đề xuất?' : 'Tạo lịch nháp mới?'}
+                                                    </AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        {localSchedule?.status === 'proposed'
+                                                            ? "Hành động này sẽ chuyển lịch trở lại trạng thái 'Bản nháp', cho phép Quản lý tiếp tục chỉnh sửa."
+                                                            : "Tuần này chưa có lịch. Hành động này sẽ tạo một lịch nháp mới dựa trên các mẫu ca hiện có."
+                                                        }
+                                                    </AlertDialogDescription>
+                                                </div>
                                             </AlertDialogHeader>
                                             <AlertDialogFooter>
                                                 <AlertDialogCancel>Hủy</AlertDialogCancel>
@@ -1105,7 +1108,7 @@ export default function ScheduleView() {
                                     </AlertDialog>
                                 )}
                                 {user?.role === 'Chủ nhà hàng' && localSchedule?.status === 'published' && !hasUnsavedChanges && (
-                                    <AlertDialog open={showRevertConfirm} onOpenChange={setShowRevertConfirm} parentDialogTag="root">
+                                    <AlertDialog open={showRevertConfirm} onOpenChange={setShowRevertConfirm} dialogTag="alert-dialog" parentDialogTag="root" variant="warning">
                                         <AlertDialogTrigger asChild>
                                             <Button variant="secondary" disabled={isSubmitting}>
                                                 <FileSignature className="mr-2 h-4 w-4" /> Thu hồi lịch
@@ -1113,10 +1116,13 @@ export default function ScheduleView() {
                                         </AlertDialogTrigger>
                                         <AlertDialogContent>
                                             <AlertDialogHeader>
-                                                <AlertDialogTitle>Thu hồi lịch đã công bố?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    Hành động này sẽ thu hồi lịch, ẩn nó khỏi trang của nhân viên và chuyển về trạng thái 'Bản nháp' để bạn có thể tiếp tục chỉnh sửa.
-                                                </AlertDialogDescription>
+                                                <AlertDialogIcon icon={History} />
+                                                <div className="space-y-2 text-center sm:text-left">
+                                                    <AlertDialogTitle>Thu hồi lịch đã công bố?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        Hành động này sẽ thu hồi lịch, ẩn nó khỏi trang của nhân viên và chuyển về trạng thái 'Bản nháp' để bạn có thể tiếp tục chỉnh sửa.
+                                                    </AlertDialogDescription>
+                                                </div>
                                             </AlertDialogHeader>
                                             <AlertDialogFooter>
                                                 <AlertDialogCancel>Hủy</AlertDialogCancel>
@@ -1145,7 +1151,7 @@ export default function ScheduleView() {
                 <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6">
                     <div className="relative">
                         {isPublishAction ? (
-                            <AlertDialog open={showPublishConfirm} onOpenChange={setShowPublishConfirm} parentDialogTag="root">
+                            <AlertDialog open={showPublishConfirm} onOpenChange={setShowPublishConfirm} dialogTag="alert-dialog" parentDialogTag="root" variant="primary">
                                 <AlertDialogTrigger asChild>
                                     <Button
                                         size="lg"
@@ -1158,7 +1164,13 @@ export default function ScheduleView() {
                                     </Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
-                                    <AlertDialogHeader><AlertDialogTitle>Công bố lịch làm việc?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ công bố lịch cho tất cả nhân viên. Nếu có thay đổi chưa lưu, chúng cũng sẽ được lưu lại.</AlertDialogDescription></AlertDialogHeader>
+                                    <AlertDialogHeader>
+                                        <AlertDialogIcon icon={CheckCircle} />
+                                        <div className="space-y-2 text-center sm:text-left">
+                                            <AlertDialogTitle>Công bố lịch làm việc?</AlertDialogTitle>
+                                            <AlertDialogDescription>Hành động này sẽ công bố lịch cho tất cả nhân viên. Nếu có thay đổi chưa lưu, chúng cũng sẽ được lưu lại.</AlertDialogDescription>
+                                        </div>
+                                    </AlertDialogHeader>
                                     <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleUpdateStatus('published')}>Xác nhận Công bố</AlertDialogAction></AlertDialogFooter>
                                 </AlertDialogContent>
                             </AlertDialog>

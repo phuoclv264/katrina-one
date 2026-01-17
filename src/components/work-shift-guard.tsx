@@ -2,8 +2,8 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { Loader2 } from 'lucide-react';
-import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction } from '@/components/ui/alert-dialog';
+import { Loader2, Clock } from 'lucide-react';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogIcon } from '@/components/ui/alert-dialog';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { getHomePathForRole } from '@/lib/navigation';
 import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
@@ -39,13 +39,16 @@ export default function WorkShiftGuard({ children, redirectPath }: WorkShiftGuar
 
   if (!isCheckedIn) {
     return (
-      <AlertDialog open={true} onOpenChange={() => { }} parentDialogTag="root">
+      <AlertDialog open={true} onOpenChange={() => { }} dialogTag="alert-dialog" parentDialogTag="root" variant="warning">
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Chưa chấm công</AlertDialogTitle>
-            <AlertDialogDescription>
-              Bạn cần phải chấm công để truy cập chức năng này.
-            </AlertDialogDescription>
+            <AlertDialogIcon icon={Clock} />
+            <div className="space-y-2 text-center sm:text-left">
+              <AlertDialogTitle>Chưa chấm công</AlertDialogTitle>
+              <AlertDialogDescription>
+                Bạn cần phải chấm công để truy cập chức năng này.
+              </AlertDialogDescription>
+            </div>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogAction onClick={() => nav.replace(getHomePathForRole(user?.role))}>Đã hiểu</AlertDialogAction>

@@ -7,7 +7,7 @@ import { vi } from 'date-fns/locale';
 import { cn, getInitials } from '@/lib/utils';
 import Image from 'next/image';
 import { getStatusInfo, findShiftForRecord } from '@/lib/attendance-utils';
-import { Edit2, MoreVertical, Trash2 } from 'lucide-react';
+import { Edit2, MoreVertical, Trash2, AlertCircle } from 'lucide-react';
 import HourlyRateDialog from './hourly-rate-dialog';
 import { dataStore } from '@/lib/data-store';
 import { toast } from '@/components/ui/pro-toast';
@@ -19,7 +19,18 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { 
+    AlertDialog, 
+    AlertDialogAction, 
+    AlertDialogCancel, 
+    AlertDialogContent, 
+    AlertDialogDescription, 
+    AlertDialogFooter, 
+    AlertDialogHeader, 
+    AlertDialogTitle, 
+    AlertDialogTrigger,
+    AlertDialogIcon 
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
@@ -114,7 +125,7 @@ export default function AttendanceCards({
                                             {statusInfo.icon}
                                             {statusInfo.text}
                                         </div>
-                                        <AlertDialog parentDialogTag="root">
+                                        <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                                             <DropdownMenu modal={false}>
                                                 <DropdownMenuTrigger asChild>
                                                     <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -129,7 +140,13 @@ export default function AttendanceCards({
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                             <AlertDialogContent>
-                                                <AlertDialogHeader><AlertDialogTitle>Xác nhận xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác. Bạn có chắc chắn muốn xóa bản ghi chấm công này không?</AlertDialogDescription></AlertDialogHeader>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogIcon icon={Trash2} />
+                                                    <div className="space-y-2 text-center sm:text-left">
+                                                        <AlertDialogTitle>Xác nhận xóa?</AlertDialogTitle>
+                                                        <AlertDialogDescription>Hành động này không thể hoàn tác. Bạn có chắc chắn muốn xóa bản ghi chấm công này không?</AlertDialogDescription>
+                                                    </div>
+                                                </AlertDialogHeader>
                                                 <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => onDelete(record.id)}>Xóa</AlertDialogAction></AlertDialogFooter>
                                             </AlertDialogContent>
                                         </AlertDialog>

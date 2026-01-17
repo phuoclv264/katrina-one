@@ -423,6 +423,13 @@ function ViolationsView() {
     return now.getFullYear() === currentMonth.getFullYear() && now.getMonth() === currentMonth.getMonth();
   }, [currentMonth]);
 
+  // Format current month as MM/YYYY for compact display (e.g., 01/2026)
+  const formattedCurrentMonth = useMemo(() => {
+    const mm = String(currentMonth.getMonth() + 1).padStart(2, '0');
+    const yyyy = String(currentMonth.getFullYear());
+    return `${mm}/${yyyy}`;
+  }, [currentMonth]);
+
   const setToCurrentMonth = () => {
     const now = new Date();
     setCurrentMonth(new Date(now.getFullYear(), now.getMonth(), 1));
@@ -546,11 +553,11 @@ function ViolationsView() {
           </CardHeader>
           <CardContent>
             <div className="mb-6 grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-              <div className="lg:col-span-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl p-6 shadow-md">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm opacity-80">Tổng quan tháng</div>
-                    <div className="flex items-center gap-1 mt-1">
+              <div className="lg:col-span-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl p-3 sm:p-4 shadow-md">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="text-sm opacity-90">Tháng</div>
+                    <div className="inline-flex items-center gap-2 bg-white/10 rounded-md px-2 py-1 flex-wrap">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -560,7 +567,9 @@ function ViolationsView() {
                       >
                         <ChevronLeft className="h-4 w-4" />
                       </Button>
-                      <div className="text-2xl font-bold">{currentMonth.toLocaleString('vi-VN', { month: 'long', year: 'numeric' })}</div>
+
+                      <div className="text-sm sm:text-base font-semibold tracking-wide truncate">{formattedCurrentMonth}</div>
+
                       <Button
                         variant="ghost"
                         size="icon"
@@ -571,21 +580,43 @@ function ViolationsView() {
                       >
                         <ChevronRight className="h-4 w-4" />
                       </Button>
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={setToCurrentMonth}
+                        aria-label="Set to current month"
+                        className="ml-2 text-xs bg-white/10 hover:bg-white/20 rounded-md px-2 py-1 hidden sm:inline-flex"
+                      >
+                        Hôm nay
+                      </Button>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm opacity-80">Tổng vi phạm</div>
-                    <div className="text-3xl font-extrabold">{monthSummary.totalCount}</div>
-                  </div>
-                </div>
-                <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="bg-white/10 rounded-md p-3">
-                    <div className="text-xs opacity-80">Tổng tiền phạt</div>
-                    <div className="text-lg font-semibold mt-1">{monthSummary.totalCost.toLocaleString('vi-VN')}</div>
-                  </div>
-                  <div className="bg-white/10 rounded-md p-3">
-                    <div className="text-xs opacity-80">Chưa nộp</div>
-                    <div className="text-lg font-semibold mt-1 text-amber-100">{perUserSummary.totalUnpaid.toLocaleString('vi-VN')}</div>
+
+                  <div className="flex flex-wrap items-stretch gap-2 w-full sm:w-auto mt-3 sm:mt-0">
+                    <div className="flex items-center gap-2 bg-white/10 bg-opacity-12 rounded-lg px-3 py-2 w-full sm:w-auto sm:min-w-[110px]">
+                      <ShieldX className="h-4 w-4 opacity-90" />
+                      <div className="flex-1 flex flex-col">
+                        <div className="text-xs opacity-80">Tổng vi phạm</div>
+                        <div className="text-lg sm:text-xl font-semibold truncate">{monthSummary.totalCount}</div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 bg-white/10 bg-opacity-12 rounded-lg px-3 py-2 w-full sm:w-auto sm:min-w-[140px]">
+                      <BadgeInfo className="h-4 w-4 opacity-90" />
+                      <div className="flex-1 flex flex-col">
+                        <div className="text-xs opacity-80">Tổng tiền phạt</div>
+                        <div className="text-base sm:text-lg font-semibold truncate">{monthSummary.totalCost.toLocaleString('vi-VN')}</div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 bg-white/10 bg-opacity-12 rounded-lg px-3 py-2 w-full sm:w-auto sm:min-w-[120px]">
+                      <UserSearch className="h-4 w-4 opacity-90" />
+                      <div className="flex-1 flex flex-col">
+                        <div className="text-xs opacity-80">Chưa nộp</div>
+                        <div className="text-base sm:text-lg font-semibold text-amber-100 truncate">{perUserSummary.totalUnpaid.toLocaleString('vi-VN')}</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

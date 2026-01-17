@@ -15,7 +15,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogIcon, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 
@@ -609,13 +609,16 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
               {isProcessing ? 'Đang lưu...' : 'Lưu mặt hàng'}
             </Button>
           </DialogFooter>
-          <AlertDialog open={isConfirmCloseOpen} onOpenChange={setIsConfirmCloseOpen} parentDialogTag="root">
+          <AlertDialog open={isConfirmCloseOpen} onOpenChange={setIsConfirmCloseOpen} dialogTag="alert-dialog" parentDialogTag="root" variant="warning">
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Hủy các thay đổi?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Bạn có một số thay đổi chưa được lưu. Bạn có chắc chắn muốn hủy không?
-                </AlertDialogDescription>
+                <AlertDialogIcon icon={AlertTriangle} />
+                <div className="space-y-2 text-center sm:text-left">
+                  <AlertDialogTitle>Hủy các thay đổi?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Các thay đổi bạn đã thực hiện sẽ không được lưu. Bạn có chắc chắn muốn thoát?
+                  </AlertDialogDescription>
+                </div>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Ở lại</AlertDialogCancel>

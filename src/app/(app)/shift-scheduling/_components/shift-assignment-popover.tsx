@@ -27,6 +27,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
+  AlertDialogIcon,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Card, CardContent } from '@/components/ui/card';
@@ -324,15 +325,18 @@ export default function ShiftAssignmentDialog({
           <Button onClick={handleSave}>Lưu thay đổi</Button>
         </DialogFooter>
 
-        <AlertDialog open={!!conflictError} onOpenChange={() => setConflictError(null)} parentDialogTag="root">
+        <AlertDialog open={!!conflictError} onOpenChange={() => setConflictError(null)} dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle className="flex items-center gap-2"><AlertCircle className="text-destructive" />Lỗi: Phân công bị trùng</AlertDialogTitle>
-              <AlertDialogDescription>
-                Nhân viên <span className="font-bold">{conflictError?.userName}</span> đã được xếp vào ca <span className="font-bold">{conflictError?.shiftLabel}</span>, bị trùng giờ với ca này.
-                <br /><br />
-                Vui lòng bỏ phân công ở ca đó trước khi thêm vào ca này.
-              </AlertDialogDescription>
+              <AlertDialogIcon icon={AlertCircle} />
+              <div className="space-y-2 text-center sm:text-left">
+                <AlertDialogTitle>Lỗi: Phân công bị trùng</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Nhân viên <span className="font-bold">{conflictError?.userName}</span> đã được xếp vào ca <span className="font-bold">{conflictError?.shiftLabel}</span>, bị trùng giờ với ca này.
+                  <br /><br />
+                  Vui lòng bỏ phân công ở ca đó trước khi thêm vào ca này.
+                </AlertDialogDescription>
+              </div>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogAction onClick={() => setConflictError(null)}>Đã hiểu</AlertDialogAction>
