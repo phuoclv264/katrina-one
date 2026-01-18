@@ -8,13 +8,16 @@ function useScrollDirection() {
 
   useEffect(() => {
     let lastScrollY = window.scrollY;
+    // Ignore tiny scrolls/taps — make the nav less sensitive to small jitters
+    const SCROLL_DELTA_PX = 8;
 
     const updateScrollDirection = () => {
       const scrollY = window.scrollY;
+      // ignore small movements
+      if (Math.abs(scrollY - lastScrollY) < SCROLL_DELTA_PX) return;
       const direction = scrollY > lastScrollY ? 'down' : 'up';
-      if (direction !== scrollDirection && Math.abs(scrollY - lastScrollY) > 0) {
-        setScrollDirection(direction);
-      }
+      // use functional update to avoid stale closure issues
+      setScrollDirection((prev) => (prev === direction ? prev : direction));
       lastScrollY = scrollY > 0 ? scrollY : 0;
     };
 
@@ -58,11 +61,21 @@ export function BottomNav({ tabs, activeTab, onTabChange, watchValue, autoHideMs
       return;
     }
 
+    // Don't hide immediately on small/brief downward motion — wait briefly to
+    // ensure the user intended to scroll down. This reduces accidental hides
+    // when users tap/move slightly.
+    let id: number | undefined;
+    const HIDE_DELAY_MS = 150;
+
     if (scrollDirection === 'down') {
-      setIsVisible(false);
+      id = window.setTimeout(() => setIsVisible(false), HIDE_DELAY_MS);
     } else if (scrollDirection === 'up') {
       setIsVisible(true);
     }
+
+    return () => {
+      if (id) clearTimeout(id);
+    };
   }, [scrollDirection, alwaysVisibleAtTop]);
 
   // Auto-hide timer when visible and not interacting
@@ -146,6 +159,8 @@ export function BottomNav({ tabs, activeTab, onTabChange, watchValue, autoHideMs
       onMouseEnter={() => setIsInteracting(true)}
       onMouseLeave={() => setIsInteracting(false)}
       onTouchStart={() => { setIsInteracting(true); setIsVisible(true); }}
+      onTouchMove={() => setIsInteracting(true)}
+      onTouchCancel={() => setIsInteracting(false)}
       onTouchEnd={() => setIsInteracting(false)}
     >
       <nav className="flex h-16 items-center justify-around px-2">

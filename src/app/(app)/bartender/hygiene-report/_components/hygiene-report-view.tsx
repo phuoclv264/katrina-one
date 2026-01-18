@@ -706,6 +706,9 @@ export default function HygieneReportView({ isStandalone = true }: HygieneReport
                 onSubmit={handleCapturePhotos}
                 captureMode="photo"
                 parentDialogTag="root"
+                contextText={activeTask?.text}
+                allowCaption={true}
+                initialCaption={activeTask ? (report.completedTasks[activeTask.id]?.find(c => c.note)?.note || '') : ''}
             />
 
             <OpinionDialog

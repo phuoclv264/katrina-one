@@ -291,7 +291,7 @@ export default function ManagerReportView({ isStandalone = false }: ManagerRepor
         handleOpinionClose();
     }
 
-    const handleCapturePhotos = useCallback(async (media: { id: string; type: 'photo' | 'video' }[]) => {
+    const handleCapturePhotos = useCallback(async (media: { id: string; type: 'photo' | 'video' }[], note?: string) => {
         if (!activeTask) return;
 
         // Filter for photos only, as this dialog currently only handles images.
@@ -308,12 +308,14 @@ export default function ManagerReportView({ isStandalone = false }: ManagerRepor
             if (completionIndex !== null && taskCompletions[completionIndex]) {
                 const completionToUpdate = { ...taskCompletions[completionIndex] };
                 completionToUpdate.photoIds = [...(completionToUpdate.photoIds || []), ...photoIds];
+                if (note && note.trim()) completionToUpdate.note = note.trim();
                 taskCompletions[completionIndex] = completionToUpdate;
             } else {
                 taskCompletions.unshift({
                     timestamp: format(new Date(), 'HH:mm'),
                     photos: [],
-                    photoIds: photoIds
+                    photoIds: photoIds,
+                    note: note?.trim() || undefined
                 });
             }
 
@@ -731,6 +733,9 @@ export default function ManagerReportView({ isStandalone = false }: ManagerRepor
                 onSubmit={handleCapturePhotos}
                 captureMode="photo"
                 parentDialogTag="root"
+                contextText={activeTask?.text}
+                allowCaption={true}
+                initialCaption={activeTask ? (report.completedTasks[activeTask.id]?.find(c => c.note)?.note || '') : ''}
             />
 
             <OpinionDialog
