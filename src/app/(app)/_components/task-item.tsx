@@ -123,6 +123,23 @@ const TaskItemComponent = ({
     return hasMyNote || hasOtherNote;
   }, [completions, otherStaffCompletions]);
 
+  const renderProgressBadge = () => {
+    if (completions.length === 0) return null;
+    return (
+      <div className="absolute -right-2 -top-1 z-10 pointer-events-none">
+        {completions.length >= minCompletions ? (
+          <div className="flex items-center justify-center h-5 w-5 rounded-full bg-green-500 text-white shadow-sm border border-white/50 animate-in zoom-in-50 duration-300">
+            <CheckCircle2 className="w-3 h-3" />
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-5 min-w-[22px] px-1 text-slate-600 text-[9px] font-black shadow-sm animate-in zoom-in-50 duration-300">
+            {completions.length}/{minCompletions}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className={cn(
       'group relative flex flex-col h-full min-w-0 w-full rounded-2xl transition-all duration-300 p-3',
@@ -161,7 +178,7 @@ const TaskItemComponent = ({
         {/* Action Buttons */}
         <div className="mt-2">
           {task.type === 'boolean' && (
-            <div className="grid">
+            <div className="relative">
               <Button
                 size="sm"
                 variant="outline"
@@ -175,20 +192,24 @@ const TaskItemComponent = ({
                 <ThumbsUp className="mr-1.5 h-3 w-3" />
                 Đảm bảo
               </Button>
+              {renderProgressBadge()}
             </div>
           )}
 
           {task.type === 'opinion' && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full h-8 rounded-xl text-[11px] font-bold border-amber-200 bg-amber-50/50 text-amber-700 hover:bg-amber-100 transition-all active:scale-95"
-              onClick={() => onOpinionAction(task)}
-              disabled={isReadonly}
-            >
-              <FilePen className="mr-1.5 h-3 w-3" />
-              Ghi nhận ý kiến
-            </Button>
+            <div className="relative">
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full h-8 rounded-xl text-[11px] font-bold border-amber-200 bg-amber-50/50 text-amber-700 hover:bg-amber-100 transition-all active:scale-95"
+                onClick={() => onOpinionAction(task)}
+                disabled={isReadonly}
+              >
+                <FilePen className="mr-1.5 h-3 w-3" />
+                Ghi nhận ý kiến
+              </Button>
+              {renderProgressBadge()}
+            </div>
           )}
         </div>
       </div>
@@ -263,7 +284,7 @@ const TaskItemComponent = ({
 
       {/* Photo action moved to bottom (hidden for single-completion tasks after done) */}
       {task.type === 'photo' && (
-        <div className="mt-2">
+        <div className="mt-2 relative">
           <Button
             size="sm"
             variant={isCompleted ? "outline" : "default"}
@@ -306,6 +327,7 @@ const TaskItemComponent = ({
             <Camera className="mr-1.5 h-3 w-3" />
             Báo cáo
           </Button>
+          {renderProgressBadge()}
         </div>
       )}
     </div>

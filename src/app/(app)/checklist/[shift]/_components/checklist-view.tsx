@@ -31,6 +31,9 @@ import { TaskItem } from '../../../_components/task-item';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useLightbox } from '@/contexts/lightbox-context';
 import { useRouter } from 'nextjs-toploader/app';
+import ChecklistHeader from './checklist-header';
+import ChecklistTabs from './checklist-tabs';
+import SubmitFab from './submit-fab';
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
@@ -649,397 +652,46 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
 
   return (
     <div className="flex flex-col min-h-screen bg-background pb-24">
-      {/* --- Header & Stats Section --- */}
-      <div className="bg-white dark:bg-slate-950 border-b">
-        <div className="px-4 pt-5 pb-4 space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center border border-primary/20 rotate-3">
-                  <ListChecks className="w-6 h-6 text-primary -rotate-3" />
-                </div>
-                {syncStatus === 'checking' && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-amber-500 rounded-full border-2 border-white animate-pulse" />
-                )}
-              </div>
-              <div className="space-y-0.5">
-                <h1 className="text-xl font-black tracking-tight text-slate-900 dark:text-white uppercase italic">
-                  {shift.name}
-                </h1>
-                <div className="flex items-center gap-2">
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest bg-muted/50 px-2 py-0.5 rounded-md">
-                    {format(new Date(), 'EEEE, dd/MM', { locale: vi })}
-                  </p>
-                  {isReadonly && isReadonlyChecked && (
-                    <span className="text-[9px] font-black text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-100 uppercase tracking-tighter shadow-sm">
-                      Chỉ xem
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="text-right">
-              <div className="flex items-baseline justify-end gap-0.5">
-                <span className="text-2xl font-black text-primary leading-none">{progressPercentage}</span>
-                <span className="text-[10px] font-bold text-primary/60 uppercase">%</span>
-              </div>
-              <p className="text-[9px] font-black text-muted-foreground uppercase tracking-tight">Tiến độ ca</p>
-            </div>
-          </div>
-
-          {/* New Progress Bar Design */}
-          <div className="relative px-0.5">
-            <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner border border-slate-200/50">
-              <motion.div
-                className="h-full bg-gradient-to-r from-primary via-primary to-primary/80 shadow-[0_0_8px_rgba(var(--primary),0.3)]"
-                initial={{ width: 0 }}
-                animate={{ width: `${progressPercentage}%` }}
-                transition={{ duration: 1, ease: "circOut" }}
-              />
-            </div>
-            <div className="flex justify-between mt-1.5 text-[9px] font-black text-muted-foreground/60 uppercase tracking-tighter">
-              <span>BẮT ĐẦU</span>
-              <div className="flex items-center gap-1 text-primary">
-                <CheckCircle className="w-2.5 h-2.5" />
-                <span>{completedTasksCount}/{totalTasksCount} NHIỆM VỤ</span>
-              </div>
-              <span>HOÀN TẤT</span>
-            </div>
-          </div>
-
-          {/* Team Activity Summary - Modern Avatar List */}
-          {teamStats.length > 0 && (
-            <div className="pt-2 border-t border-dashed">
-              <div className="flex items-center justify-between mb-3 px-1">
-                <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
-                  <Activity className="w-3 h-3 text-primary" />
-                  Hoạt động nhóm
-                </h3>
-                <span className="text-[8px] font-bold text-primary/60 bg-primary/5 px-2 py-0.5 rounded-full border border-primary/10">LIVE</span>
-              </div>
-              <div className="flex items-center gap-4 overflow-x-auto no-scrollbar -mx-4 px-4 pt-2">
-                {teamStats.map((staff, idx) => (
-                  <div key={staff.userId} className="flex flex-col items-center gap-2 group">
-                    <div className="relative">
-                      <div className={cn(
-                        "w-10 h-10 rounded-2xl flex items-center justify-center text-[10px] font-black transition-all border-2",
-                        idx === 0
-                          ? "bg-amber-500 border-amber-200 text-white shadow-lg shadow-amber-500/20 ring-4 ring-amber-500/5"
-                          : "bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400 group-hover:border-primary/30 shadow-sm"
-                      )}>
-                        {getInitials(staff.name)}
-                      </div>
-                      {idx === 0 && (
-                        <div className="absolute -top-2 -right-2 bg-white rounded-full p-1 shadow-md border border-amber-100 animate-bounce">
-                          <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-                        </div>
-                      )}
-                      <div className={cn(
-                        "absolute -bottom-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-lg flex items-center justify-center text-[8px] font-black border-2 border-white shadow-sm",
-                        idx === 0 ? "bg-amber-600 text-white" : "bg-slate-600 text-white"
-                      )}>
-                        {staff.tasksDone}
-                      </div>
-                    </div>
-                    <span className={cn(
-                      "text-[9px] font-bold uppercase tracking-tight",
-                      idx === 0 ? "text-amber-800" : "text-slate-500"
-                    )}>
-                      {staff.isMe ? "BẠN" : generateShortName(staff.name)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+      <ChecklistHeader
+        shift={shift}
+        progressPercentage={progressPercentage}
+        completedTasksCount={completedTasksCount}
+        totalTasksCount={totalTasksCount}
+        teamStats={teamStats}
+        isReadonly={isReadonly}
+        isReadonlyChecked={isReadonlyChecked}
+        syncBadge={getSyncBadge()}
+      />
 
       {/* --- Main Content: Tabs --- */}
       <div className="flex-1 px-3 py-4">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
-          <TabsList className="sticky top-14 md:top-0 z-30 flex w-full h-12 p-1.5 bg-background/60 backdrop-blur-xl rounded-2xl border shadow-sm gap-1.5">
-            {shift.sections.map((section) => (
-              <TabsTrigger
-                key={section.title}
-                value={section.title}
-                className="flex-1 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all duration-300
-                  data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/25
-                  data-[state=inactive]:text-muted-foreground/70 data-[state=inactive]:hover:bg-muted/50"
-              >
-                {section.title}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
-          {shift.sections.map((section) => {
-            const sectionTasks = section.tasks.filter(t => t.type !== 'opinion');
-            const sectionOpinions = section.tasks.filter(t => t.type === 'opinion');
-
-            return (
-              <TabsContent key={section.title} value={section.title} className="mt-0 focus-visible:outline-none">
-                <div className="space-y-">
-                  {/* Checklist Grid */}
-                  {sectionTasks.length > 0 && (
-                    // Two independent columns (left-to-right ordering): distribute tasks alternately so items read L→R, top→bottom
-                    <div className="flex gap-3">
-                      <div className="flex-1 flex flex-col gap-3">
-                        {sectionTasks.filter((_, idx) => idx % 2 === 0).map((task) => {
-                          const minCompletions = task.minCompletions || 1;
-                          const isCompleted = (report.completedTasks[task.id]?.length || 0) >= minCompletions;
-
-                          // Check if other team members completed this task
-                          const otherStaffWhoCompleted = otherStaffReports.filter(
-                            r => (r.completedTasks[task.id]?.length || 0) >= minCompletions
-                          );
-                          const hasTeamCompletion = otherStaffWhoCompleted.length > 0;
-
-                          // Prepare other staff completions for this task
-                          const otherStaffCompletions = otherStaffWhoCompleted.map(staffReport => ({
-                            staffName: staffReport.staffName,
-                            userId: staffReport.userId,
-                            completions: (staffReport.completedTasks[task.id] || []) as CompletionRecord[]
-                          }));
-
-                          return (
-                            <div key={task.id} className="relative">
-                              <div className="absolute -top-2 -right-2 z-10 pointer-events-none">
-                                {(() => {
-                                  const selfCount = (report?.completedTasks[task.id]?.length || 0);
-                                  const otherStaffTotal = otherStaffReports.reduce((s, r) => s + (r.completedTasks?.[task.id]?.length || 0), 0);
-                                  const isSingle = section.title !== 'Trong ca';
-                                  const min = task.minCompletions || 1;
-
-                                  if (isSingle) {
-                                    if (selfCount > 0) {
-                                      return (
-                                        <div className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-green-500 text-white shadow-sm border-2 border-white">
-                                          <CheckCircle className="w-3 h-3" />
-                                        </div>
-                                      );
-                                    }
-                                    if (otherStaffTotal > 0) {
-                                      return (
-                                        <div className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-sky-500 text-white shadow-sm border-2 border-white">
-                                          <CheckCircle className="w-3 h-3" />
-                                        </div>
-                                      );
-                                    }
-                                    return null;
-                                  }
-
-                                  const isMet = selfCount >= min;
-                                  if (isMet) {
-                                    return (
-                                      <div className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-green-500 text-white shadow-sm border-2 border-white">
-                                        <CheckCircle className="w-3 h-3" />
-                                      </div>
-                                    );
-                                  }
-
-                                  return (
-                                    <div className="inline-flex items-center justify-center h-5 min-w-[24px] px-1 rounded-full bg-slate-600 text-white text-[10px] font-bold shadow-sm border-2 border-white">
-                                      {`${selfCount}/${min}`}
-                                    </div>
-                                  );
-                                })()}
-                              </div>
-
-                              <TaskItem
-                                task={task}
-                                completions={(report.completedTasks[task.id] || []) as CompletionRecord[]}
-                                onBooleanAction={handleBooleanTaskAction}
-                                onPhotoAction={handlePhotoTaskAction}
-                                onOpinionAction={handleOpinionTaskAction}
-                                onNoteAction={handleNoteTaskAction}
-                                onDeletePhoto={handleDeletePhoto}
-                                onDeleteCompletion={handleDeleteCompletion}
-                                onToggleExpand={toggleExpandTask}
-                                isReadonly={isReadonly || isSubmitting}
-                                isExpanded={expandedTaskIds.has(task.id)}
-                                isSingleCompletion={section.title !== 'Trong ca' ? true : false}
-                                onOpenLightbox={openLightbox}
-                                otherStaffCompletions={otherStaffCompletions}
-                                className={cn(
-                                  "w-full border-[1.5px] transition-all duration-300 rounded-2xl",
-                                  isCompleted
-                                    ? "border-green-500/30 bg-white shadow-[0_4px_12px_rgba(34,197,94,0.08)]"
-                                    : task.isCritical
-                                      ? "border-amber-500/40 bg-white shadow-[0_8px_20px_rgba(245,158,11,0.12)] active:scale-[0.98]"
-                                      : "border-slate-200 bg-white shadow-[0_4px_12px_rgba(0,0,0,0.05)] active:scale-[0.98]"
-                                )}
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      <div className="flex-1 flex flex-col gap-3">
-                        {sectionTasks.filter((_, idx) => idx % 2 === 1).map((task) => {
-                          const minCompletions = task.minCompletions || 1;
-                          const isCompleted = (report.completedTasks[task.id]?.length || 0) >= minCompletions;
-
-                          // Check if other team members completed this task
-                          const otherStaffWhoCompleted = otherStaffReports.filter(
-                            r => (r.completedTasks[task.id]?.length || 0) >= minCompletions
-                          );
-
-                          // Prepare other staff completions for this task
-                          const otherStaffCompletions = otherStaffWhoCompleted.map(staffReport => ({
-                            staffName: staffReport.staffName,
-                            userId: staffReport.userId,
-                            completions: (staffReport.completedTasks[task.id] || []) as CompletionRecord[]
-                          }));
-
-                          return (
-                            <div key={task.id} className="relative">
-                              {/* Badge: show other completions for single-completion tasks, or self count/min for multi-completion */}
-                              <div className="absolute -top-2 -right-2 z-10 pointer-events-none">
-                                {(() => {
-                                  const selfCount = (report?.completedTasks[task.id]?.length || 0);
-                                  const otherStaffTotal = otherStaffReports.reduce((s, r) => s + (r.completedTasks?.[task.id]?.length || 0), 0);
-                                  const isSingle = section.title !== 'Trong ca';
-                                  const min = task.minCompletions || 1;
-
-                                  if (isSingle) {
-                                    if (selfCount > 0) {
-                                      return (
-                                        <div className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-green-500 text-white shadow-sm border-2 border-white">
-                                          <CheckCircle className="w-3 h-3" />
-                                        </div>
-                                      );
-                                    }
-                                    if (otherStaffTotal > 0) {
-                                      return (
-                                        <div className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-sky-500 text-white shadow-sm border-2 border-white">
-                                          <CheckCircle className="w-3 h-3" />
-                                        </div>
-                                      );
-                                    }
-                                    return null;
-                                  }
-
-                                  // Multi-completion
-                                  const isMet = selfCount >= min;
-                                  if (isMet) {
-                                    return (
-                                      <div className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-green-500 text-white shadow-sm border-2 border-white">
-                                        <CheckCircle className="w-3 h-3" />
-                                      </div>
-                                    );
-                                  }
-                                  return (
-                                    <div className="inline-flex items-center justify-center h-5 min-w-[24px] px-1 rounded-full bg-slate-600 text-white text-[10px] font-bold shadow-sm border-2 border-white">{`${selfCount}/${min}`}</div>
-                                  );
-                                })()}
-                              </div>
-
-                              <TaskItem
-                                task={task}
-                                completions={(report.completedTasks[task.id] || []) as CompletionRecord[]}
-                                onBooleanAction={handleBooleanTaskAction}
-                                onPhotoAction={handlePhotoTaskAction}
-                                onOpinionAction={handleOpinionTaskAction}
-                                onNoteAction={handleNoteTaskAction}
-                                onDeletePhoto={handleDeletePhoto}
-                                onDeleteCompletion={handleDeleteCompletion}
-                                onToggleExpand={toggleExpandTask}
-                                isReadonly={isReadonly || isSubmitting}
-                                isExpanded={expandedTaskIds.has(task.id)}
-                                isSingleCompletion={section.title !== 'Trong ca' ? true : false}
-                                onOpenLightbox={openLightbox}
-                                otherStaffCompletions={otherStaffCompletions}
-                                className={cn(
-                                  "w-full border-[1.5px] transition-all duration-300 rounded-2xl",
-                                  isCompleted
-                                    ? "border-green-500/30 bg-white shadow-[0_4px_12px_rgba(34,197,94,0.08)]"
-                                    : task.isCritical
-                                      ? "border-amber-500/40 bg-white shadow-[0_8px_20px_rgba(245,158,11,0.12)] active:scale-[0.98]"
-                                      : "border-slate-200 bg-white shadow-[0_4px_12px_rgba(0,0,0,0.05)] active:scale-[0_98]"
-                                )}
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Opinions / Incidents Section */}
-                  {sectionOpinions.length > 0 && (
-                    <div className="space-y-3 pt-2">
-                      <div className="flex items-center gap-2 px-1">
-                        <AlertTriangle className="w-4 h-4 text-amber-500" />
-                        <h3 className="text-sm font-bold text-amber-700 uppercase tracking-tight">Báo cáo & Sự cố</h3>
-                      </div>
-                      <div className="space-y-3">
-                        {sectionOpinions.map((task) => {
-                          // Prepare other staff completions for opinion tasks too
-                          const otherStaffWhoCompleted = otherStaffReports.filter(
-                            r => r.completedTasks[task.id]?.length > 0
-                          );
-                          const otherStaffCompletions = otherStaffWhoCompleted.map(staffReport => ({
-                            staffName: staffReport.staffName,
-                            userId: staffReport.userId,
-                            completions: (staffReport.completedTasks[task.id] || []) as CompletionRecord[]
-                          }));
-
-                          return (
-                            <TaskItem
-                              key={task.id}
-                              task={task}
-                              completions={(report.completedTasks[task.id] || []) as CompletionRecord[]}
-                              onPhotoAction={handlePhotoTaskAction}
-                              onBooleanAction={handleBooleanTaskAction}
-                              onOpinionAction={handleOpinionTaskAction}
-                              onNoteAction={handleNoteTaskAction}
-                              onDeleteCompletion={handleDeleteCompletion}
-                              onDeletePhoto={handleDeletePhoto}
-                              onToggleExpand={toggleExpandTask}
-                              isReadonly={isReadonly || isSubmitting}
-                              isExpanded={expandedTaskIds.has(task.id)}
-                              isSingleCompletion={false}
-                              onOpenLightbox={openLightbox}
-                              otherStaffCompletions={otherStaffCompletions}
-                              className="bg-white border-amber-200 shadow-[0_4px_12px_rgba(245,158,11,0.08)] rounded-2xl"
-                            />
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </TabsContent>
-            );
-          })}
-        </Tabs>
+        <ChecklistTabs
+          shift={shift}
+          report={report}
+          otherStaffReports={otherStaffReports}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          expandedTaskIds={expandedTaskIds}
+          toggleExpandTask={toggleExpandTask}
+          handleBooleanTaskAction={handleBooleanTaskAction}
+          handlePhotoTaskAction={handlePhotoTaskAction}
+          handleOpinionTaskAction={handleOpinionTaskAction}
+          handleNoteTaskAction={handleNoteTaskAction}
+          handleDeletePhoto={handleDeletePhoto}
+          handleDeleteCompletion={handleDeleteCompletion}
+          onOpenLightbox={openLightbox}
+          isReadonly={isReadonly}
+          isSubmitting={isSubmitting}
+        />
       </div>
 
-      {/* --- Floating Action Button --- */}
-      {!isReadonly && (
-        <div className={`fixed right-4 z-[60] ${isBottomNavVisible ? 'bottom-20' : 'bottom-5'}`}>
-          <Button
-            aria-label="Gửi báo cáo"
-            className="w-14 h-14 rounded-full font-black shadow-2xl shadow-primary/30 bg-primary hover:bg-primary/90 text-primary-foreground flex items-center justify-center relative transition-all active:scale-95 p-0 focus:outline-none focus:ring-2 focus:ring-primary/30"
-            onClick={handleSubmitReport}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
-            ) : (
-              <Send className="h-6 w-6" />
-            )}
-
-            {hasUnsubmittedChanges && (
-              <span className="absolute top-0 right-1 flex h-4 w-4">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-white"></span>
-              </span>
-            )}
-          </Button>
-        </div>
-      )}
+      <SubmitFab
+        isReadonly={isReadonly}
+        isBottomNavVisible={isBottomNavVisible}
+        isSubmitting={isSubmitting}
+        hasUnsubmittedChanges={hasUnsubmittedChanges}
+        onSubmit={handleSubmitReport}
+      />
 
       {/* Dialogs */}
       <CameraDialog
@@ -1048,6 +700,9 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
         onSubmit={handleCapturePhotos}
         captureMode="photo"
         parentDialogTag="root"
+        contextText={activeTask?.text}
+        allowCaption={true}
+        initialCaption={activeTask ? (report.completedTasks[activeTask.id]?.find(c => c.note)?.note || '') : ''}
       />
 
       <OpinionDialog

@@ -87,7 +87,7 @@ export function IndividualTask({ assignment, shiftTemplates }: TaskReportingCard
 
   useDataRefresher(handleDataRefresh)
 
-  const handleMediaSubmit = async (media: MediaItem[]) => {
+  const handleMediaSubmit = async (media: MediaItem[], note?: string) => {
     if (media.length === 0) return
     setIsSubmitting(true)
     if (!user) return
@@ -99,6 +99,7 @@ export function IndividualTask({ assignment, shiftTemplates }: TaskReportingCard
         new Date(assignment.assignedDate),
         true,
         media,
+        note,
       )
       toast.success(`Đã báo cáo hoàn thành công việc: "${assignment.taskName}"`)
     } catch (error) {
@@ -494,7 +495,16 @@ export function IndividualTask({ assignment, shiftTemplates }: TaskReportingCard
         )}
       </div>
 
-      <CameraDialog isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onSubmit={handleMediaSubmit} captureMode="both" parentDialogTag="root" />
+      <CameraDialog
+        isOpen={isCameraOpen}
+        onClose={() => setIsCameraOpen(false)}
+        onSubmit={handleMediaSubmit}
+        captureMode="both"
+        parentDialogTag="root"
+        contextText={assignment.taskName}
+        allowCaption={true}
+        initialCaption={noteContent}
+      />
     </>
   )
 }
