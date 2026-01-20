@@ -1354,8 +1354,15 @@ export function subscribeToMonthlyTasksForDate(
                     shift.assignedUsers.forEach(assignedUser => {
                         const fullUser = allUsers.find(u => u.uid === assignedUser.userId);
                         if (fullUser) {
-                            const userRoles = [fullUser.role, ...(fullUser.secondaryRoles || [])];
-                            if (task.appliesToRole === 'Tất cả' || userRoles.includes(task.appliesToRole)) {
+                            // Prefer the role assigned for this specific shift when present.
+                            // If the user has no assignedRole for this shift, fall back to their main+secondary roles.
+                            const assignedRole = (assignedUser as any).assignedRole as string | undefined;
+
+                            const roleMatches = assignedRole
+                                ? (task.appliesToRole === 'Tất cả' || assignedRole === task.appliesToRole)
+                                : (task.appliesToRole === 'Tất cả' || [fullUser.role, ...(fullUser.secondaryRoles || [])].includes(task.appliesToRole));
+
+                            if (roleMatches) {
                                 if (!responsibleUsersByShift.has(shift.id)) {
                                     responsibleUsersByShift.set(shift.id, { shiftId: shift.id, shiftLabel: shift.label, users: [] });
                                 }
@@ -1379,6 +1386,7 @@ export function subscribeToMonthlyTasksForDate(
                 taskName: task.name,
                 description: task.description,
                 assignedDate: dateKey,
+                appliesToRole: task.appliesToRole,
                 responsibleUsersByShift: Array.from(responsibleUsersByShift.values()),
                 completions: assignedCompletions,
                 otherCompletions: otherCompletions,
@@ -1511,6 +1519,11 @@ export async function updateMonthlyTaskCompletionStatus(taskId: string, taskName
                 note: note ?? currentCompletion.note ?? '',
             };
 
+            // set or refresh note timestamp when a note is provided in this call
+            if (note) {
+                updatedCompletion.noteCreatedAt = Timestamp.now();
+            }
+
             if (isCompleted) {
                 updatedCompletion.completedAt = Timestamp.now();
                 updatedCompletion.media = finalMedia;
@@ -1524,6 +1537,10 @@ export async function updateMonthlyTaskCompletionStatus(taskId: string, taskName
                 // Preserve completion time if it exists and we are just adding a note
                 if (!currentCompletion.completedAt) {
                     delete updatedCompletion.completedAt;
+                }
+                // if note was explicitly removed, also remove its timestamp
+                if (!note && !updatedCompletion.note) {
+                    delete updatedCompletion.noteCreatedAt;
                 }
             }
             updatedCompletions[completionIndex] = updatedCompletion;
@@ -1544,7 +1561,7 @@ export async function updateMonthlyTaskCompletionStatus(taskId: string, taskName
                 assignedDate: dateKey,
                 ...(isCompleted && { completedAt: Timestamp.now() }),
                 ...(newMediaAttachments && { media: newMediaAttachments }),
-                ...(note && { note: note }),
+                ...(note && { note: note, noteCreatedAt: Timestamp.now() }),
             };
 
             const updatedCompletions = [...allCompletions, newCompletion];

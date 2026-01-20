@@ -1147,6 +1147,8 @@ export type TaskCompletionRecord = {
   completedBy?: SimpleUser;
   assignedDate: string; // YYYY-MM-DD
   completedAt?: Timestamp;
+  /** Exact time when a NOTE was sent (different from completedAt). */
+  noteCreatedAt?: Timestamp;
   media?: MediaAttachment[]; // Array to store photos/videos
   note?: string;
 };
@@ -1156,6 +1158,7 @@ export type MonthlyTaskAssignment = {
   taskName: string;
   description: string;
   assignedDate: string; // YYYY-MM-DD
+  appliesToRole?: UserRole | 'Tất cả';
 
   // New structure for collaborative tasks
   responsibleUsersByShift: {

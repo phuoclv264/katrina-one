@@ -1,4 +1,4 @@
-import type { AssignedShift, TimeSlot, MonthlyTask, Schedule, ManagedUser, TaskCompletionRecord, AssignedUser, Availability } from './types';
+import type { AssignedShift, TimeSlot, MonthlyTask, Schedule, ManagedUser, TaskCompletionRecord, AssignedUser, Availability, UserRole } from './types';
 import { set, eachDayOfInterval, startOfMonth, endOfMonth, getDay, getDate, getWeekOfMonth, parseISO, format, isWithinInterval } from 'date-fns';
 
 /**
@@ -170,6 +170,15 @@ function isTaskScheduledForDate(task: MonthlyTask, date: Date): boolean {
     }
 }
 
+/* Local helper type used by getAssignmentsForMonth */
+type DailyAssignment = {
+  date: string;
+  assignedUsers: AssignedUser[];
+  assignedUsersByShift: { shiftId: string; shiftLabel: string; timeSlot: TimeSlot; users: AssignedUser[] }[];
+  completions: TaskCompletionRecord[];
+  appliesToRole?: UserRole | 'Tất cả';
+};
+
 export function getAssignmentsForMonth(
     month: Date,
     tasks: MonthlyTask[],
@@ -216,8 +225,15 @@ export function getAssignmentsForMonth(
                         shift.assignedUsers.forEach(assignedUser => {
                             const fullUser = allUsers.find(u => u.uid === assignedUser.userId);
                             if (fullUser) {
-                                const userRoles = [fullUser.role, ...(fullUser.secondaryRoles || [])];
-                                if (task.appliesToRole === 'Tất cả' || userRoles.includes(task.appliesToRole)) {
+                                // If the shift assignedRole exists and is specific, use it as authoritative for task matching.
+                                // If assignedRole === 'Bất kỳ' treat as wildcard (matches any role).
+                                const assignedRole = (assignedUser as any).assignedRole as string | undefined;
+
+                                const roleMatches = assignedRole
+                                    ? (assignedRole === 'Bất kỳ' || task.appliesToRole === 'Tất cả' || assignedRole === task.appliesToRole)
+                                    : (task.appliesToRole === 'Tất cả' || [fullUser.role, ...(fullUser.secondaryRoles || [])].includes(task.appliesToRole));
+
+                                if (roleMatches) {
                                     if (!responsibleUsers.has(assignedUser.userId)) {
                                         responsibleUsers.set(assignedUser.userId, assignedUser);
                                     }
@@ -242,7 +258,8 @@ export function getAssignmentsForMonth(
                         date: dateKey,
                         assignedUsers: Array.from(responsibleUsers.values()),
                         assignedUsersByShift: Array.from(responsibleUsersByShift.values()),
-                        completions: dailyCompletions
+                        completions: dailyCompletions,
+                        appliesToRole: task.appliesToRole
                     });
                 }
             }
@@ -251,14 +268,6 @@ export function getAssignmentsForMonth(
 
     return assignmentsByTask;
 }
-
-type DailyAssignment = {
-  date: string;
-  assignedUsers: AssignedUser[];
-  assignedUsersByShift: { shiftId: string; shiftLabel: string; timeSlot: TimeSlot; users: AssignedUser[] }[];
-  completions: TaskCompletionRecord[];
-};
-
 
 /**
  * Calculates the total duration in hours from an array of time slots.
