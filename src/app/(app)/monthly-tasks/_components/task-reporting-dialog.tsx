@@ -242,8 +242,8 @@ export function TaskReportingDialog({
                                                 }}
                                                 disabled={isSubmitting}
                                                 className={`h-14 w-full sm:w-auto sm:px-5 rounded-2xl transition-all active:scale-[0.98] border-2 ${currentUserCompletion?.note
-                                                        ? "border-amber-500/30 bg-amber-50/50 text-amber-700"
-                                                        : "border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 hover:bg-slate-50"
+                                                    ? "border-amber-500/30 bg-amber-50/50 text-amber-700"
+                                                    : "border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 hover:bg-slate-50"
                                                     }`}
                                             >
                                                 <AlertCircle className={`h-5 w-5 mr-2 ${currentUserCompletion?.note ? "text-amber-500" : "text-slate-400"}`} />
@@ -255,7 +255,7 @@ export function TaskReportingDialog({
                                         {currentUserCompletion?.media && currentUserCompletion.media.length > 0 && (
                                             <div className="space-y-3">
                                                 <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Bằng chứng đã tải lên</p>
-                                                <div className="flex flex-wrap gap-3 items-center max-h-[140px] overflow-y-auto pb-1 scrollbar-none">
+                                                <div className="flex flex-wrap gap-3 items-center pb-1">
                                                     {currentUserCompletion.media.map((att, mIdx) => (
                                                         <button
                                                             key={mIdx}
