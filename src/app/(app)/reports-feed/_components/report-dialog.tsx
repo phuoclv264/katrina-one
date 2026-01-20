@@ -13,7 +13,7 @@ import { callRefineText } from '@/lib/ai-service';
 import { toast } from '@/components/ui/pro-toast';
 import { photoStore } from '@/lib/photo-store';
 import { v4 as uuidv4 } from 'uuid';
-import Image from 'next/image';
+import Image from '@/components/ui/image';
 import CameraDialog from '@/components/camera-dialog';
 
 

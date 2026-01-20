@@ -8,7 +8,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Textarea } from '@/components/ui/textarea';
 import { Edit, Trash2, Camera, Loader2 } from 'lucide-react';
 import type { Violation, ViolationComment } from '@/lib/types';
-import Image from 'next/image';
+import Image from '@/components/ui/image';
 import CameraDialog from '@/components/camera-dialog';
 
 export function CommentSection({

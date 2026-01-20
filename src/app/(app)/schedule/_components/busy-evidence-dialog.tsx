@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Image from 'next/image';
+import Image from '@/components/ui/image';
 import { format, addWeeks, startOfWeek, endOfWeek, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';

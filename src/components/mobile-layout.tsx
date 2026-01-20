@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, act } from 'react';
 import dynamic from 'next/dynamic';
 import { useAuth } from '@/hooks/use-auth';
 import { BottomNav, NavTab } from '@/components/bottom-nav';
@@ -23,6 +23,7 @@ import { MobileNavigationProvider } from '@/contexts/mobile-navigation-context';
 import { AppNavigationProvider } from '@/contexts/app-navigation-context';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import WorkShiftGuard from '@/components/work-shift-guard';
+import { getActiveShiftKeys, DEFAULT_MAIN_SHIFT_TIMEFRAMES, type ShiftKey } from '@/lib/shift-utils';
 
 // Lazy-load heavy screens to keep initial JS + compile work small.
 // This file acts like an SPA shell (no routing), so we prefer client-only loading.
@@ -163,16 +164,16 @@ function buildTabs(user: any, isCheckedIn: boolean): NavTab[] {
   return tabs;
 }
 
-function getCurrentShift(): string {
-  const now = new Date();
-  const hour = now.getHours();
-  const minute = now.getMinutes();
-  const time = hour * 60 + minute;
+function getCurrentShift(): ShiftKey {
 
-  if (time >= 5 * 60 + 30 && time < 12 * 60) return 'sang';
-  if (time >= 12 * 60 && time < 17 * 60) return 'trua';
-  if (time >= 17 * 60 && time < 22 * 60 + 30) return 'toi';
-  return 'sang'; // Default or closed
+  // Use the shared shift-utils to determine which shifts are active.
+  // - beforeHours=1 includes the 05:30 early-morning boundary used historically
+  // - afterHours=0 keeps end bounds strict to the configured end hour
+  const active = getActiveShiftKeys(DEFAULT_MAIN_SHIFT_TIMEFRAMES);
+
+  if (active.length === 0) return 'sang'; // fallback to legacy default
+
+  return active[active.length - 1];
 }
 
 const HOME_PATHS = ['/shifts', '/bartender', '/manager', '/admin'];

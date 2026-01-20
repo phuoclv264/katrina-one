@@ -1,6 +1,6 @@
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
-import Image from 'next/image';
+import Image from '@/components/ui/image';
 import {
   Dialog,
   DialogContent,
@@ -908,7 +908,7 @@ export default function CameraDialog({
                             style={{ right: -(i + 1) * 16 }}
                             >
                             {m.type === 'photo' ? (
-                              <Image src={m.url} alt="peek" width={56} height={36} className="object-cover" />
+                              <Image src={m.url} alt="peek" className="object-cover" />
                             ) : (
                               <video src={m.url} className="w-full h-full object-cover" muted />
                             )}

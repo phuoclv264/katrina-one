@@ -19,7 +19,7 @@ import { Loader2, Upload, AlertCircle, RefreshCw, ServerCrash, FileText, ArrowRi
 import { toast } from '@/components/ui/pro-toast';
 import { callExtractHandoverData } from '@/lib/ai-service';
 import { photoStore } from '@/lib/photo-store';
-import Image from 'next/image';
+import Image from '@/components/ui/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogDescription as AlertDialogDescriptionComponent } from '@/components/ui/alert-dialog';
 import { Separator } from '@/components/ui/separator';

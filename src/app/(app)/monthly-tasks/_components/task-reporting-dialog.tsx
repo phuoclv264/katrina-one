@@ -27,7 +27,7 @@ import {
     Info
 } from "lucide-react"
 import { format } from "date-fns"
-import Image from "next/image"
+import Image from '@/components/ui/image';
 import type { MonthlyTaskAssignment, TaskCompletionRecord, MediaAttachment, MediaItem } from "@/lib/types"
 import { useLightbox } from "@/contexts/lightbox-context"
 import { useAuth } from "@/hooks/use-auth"

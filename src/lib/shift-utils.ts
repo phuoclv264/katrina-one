@@ -5,7 +5,7 @@ export type ShiftTimeFrames = Record<ShiftKey, { start: number; end: number }>;
 export const DEFAULT_MAIN_SHIFT_TIMEFRAMES: ShiftTimeFrames = {
   sang: { start: 6, end: 12 },
   trua: { start: 12, end: 17 },
-  toi: { start: 17, end: 23.5 },
+  toi: { start: 17, end: 23 },
 };
 
 /**
@@ -37,5 +37,7 @@ export function getActiveShiftKeys(
     }
   }
 
-  return Array.from(keys);
+  // always return in canonical order: sang, trua, toi
+  const ORDERED_SHIFTS: ShiftKey[] = ['sang', 'trua', 'toi'];
+  return ORDERED_SHIFTS.filter((k) => keys.has(k));
 }

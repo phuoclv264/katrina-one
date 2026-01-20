@@ -14,7 +14,7 @@ import type { IncidentReport } from '@/lib/types';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
-import Image from 'next/image';
+import Image from '@/components/ui/image';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 type IncidentDetailsDialogProps = {

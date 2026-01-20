@@ -40,7 +40,7 @@ type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'erro
 const shiftTimeFrames: { [key: string]: { start: string; end: string } } = {
   sang: { start: '05:30', end: '12:00' },
   trua: { start: '12:00', end: '17:00' },
-  toi: { start: '17:00', end: '22:30' },
+  toi: { start: '17:00', end: '22:59' },
 };
 
 interface ChecklistViewProps {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import Image from 'next/image';
+import Image from '@/components/ui/image';
 import { format, parseISO, formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {

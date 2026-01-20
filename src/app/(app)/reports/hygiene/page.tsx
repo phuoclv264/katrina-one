@@ -2,7 +2,7 @@
 
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
-import Image from 'next/image';
+import Image from '@/components/ui/image';
 import { useSearchParams } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import { getQueryParamWithMobileHashFallback } from '@/lib/url-params';

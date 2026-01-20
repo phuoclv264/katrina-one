@@ -15,7 +15,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useSidebar } from '@/components/ui/sidebar';
 import { CheckSquare, ClipboardList, LogOut, FileText, User, Building, ListTodo, Sun, Moon, Sunset, Loader2, UserCog, Coffee, Archive, ShieldAlert, FileSearch, Settings, Package, ListChecks, UtensilsCrossed, Users2, ShieldX, CalendarDays, Bell, Banknote, History, DollarSign, FileSignature, MessageSquare, Edit2, RotateCw, UserCheck, BarChart3, CalendarClock } from 'lucide-react';
 import { usePathname } from 'next/navigation';
-import Image from 'next/image';
+import Image from '@/components/ui/image';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { getInitials } from '@/lib/utils';

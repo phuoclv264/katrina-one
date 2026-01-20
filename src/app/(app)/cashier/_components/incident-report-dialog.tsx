@@ -12,7 +12,7 @@ import { toast } from '@/components/ui/pro-toast';
 import { Combobox } from '@/components/combobox';
 import CameraDialog from '@/components/camera-dialog';
 import { v4 as uuidv4 } from 'uuid';
-import Image from 'next/image';
+import Image from '@/components/ui/image';
 import { photoStore } from '@/lib/photo-store';
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';

@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { ThumbsUp, ThumbsDown, MessageSquare, Eye, EyeOff, Loader2, Trash2, User, Pin, PinOff, Edit2, File as FileIcon } from 'lucide-react';
 import { cn, getInitials } from '@/lib/utils';
 import type { WhistleblowingReport, AuthUser, ManagedUser, ReportComment, Attachment, CommentMedia } from '@/lib/types';
-import Image from 'next/image';
+import Image from '@/components/ui/image';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogIcon, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import CommentDialog from './comment-dialog';
@@ -197,7 +197,12 @@ export default function ReportCard({
                                 {mediaAttachments.map((att, index) => (
                                     <button key={att.url} onClick={() => handleOpenLightbox(index)} className="relative aspect-square w-full rounded-lg overflow-hidden group">
                                         {att.type.startsWith('image/') ? (
-                                            <Image src={att.url} alt={att.name} fill className="object-cover transition-transform duration-300 group-hover:scale-105" />
+                                            <Image 
+                                                src={att.url} 
+                                                alt={att.name} 
+                                                fill
+                                                className="object-cover transition-transform duration-300 group-hover:scale-105" 
+                                            />
                                         ) : (
                                             <video src={att.url} className="object-cover h-full w-full" muted playsInline />
                                         )}

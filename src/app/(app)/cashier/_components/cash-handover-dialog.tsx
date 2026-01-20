@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { AlertCircle, ArrowRight, Camera, Loader2, TrendingDown, TrendingUp, Wallet, X } from 'lucide-react';
 import CameraDialog from '@/components/camera-dialog';
 import { photoStore } from '@/lib/photo-store';
-import Image from 'next/image';
+import Image from '@/components/ui/image';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from '@/components/ui/pro-toast';
 import type { RevenueStats, ExpenseSlip } from '@/lib/types'; // Import types

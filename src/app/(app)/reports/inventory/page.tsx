@@ -2,7 +2,7 @@
 'use client';
 import React, { useState, useEffect, useMemo, Suspense, useRef, useCallback } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
-import Image from 'next/image';
+import Image from '@/components/ui/image';
 import { useAuth } from '@/hooks/use-auth';
 import { dataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';

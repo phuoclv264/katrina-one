@@ -1,6 +1,6 @@
 'use client';
 import { useState, useMemo } from 'react';
-import Image from 'next/image';
+import Image from '@/components/ui/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { ScrollArea } from '@/components/ui/scroll-area';

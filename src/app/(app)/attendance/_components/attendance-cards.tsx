@@ -5,7 +5,7 @@ import type { AttendanceRecord, ManagedUser, Schedule, AssignedShift } from '@/l
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn, getInitials } from '@/lib/utils';
-import Image from 'next/image';
+import Image from '@/components/ui/image';
 import { getStatusInfo, findShiftForRecord } from '@/lib/attendance-utils';
 import { Edit2, MoreVertical, Trash2, AlertCircle, DollarSign } from 'lucide-react';
 import HourlyRateDialog from './hourly-rate-dialog';

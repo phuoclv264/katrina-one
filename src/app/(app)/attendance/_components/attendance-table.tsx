@@ -7,7 +7,7 @@ import { vi } from 'date-fns/locale';
 import { cn, getInitials } from '@/lib/utils';
 import { getStatusInfo, findShiftForRecord } from '@/lib/attendance-utils';
 import { Edit2, Trash2, MoreVertical, AlertCircle } from 'lucide-react';
-import Image from 'next/image';
+import Image from '@/components/ui/image';
 import HourlyRateDialog from './hourly-rate-dialog';
 import { dataStore } from '@/lib/data-store';
 import { toast } from '@/components/ui/pro-toast';

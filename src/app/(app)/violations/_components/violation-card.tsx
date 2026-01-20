@@ -8,7 +8,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Edit, Trash2, Eye, FilePlus2, Flag, MessageSquare, Loader2, CheckCircle } from 'lucide-react';
 import type { Violation, ViolationCategory, ViolationUser, ViolationComment, ViolationCategoryData, PenaltySubmission, ManagedUser, MediaAttachment } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import Image from 'next/image';
+import Image from '@/components/ui/image';
 import { Badge } from '@/components/ui/badge';
 import { useAuth, type AuthUser } from '@/hooks/use-auth';
 import { getSeverityBadgeClass, getSeverityCardClass, getSeverityBorderClass } from '@/lib/violations-utils';

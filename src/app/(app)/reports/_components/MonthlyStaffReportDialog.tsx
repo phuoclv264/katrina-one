@@ -13,7 +13,7 @@ import { vi } from 'date-fns/locale';
 import { Loader2, AlertTriangle, Camera, ListTodo, ThumbsDown, ThumbsUp, Users, ListTree, ListX } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import Image from 'next/image';
+import Image from '@/components/ui/image';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useLightbox } from '@/contexts/lightbox-context';

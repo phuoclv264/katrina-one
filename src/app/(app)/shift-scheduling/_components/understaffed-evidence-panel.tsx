@@ -1,7 +1,7 @@
  'use client';
 
 import { useMemo } from 'react';
-import Image from 'next/image';
+import Image from '@/components/ui/image';
 import { format, parseISO, formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';

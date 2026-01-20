@@ -1,6 +1,6 @@
 'use client';
 
-import Image from 'next/image';
+import Image from '@/components/ui/image';
 import { Video } from 'lucide-react';
 import { useLightbox } from '@/contexts/lightbox-context';
 import type { MediaAttachment } from '@/lib/types';

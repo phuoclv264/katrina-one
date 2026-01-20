@@ -15,7 +15,7 @@ import { Clock, MessageSquare, CheckCircle2, XCircle, Trash2, User } from 'lucid
 import { photoStore } from '@/lib/photo-store';
 import type { CompletionRecord } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import Image from 'next/image';
+import Image from '@/components/ui/image';
 
 export type OtherStaffCompletion = {
   staffName: string;

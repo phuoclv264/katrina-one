@@ -10,7 +10,7 @@ import { Wand2, Loader2, Edit, Trash2, X, Send, Upload, Eye } from 'lucide-react
 import { toast } from '@/components/ui/pro-toast';
 import { callRefineText } from '@/lib/ai-service';
 import type { WhistleblowingReport, AuthUser, ManagedUser, ReportComment, CommentMedia } from '@/lib/types';
-import Image from 'next/image';
+import Image from '@/components/ui/image';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogIcon, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';

@@ -13,7 +13,7 @@ import { Loader2, Upload, AlertCircle, Clock, Info, Edit, Eye, FileText, ImageIc
 import { toast } from '@/components/ui/pro-toast';
 import { callExtractRevenueFromImage } from '@/lib/ai-service';
 import { photoStore } from '@/lib/photo-store';
-import Image from 'next/image';
+import Image from '@/components/ui/image';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { format, isToday, isBefore, startOfDay, parseISO, isSameDay } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
