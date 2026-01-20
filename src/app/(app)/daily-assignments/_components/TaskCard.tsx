@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { Camera, ImageIcon, Send, CalendarDays, Users, Loader2, CheckCircle2, Clock, MessageSquareQuote, ChevronDown, RefreshCw, Trash2, Edit } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { parseISO, isBefore, startOfToday, isSameDay } from 'date-fns';
@@ -40,15 +41,49 @@ export default function TaskCard({ task, reports, canSubmit, pendingMedia, pendi
   const isExpired = assignedDateObj ? isBefore(assignedDateObj, startOfToday()) && !isCompleted : false;
   const needsReport = assignedDateObj ? reports.length === 0 && !isCompleted && !isInReview && !isExpired && (isBefore(assignedDateObj, startOfToday()) || isSameDay(assignedDateObj, startOfToday())) : false;
 
-  const handleDelete = React.useCallback(() => {
-    const ok = confirm('Bạn có chắc muốn xóa nhiệm vụ này? Hành động không thể hoàn tác.');
-    if (ok && onDelete) onDelete(task.id);
+  // dialog state for safer, consistent confirmations (replaces window.confirm)
+  const [openDeleteDialog, setOpenDeleteDialog] = React.useState(false);
+  const [openRegenerateDialog, setOpenRegenerateDialog] = React.useState(false);
+  const [isDeleting, setIsDeleting] = React.useState(false);
+  const [isRegenerating, setIsRegenerating] = React.useState(false);
+
+  const handleConfirmDelete = React.useCallback(async () => {
+    // support sync or async parent handlers
+    if (!onDelete) return setOpenDeleteDialog(false);
+    setIsDeleting(true);
+    try {
+      // support sync or async parent handlers in a single, type-safe step
+      await Promise.resolve((onDelete as any)?.(task.id));
+      setOpenDeleteDialog(false);
+    } catch (err) {
+      // parent should surface errors; log for diagnostics
+      console.error('delete failed', err);
+    } finally {
+      setIsDeleting(false);
+    }
   }, [onDelete, task.id]);
 
-  const handleRegenerate = React.useCallback(() => {
-    const ok = confirm('Giao lại nhiệm vụ này cho hôm nay?');
-    if (ok && onRegenerate) onRegenerate(task.id);
+  const handleDelete = React.useCallback(() => {
+    setOpenDeleteDialog(true);
+  }, []);
+
+  const handleConfirmRegenerate = React.useCallback(async () => {
+    if (!onRegenerate) return setOpenRegenerateDialog(false);
+    setIsRegenerating(true);
+    try {
+      // support sync or async parent handlers in a single, type-safe step
+      await Promise.resolve((onRegenerate as any)?.(task.id));
+      setOpenRegenerateDialog(false);
+    } catch (err) {
+      console.error('regenerate failed', err);
+    } finally {
+      setIsRegenerating(false);
+    }
   }, [onRegenerate, task.id]);
+
+  const handleRegenerate = React.useCallback(() => {
+    setOpenRegenerateDialog(true);
+  }, []);
 
   return (
     <motion.div
@@ -64,7 +99,7 @@ export default function TaskCard({ task, reports, canSubmit, pendingMedia, pendi
           "h-1 w-full",
           isCompleted ? "bg-green-500" : isInReview ? "bg-amber-400" : "bg-primary/20"
         )} />
-        
+
         <CardHeader className="space-y-4 pb-3 p-4 sm:p-6 sm:pb-4">
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1.5 flex-1">
@@ -85,7 +120,7 @@ export default function TaskCard({ task, reports, canSubmit, pendingMedia, pendi
               </div>
             </div>
             <div className="flex flex-col items-end gap-2 shrink-0">
-              <Badge 
+              <Badge
                 variant={isCompleted ? 'default' : isInReview ? 'secondary' : 'outline'}
                 className={cn(
                   "px-2 py-0.5 text-[9px] sm:text-xs font-black uppercase tracking-widest",
@@ -229,7 +264,7 @@ export default function TaskCard({ task, reports, canSubmit, pendingMedia, pendi
                     <CheckCircle2 className="h-4 w-4" />
                     Gửi báo cáo của bạn
                   </div>
-                  
+
                   <div className="space-y-4">
                     <Textarea
                       placeholder="Ghi chú kết quả, khó khăn hoặc đề xuất..."
@@ -238,18 +273,18 @@ export default function TaskCard({ task, reports, canSubmit, pendingMedia, pendi
                       rows={2}
                       className="resize-none bg-background border-primary/10 focus-visible:ring-primary/20 text-xs sm:text-sm placeholder:italic"
                     />
-                    
+
                     <div className="grid grid-cols-2 gap-3 items-center">
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
+                      <Button
+                        size="sm"
+                        variant="outline"
                         onClick={() => onSetActiveTaskForProof(task.id)}
                         className={cn(
                           "h-10 text-[11px] font-bold bg-background transition-all border-dashed shadow-none border-primary text-primary"
                         )}
                       >
                         <Camera className={cn("mr-2 h-4 w-4")} />
-                        {pendingMedia.length > 0 ? `${pendingMedia.length} Ảnh` : "Bằng chứng"}
+                        {pendingMedia.length > 0 ? `${pendingMedia.length} Ảnh` : "Báo cáo"}
                       </Button>
 
                       <Button
@@ -272,6 +307,53 @@ export default function TaskCard({ task, reports, canSubmit, pendingMedia, pendi
             )}
           </AnimatePresence>
         </CardContent>
+
+        {/* Confirm dialogs (replace native confirm) */}
+        {onDelete && (
+          <AlertDialog
+            open={openDeleteDialog}
+            onOpenChange={(open) => { if (isDeleting) return; setOpenDeleteDialog(open); }}
+          >
+            <AlertDialogContent aria-busy={isDeleting}>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Xóa nhiệm vụ</AlertDialogTitle>
+                <AlertDialogDescription>Hành động này không thể hoàn tác. Bạn có chắc chắn muốn xóa nhiệm vụ này?</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isDeleting}>Hủy</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive"
+                  onClick={handleConfirmDelete}
+                  isLoading={isDeleting}
+                  disabled={isDeleting}
+                  aria-disabled={isDeleting}
+                >
+                  Xóa
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
+
+        {isExpired && onRegenerate && (
+          <AlertDialog
+            open={openRegenerateDialog}
+            onOpenChange={(open) => { if (isRegenerating) return; setOpenRegenerateDialog(open); }}
+          >
+            <AlertDialogContent aria-busy={isRegenerating}>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Giao lại nhiệm vụ</AlertDialogTitle>
+                <AlertDialogDescription>Bạn có chắc muốn giao lại nhiệm vụ này cho hôm nay?</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isRegenerating}>Hủy</AlertDialogCancel>
+                <AlertDialogAction onClick={handleConfirmRegenerate} isLoading={isRegenerating} disabled={isRegenerating} aria-disabled={isRegenerating}>
+                  Giao lại
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </Card>
     </motion.div>
   );

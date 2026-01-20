@@ -9,7 +9,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { format } from "date-fns"
 import { TaskReportingDialog } from "./task-reporting-dialog"
 import { dataStore } from "@/lib/data-store"
-import { toast } from "react-hot-toast"
+import { toast } from "@/components/ui/pro-toast"
 
 function TaskStatus({ assignment }: { assignment: MonthlyTaskAssignment }) {
   const { user } = useAuth();

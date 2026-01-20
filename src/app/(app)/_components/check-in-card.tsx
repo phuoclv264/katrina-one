@@ -13,7 +13,7 @@ import { vi } from 'date-fns/locale';
 import { format, getISOWeek } from 'date-fns';
 import { dataStore } from '@/lib/data-store';
 import CameraDialog from '@/components/camera-dialog';
-import { toast } from 'react-hot-toast';
+import { toast } from "@/components/ui/pro-toast"
 import Image from 'next/image';
 import { useLightbox } from '@/contexts/lightbox-context';
 import { Timestamp } from 'firebase/firestore';

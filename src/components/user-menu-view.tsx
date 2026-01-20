@@ -10,12 +10,15 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import {
   LogOut, User, CalendarDays, CheckSquare, Coffee, Banknote, UserCog,
-  BarChart3, FileText, DollarSign, CalendarClock, Users2, ClipboardList,
+  BarChart3, FileText, DollarSign, CalendarClock, Users2, ClipboardList, Sun, Sunset, Moon,
   UtensilsCrossed, ListChecks, Package, FileSignature, History, ShieldX,
-  MessageSquare, ChevronRight, Sparkles, UserCircle
+  MessageSquare, ChevronRight, Sparkles, UserCircle,
+  Archive
 } from 'lucide-react';
 import { cn, getInitials } from '@/lib/utils';
 import { ProfileDialog } from './profile-dialog';
+import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
+import { getActiveShiftKeys, DEFAULT_MAIN_SHIFT_TIMEFRAMES } from '@/lib/shift-utils';
 
 interface UserMenuViewProps {
   onNavigateToHome?: () => void;
@@ -24,6 +27,7 @@ interface UserMenuViewProps {
 
 export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuViewProps) {
   const { user, logout, loading, isOnActiveShift } = useAuth();
+  const { isCheckedIn } = useCheckInCardPlacement();
   const nav = useAppNavigation();
   const [profileOpen, setProfileOpen] = useState(false);
 
@@ -40,62 +44,94 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
     let primaryItems: any[] = [];
     let secondaryItems: { role: string; item: any }[] = [];
 
+    // For non-owner roles we only expose operational/dashboard links when the user is checked in.
+    // Always-visible items: schedule, violations, reports feed, and read-only report pages.
     switch (user?.role) {
-      case 'Phục vụ': primaryItems.push(
-        { href: '/shifts', label: 'Bảng điều khiển', icon: CheckSquare },
-        commonScheduleMenu,
-        { href: '/daily-assignments', label: 'Giao việc trong ngày', icon: ClipboardList },
-        commonViolationMenu,
-        commonReportsFeedMenu,
-      ); break;
-      case 'Pha chế': primaryItems.push(
-        { href: '/bartender', label: 'Bảng điều khiển', icon: Coffee },
-        { href: '/daily-assignments', label: 'Giao việc trong ngày', icon: ClipboardList },
-        commonScheduleMenu,
-        commonViolationMenu,
-        commonReportsFeedMenu,
-      ); break;
-      case 'Thu ngân': primaryItems.push(
-        { href: '/cashier', label: 'Bảng điều khiển', icon: Banknote },
-        { href: '/daily-assignments', label: 'Giao việc trong ngày', icon: ClipboardList },
-        commonScheduleMenu,
-        commonViolationMenu,
-        commonReportsFeedMenu,
-      ); break;
-      case 'Quản lý': primaryItems.push(
-        { href: '/manager', label: 'Bảng điều khiển', icon: UserCog },
-        { href: '/daily-assignments', label: 'Giao việc trong ngày', icon: ClipboardList },
-        { href: '/reports', label: 'Xem báo cáo', icon: FileText },
-        commonScheduleMenu,
-        commonViolationMenu,
-        commonReportsFeedMenu,
-      ); break;
-      case 'Chủ nhà hàng': primaryItems.push(
-        { href: '/admin', label: 'Tổng quan', icon: BarChart3 },
-        { href: '/daily-assignments', label: 'Giao việc trong ngày', icon: ClipboardList },
-        { href: '/reports', label: 'Xem Báo cáo', icon: FileText },
-        { href: '/financial-report', label: 'Báo cáo Tài chính', icon: DollarSign },
-        { href: '/reports/cashier', label: 'Báo cáo Thu ngân', icon: Banknote },
-        { href: '/shift-scheduling', label: 'Xếp lịch & Phê duyệt', icon: CalendarDays },
-        { href: '/attendance', label: 'Quản lý Chấm công', icon: User },
-        { href: '/monthly-tasks', label: 'Công việc Định kỳ', icon: CalendarClock },
-        commonReportsFeedMenu,
-        { href: '/users', label: 'QL Người dùng', icon: Users2 },
-        { href: '/task-lists', label: 'QL Công việc Phục vụ', icon: ClipboardList },
-        { href: '/bartender-tasks', label: 'QL Công việc Pha chế', icon: UtensilsCrossed },
-        { href: '/comprehensive-checklist', label: 'QL Kiểm tra Toàn diện', icon: ListChecks },
-        { href: '/inventory-management', label: 'QL Hàng tồn kho', icon: Package },
-        { href: '/product-management', label: 'QL Mặt hàng & Công thức', icon: FileSignature },
-        { href: '/inventory-history', label: 'Lịch sử Kho', icon: History },
-        commonViolationMenu,
-      ); break;
+      case 'Phục vụ':
+        if (isCheckedIn) {
+          primaryItems.push({ href: '/shifts', label: 'Bảng điều khiển', icon: CheckSquare });
+          // show only the currently relevant shift checklist links when possible
+          const activeKeys = getActiveShiftKeys(DEFAULT_MAIN_SHIFT_TIMEFRAMES);
+          if (activeKeys.length > 0) {
+            if (activeKeys.includes('sang')) primaryItems.push({ href: '/checklist/sang', label: 'Báo cáo ca sáng', icon: Sun });
+            if (activeKeys.includes('trua')) primaryItems.push({ href: '/checklist/trua', label: 'Báo cáo ca trưa', icon: Sunset });
+            if (activeKeys.includes('toi')) primaryItems.push({ href: '/checklist/toi', label: 'Báo cáo ca tối', icon: Moon });
+            // show daily assignments when a shift is active
+            primaryItems.push({ href: '/daily-assignments', label: 'Công việc trong ngày', icon: ListChecks });
+          } else {
+            // fallback: show all shift links if none match (helps discoverability)
+            primaryItems.push({ href: '/checklist/sang', label: 'Báo cáo ca sáng', icon: Sun });
+            primaryItems.push({ href: '/checklist/trua', label: 'Báo cáo ca trưa', icon: Sunset });
+            primaryItems.push({ href: '/checklist/toi', label: 'Báo cáo ca tối', icon: Moon });
+            primaryItems.push({ href: '/daily-assignments', label: 'Công việc trong ngày', icon: ListChecks });
+          }
+        }
+        primaryItems.push(commonScheduleMenu, commonViolationMenu, commonReportsFeedMenu);
+        break;
+      case 'Pha chế':
+        if (isCheckedIn) {
+          primaryItems.push({ href: '/bartender', label: 'Bảng điều khiển', icon: Coffee });
+          // expose quick links that appear on the bartender dashboard
+          primaryItems.push({ href: '/bartender/hygiene-report', label: 'Vệ sinh quầy', icon: ClipboardList });
+          primaryItems.push({ href: '/bartender/inventory', label: 'Kiểm kê kho', icon: History });
+          // daily assignments for bartender when checked in
+          primaryItems.push({ href: '/daily-assignments', label: 'Công việc trong ngày', icon: ListChecks });
+        }
+        primaryItems.push(commonScheduleMenu, commonViolationMenu, commonReportsFeedMenu);
+        break;
+      case 'Thu ngân':
+        if (isCheckedIn) primaryItems.push({ href: '/cashier', label: 'Bảng điều khiển', icon: Banknote }, { href: '/daily-assignments', label: 'Giao việc trong ngày', icon: ListChecks });
+        // reports should remain discoverable even when not checked-in
+        primaryItems.push(commonScheduleMenu, commonViolationMenu, { href: '/reports/cashier', label: 'Báo cáo Thu ngân', icon: Banknote }, commonReportsFeedMenu);
+        break;
+      case 'Quản lý':
+        if (isCheckedIn) {
+          primaryItems.push({ href: '/manager', label: 'Bảng điều khiển', icon: UserCog });
+          primaryItems.push({ href: '/manager/comprehensive-report', label: 'Phiếu kiểm tra toàn diện', icon: FileText });
+          primaryItems.push({ href: '/daily-assignments', label: 'Giao việc trong ngày', icon: ListChecks });
+        }
+        primaryItems.push({ href: '/reports', label: 'Xem báo cáo', icon: FileText }, commonScheduleMenu, commonViolationMenu, commonReportsFeedMenu);
+        break;
+      case 'Chủ nhà hàng':
+        // owner retains full access regardless of check-in
+        primaryItems.push(
+          { href: '/admin', label: 'Tổng quan', icon: BarChart3 },
+          { href: '/daily-assignments', label: 'Giao việc trong ngày', icon: ClipboardList },
+          { href: '/reports', label: 'Xem Báo cáo', icon: FileText },
+          { href: '/financial-report', label: 'Báo cáo Tài chính', icon: DollarSign },
+          { href: '/reports/cashier', label: 'Báo cáo Thu ngân', icon: Banknote },
+          { href: '/shift-scheduling', label: 'Xếp lịch & Phê duyệt', icon: CalendarDays },
+          { href: '/attendance', label: 'Quản lý Chấm công', icon: User },
+          { href: '/monthly-tasks', label: 'Công việc Định kỳ', icon: CalendarClock },
+          commonReportsFeedMenu,
+          { href: '/users', label: 'QL Người dùng', icon: Users2 },
+          { href: '/task-lists', label: 'QL Công việc Phục vụ', icon: ClipboardList },
+          { href: '/bartender-tasks', label: 'QL Công việc Pha chế', icon: UtensilsCrossed },
+          { href: '/comprehensive-checklist', label: 'QL Kiểm tra Toàn diện', icon: ListChecks },
+          { href: '/inventory-management', label: 'QL Hàng tồn kho', icon: Package },
+          { href: '/product-management', label: 'QL Mặt hàng & Công thức', icon: FileSignature },
+          { href: '/inventory-history', label: 'Lịch sử Kho', icon: History },
+          commonViolationMenu,
+        );
+        break;
     }
 
     const primaryHrefs = new Set(primaryItems.map(item => item.href));
 
-    if (isOnActiveShift) {
+    // Secondary-role quick links: show only when user is checked in (operational shortcuts)
+    if (isCheckedIn) {
       if (user?.secondaryRoles?.includes('Phục vụ') && !primaryHrefs.has('/shifts')) {
+        const activeKeys = getActiveShiftKeys(DEFAULT_MAIN_SHIFT_TIMEFRAMES);
         secondaryItems.push({ role: 'Phục vụ', item: { href: '/shifts', label: 'Checklist Công việc', icon: CheckSquare } });
+        if (activeKeys.length > 0) {
+          if (activeKeys.includes('sang')) secondaryItems.push({ role: 'Phục vụ', item: { href: '/checklist/sang', label: 'Báo cáo ca sáng', icon: Sun } });
+          if (activeKeys.includes('trua')) secondaryItems.push({ role: 'Phục vụ', item: { href: '/checklist/trua', label: 'Báo cáo ca trưa', icon: Sunset } });
+          if (activeKeys.includes('toi')) secondaryItems.push({ role: 'Phục vụ', item: { href: '/checklist/toi', label: 'Báo cáo ca tối', icon: Moon } });
+        } else {
+          secondaryItems.push({ role: 'Phục vụ', item: { href: '/checklist/sang', label: 'Báo cáo ca sáng', icon: Sun } });
+          secondaryItems.push({ role: 'Phục vụ', item: { href: '/checklist/trua', label: 'Báo cáo ca trưa', icon: Sunset } });
+          secondaryItems.push({ role: 'Phục vụ', item: { href: '/checklist/toi', label: 'Báo cáo ca tối', icon: Moon } });
+        }
       }
       if (user?.secondaryRoles?.includes('Pha chế') && !primaryHrefs.has('/bartender')) {
         secondaryItems.push({ role: 'Pha chế', item: { href: '/bartender/hygiene-report', label: 'Báo cáo Vệ sinh quầy', icon: ClipboardList } });
@@ -224,20 +260,23 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
         </div>
 
         <div className="h-6" /> {/* Bottom spacer */}
-      </ScrollArea>
 
-      <div className="bottom-0 z-10 p-4 border-t bg-background/50 user-menu-footer">
-        <Button
-          variant="destructive"
-          size="sm"
-          onClick={logout}
-          disabled={loading}
-          className="w-full justify-center"
-        >
-          <LogOut className="w-4 h-4 mr-2" />
-          Đăng xuất
-        </Button>
-      </div>
+        {/* Make the logout part of the scrollable content so it can be scrolled
+            above the BottomNav when the bottom nav is visible. */}
+        <div className="mt-4 mb-4 p-4 border-t bg-background/50">
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={logout}
+            disabled={loading}
+            className="w-full justify-center"
+            aria-label="Đăng xuất"
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Đăng xuất
+          </Button>
+        </div>
+      </ScrollArea>
     </div>
   );
 }

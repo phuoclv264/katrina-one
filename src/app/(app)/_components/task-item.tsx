@@ -153,48 +153,52 @@ const TaskItemComponent = ({
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <h3 className={cn(
-              "text-[12.5px] font-bold leading-[1.3] line-clamp-3 transition-colors",
+              "text-[12.5px] font-bold leading-[1.3] transition-colors",
               isCompleted ? "text-green-700" : "text-slate-900"
             )}>
               {task.text}
             </h3>
           </div>
-          <Button
-            size="icon"
-            variant="ghost"
-            className={cn(
-              "h-7 w-7 rounded-lg shrink-0 transition-all",
-              hasNote 
-                ? "text-primary bg-primary/10 shadow-sm border border-primary/20 hover:bg-primary/20" 
-                : "text-slate-400 hover:text-primary hover:bg-primary/5"
-            )}
-            onClick={() => onNoteAction(task)}
-            disabled={isReadonly}
-          >
-            <MessageSquareText className={cn("h-4 w-4", hasNote && "fill-current")} />
-          </Button>
         </div>
 
         {/* Action Buttons */}
         <div className="mt-2">
           {task.type === 'boolean' && (
             <div className="relative">
-              <Button
-                size="sm"
-                variant="outline"
-                className={cn(
-                  "w-full h-8 rounded-xl text-[11px] font-bold transition-all active:scale-95",
-                  isCompleted ? "border-green-200 text-green-700 bg-green-50/30" : "border-slate-200 text-slate-600 hover:border-green-500 hover:text-green-600 hover:bg-green-50"
-                )}
-                onClick={() => onBooleanAction(task.id, true)}
-                disabled={isDisabledForNew}
-              >
-                <ThumbsUp className="mr-1.5 h-3 w-3" />
-                Đảm bảo
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className={cn(
+                    "h-8 w-8 rounded-lg transition-all shrink-0",
+                    hasNote
+                      ? "text-primary bg-primary/10 shadow-sm border border-primary/20 hover:bg-primary/20"
+                      : "text-slate-400 hover:text-primary hover:bg-primary/5"
+                  )}
+                  onClick={() => onNoteAction(task)}
+                  disabled={isReadonly}
+                  aria-label="Ghi chú"
+                  title="Ghi chú"
+                >
+                  <MessageSquareText className={cn("h-4 w-4", hasNote && "fill-current")} />
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className={cn(
+                    "flex-1 h-8 rounded-xl text-[11px] font-bold transition-all active:scale-95",
+                    isCompleted ? "border-green-200 text-green-700 bg-green-50/30" : "border-slate-200 text-slate-600 hover:border-green-500 hover:text-green-600 hover:bg-green-50"
+                  )}
+                  onClick={() => onBooleanAction(task.id, true)}
+                  disabled={isDisabledForNew}
+                >
+                  <ThumbsUp className="mr-1.5 h-3 w-3" />
+                </Button>
+              </div>
               {renderProgressBadge()}
             </div>
-          )}
+          )} 
 
           {task.type === 'opinion' && (
             <div className="relative">
@@ -285,48 +289,66 @@ const TaskItemComponent = ({
       {/* Photo action moved to bottom (hidden for single-completion tasks after done) */}
       {task.type === 'photo' && (
         <div className="mt-2 relative">
-          <Button
-            size="sm"
-            variant={isCompleted ? "outline" : "default"}
-            className={cn(
-              "w-full h-8 rounded-xl text-[11px] font-bold transition-all active:scale-95",
-              isCompleted ? "border-green-200 text-green-700 hover:bg-green-50" : "shadow-sm shadow-primary/10"
-            )}
-            onClick={() => {
-              // Decide whether to append to newest completion or create a new one
-              // For single-completion tasks: always append to the (only) completion if it exists
-              // For multi-completion tasks: append to newest completion if within 20 minutes, otherwise create new
-              let completionIndex: number | null = null;
+          <div className="flex items-center gap-2">
+            <Button
+              size="icon"
+              variant="ghost"
+              className={cn(
+                "h-8 w-8 rounded-lg transition-all shrink-0",
+                hasNote
+                  ? "text-primary bg-primary/10 shadow-sm border border-primary/20 hover:bg-primary/20"
+                  : "text-slate-400 hover:text-primary hover:bg-primary/5"
+              )}
+              onClick={() => onNoteAction(task)}
+              disabled={isReadonly}
+              aria-label="Ghi chú"
+              title="Ghi chú"
+            >
+              <MessageSquareText className={cn("h-4 w-4", hasNote && "fill-current")} />
+            </Button>
 
-              if (isSingleCompletion) {
-                completionIndex = (completions && completions.length > 0) ? 0 : null;
-              } else {
-                if (completions && completions.length > 0) {
-                  const newest = completions[0];
-                  if (newest?.timestamp) {
-                    const [h, m] = newest.timestamp.split(':').map(Number);
-                    const now = new Date();
-                    const ts = new Date(now);
-                    ts.setHours(h || 0, m || 0, 0, 0);
+            <Button
+              size="sm"
+              variant={isCompleted ? "outline" : "default"}
+              className={cn(
+                "flex-1 h-8 rounded-xl text-[11px] font-bold transition-all active:scale-95",
+                isCompleted ? "border-green-200 text-green-700 hover:bg-green-50" : "shadow-sm shadow-primary/10"
+              )}
+              onClick={() => {
+                // Decide whether to append to newest completion or create a new one
+                // For single-completion tasks: always append to the (only) completion if it exists
+                // For multi-completion tasks: append to newest completion if within 20 minutes, otherwise create new
+                let completionIndex: number | null = null;
 
-                    // If timestamp appears to be in the future (e.g., past midnight), assume previous day
-                    if (ts.getTime() > now.getTime()) ts.setDate(ts.getDate() - 1);
+                if (isSingleCompletion) {
+                  completionIndex = (completions && completions.length > 0) ? 0 : null;
+                } else {
+                  if (completions && completions.length > 0) {
+                    const newest = completions[0];
+                    if (newest?.timestamp) {
+                      const [h, m] = newest.timestamp.split(':').map(Number);
+                      const now = new Date();
+                      const ts = new Date(now);
+                      ts.setHours(h || 0, m || 0, 0, 0);
 
-                    const diffMinutes = Math.abs((now.getTime() - ts.getTime()) / 60000);
-                    if (diffMinutes <= MIN_TIME_FOR_ONE_TASK) {
-                      completionIndex = 0;
+                      // If timestamp appears to be in the future (e.g., past midnight), assume previous day
+                      if (ts.getTime() > now.getTime()) ts.setDate(ts.getDate() - 1);
+
+                      const diffMinutes = Math.abs((now.getTime() - ts.getTime()) / 60000);
+                      if (diffMinutes <= MIN_TIME_FOR_ONE_TASK) {
+                        completionIndex = 0;
+                      }
                     }
                   }
                 }
-              }
 
-              onPhotoAction(task, completionIndex);
-            }}
-            disabled={isDisabledForNew}
-          >
-            <Camera className="mr-1.5 h-3 w-3" />
-            Báo cáo
-          </Button>
+                onPhotoAction(task, completionIndex);
+              }}
+              disabled={isDisabledForNew}
+            >
+              <Camera className="h-3 w-3" />
+            </Button>
+          </div>
           {renderProgressBadge()}
         </div>
       )}

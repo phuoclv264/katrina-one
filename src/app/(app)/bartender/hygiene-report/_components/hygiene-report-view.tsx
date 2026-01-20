@@ -625,27 +625,6 @@ export default function HygieneReportView({ isStandalone = true }: HygieneReport
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {tasks.find(s => s.title === activeTab)?.tasks.map((task) => (
                                     <div key={task.id} className="relative">
-                                        <div className="absolute -top-2 -right-2 z-10 pointer-events-none">
-                                            {(() => {
-                                                const count = (report.completedTasks[task.id]?.length || 0);
-                                                const min = task.minCompletions || 1;
-                                                if (count >= min) {
-                                                    return (
-                                                        <div className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-green-500 text-white shadow-sm border-2 border-white">
-                                                            <CheckCircle className="w-3 h-3" />
-                                                        </div>
-                                                    );
-                                                }
-                                                if (count > 0) {
-                                                    return (
-                                                        <div className="inline-flex items-center justify-center h-5 min-w-[24px] px-1 rounded-full bg-slate-600 text-white text-[10px] font-bold shadow-sm border-2 border-white">
-                                                            {`${count}/${min}`}
-                                                        </div>
-                                                    );
-                                                }
-                                                return null;
-                                            })()}
-                                        </div>
                                         <TaskItem
                                             task={task}
                                             completions={(report.completedTasks[task.id] || []) as CompletionRecord[]}
@@ -678,7 +657,7 @@ export default function HygieneReportView({ isStandalone = true }: HygieneReport
             </div>
 
             <div className={cn(
-                "fixed right-4 z-[60] transition-all duration-300 md:right-8", 
+                "fixed right-4 z-[10] transition-all duration-300 md:right-8", 
                 isBottomNavVisible ? "bottom-20" : "bottom-6"
             )}>
                 <div className="relative">

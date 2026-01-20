@@ -26,11 +26,9 @@ const mainShiftInfo: { [key: string]: { name: string, icon: React.ElementType, h
     toi: { name: "Báo cáo ca tối", icon: Moon, href: "/checklist/toi" },
 };
 
-const mainShiftTimeFrames: { [key in "sang" | "trua" | "toi"]: { start: number; end: number } } = {
-  sang: { start: 6, end: 12 },   // 6:00 AM - 12:00 PM
-  trua: { start: 12, end: 17 },  // 12:00 PM - 5:00 PM
-  toi: { start: 17, end: 23 },   // 5:00 PM - 11:00 PM
-};
+// Use a shared canonical time-frame (keeps behavior consistent across views/menus)
+import { DEFAULT_MAIN_SHIFT_TIMEFRAMES, getActiveShiftKeys } from '@/lib/shift-utils';
+const mainShiftTimeFrames = DEFAULT_MAIN_SHIFT_TIMEFRAMES;
 
 export function ServerHomeView() {
   const { user, loading: authLoading, activeShifts, todaysShifts } = useAuth();
@@ -60,32 +58,7 @@ export function ServerHomeView() {
 
   useDataRefresher(handleDataRefresh);
   
-  const hasBartenderSecondaryRole = user?.secondaryRoles?.includes('Pha chế');
-  const hasManagerSecondaryRole = user?.secondaryRoles?.includes('Quản lý');
-  const hasCashierSecondaryRole = user?.secondaryRoles?.includes('Thu ngân');
-  const isPrimaryServer = user?.role === 'Phục vụ';
-
-  const activeMainShiftKeys = useMemo(() => {
-    const now = new Date();
-    const currentHour = now.getHours();
-    const keys = new Set<"sang" | "trua" | "toi">();
-    
-    // We check a window from 1 hour before the shift starts to 1 hour after it ends.
-    for (const key in mainShiftTimeFrames) {
-      const shiftKey = key as "sang" | "trua" | "toi";
-      const frame = mainShiftTimeFrames[shiftKey];
-      
-      const validStartTime = frame.start - 1;
-      const validEndTime = frame.end + 1;
-      
-      // Check if the current hour is within the valid window for the shift
-      if (currentHour >= validStartTime && currentHour < validEndTime) {
-        keys.add(shiftKey);
-      }
-    }
-
-    return Array.from(keys);
-  }, []);
+  const activeMainShiftKeys = useMemo(() => getActiveShiftKeys(mainShiftTimeFrames), [/* intentionally stable */]);
 
   if (authLoading) {
     return <LoadingPage />;

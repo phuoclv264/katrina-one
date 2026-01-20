@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { ListChecks, Sun, Moon, Sunset, Sparkles, Package, Receipt } from 'lucide-react';
 import { DashboardActionCard } from './dashboard-action-card';
+import { getActiveShiftKeys, DEFAULT_MAIN_SHIFT_TIMEFRAMES } from '@/lib/shift-utils';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { dataStore } from '@/lib/data-store';
 import type { DailyTask, UserRole, ManagedUser } from '@/lib/types';
@@ -25,29 +26,7 @@ export default function UtilitiesCard() {
     return unsub;
   }, [user]);
 
-  const activeMainShiftKeys = useMemo(() => {
-    const now = new Date();
-    const currentHour = now.getHours();
-    const keys = new Set<'sang' | 'trua' | 'toi'>();
-
-    const timeFrames = {
-      sang: { start: 6, end: 12 },
-      trua: { start: 12, end: 17 },
-      toi: { start: 17, end: 23 },
-    };
-
-    for (const key in timeFrames) {
-      const shiftKey = key as 'sang' | 'trua' | 'toi';
-      const frame = timeFrames[shiftKey];
-      const validStartTime = frame.start - 1;
-      const validEndTime = frame.end + 1;
-      if (currentHour >= validStartTime && currentHour < validEndTime) {
-        keys.add(shiftKey);
-      }
-    }
-
-    return Array.from(keys);
-  }, []);
+  const activeMainShiftKeys = useMemo(() => getActiveShiftKeys(DEFAULT_MAIN_SHIFT_TIMEFRAMES), [/* stable */]);
 
   const secondaryActions = useMemo(() => {
     if (!user) return [] as any[];

@@ -4,7 +4,6 @@ import { useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Capacitor, PluginListenerHandle } from "@capacitor/core";
 import { App } from "@capacitor/app";
-import toast from "react-hot-toast";
 
 interface LightboxControls {
   isLightboxOpen: boolean;

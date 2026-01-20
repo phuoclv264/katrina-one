@@ -99,16 +99,15 @@ body {
     scrollbar-width: none;
   }
 
-  /* When the bottom nav is visible (html.bottom-nav-visible), ensure
-     the user menu footer sits above it and the scroll area has extra padding. */
-  html.bottom-nav-visible .user-menu-footer {
-    /* bottom nav height (h-16) + any handset safe-area inset */
-    padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0));
-  }
-
+  /* When the bottom nav is visible, avoid changing document.scrollHeight
+     (that can trigger BottomNav's canScroll detection and cause a show/hide
+     loop). Instead add extra padding to the menu's scroll container so the
+     last item (logout) can be scrolled above the bottom nav. */
   html.bottom-nav-visible .user-menu-scroll {
-    /* add nav height + existing scroll padding (pb-6 = 1.5rem) + safe-area inset */
-    padding-bottom: calc(4rem + 1.5rem + env(safe-area-inset-bottom, 0));
+    /* bottom nav height (h-16) + handset safe-area inset */
+    padding-bottom: calc(8rem + env(safe-area-inset-bottom, 0));
+    /* ensure keyboard / focus brings the logout above the nav */
+    scroll-padding-bottom: calc(8rem + env(safe-area-inset-bottom, 0));
   }
 }
 

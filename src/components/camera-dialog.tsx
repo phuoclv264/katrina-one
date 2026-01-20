@@ -171,6 +171,7 @@ export default function CameraDialog({
   const [captionText, setCaptionText] = useState(initialCaption);
   const [isCaptionVisible, setIsCaptionVisible] = useState(false);
   const captionRef = useRef<string | undefined>(initialCaption || undefined);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
   useEffect(() => {
     captionRef.current = captionText?.trim() ? captionText.trim() : undefined;
@@ -194,10 +195,42 @@ export default function CameraDialog({
   }, []);
 
   const handleDialogClose = useCallback(() => {
-    if (!isStarting && !isSubmitting) {
+    // Prevent closing during critical operations
+    if (isStarting) return;
+    if (isSubmitting) return;
+    if (isRecording) {
+      toast.warning('Đang quay video — dừng quay trước khi đóng.');
+      return;
+    }
+
+    // If there are unsent/unsaved media, confirm before closing
+    if (capturedMedia.length > 0) {
+      setShowDiscardConfirm(true);
+      return;
+    }
+
+    onClose();
+  }, [isStarting, isSubmitting, isRecording, capturedMedia, onClose]);
+
+  const confirmDiscardAndClose = useCallback(async () => {
+    // Close the confirm dialog immediately to avoid duplicate modals
+    setShowDiscardConfirm(false);
+
+    // Revoke object URLs and clear in-memory list
+    capturedMedia.forEach(m => URL.revokeObjectURL(m.url));
+    setCapturedMedia([]);
+
+    // Also remove temporary blobs from the photo store (best-effort)
+    try {
+      await Promise.all(capturedMedia.map(m => photoStore.deletePhoto(m.id).catch(() => undefined)));
+    } catch (err) {
+      // swallow — we still proceed to close the UI
+      console.warn('Failed to fully delete some temp media', err);
+    } finally {
+      stopCameraStream();
       onClose();
     }
-  }, [isStarting, isSubmitting, onClose]);
+  }, [capturedMedia, stopCameraStream, onClose]);
 
   useEffect(() => {
     if (window.MediaRecorder) {
@@ -596,7 +629,7 @@ export default function CameraDialog({
       // Captions are now embedded into the media blobs themselves; submit the media list only.
       await onSubmit(capturedMedia);
     } finally {
-      // Parent component closes the dialog, which triggers cleanup.
+      setIsSubmitting(false);
     }
   };
 
@@ -821,17 +854,15 @@ export default function CameraDialog({
                     return (
                         <div
                         key={media.id}
-                        // Center the whole preview strip by using auto margins:
-                        // - Single item: mx-auto
-                        // - Multiple items: ml-auto on first, mr-auto on last
+                        // Left-first alignment: previews flow left-to-right and start flush at the left edge.
+                        // - Single item: aligned left (no auto margins)
+                        // - Multiple items: items flow left→right; add `mr-auto` on the last item to consume remaining space
                         className={cn(
                           "group relative flex-shrink-0 w-[15vw] min-w-0 rounded-2xl border-2 border-white/10 bg-transparent shadow-xl transition-all hover:scale-110 active:scale-95",
                           isLastPreview ? "overflow-visible" : "overflow-hidden",
                           previewItems.length === 1
-                          ? "mx-auto"
-                          : idx === 0
-                            ? "ml-auto"
-                            : idx === previewItems.length - 1
+                          ? ""
+                          : idx === previewItems.length - 1
                             ? "mr-auto"
                             : ""
                         )}
@@ -907,6 +938,22 @@ export default function CameraDialog({
           )}
         </div>
       </DialogContent>
+
+      {/* Discard-confirm dialog: shown when user attempts to close with unsent media */}
+      <Dialog open={showDiscardConfirm} onOpenChange={(open) => !open && setShowDiscardConfirm(false)} dialogTag="camera-discard-confirm" parentDialogTag="camera-dialog">
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Bạn có chắc chắn?</DialogTitle>
+            <DialogDescription>Có {capturedMedia.length} ảnh/video chưa gửi. Nếu bạn đóng bây giờ, các media tạm thời sẽ bị xóa và không thể khôi phục.</DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-6 flex justify-end gap-3">
+            <Button variant="ghost" onClick={() => setShowDiscardConfirm(false)}>Tiếp tục chụp</Button>
+            <Button variant="destructive" onClick={confirmDiscardAndClose}>Bỏ và đóng</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </Dialog>
   );
 }

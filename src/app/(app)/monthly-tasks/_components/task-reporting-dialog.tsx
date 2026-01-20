@@ -31,7 +31,7 @@ import Image from "next/image"
 import type { MonthlyTaskAssignment, TaskCompletionRecord, MediaAttachment, MediaItem } from "@/lib/types"
 import { useLightbox } from "@/contexts/lightbox-context"
 import { useAuth } from "@/hooks/use-auth"
-import { toast } from "react-hot-toast"
+import { toast } from "@/components/ui/pro-toast"
 import CameraDialog from "@/components/camera-dialog"
 import {
     Popover,
@@ -59,7 +59,7 @@ export function TaskReportingDialog({
     const [isCameraOpen, setIsCameraOpen] = useState(false)
     const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false)
     const [noteContent, setNoteContent] = useState("")
-    const [isSubmitting, setIsSubmitting] = useState(false)
+    const [isNoteSubmitting, setIsNoteSubmitting] = useState(false)
 
     const allCompletions = useMemo(
         () => [...assignment.completions, ...assignment.otherCompletions]
@@ -115,35 +115,36 @@ export function TaskReportingDialog({
 
     const handleMediaSubmit = async (media: MediaItem[], note?: string) => {
         if (media.length === 0 || !user) return
-        setIsSubmitting(true)
         try {
             await onSubmitMedia(assignment, media, note)
+
             toast.success(`Đã báo cáo hoàn thành: "${assignment.taskName}"`)
         } catch (error) {
             console.error("Failed to report task completion:", error)
             toast.error("Không thể báo cáo hoàn thành.")
         } finally {
+            // ensure we clear submitting state even if submit or focus-restoration fails
             setIsCameraOpen(false)
-            setIsSubmitting(false)
         }
     }
 
     const handleNoteSubmit = async () => {
+        if (isNoteSubmitting) return
         if (!noteContent.trim() || !user) {
             toast.error("Vui lòng nhập nội dung báo cáo.")
             return
         }
-        setIsSubmitting(true)
         try {
+            setIsNoteSubmitting(true)
             await onSubmitNote(assignment, noteContent, !!currentUserCompletion?.completedAt)
             toast.success("Đã gửi báo cáo.")
-            setIsNoteDialogOpen(false)
-            setNoteContent("")
         } catch (error) {
             console.error("Failed to send note:", error)
             toast.error("Không thể gửi báo cáo.")
         } finally {
-            setIsSubmitting(false)
+            setIsNoteSubmitting(false)
+            setIsNoteDialogOpen(false)
+            setNoteContent("")
         }
     }
 
@@ -217,25 +218,21 @@ export function TaskReportingDialog({
                                                 <Button
                                                     size="lg"
                                                     onClick={() => setIsCameraOpen(true)}
-                                                    disabled={isSubmitting}
                                                     className="h-14 w-full sm:w-auto px-4 sm:px-8 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl shadow-xl shadow-emerald-200/50 dark:shadow-none font-bold text-base tracking-wide transition-all active:scale-[0.98] border-none group"
                                                 >
-                                                    {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin" /> : (
-                                                        <div className="flex items-center gap-2.5">
-                                                            <Camera className="h-6 w-6 group-hover:rotate-12 transition-transform" />
-                                                            <span>CHỤP BÁO CÁO</span>
-                                                        </div>
-                                                    )}
+                                                    <div className="flex items-center gap-2.5">
+                                                        <Camera className="h-6 w-6 group-hover:rotate-12 transition-transform" />
+                                                        <span>CHỤP BÁO CÁO</span>
+                                                    </div>
                                                 </Button>
                                             ) : (
                                                 <Button
                                                     size="lg"
                                                     variant="secondary"
                                                     onClick={() => setIsCameraOpen(true)}
-                                                    disabled={isSubmitting}
                                                     className="h-14 w-full sm:w-auto px-4 sm:px-6 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 text-slate-700 dark:text-slate-200 font-bold text-sm transition-all active:scale-[0.98]"
                                                 >
-                                                    {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="mr-2 h-5 w-5 text-primary" />}
+                                                    <Plus className="mr-2 h-5 w-5 text-primary" />
                                                     BỔ SUNG ẢNH
                                                 </Button>
                                             )}
@@ -247,7 +244,6 @@ export function TaskReportingDialog({
                                                     setNoteContent(currentUserCompletion?.note || "")
                                                     setIsNoteDialogOpen(true)
                                                 }}
-                                                disabled={isSubmitting}
                                                 className={`h-14 w-full sm:w-auto sm:px-5 rounded-2xl transition-all active:scale-[0.98] border-2 ${currentUserCompletion?.note
                                                     ? "border-amber-500/30 bg-amber-50/50 text-amber-700"
                                                     : "border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 hover:bg-slate-50"
@@ -270,7 +266,7 @@ export function TaskReportingDialog({
                                                             className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden ring-2 ring-slate-100 dark:ring-slate-800 group hover:ring-primary/30 transition-all shadow-sm"
                                                         >
                                                             {att.type === "photo" ? (
-                                                                <Image src={att.url || "/placeholder.svg"} alt="Evidence" fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
+                                                                <Image src={att.url || "/placeholder.svg"} alt="Evidence" fill sizes="(max-width: 640px) 4rem, 4rem" className="object-cover group-hover:scale-110 transition-transform duration-500" />
                                                             ) : (
                                                                 <div className="absolute inset-0 bg-slate-900 flex items-center justify-center">
                                                                     <Video className="h-6 w-6 text-white" />
@@ -503,10 +499,14 @@ export function TaskReportingDialog({
                                 <Button
                                     size="lg"
                                     onClick={handleNoteSubmit}
-                                    disabled={isSubmitting || !noteContent.trim()}
                                     className="flex-[2] rounded-2xl h-14 font-black bg-slate-900 dark:bg-slate-100 dark:text-slate-900 text-white shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
                                 >
-                                    {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : "GỬI BÁO CÁO"}
+                                    {isNoteSubmitting ? (
+                                        <span className="flex items-center justify-center gap-2">
+                                            <Loader2 className="h-5 w-5 animate-spin" />
+                                            Đang gửi...
+                                        </span>
+                                    ) : "GỬI BÁO CÁO"}
                                 </Button>
                             </div>
                         </div>

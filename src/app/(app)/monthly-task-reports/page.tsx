@@ -19,7 +19,7 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "lucide-react"
-import { toast } from "react-hot-toast"
+import { toast } from "@/components/ui/pro-toast"
 import { useAuth } from "@/hooks/use-auth"
 import { dataStore } from "@/lib/data-store"
 import type { MediaAttachment, MonthlyTask, TaskCompletionRecord, Schedule, AssignedUser } from "@/lib/types"

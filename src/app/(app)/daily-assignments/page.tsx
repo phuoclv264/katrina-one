@@ -182,6 +182,19 @@ function DailyAssignmentsPageContent() {
 
   const highlightedReportId = searchParams?.get("highlight") || null;
   const highlightRef = useRef<Map<string, HTMLDivElement | null>>(new Map());
+
+  // used when owner clicks "Xem" on the monthly timeline to jump to that day
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const viewDate = useCallback((dKey?: string) => {
+    if (!dKey) return;
+    const d = new Date(dKey);
+    if (Number.isNaN(d.getTime())) return;
+    setSelectedDate(d);
+    setCurrentMonth(d);
+    // give React a moment to update and then scroll the container into view
+    setTimeout(() => containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+  }, [setCurrentMonth, setSelectedDate]);
+
   const { openLightbox } = useLightbox();
 
   const userRoles = useMemo(() => {
@@ -490,7 +503,7 @@ function DailyAssignmentsPageContent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50 pb-20">
+    <div ref={containerRef} className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50 pb-20">
       <div className="container mx-auto max-w-5xl px-3 sm:px-4 pt-4 sm:pt-6 space-y-6 sm:space-y-8">
         {/* Header Section */}
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -677,27 +690,85 @@ function DailyAssignmentsPageContent() {
                     <div className="grid gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {ownerSummary!.timeline.map(([dateKey, bucket], i) => {
                         const safeDateKey = dateKey || `day-${i}`;
+                        const completionRate = (bucket.tasks.filter((t) => t.status === "completed").length / (bucket.tasks.length || 1)) * 100;
+                        
                         return (
-                          <div key={safeDateKey} className="group relative overflow-hidden rounded-xl border bg-background p-3 sm:p-4 transition-all">
-                            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-                              <div className="text-xs sm:text-sm font-bold text-slate-700">{format(new Date(dateKey), "EEEE, dd/MM", { locale: vi })}</div>
-                              <Badge variant="secondary" className="bg-slate-100 text-[8px] sm:text-[10px] font-bold px-1.5 sm:px-2">{bucket.tasks.length} VIỆC</Badge>
-                            </div>
-                            <div className="flex items-center gap-2 sm:gap-3">
-                              <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
-                                <div
-                                  className="h-full bg-primary transition-all duration-500"
-                                  style={{ width: `${(bucket.tasks.filter((t) => t.status === "completed").length / (bucket.tasks.length || 1)) * 100}%` }}
-                                />
+                          <div 
+                            key={safeDateKey} 
+                            className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border bg-card p-4 transition-all duration-300 hover:shadow-xl hover:shadow-slate-200/50 hover:border-primary/30"
+                          >
+                            {/* Decorative background accent */}
+                            <div 
+                              className="absolute top-0 right-0 -mr-4 -mt-4 h-20 w-20 rounded-full bg-primary/5 transition-transform duration-700 group-hover:scale-150 group-hover:bg-primary/10" 
+                            />
+                            
+                            <div className="relative">
+                              <div className="flex items-center justify-between mb-4">
+                                <div className="flex flex-col">
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">
+                                    {format(new Date(dateKey), "EEEE", { locale: vi })}
+                                  </span>
+                                  <span className="text-sm font-black text-slate-800">
+                                    {format(new Date(dateKey), "dd/MM/yyyy")}
+                                  </span>
+                                </div>
+                                <Badge 
+                                  variant="secondary" 
+                                  className="bg-primary/10 text-primary border-none px-2.5 py-0.5 text-[10px] font-black ring-1 ring-primary/20"
+                                >
+                                  {bucket.tasks.length} VIỆC
+                                </Badge>
                               </div>
-                              <span className="text-[9px] sm:text-[10px] font-bold text-muted-foreground uppercase">
-                                {bucket.tasks.filter((t) => t.status === "completed").length}/{bucket.tasks.length}
-                              </span>
+
+                              <div className="space-y-4">
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-tighter">
+                                    <span className="text-muted-foreground/70">Tiến độ hoàn thành</span>
+                                    <span className="text-primary">{Math.round(completionRate)}%</span>
+                                  </div>
+                                  <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                                    <motion.div
+                                      initial={{ width: 0 }}
+                                      animate={{ width: `${completionRate}%` }}
+                                      transition={{ duration: 1.2, ease: "circOut" }}
+                                      className="h-full bg-primary shadow-[0_0_10px_rgba(var(--primary),0.3)] transition-all"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-4">
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-blue-50 text-blue-600 shadow-sm">
+                                      <MessageSquare className="h-3.5 w-3.5" />
+                                    </div>
+                                    <div className="flex flex-col">
+                                      <span className="text-[11px] font-black text-slate-700 leading-none">{bucket.reports.length}</span>
+                                      <span className="text-[8px] font-bold text-muted-foreground uppercase">Báo cáo</span>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-green-50 text-green-600 shadow-sm">
+                                      <CheckCircle2 className="h-3.5 w-3.5" />
+                                    </div>
+                                    <div className="flex flex-col">
+                                      <span className="text-[11px] font-black text-slate-700 leading-none">
+                                        {bucket.tasks.filter((t) => t.status === "completed").length}
+                                      </span>
+                                      <span className="text-[8px] font-bold text-muted-foreground uppercase">Xong</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
-                            <div className="mt-1.5 sm:mt-2 text-[9px] sm:text-[10px] font-medium text-muted-foreground flex items-center gap-1.5">
-                              <MessageSquare className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
-                              {bucket.reports.length} báo cáo
-                            </div>
+
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => viewDate(dateKey)}
+                              className="mt-5 w-full h-10 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-primary hover:text-white hover:border-primary transition-all duration-300 text-[11px] font-black uppercase tracking-wider shadow-sm hover:shadow-md hover:shadow-primary/20"
+                            >
+                              Xem chi tiết
+                            </Button>
                           </div>
                         );
                       })}
