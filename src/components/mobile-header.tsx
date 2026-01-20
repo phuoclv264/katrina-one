@@ -47,7 +47,7 @@ export function MobileHeader() {
     }, [pathname]);
 
     return (
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 z-100">
             <h1 className="text-lg font-semibold text-primary truncate">
                 {title}
             </h1>

@@ -27,7 +27,7 @@ function useScrollDirection() {
     };
   }, [scrollDirection]);
 
-  return scrollDirection;
+  return {scrollDirection, setScrollDirection};
 }
 
 export interface NavTab {
@@ -47,7 +47,7 @@ interface BottomNavProps {
 }
 
 export function BottomNav({ tabs, activeTab, onTabChange, watchValue, autoHideMs = 4000 }: BottomNavProps) {
-  const scrollDirection = useScrollDirection();
+  const {scrollDirection, setScrollDirection} = useScrollDirection();
   const [isVisible, setIsVisible] = useState(true);
   const [isInteracting, setIsInteracting] = useState(false);
   // When true we force the nav visible (e.g., when at top of page or when content
@@ -68,7 +68,9 @@ export function BottomNav({ tabs, activeTab, onTabChange, watchValue, autoHideMs
     const HIDE_DELAY_MS = 150;
 
     if (scrollDirection === 'down') {
-      id = window.setTimeout(() => setIsVisible(false), HIDE_DELAY_MS);
+      id = window.setTimeout(() => {
+        setIsVisible(false);
+      }, HIDE_DELAY_MS);
     } else if (scrollDirection === 'up') {
       setIsVisible(true);
     }
@@ -87,6 +89,7 @@ export function BottomNav({ tabs, activeTab, onTabChange, watchValue, autoHideMs
 
     const id = setTimeout(() => {
       setIsVisible(false);
+      setScrollDirection(null);
     }, autoHideMs);
 
     return () => clearTimeout(id);

@@ -7,7 +7,7 @@ import { vi } from 'date-fns/locale';
 import { cn, getInitials } from '@/lib/utils';
 import Image from 'next/image';
 import { getStatusInfo, findShiftForRecord } from '@/lib/attendance-utils';
-import { Edit2, MoreVertical, Trash2, AlertCircle } from 'lucide-react';
+import { Edit2, MoreVertical, Trash2, AlertCircle, DollarSign } from 'lucide-react';
 import HourlyRateDialog from './hourly-rate-dialog';
 import { dataStore } from '@/lib/data-store';
 import { toast } from '@/components/ui/pro-toast';
@@ -19,17 +19,17 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { 
-    AlertDialog, 
-    AlertDialogAction, 
-    AlertDialogCancel, 
-    AlertDialogContent, 
-    AlertDialogDescription, 
-    AlertDialogFooter, 
-    AlertDialogHeader, 
-    AlertDialogTitle, 
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
     AlertDialogTrigger,
-    AlertDialogIcon 
+    AlertDialogIcon
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -134,6 +134,7 @@ export default function AttendanceCards({
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent>
                                                     <DropdownMenuItem onSelect={() => onEdit(record)}><Edit2 className="mr-2 h-4 w-4" /> Chỉnh sửa</DropdownMenuItem>
+                                                    <DropdownMenuItem onSelect={() => handleEditRate(record)}><DollarSign className="mr-2 h-4 w-4" /> Chỉnh sửa lương</DropdownMenuItem>
                                                     <AlertDialogTrigger asChild>
                                                         <DropdownMenuItem className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Xóa</DropdownMenuItem>
                                                     </AlertDialogTrigger>

@@ -250,15 +250,8 @@ function EventsPageComponent() {
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Hủy</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDeleteEvent(event.id)} disabled={isProcessing === event.id}>
-                                {isProcessing === event.id ? (
-                                  <span className="flex items-center justify-center gap-2">
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                    Đang xóa...
-                                  </span>
-                                ) : (
-                                  'Xóa vĩnh viễn'
-                                )}
+                              <AlertDialogAction onClick={() => handleDeleteEvent(event.id)} isLoading={isProcessing === event.id} disabled={isProcessing === event.id}>
+                                {isProcessing === event.id ? 'Đang xóa...' : 'Xóa vĩnh viễn'}
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>

@@ -114,7 +114,7 @@ function CleanupDialog({ className }: CleanupDialogProps) {
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                                 <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleCleanup}>Tôi hiểu, hãy xóa</AlertDialogAction>
+                                <AlertDialogAction onClick={handleCleanup} isLoading={isProcessing} disabled={isProcessing}>Tôi hiểu, hãy xóa</AlertDialogAction>
                             </AlertDialogFooter>
                         </AlertDialogContent>
                     </AlertDialog>

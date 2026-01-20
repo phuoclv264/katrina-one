@@ -37,7 +37,6 @@ export function ServerHomeView() {
   const nav = useAppNavigation();
   const { showCheckInCardOnTop, isCheckedIn } = useCheckInCardPlacement();
   const [todaysMonthlyAssignments, setTodaysMonthlyAssignments] = useState<MonthlyTaskAssignment[]>([]);
-  const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const handleDataRefresh = useCallback(() => {
@@ -52,11 +51,9 @@ export function ServerHomeView() {
 
   useEffect(() => {
     if (user) {
-      const unsubTasks = dataStore.subscribeToMonthlyTasksForDate(new Date(), setTodaysMonthlyAssignments);
-      const unsubTemplates = dataStore.subscribeToShiftTemplates(setShiftTemplates);
+      const unsubTasks = dataStore.subscribeToMonthlyTasksForDateForStaff(new Date(), user.uid, setTodaysMonthlyAssignments);
       return () => {
         unsubTasks();
-        unsubTemplates();
       };
     }
   }, [user, refreshTrigger]);
@@ -107,7 +104,7 @@ export function ServerHomeView() {
     <DashboardLayout
       title="Checklist Công việc"
       description={todaysShifts.length > 0 ? `Hôm nay bạn có ca: ${shiftsText}. Chọn ca để báo cáo.` : 'Bạn không có ca làm việc nào hôm nay, liên hệ chủ quán để thay đổi lịch làm.'}
-      top={isCheckedIn && todaysMonthlyAssignments.length > 0 ? <TodaysTasksCard assignments={todaysMonthlyAssignments} shiftTemplates={shiftTemplates} /> : undefined}
+      top={isCheckedIn && todaysMonthlyAssignments.length > 0 ? <TodaysTasksCard assignments={todaysMonthlyAssignments} /> : undefined}
     >
       {isCheckedIn && activeMainShiftKeys.length > 0 ? (
         <div className="grid grid-cols-2 gap-3">

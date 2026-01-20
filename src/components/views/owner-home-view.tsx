@@ -109,7 +109,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
         dataStore.subscribeToReportFeed(setComplaints),
         dataStore.subscribeToUsers(setAllUsers),
         dataStore.subscribeToMonthlyTasks(setMonthlyTasks),
-        dataStore.subscribeToMonthlyTasksForDate(new Date(startStr), setTaskAssignments),
+        dataStore.subscribeToMonthlyTasksForDateForOwner(new Date(startStr), setTaskAssignments, { allUsers, schedule: todaysSchedule }),
         dataStore.subscribeToAllIncidents(setIncidents),
         dataStore.subscribeToInventoryList(setInventoryList),
       ];
@@ -140,7 +140,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
       dataStore.subscribeToDailyExpenseSlips(todayStr, setDailySlips),
       dataStore.subscribeToUsers(setAllUsers),
       dataStore.subscribeToMonthlyTasks(setMonthlyTasks),
-      dataStore.subscribeToMonthlyTasksForDate(new Date(todayStr), setTaskAssignments),
+      dataStore.subscribeToMonthlyTasksForDateForOwner(new Date(todayStr), setTaskAssignments, { allUsers, schedule: todaysSchedule }),
       dataStore.subscribeToAllIncidents(setIncidents),
       dataStore.subscribeToInventoryList(setInventoryList),
     ];

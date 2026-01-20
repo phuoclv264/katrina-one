@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import {
     Dialog,
     DialogContent,
@@ -100,7 +100,14 @@ export function TaskReportingDialog({
     }, [assignment.responsibleUsersByShift, allCompletions])
 
     const stats = useMemo(() => {
-        const totalAssigned = assignment.responsibleUsersByShift.reduce((acc, s) => acc + s.users.length, 0)
+        // count unique users (don't double-count the same user across shifts)
+        const totalAssigned = (() => {
+            const ids = new Set<string>()
+            assignment.responsibleUsersByShift.forEach(({ users }) =>
+                users.forEach(u => { ids.add(u.userId) })
+            )
+            return ids.size
+        })()
         const done = allCompletions.filter(c => !!c.completedAt).length
         const remaining = notDoneUsers.length
         return { totalAssigned, done, remaining }
@@ -112,11 +119,11 @@ export function TaskReportingDialog({
         try {
             await onSubmitMedia(assignment, media, note)
             toast.success(`Đã báo cáo hoàn thành: "${assignment.taskName}"`)
-            setIsCameraOpen(false)
         } catch (error) {
             console.error("Failed to report task completion:", error)
             toast.error("Không thể báo cáo hoàn thành.")
         } finally {
+            setIsCameraOpen(false)
             setIsSubmitting(false)
         }
     }
@@ -159,7 +166,7 @@ export function TaskReportingDialog({
     return (
         <>
             <Dialog open={isOpen} onOpenChange={onOpenChange} dialogTag="task-reporting-dialog" parentDialogTag="root">
-                <DialogContent className="max-w-[500px] w-[95%] rounded-[32px] p-0 overflow-hidden border-none shadow-2xl bg-slate-50 dark:bg-slate-950">
+                <DialogContent className="max-w-[500px] max-h-[90vh] w-[95%] rounded-[32px] p-0 overflow-hidden border-none shadow-2xl bg-slate-50 dark:bg-slate-950">
                     <DialogHeader className="px-6 pt-6 pb-4 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 shrink-0">
                         <div className="flex items-center gap-4">
                             <div className="w-13 h-13 rounded-2xl bg-indigo-50 dark:bg-indigo-950/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-inner ring-1 ring-indigo-100/50 dark:ring-indigo-900/50 shrink-0">
@@ -193,7 +200,7 @@ export function TaskReportingDialog({
                         </div>
                     </DialogHeader>
 
-                    <ScrollArea className="max-h-[70vh]">
+                    <ScrollArea className="max-h-[75vh]">
                         <div className="p-5 space-y-6">
                             {/* --- ACTION SECTION (Your Report) --- */}
                             <section className="relative">

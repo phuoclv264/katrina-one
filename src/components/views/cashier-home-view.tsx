@@ -737,7 +737,7 @@ function CashierDashboardPageComponent({ isStandalone = false }: CashierDashboar
                                                                         </AlertDialogHeader>
                                                                         <AlertDialogFooter>
                                                                             <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                                            <AlertDialogAction onClick={() => handleDeleteRevenue(stat.id)}>Xóa</AlertDialogAction>
+                                                                            <AlertDialogAction onClick={() => handleDeleteRevenue(stat.id)} isLoading={isProcessing} disabled={isProcessing}>Xóa</AlertDialogAction>
                                                                         </AlertDialogFooter>
                                                                     </AlertDialogContent>
                                                                 </AlertDialog>
@@ -796,7 +796,7 @@ function CashierDashboardPageComponent({ isStandalone = false }: CashierDashboar
                                                                                 </AlertDialogHeader>
                                                                                 <AlertDialogFooter>
                                                                                     <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                                                    <AlertDialogAction onClick={() => handleDeleteRevenue(stat.id)}>Xóa</AlertDialogAction>
+                                                                                    <AlertDialogAction onClick={() => handleDeleteRevenue(stat.id)} isLoading={isProcessing} disabled={isProcessing}>Xóa</AlertDialogAction>
                                                                                 </AlertDialogFooter>
                                                                             </AlertDialogContent>
                                                                         </AlertDialog>
@@ -869,7 +869,7 @@ function CashierDashboardPageComponent({ isStandalone = false }: CashierDashboar
                                                                         </AlertDialogHeader>
                                                                         <AlertDialogFooter>
                                                                             <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                                            <AlertDialogAction onClick={() => dataStore.deleteExpenseSlip(slip).then(() => toast.success("Đã xóa phiếu chi.")).catch(() => toast.error("Lỗi xóa phiếu chi."))}>Xóa</AlertDialogAction>
+                                                                            <AlertDialogAction onClick={() => dataStore.deleteExpenseSlip(slip).then(() => toast.success("Đã xóa phiếu chi.")).catch(() => toast.error("Lỗi xóa phiếu chi."))} isLoading={isProcessing} disabled={isProcessing}>{isProcessing ? 'Đang xóa...' : 'Xóa'}</AlertDialogAction>
                                                                         </AlertDialogFooter>
                                                                     </AlertDialogContent>
                                                                 </AlertDialog>
@@ -954,7 +954,7 @@ function CashierDashboardPageComponent({ isStandalone = false }: CashierDashboar
                                                                                 </AlertDialogHeader>
                                                                                 <AlertDialogFooter>
                                                                                     <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                                                    <AlertDialogAction onClick={() => handleDeleteSlip(slip)}>Xóa</AlertDialogAction>
+                                                                                    <AlertDialogAction onClick={() => handleDeleteSlip(slip)} isLoading={isProcessing} disabled={isProcessing}>Xóa</AlertDialogAction>
                                                                                 </AlertDialogFooter>
                                                                             </AlertDialogContent>
                                                                         </AlertDialog>
@@ -1041,7 +1041,7 @@ function CashierDashboardPageComponent({ isStandalone = false }: CashierDashboar
                                                         </AlertDialogHeader>
                                                         <AlertDialogFooter>
                                                             <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                            <AlertDialogAction onClick={() => handleDeleteCashCount(handover.id)}>Xóa</AlertDialogAction>
+                                                            <AlertDialogAction onClick={() => handleDeleteCashCount(handover.id)} isLoading={isProcessing} disabled={isProcessing}>Xóa</AlertDialogAction>
                                                         </AlertDialogFooter>
                                                     </AlertDialogContent>
                                                 </AlertDialog>
@@ -1095,7 +1095,7 @@ function CashierDashboardPageComponent({ isStandalone = false }: CashierDashboar
                                                                     </AlertDialogHeader>
                                                                     <AlertDialogFooter>
                                                                         <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                                        <AlertDialogAction onClick={() => handleDeleteIncident(incident)}>Xóa</AlertDialogAction>
+                                                                        <AlertDialogAction onClick={() => handleDeleteIncident(incident)} isLoading={isProcessing} disabled={isProcessing}>Xóa</AlertDialogAction>
                                                                     </AlertDialogFooter>
                                                                 </AlertDialogContent>
                                                             </AlertDialog>

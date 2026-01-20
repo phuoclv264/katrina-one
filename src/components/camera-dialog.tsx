@@ -615,6 +615,7 @@ export default function CameraDialog({
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleDialogClose()} dialogTag="camera-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent
         hideClose={true}
+        overlayClassName={parentDialogTag.includes("dialog") ? "bg-transparent" : undefined}
         className="max-h-[95vh] max-w-3xl p-0 overflow-hidden border-none bg-transparent sm:rounded-[40px] shadow-2xl"
       >
         <div className="relative h-[90vh] sm:h-[80vh] w-full flex flex-col">

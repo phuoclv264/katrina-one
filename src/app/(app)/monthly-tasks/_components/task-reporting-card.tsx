@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, AlertCircle } from "lucide-react"
+import { CheckCircle, AlertCircle, ArrowRight } from "lucide-react"
 import type { MonthlyTaskAssignment, MediaItem } from "@/lib/types"
 import { useAuth } from "@/hooks/use-auth"
 import { format } from "date-fns"
@@ -58,12 +58,21 @@ function TaskStatus({ assignment }: { assignment: MonthlyTaskAssignment }) {
 
 type TodaysTasksCardProps = {
   assignments: MonthlyTaskAssignment[];
-  shiftTemplates: any[];
 };
 
-export default function TodaysTasksCard({ assignments, shiftTemplates }: TodaysTasksCardProps) {
+export default function TodaysTasksCard({ assignments }: TodaysTasksCardProps) {
   const { user, todaysShifts, activeShifts, isOnActiveShift } = useAuth();
   const [selectedAssignment, setSelectedAssignment] = useState<MonthlyTaskAssignment | null>(null);
+
+  // Update selectedAssignment when assignments change to keep dialog data fresh
+  useEffect(() => {
+    if (selectedAssignment) {
+      const updatedAssignment = assignments.find(a => a.taskId === selectedAssignment.taskId);
+      if (updatedAssignment) {
+        setSelectedAssignment(updatedAssignment);
+      }
+    }
+  }, [assignments, selectedAssignment]);
 
   const visibleAssignments = useMemo(() => {
     if (!user) return [] as MonthlyTaskAssignment[];
@@ -124,24 +133,27 @@ export default function TodaysTasksCard({ assignments, shiftTemplates }: TodaysT
       assignment.completions.find((c) => c.completedBy?.userId === user.uid) ||
       assignment.otherCompletions.find((c) => c.completedBy?.userId === user.uid);
 
-    if (completion?.completedAt) return "border-emerald-100 dark:border-emerald-900/30 bg-emerald-50/20 dark:bg-emerald-950/5 shadow-sm shadow-emerald-100/50";
-    if (completion?.note) return "border-amber-100 dark:border-amber-900/30 bg-amber-50/20 dark:bg-amber-950/5 shadow-sm shadow-amber-100/50";
-    return "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50";
+    if (completion?.completedAt) return "border-emerald-200/50 dark:border-emerald-500/20 bg-emerald-50/30 dark:bg-emerald-500/5 shadow-sm shadow-emerald-100/20";
+    if (completion?.note) return "border-amber-200/50 dark:border-amber-500/20 bg-amber-50/30 dark:bg-amber-500/5 shadow-sm shadow-amber-100/20";
+    return "border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900/50";
   };
 
   return (
     <>
       <Card className="border-none shadow-none bg-transparent">
         <CardHeader className="px-0 pb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
-              <CheckCircle className="w-6 h-6" />
-            </div>
-            <div>
-              <CardTitle className="text-xl font-black tracking-tight text-slate-800 dark:text-slate-100">CÔNG VIỆC HÀNG NGÀY</CardTitle>
-              <CardDescription className="font-medium text-slate-500">
-                Bạn có <span className="text-primary font-bold">{visibleAssignments.length}</span> đầu việc trong hôm nay
-              </CardDescription>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-3xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-primary shadow-sm">
+                <CheckCircle className="w-6 h-6" strokeWidth={2.5} />
+              </div>
+              <div>
+                <CardTitle className="text-2xl font-black tracking-tight text-slate-900 dark:text-white uppercase">CÔNG VIỆC HÀNG NGÀY</CardTitle>
+                <CardDescription className="font-semibold text-slate-500 flex items-center gap-2 mt-0.5">
+                  <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
+                  Bạn có <span className="text-slate-900 dark:text-slate-200 font-bold">{visibleAssignments.length}</span> đầu việc chờ xử lý
+                </CardDescription>
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -151,19 +163,42 @@ export default function TodaysTasksCard({ assignments, shiftTemplates }: TodaysT
               <div
                 key={assignment.taskId}
                 onClick={() => setSelectedAssignment(assignment)}
-                className={`flex flex-col gap-3 p-4 border rounded-[28px] cursor-pointer transition-all active:scale-[0.98] hover:shadow-lg dark:hover:shadow-none hover:-translate-y-1 ${getStatusItemClasses(assignment)}`}
+                className={`group relative flex flex-col gap-3 p-4 border rounded-[32px] cursor-pointer transition-all duration-300 active:scale-[0.97] hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-1.5 ${getStatusItemClasses(assignment)}`}
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <span className="font-bold text-sm leading-snug text-slate-800 dark:text-slate-100 line-clamp-2">
-                      {assignment.taskName}
+                {/* Header: Meta & Status Badge */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-1.5 h-6 rounded-full bg-primary/20 group-hover:bg-primary transition-colors duration-300" />
+                    <span className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em]">
+                      Nhiệm vụ
                     </span>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-1 uppercase tracking-tight">Nhấn để xem chi tiết & báo cáo</p>
                   </div>
-                  <div className="shrink-0 pt-0.5">
+                  <div className="transform group-hover:scale-110 transition-transform duration-300">
                     <TaskStatus assignment={assignment} />
                   </div>
                 </div>
+
+                {/* Body: Full Task Name */}
+                <div className="flex-1 py-1">
+                  <h3 className="text-lg font-extrabold leading-tight text-slate-900 dark:text-white group-hover:text-primary transition-colors duration-300 break-words">
+                    {assignment.taskName}
+                  </h3>
+                </div>
+
+                {/* Footer: Interaction Hint */}
+                <div className="flex items-center justify-between border-t border-slate-100/50 dark:border-slate-800/30">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+                      <ArrowRight className="w-3 h-3 text-slate-400 group-hover:text-primary transition-colors" />
+                    </div>
+                    <p className="text-[12px] text-slate-400 dark:text-slate-500 font-bold italic tracking-tight">
+                      Nhấn để báo cáo kết quả
+                    </p>
+                  </div>
+                </div>
+
+                {/* Subtle outer glow on hover */}
+                <div className="absolute inset-0 rounded-[32px] border-2 border-primary/0 group-hover:border-primary/5 transition-colors pointer-events-none" />
               </div>
             ))}
           </div>
@@ -177,7 +212,6 @@ export default function TodaysTasksCard({ assignments, shiftTemplates }: TodaysT
             try {
               await handleSubmitMedia(assignment, media, note)
               toast.success("Đã gửi ảnh/video")
-              setSelectedAssignment(null)
             } catch (error) {
               console.error("Error submitting media", error)
               toast.error("Gửi ảnh/video thất bại")
@@ -187,9 +221,6 @@ export default function TodaysTasksCard({ assignments, shiftTemplates }: TodaysT
             try {
               await handleSubmitNote(assignment, note, markCompleted)
               toast.success(markCompleted ? "Đã hoàn thành" : "Đã gửi ghi chú")
-              if (markCompleted) {
-                setSelectedAssignment(null)
-              }
             } catch (error) {
               console.error("Error submitting note", error)
               toast.error("Gửi ghi chú thất bại")

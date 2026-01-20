@@ -731,9 +731,10 @@ export async function requestPassShift(shiftToPass: AssignedShift, requestingUse
     // Server-side check: Fetch the latest schedule to verify the user is still in the shift
     const weekId = `${getISOWeekYear(new Date(shiftToPass.date))}-W${getISOWeek(new Date(shiftToPass.date))}`;
     const scheduleDoc = await getDoc(doc(db, 'schedules', weekId));
+    let currentShift: AssignedShift | undefined;
     if (scheduleDoc.exists()) {
         const schedule = scheduleDoc.data() as Schedule;
-        const currentShift = schedule.shifts.find(s => s.id === shiftToPass.id);
+        currentShift = schedule.shifts.find(s => s.id === shiftToPass.id);
         if (!currentShift || !currentShift.assignedUsers.some(u => u.userId === requestingUser.uid)) {
             throw new Error("Bạn không còn trong ca làm việc này nên không thể gửi yêu cầu pass ca.");
         }
@@ -756,6 +757,8 @@ export async function requestPassShift(shiftToPass: AssignedShift, requestingUse
         return existingRequestData;
     }
 
+    // derive assignedRole from the authoritative schedule snapshot we already fetched (no extra read)
+    const requestingAssignedRole: string | null = currentShift?.assignedUsers.find(u => u.userId === requestingUser.uid)?.assignedRole ?? null;
 
     const newNotification: Omit<Notification, 'id'> = {
         type: 'pass_request',
@@ -770,11 +773,12 @@ export async function requestPassShift(shiftToPass: AssignedShift, requestingUse
             shiftRole: shiftToPass.role,
             requestingUser: {
                 userId: requestingUser.uid,
-                userName: requestingUser.displayName
+                userName: requestingUser.displayName,
+                assignedRole: requestingAssignedRole
             },
             isSwapRequest: false,
             declinedBy: [],
-        }
+        } as PassRequestPayload
     };
     await addDoc(collection(db, "notifications"), newNotification);
     return null;
@@ -947,7 +951,10 @@ export async function acceptPassShift(notificationId: string, payload: PassReque
 
     await updateDoc(notificationRef, {
         status: 'pending_approval',
-        'payload.takenBy': acceptingUser
+        'payload.takenBy': {
+            ...acceptingUser,
+            assignedRole: payload.requestingUser?.assignedRole ?? targetAssignedRole ?? acceptingUserDetails.role
+        }
     });
 }
 
@@ -1011,26 +1018,47 @@ export async function approvePassRequest(notification: Notification, resolver: A
             const shiftA = { ...updatedShifts[shiftA_Index] };
             const shiftB = { ...updatedShifts[shiftB_Index] };
 
-            shiftA.assignedUsers = shiftA.assignedUsers.filter(u => u.userId !== requestingUser.userId);
-            shiftA.assignedUsers.push(takenBy);
+            // determine original assignedRole values (prefer payload, fall back to existing shift entries)
+            const requesterRole = payload.requestingUser?.assignedRole ?? shiftA.assignedUsers.find(u => u.userId === requestingUser.userId)?.assignedRole ?? null;
+            const takerRole = payload.takenBy?.assignedRole ?? shiftB.assignedUsers.find(u => u.userId === takenBy.userId)?.assignedRole ?? null;
 
+            // remove original entries
+            shiftA.assignedUsers = shiftA.assignedUsers.filter(u => u.userId !== requestingUser.userId);
             shiftB.assignedUsers = shiftB.assignedUsers.filter(u => u.userId !== takenBy.userId);
-            shiftB.assignedUsers.push(requestingUser);
+
+            // takenBy should receive the requester's assignedRole for shiftA (if available)
+            const takenByWithRole: AssignedUser = { ...takenBy, assignedRole: takenBy.assignedRole ?? requesterRole ?? takerRole };
+            // requestingUser moves into shiftB and should retain (or receive) the taker's previous role
+            const requestingUserWithRole: AssignedUser = { ...requestingUser, assignedRole: requestingUser.assignedRole ?? takerRole ?? requesterRole };
+
+            shiftA.assignedUsers.push(takenByWithRole);
+            shiftB.assignedUsers.push(requestingUserWithRole);
 
             updatedShifts[shiftA_Index] = shiftA;
             updatedShifts[shiftB_Index] = shiftB;
 
         } else {
             const shiftA = { ...updatedShifts[shiftA_Index] };
+
+            // determine which role should be assigned to the taker: prefer the requestingUser.assignedRole, then the existing shift entry
+            const roleToAssign = payload.requestingUser?.assignedRole ?? shiftA.assignedUsers.find(u => u.userId === requestingUser.userId)?.assignedRole ?? null;
+
             const conflict = hasTimeConflict(takenBy.userId, shiftA, updatedShifts.filter(s => s.date === shiftA.date));
             if (conflict) {
                 transaction.update(notificationRef, { status: 'cancelled', 'payload.cancellationReason': `Tự động hủy do người nhận ca (${takenBy.userName}) bị trùng lịch.`, 'payload.takenBy': null });
                 throw new Error(`SHIFT_CONFLICT: Nhân viên ${takenBy.userName} đã có ca làm việc khác (${conflict.label}) bị trùng giờ.`);
             }
 
+            // remove the requesting user and add the taker with the appropriate assignedRole
             shiftA.assignedUsers = shiftA.assignedUsers.filter(u => u.userId !== requestingUser.userId);
-            shiftA.assignedUsers.push(takenBy);
+            const takenByWithRole: AssignedUser = { ...takenBy, assignedRole: takenBy.assignedRole ?? roleToAssign };
+            shiftA.assignedUsers.push(takenByWithRole);
             updatedShifts[shiftA_Index] = shiftA;
+
+            // persist the assignedRole onto the notification payload so other systems/readers see it
+            if (roleToAssign) {
+                transaction.update(notificationRef, { 'payload.takenBy.assignedRole': roleToAssign });
+            }
         }
 
         transaction.update(scheduleRef, { shifts: updatedShifts });
@@ -1310,119 +1338,156 @@ function isTaskScheduledForDate(task: MonthlyTask, date: Date): boolean {
     }
 }
 
-export function subscribeToMonthlyTasksForDate(
+type MonthlyTaskSubscriptionHandler = (payload: { assignments: MonthlyTaskAssignment[]; allUsers: ManagedUser[] }) => void;
+
+function buildMonthlyTaskAssignmentsForDate({
+    targetDate,
+    dateKey,
+    schedule,
+    allDefinedTasks,
+    allUsers,
+    allCompletionsForDay,
+}: {
+    targetDate: Date;
+    dateKey: string;
+    schedule: Schedule;
+    allDefinedTasks: MonthlyTask[];
+    allUsers: ManagedUser[];
+    allCompletionsForDay: TaskCompletionRecord[];
+}): MonthlyTaskAssignment[] {
+    const tasksDueToday = allDefinedTasks.filter(task => {
+        if (!isTaskScheduledForDate(task, new Date(targetDate))) {
+            return false;
+        }
+        return true;
+    });
+
+    const shiftsToday = schedule.shifts.filter(s => s.date === dateKey);
+
+    return tasksDueToday.map(task => {
+        const responsibleUsersByShift = new Map<string, { shiftId: string; shiftLabel: string; users: AssignedUser[] }>();
+        const allResponsibleUserIds = new Set<string>();
+
+        shiftsToday.forEach(shift => {
+            const taskAppliesToShift = (
+                !task.timeOfDay ||
+                isWithinInterval(parseISO(`${dateKey}T${task.timeOfDay}`), {
+                    start: parseISO(`${shift.date}T${shift.timeSlot.start}`),
+                    end: parseISO(`${shift.date}T${shift.timeSlot.end}`)
+                })
+            );
+
+            if (taskAppliesToShift) {
+                shift.assignedUsers.forEach(assignedUser => {
+                    const fullUser = allUsers.find(u => u.uid === assignedUser.userId);
+                    if (fullUser) {
+                        const assignedRole = (assignedUser as any).assignedRole as string | undefined;
+
+                        const roleMatches = assignedRole
+                            ? (task.appliesToRole === 'Tất cả' || assignedRole === task.appliesToRole)
+                            : (task.appliesToRole === 'Tất cả' || [fullUser.role, ...(fullUser.secondaryRoles || [])].includes(task.appliesToRole));
+
+                        if (roleMatches) {
+                            if (!responsibleUsersByShift.has(shift.id)) {
+                                responsibleUsersByShift.set(shift.id, { shiftId: shift.id, shiftLabel: shift.label, users: [] });
+                            }
+                            const shiftGroup = responsibleUsersByShift.get(shift.id)!;
+                            if (!shiftGroup.users.some(u => u.userId === assignedUser.userId)) {
+                                shiftGroup.users.push(assignedUser);
+                            }
+                            allResponsibleUserIds.add(assignedUser.userId);
+                        }
+                    }
+                });
+            }
+        });
+
+        const allCompletionsForThisTask = allCompletionsForDay.filter(c => c.taskId === task.id);
+        const assignedCompletions = allCompletionsForThisTask.filter(c => c.completedBy && allResponsibleUserIds.has(c.completedBy.userId));
+        const otherCompletions = allCompletionsForThisTask.filter(c => !c.completedBy || !allResponsibleUserIds.has(c.completedBy.userId));
+
+        return {
+            taskId: task.id,
+            taskName: task.name,
+            description: task.description,
+            assignedDate: dateKey,
+            appliesToRole: task.appliesToRole,
+            responsibleUsersByShift: Array.from(responsibleUsersByShift.values()),
+            completions: assignedCompletions,
+            otherCompletions,
+        } as MonthlyTaskAssignment;
+    });
+}
+
+function createMonthlyTaskSubscription(
     date: Date,
-    callback: (assignments: MonthlyTaskAssignment[]) => void
+    handler: MonthlyTaskSubscriptionHandler,
+    options?: { allUsers?: ManagedUser[]; schedule?: Schedule | null }
 ): () => void {
-    const dateKey = format(date, 'yyyy-MM-dd');
-    const weekId = `${getISOWeekYear(date)}-W${getISOWeek(date)}`;
+    const targetDate = new Date(date);
+    const dateKey = format(targetDate, 'yyyy-MM-dd');
+    const weekId = `${getISOWeekYear(targetDate)}-W${getISOWeek(targetDate)}`;
 
     let allDefinedTasks: MonthlyTask[] = [];
-    let allUsers: ManagedUser[] = [];
-    let schedule: Schedule | null = null;
+    // Caller-provided users are only considered authoritative when a non-empty array is passed.
+    const callerProvidesUsers = Array.isArray(options?.allUsers) && (options!.allUsers as ManagedUser[]).length > 0;
+    let allUsers: ManagedUser[] = callerProvidesUsers ? (options!.allUsers as ManagedUser[]) : [];
+
+    // Caller-provided schedule is considered authoritative only when a non-null Schedule object is passed.
+    const callerProvidesSchedule = !!options?.schedule && (options!.schedule as Schedule) !== null;
+    let schedule: Schedule | null | undefined = callerProvidesSchedule ? (options!.schedule as Schedule) : undefined;
+
     let allCompletionsForDay: TaskCompletionRecord[] = [];
 
     const processAndCallback = () => {
-        if (!schedule) { // Don't process until we have the schedule for the day
-            callback([]);
+        // If caller provided a schedule (even null), treat that as authoritative and do not wait for an internal schedule snapshot.
+        if (schedule === undefined) {
+            // we don't have a schedule yet and caller didn't provide one
+            handler({ assignments: [], allUsers });
             return;
         }
 
-        const tasksDueToday = allDefinedTasks.filter(task => {
-            if (!isTaskScheduledForDate(task, date)) {
-                return false;
-            }
-            return true;
+        const assignments = buildMonthlyTaskAssignmentsForDate({
+            targetDate,
+            dateKey,
+            schedule: schedule as Schedule,
+            allDefinedTasks,
+            allUsers,
+            allCompletionsForDay,
         });
 
-        const shiftsToday = schedule.shifts.filter(s => s.date === dateKey);
-
-        const finalAssignments: MonthlyTaskAssignment[] = tasksDueToday.map(task => {
-            const responsibleUsersByShift = new Map<string, { shiftId: string; shiftLabel: string; users: AssignedUser[] }>();
-            const allResponsibleUserIds = new Set<string>();
-
-            shiftsToday.forEach(shift => {
-                const taskAppliesToShift = (
-                    !task.timeOfDay ||
-                    isWithinInterval(parseISO(`${dateKey}T${task.timeOfDay}`), {
-                        start: parseISO(`${shift.date}T${shift.timeSlot.start}`),
-                        end: parseISO(`${shift.date}T${shift.timeSlot.end}`)
-                    })
-                );
-
-                if (taskAppliesToShift) {
-                    shift.assignedUsers.forEach(assignedUser => {
-                        const fullUser = allUsers.find(u => u.uid === assignedUser.userId);
-                        if (fullUser) {
-                            // Prefer the role assigned for this specific shift when present.
-                            // If the user has no assignedRole for this shift, fall back to their main+secondary roles.
-                            const assignedRole = (assignedUser as any).assignedRole as string | undefined;
-
-                            const roleMatches = assignedRole
-                                ? (task.appliesToRole === 'Tất cả' || assignedRole === task.appliesToRole)
-                                : (task.appliesToRole === 'Tất cả' || [fullUser.role, ...(fullUser.secondaryRoles || [])].includes(task.appliesToRole));
-
-                            if (roleMatches) {
-                                if (!responsibleUsersByShift.has(shift.id)) {
-                                    responsibleUsersByShift.set(shift.id, { shiftId: shift.id, shiftLabel: shift.label, users: [] });
-                                }
-                                const shiftGroup = responsibleUsersByShift.get(shift.id)!;
-                                if (!shiftGroup.users.some(u => u.userId === assignedUser.userId)) {
-                                    shiftGroup.users.push(assignedUser);
-                                }
-                                allResponsibleUserIds.add(assignedUser.userId);
-                            }
-                        }
-                    });
-                }
-            });
-
-            const allCompletionsForThisTask = allCompletionsForDay.filter(c => c.taskId === task.id);
-            const assignedCompletions = allCompletionsForThisTask.filter(c => c.completedBy && allResponsibleUserIds.has(c.completedBy.userId));
-            const otherCompletions = allCompletionsForThisTask.filter(c => !c.completedBy || !allResponsibleUserIds.has(c.completedBy.userId));
-
-            return {
-                taskId: task.id,
-                taskName: task.name,
-                description: task.description,
-                assignedDate: dateKey,
-                appliesToRole: task.appliesToRole,
-                responsibleUsersByShift: Array.from(responsibleUsersByShift.values()),
-                completions: assignedCompletions,
-                otherCompletions: otherCompletions,
-            };
-        });
-
-        callback(finalAssignments.filter(a => a.responsibleUsersByShift.length > 0 || a.otherCompletions.length > 0));
+        handler({ assignments, allUsers });
     };
 
     const unsubTasks = onSnapshot(doc(db, 'app-data', 'monthlyTasks'), (docSnap) => {
-        allDefinedTasks = docSnap.exists() ? (docSnap.data().tasks as MonthlyTask[]) : [];
+        allDefinedTasks = docSnap.exists() ? ((docSnap.data().tasks as MonthlyTask[]) || []) : [];
         processAndCallback();
     });
 
-    const unsubSchedule = onSnapshot(doc(db, 'schedules', weekId), (docSnap) => {
-        schedule = docSnap.exists() ? (docSnap.data() as Schedule) : null;
-        processAndCallback();
-    });
+    // Only subscribe to schedule if caller did NOT provide a populated schedule
+    let unsubSchedule: (() => void) | null = null;
+    if (!callerProvidesSchedule) {
+        unsubSchedule = onSnapshot(doc(db, 'schedules', weekId), (docSnap) => {
+            schedule = docSnap.exists() ? (docSnap.data() as Schedule) : null;
+            processAndCallback();
+        });
+    }
 
-    // Query for all completion documents for the given date.
-    // The document IDs are in the format 'YYYY-MM-DD_userId'.
     const completionsQuery = query(
         collection(db, 'monthly_task_completions'),
         where(documentId(), '>=', dateKey),
-        where(documentId(), '<', dateKey + 'z') // Use 'z' as a simple way to create an upper bound for the query
+        where(documentId(), '<', `${dateKey}z`)
     );
 
     const unsubCompletions = onSnapshot(completionsQuery, (querySnapshot) => {
         let completions: TaskCompletionRecord[] = [];
         querySnapshot.forEach(docSnap => {
             const data = docSnap.data();
-            if (data.completions && Array.isArray(data.completions)) {
+            if (Array.isArray(data.completions)) {
                 completions = completions.concat(
-                    data.completions.map((c: TaskCompletionRecord) => ({ 
-                        ...c, 
-                        completionId: `${docSnap.id}_${c.taskId}` 
+                    data.completions.map((c: TaskCompletionRecord) => ({
+                        ...c,
+                        completionId: `${docSnap.id}_${c.taskId}`
                     }))
                 );
             }
@@ -1431,17 +1496,95 @@ export function subscribeToMonthlyTasksForDate(
         processAndCallback();
     });
 
-    const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-        allUsers = snapshot.docs.map(d => ({ ...d.data(), uid: d.id } as ManagedUser));
-        processAndCallback();
-    });
+    // Only subscribe to users if caller did NOT provide a populated users array
+    let unsubUsers: (() => void) | null = null;
+    if (!callerProvidesUsers) {
+        unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+            allUsers = snapshot.docs.map(d => ({ ...d.data(), uid: d.id } as ManagedUser));
+            processAndCallback();
+        });
+    }
 
     return () => {
-        unsubTasks();
-        unsubSchedule();
-        unsubCompletions();
-        unsubUsers();
+        try { unsubTasks(); } catch (e) { /* noop */ }
+        try { unsubCompletions(); } catch (e) { /* noop */ }
+        if (unsubSchedule) try { unsubSchedule(); } catch (e) { /* noop */ }
+        if (unsubUsers) try { unsubUsers(); } catch (e) { /* noop */ }
     };
+}
+
+export function subscribeToMonthlyTasksForDateForStaff(
+    date: Date,
+    userId: string,
+    callback: (assignments: MonthlyTaskAssignment[]) => void,
+    options?: { allUsers?: ManagedUser[]; schedule?: Schedule | null }
+): () => void {
+    if (!userId) {
+        callback([]);
+        return () => { };
+    }
+
+    return createMonthlyTaskSubscription(date, ({ assignments, allUsers }) => {
+        const targetUser = allUsers.find(u => u.uid === userId);
+
+        if (!targetUser) {
+            callback([]);
+            return;
+        }
+
+        const userRoles = [targetUser.role, ...(targetUser.secondaryRoles || [])];
+
+        const filteredAssignments = assignments.reduce<MonthlyTaskAssignment[]>((acc, assignment) => {
+                // Scope responsibleUsersByShift to the current user for initial relatedness check
+            const scopedResponsibleByShift = assignment.responsibleUsersByShift
+                .map(({ shiftId, shiftLabel, users }) => ({
+                    shiftId,
+                    shiftLabel,
+                    users: users.filter(u => u.userId === userId),
+                }))
+                .filter(group => group.users.length > 0);
+
+            const matchesRole = assignment.appliesToRole === 'Tất cả' || (assignment.appliesToRole ? userRoles.includes(assignment.appliesToRole as UserRole) : false);
+
+            // Determine whether this staff is related to the task. If so, they may see all completions for that task.
+            const isRelated = scopedResponsibleByShift.length > 0 || matchesRole ||
+                assignment.completions.some(c => c.completedBy?.userId === userId) ||
+                assignment.otherCompletions.some(c => c.completedBy?.userId === userId);
+
+            // If the user is related, include all completions for that task so staff can view reports from others.
+            const completions = isRelated ? assignment.completions : assignment.completions.filter(c => c.completedBy?.userId === userId);
+            const otherCompletions = isRelated ? assignment.otherCompletions : assignment.otherCompletions.filter(c => c.completedBy?.userId === userId);
+
+            if (!isRelated) {
+                // not related and no personal completions => skip
+                return acc;
+            }
+
+            acc.push({
+                ...assignment,
+                // If the staff is related, expose the full assigned-user groups so they can see who else was responsible;
+                // otherwise keep the groups scoped to the current user (keeps UI compact).
+                responsibleUsersByShift: isRelated ? assignment.responsibleUsersByShift : scopedResponsibleByShift,
+                completions,
+                otherCompletions,
+            });
+
+            return acc;
+        }, []);
+
+        callback(filteredAssignments);
+    }, options);
+}
+
+export function subscribeToMonthlyTasksForDateForOwner(
+    date: Date,
+    callback: (assignments: MonthlyTaskAssignment[]) => void,
+    options?: { allUsers?: ManagedUser[]; schedule?: Schedule | null }
+): () => void {
+    return createMonthlyTaskSubscription(date, ({ assignments }) => {
+        const filteredAssignments = assignments.filter(a => a.responsibleUsersByShift.length > 0 || a.otherCompletions.length > 0);
+        callback(filteredAssignments);
+    }, options);
 }
 
 export function subscribeToMonthlyTaskCompletionsForMonth(

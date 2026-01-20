@@ -20,10 +20,9 @@ import { useAppNavigation } from '@/contexts/app-navigation-context';
 export function ManagerHomeView() {
   const { user, loading, todaysShifts } = useAuth();
   const nav = useAppNavigation();
-  const { showCheckInCardOnTop, isCheckedIn } = useCheckInCardPlacement();
+  const { isCheckedIn } = useCheckInCardPlacement();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [todaysMonthlyAssignments, setTodaysMonthlyAssignments] = useState<MonthlyTaskAssignment[]>([]);
-  const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
 
   useEffect(() => {
     if (!loading && user && (user.role !== 'Quản lý' && user.role !== 'Chủ nhà hàng' && !user.secondaryRoles?.includes('Quản lý'))) {
@@ -37,11 +36,9 @@ export function ManagerHomeView() {
 
   useEffect(() => {
     if (user) {
-      const unsubTasks = dataStore.subscribeToMonthlyTasksForDate(new Date(), setTodaysMonthlyAssignments);
-      const unsubTemplates = dataStore.subscribeToShiftTemplates(setShiftTemplates);
+      const unsubTasks = dataStore.subscribeToMonthlyTasksForDateForStaff(new Date(), user.uid, setTodaysMonthlyAssignments);
       return () => {
         unsubTasks();
-        unsubTemplates();
       };
     }
   }, [user, refreshTrigger]);
@@ -58,7 +55,7 @@ export function ManagerHomeView() {
     <DashboardLayout
       title={<span className="flex items-center gap-2"><UserCog /> Bảng điều khiển Quản lý</span>}
       description={todaysShifts.length > 0 ? `Hôm nay bạn có ca: ${shiftsText}. Chọn chức năng để thực hiện.` : 'Bạn không có ca làm việc nào hôm nay.'}
-      top={isCheckedIn && todaysMonthlyAssignments.length > 0 ? <TodaysTasksCard assignments={todaysMonthlyAssignments} shiftTemplates={shiftTemplates} /> : undefined}
+      top={isCheckedIn && todaysMonthlyAssignments.length > 0 ? <TodaysTasksCard assignments={todaysMonthlyAssignments} /> : undefined}
     >
       {isCheckedIn ? (
         <div className="grid grid-cols-2 gap-3">

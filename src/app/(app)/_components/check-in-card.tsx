@@ -255,7 +255,7 @@ export default function CheckInCard() {
                 isCheckedIn ? "bg-zinc-900 text-white" : "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white"
             )}>
                 {isCheckedIn && checkInPhotoUrl && (
-                    <div className="absolute inset-0 z-0">
+                    <div className="absolute inset-0">
                         <Image
                             src={checkInPhotoUrl}
                             alt="Check-in photo"
@@ -266,7 +266,7 @@ export default function CheckInCard() {
                         <div className="absolute inset-0 bg-gradient-to-br from-blue-600/40 to-indigo-700/40" />
                     </div>
                 )}
-                <div className="relative p-4 sm:p-6 overflow-hidden z-10">
+                <div className="relative p-4 sm:p-6 overflow-hidden">
                     {/* Background decoration */}
                     {!isCheckedIn && (
                         <>
@@ -275,7 +275,7 @@ export default function CheckInCard() {
                         </>
                     )}
 
-                    <div className="relative z-10 space-y-4 sm:space-y-6">
+                    <div className="relative space-y-4 sm:space-y-6">
                         <div className="flex justify-between items-start">
                             <div>
                                 <p className={cn(

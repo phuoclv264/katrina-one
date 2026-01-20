@@ -498,7 +498,7 @@ function MonthlyTaskReportsView() {
                                                             </AlertDialogHeader>
                                                             <AlertDialogFooter>
                                                               <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                              <AlertDialogAction onClick={() => handleDeleteReport(record)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Xóa</AlertDialogAction>
+                                                              <AlertDialogAction onClick={() => handleDeleteReport(record)} isLoading={isDeleting} disabled={isDeleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{isDeleting ? 'Đang xóa...' : 'Xóa'}</AlertDialogAction>
                                                             </AlertDialogFooter>
                                                           </AlertDialogContent>
                                                         </AlertDialog>

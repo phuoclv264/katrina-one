@@ -296,8 +296,17 @@ export const SubmitAllDialog: React.FC<SubmitAllDialogProps> = ({ open, onClose,
               </>
             ) : (
               <>
-                <Camera className="h-5 w-5 mr-2" />
-                Ghi hình & Gửi ({selectedIds.length}) — {totalSelectedCost.toLocaleString('vi-VN')} ₫
+                <div className="flex items-center gap-2 min-w-0">
+                  <Camera className="h-5 w-5 flex-shrink-0" aria-hidden />
+                  <span className="min-w-0 flex flex-col sm:flex-row sm:items-center text-left leading-tight">
+                    <span className="font-semibold text-sm sm:text-base whitespace-normal break-words">
+                      Ghi hình &amp; Gửi <span className="sm:mx-2">({selectedIds.length})</span>
+                    </span>
+                    <span className="text-xs sm:text-sm text-muted-foreground mt-1 sm:mt-0 sm:ml-3 whitespace-normal break-words">
+                      {totalSelectedCost.toLocaleString('vi-VN')} ₫
+                    </span>
+                  </span>
+                </div>
               </>
             )}
           </Button>

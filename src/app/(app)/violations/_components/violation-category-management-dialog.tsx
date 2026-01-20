@@ -149,6 +149,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose, par
   const [currentEditingValues, setCurrentEditingValues] = useState<Omit<ViolationCategory, 'id'>>({ name: '', severity: 'low', calculationType: 'fixed', fineAmount: 0, finePerUnit: 0, unitLabel: 'phút' });
   const [isEditingGeneralRules, setIsEditingGeneralRules] = useState(false);
   const [tempGeneralRules, setTempGeneralRules] = useState<FineRule[]>([]);
+  const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
 
   const [newCategoryName, setNewCategoryName] = useState('');
   const itemRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
@@ -250,9 +251,14 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose, par
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
-    const newList = categoryData.list.filter(c => c.id !== categoryId);
-    await handleSave({ list: newList });
-    toast.success('Đã xóa loại vi phạm.');
+    setDeletingCategoryId(categoryId);
+    try {
+      const newList = categoryData.list.filter(c => c.id !== categoryId);
+      await handleSave({ list: newList });
+      toast.success('Đã xóa loại vi phạm.');
+    } finally {
+      setDeletingCategoryId(null);
+    }
   };
 
   const handleAddGeneralRule = () => {
@@ -483,7 +489,7 @@ export default function ViolationCategoryManagementDialog({ isOpen, onClose, par
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Hủy</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDeleteCategory(category.id)}>Xóa</AlertDialogAction>
+                              <AlertDialogAction onClick={() => handleDeleteCategory(category.id)} isLoading={deletingCategoryId === category.id} disabled={deletingCategoryId === category.id}>Xóa</AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
