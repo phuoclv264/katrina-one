@@ -624,9 +624,6 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
       <div className={cn("container mx-auto p-1 sm:p-6 md:p-8", !isStandalone && "p-0 sm:p-0 md:p-0")}>
         {isStandalone && (
           <header className="mb-4 sm:mb-6">
-            <Button variant="ghost" size="sm" className="-ml-2 mb-2 sm:mb-4" onClick={() => router.back()}>
-              <ArrowLeft className="mr-2 h-4 w-4" />Quay lại
-            </Button>
             <div className="flex flex-col lg:flex-row justify-between lg:items-start gap-4 sm:gap-6">
               <div className="flex-1">
                 <h1 className="text-2xl sm:text-3xl font-bold font-headline flex items-center gap-3"><Banknote className="h-8 w-8 text-primary" /> Báo cáo Thu ngân</h1>

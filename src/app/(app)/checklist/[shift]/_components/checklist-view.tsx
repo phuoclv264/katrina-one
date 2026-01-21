@@ -209,7 +209,7 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
   useEffect(() => {
     if (!user || !shiftKey) return;
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = format(new Date(), 'yyyy-MM-dd');
     const unsubscribe = dataStore.subscribeToReportsForShift(today, shiftKey, (reports) => {
       // Filter out the current user's report
       const otherReports = reports.filter(r => r.userId !== user.uid);

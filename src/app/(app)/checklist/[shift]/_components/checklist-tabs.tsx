@@ -30,28 +30,54 @@ type Props = {
 export default function ChecklistTabs({ shift, report, otherStaffReports, activeTab, setActiveTab, expandedTaskIds, toggleExpandTask, handleBooleanTaskAction, handlePhotoTaskAction, handleOpinionTaskAction, handleNoteTaskAction, handleDeletePhoto, handleDeleteCompletion, onOpenLightbox, isReadonly, isSubmitting }: Props) {
 
   const renderCompletionIndicator = (taskId: string, sectionTitle: string) => {
-    const min = (shift.sections.flatMap((s: any) => s.tasks).find((t: any) => t.id === taskId)?.minCompletions) || 1;
+    const task = shift.sections.flatMap((s: any) => s.tasks).find((t: any) => t.id === taskId);
+    const min = task?.minCompletions || 1;
+    const isCritical = task?.isCritical;
     // count how many OTHER users meet or exceed the min requirement
     const otherUsersCompleted = otherStaffReports.reduce((sum, r) => sum + (((r.completedTasks?.[taskId]?.length || 0) >= min) ? 1 : 0), 0);
+    const selfCompleted = ((report.completedTasks?.[taskId]?.length || 0) >= min);
 
-    return (
-      <>
-        {/* Social Status (Top-Right): How many other staff members completed this */}
-        {otherUsersCompleted > 0 && (
-          <div className="absolute -top-1.5 -right-1.5 z-20 pointer-events-none">
-            {otherUsersCompleted === 1 ? (
+    // If other staff completed the task, show the social indicator (existing behaviour)
+    if (otherUsersCompleted > 0) {
+      return (
+        <>
+          {/* Social Status (Top-Right): How many other staff members completed this */}
+          {otherUsersCompleted === 1 ? (
+            <div className="absolute -top-1.5 -right-1.5 z-20 pointer-events-none">
               <div className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-sky-500 text-white shadow-sm border-2 border-white animate-in zoom-in-50 duration-300">
                 <CheckCircle className="w-3.5 h-3.5" />
               </div>
-            ) : (
+            </div>
+          ) : (
+            <div className="absolute -top-1.5 -right-1.5 z-20 pointer-events-none">
               <div className="inline-flex items-center justify-center h-5 min-w-[22px] px-1.5 rounded-full bg-sky-500 text-white text-[10px] font-black shadow-sm border-2 border-white animate-in zoom-in-50 duration-300">
                 {otherUsersCompleted}
               </div>
+            </div>
+          )}
+        </>
+      );
+    }
+
+    // NEW: if nobody else completed it and the current user hasn't either, show an "undone" badge (!)
+    if (otherUsersCompleted === 0 && !selfCompleted) {
+      return (
+        <div className="absolute -top-1.5 -right-1.5 z-20 pointer-events-none" role="img" aria-label="Chưa hoàn thành" title="Chưa hoàn thành">
+          <div
+            className={cn(
+              "inline-flex items-center justify-center h-5 w-5 rounded-full text-white shadow-sm border-2 border-white transform-gpu will-change-transform motion-reduce:animate-none",
+              isCritical
+                ? "bg-amber-600 font-extrabold animate-[zoom-in-out_900ms_ease-in-out_infinite]"
+                : "bg-amber-500/95 animate-[zoom-in-out_1200ms_ease-in-out_infinite]"
             )}
+          >
+            <span className="text-[11px] font-extrabold leading-none">!</span>
           </div>
-        )}
-      </>
-    );
+        </div>
+      );
+    }
+
+    return null;
   };
 
   return (
@@ -90,6 +116,10 @@ export default function ChecklistTabs({ shift, report, otherStaffReports, active
                         completions: (staffReport.completedTasks[task.id] || [])
                       }));
 
+                      // determine social/self completion for this task (used to show attention ring only when truly undone)
+                      const otherUsersCompletedForTask = otherStaffReports.reduce((sum, r) => sum + (((r.completedTasks?.[task.id]?.length || 0) >= minCompletions) ? 1 : 0), 0);
+                      const selfCompletedForTask = (report.completedTasks?.[task.id]?.length || 0) >= minCompletions;
+
                       return (
                           <div key={task.id} className="relative">
                             {renderCompletionIndicator(task.id, section.title)}
@@ -113,8 +143,8 @@ export default function ChecklistTabs({ shift, report, otherStaffReports, active
                               isCompleted
                                 ? "border-green-500/30 bg-white shadow-[0_4px_12px_rgba(34,197,94,0.08)]"
                                 : task.isCritical
-                                  ? "border-amber-500/40 bg-white shadow-[0_8px_20px_rgba(245,158,11,0.12)] active:scale-[0.98]"
-                                  : "border-slate-200 bg-white shadow-[0_4px_12px_rgba(0,0,0,0.05)] active:scale-[0_98]"
+                                  ? "border-amber-500/60 bg-amber-50/50 shadow-[0_8px_20px_rgba(245,158,11,0.2)] ring-2 ring-amber-500/10 active:scale-[0.98]"
+                                  : `${otherUsersCompletedForTask === 0 && !selfCompletedForTask ? 'border-slate-300 bg-white shadow-[0_8px_20px_rgba(0,0,0,0.05)] ring-amber-500/10 active:scale-[0.98]' : ''}`
                             )}
                           />
                         </div>
@@ -132,6 +162,10 @@ export default function ChecklistTabs({ shift, report, otherStaffReports, active
                         userId: staffReport.userId,
                         completions: (staffReport.completedTasks[task.id] || [])
                       }));
+
+                      // determine social/self completion for this task (used to show attention ring only when truly undone)
+                      const otherUsersCompletedForTask = otherStaffReports.reduce((sum, r) => sum + (((r.completedTasks?.[task.id]?.length || 0) >= minCompletions) ? 1 : 0), 0);
+                      const selfCompletedForTask = (report.completedTasks?.[task.id]?.length || 0) >= minCompletions;
 
                       return (
                         <div key={task.id} className="relative">
@@ -156,8 +190,8 @@ export default function ChecklistTabs({ shift, report, otherStaffReports, active
                               isCompleted
                                 ? "border-green-500/30 bg-white shadow-[0_4px_12px_rgba(34,197,94,0.08)]"
                                 : task.isCritical
-                                  ? "border-amber-500/40 bg-white shadow-[0_8px_20px_rgba(245,158,11,0.12)] active:scale-[0_98]"
-                                  : "border-slate-200 bg-white shadow-[0_4px_12px_rgba(0,0,0,0.05)] active:scale-[0_98]"
+                                  ? "border-amber-500/60 bg-amber-50/50 shadow-[0_8px_20px_rgba(245,158,11,0.2)] ring-2 ring-amber-500/10 active:scale-[0.98]"
+                                  : `${otherUsersCompletedForTask === 0 && !selfCompletedForTask ? 'border-slate-300 bg-white shadow-[0_8px_20px_rgba(0,0,0,0.05)] ring-amber-500/10 active:scale-[0.98]' : ''}`
                             )}
                           />
                         </div>

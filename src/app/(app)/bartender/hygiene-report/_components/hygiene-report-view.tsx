@@ -607,16 +607,6 @@ export default function HygieneReportView({ isStandalone = true }: HygieneReport
                         <div className="space-y-6">
                             {/* Section Header with Back Button */}
                             <div className="sticky top-[56px] md:top-0 z-40 -mx-3 px-3 py-3 bg-background/80 backdrop-blur-xl border-b mb-6 flex items-center gap-3">
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setActiveTab('')}
-                                    className="bg-muted rounded-xl hover:bg-muted/80 uppercase text-[10px] font-black px-3"
-                                >
-                                    <ChevronLeft className="h-4 w-4 mr-1" />
-                                    Quay lại
-                                </Button>
-                                <div className="h-4 w-px bg-border" />
                                 <h2 className="text-sm font-black text-slate-900 dark:text-white uppercase italic tracking-wider">
                                     {activeTab}
                                 </h2>

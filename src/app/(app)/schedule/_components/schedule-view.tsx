@@ -882,7 +882,7 @@ export default function ScheduleView() {
                         Những nhân viên khác có thể nhận ca này của bạn.
                     </>
                 }
-                cancelText="Quay lại"
+
                 confirmText="Gửi yêu cầu"
                 onConfirm={async () => {
                     if (shiftToPass) {

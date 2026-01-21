@@ -30,10 +30,7 @@ export default function AppLayout({
         </Sidebar>
         <BackButtonHandler />
         <SidebarInset className="pb-0">
-          <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:px-6">
-            <div>
-              <SidebarTrigger className="hidden" />
-            </div>
+          <header className="sticky top-0 z-50 flex h-14 items-center border-b bg-background/80 backdrop-blur-md px-4 sm:px-6">
             <Suspense fallback={<Skeleton className="h-6 w-32" />}>
               <MobileHeader />
             </Suspense>

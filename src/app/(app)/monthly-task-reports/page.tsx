@@ -319,7 +319,7 @@ function MonthlyTaskReportsView() {
 
     setPendingScrollKey(anchor)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, completions, viewMode, window.location.hash])
+  }, [searchParams, completions, viewMode])
 
   if (authLoading) {
     return <LoadingPage />

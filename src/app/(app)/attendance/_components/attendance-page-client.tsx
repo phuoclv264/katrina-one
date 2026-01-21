@@ -350,10 +350,6 @@ export default function AttendancePageComponent() {
     return (
         <>
             <div className="container mx-auto p-4 sm:p-6 md:p-8">
-                <Button variant="ghost" className="-ml-4 mb-4" onClick={() => router.back()}>
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Quay lại
-                </Button>
                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                     <div>
                         <h1 className="text-3xl font-bold font-headline flex items-center gap-3"><UserCheck /> Quản lý Chấm công</h1>

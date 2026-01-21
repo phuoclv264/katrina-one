@@ -588,13 +588,7 @@ function CashierDashboardPageComponent({ isStandalone = false }: CashierDashboar
         <>
             <div className={cn("container mx-auto p-4 sm:p-6 md:p-8", !isStandalone && "p-0 sm:p-0 md:p-0")}>
                 <header className="mb-8">
-                    {isStandalone && (
-                        <div className="flex justify-between items-center mb-4">
-                            <Button variant="ghost" className="-ml-4" onClick={() => router.back()}>
-                                <ArrowLeft className="mr-2 h-4 w-4" /> Quay lại
-                            </Button>
-                        </div>
-                    )}
+
                     <div className="flex justify-between items-center">
                         <h1 className="text-3xl font-bold font-headline flex items-center gap-3">
                             <Banknote />

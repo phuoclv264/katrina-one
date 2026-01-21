@@ -107,7 +107,7 @@ export default function UtilitiesCard() {
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 auto-rows-fr">
+      <div className="grid grid-cols-2 gap-3 auto-rows-min items-stretch">
         {(showDailyCardForManager || hasPendingDailyAssignment) && (
           <div className="relative col-span-2">
             <DashboardActionCard
@@ -117,7 +117,7 @@ export default function UtilitiesCard() {
               onClick={() => nav.push('/daily-assignments')}
               color={showDailyCardForManager ? 'amber' : 'rose'}
               variant={'primary'}
-              className={showDailyCardForManager ? 'shadow-lg' : 'shadow-lg'}
+              className="shadow-lg h-full"
             />
             {pendingDailyCount > 0 && (
               <span className="absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full bg-rose-500 text-white text-[12px] flex items-center justify-center font-bold">{pendingDailyCount}</span>
@@ -127,13 +127,14 @@ export default function UtilitiesCard() {
 
         {secondaryActions.filter(a => a.href !== '/daily-assignments').map((action, index) => {
           return (
-            <div key={index} className="relative">
+            <div key={index} className="relative h-full">
               <DashboardActionCard
                 label={action.label}
                 subLabel={action.subLabel}
                 icon={action.icon}
                 onClick={() => nav.push(action.href)}
                 color={action.color}
+                className="h-full"
               />
             </div>
           );

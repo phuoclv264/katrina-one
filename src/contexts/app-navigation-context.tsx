@@ -4,10 +4,17 @@ import React, { createContext, useContext, useMemo } from 'react';
 import { useRouter } from 'nextjs-toploader/app';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useMobileNavigation } from '@/contexts/mobile-navigation-context';
+import { useAuth } from '@/hooks/use-auth';
+import { getHomePathForRole } from '@/lib/navigation';
 
 export type AppNavigationApi = {
   push: (href: string) => void;
   replace: (href: string) => void;
+  /**
+   * Navigate back in history. `delta` behaves like `history.go(-delta)`;
+   * default is 1 (one step back).
+   */
+  back: (delta?: number) => void;
 };
 
 const AppNavigationContext = createContext<AppNavigationApi | null>(null);
@@ -60,6 +67,7 @@ export function AppNavigationProvider({ children }: { children: React.ReactNode 
   const router = useRouter();
   const isMobile = useIsMobile();
   const mobileNav = useMobileNavigation();
+  const { user } = useAuth();
 
   const api = useMemo<AppNavigationApi>(() => {
     const push = (href: string) => {
@@ -101,8 +109,20 @@ export function AppNavigationProvider({ children }: { children: React.ReactNode 
       router.replace(href);
     };
 
-    return { push, replace };
-  }, [isMobile, mobileNav, router]);
+    const back = () => {
+      // If we're on a mobile device, always go to the Home *tab* so the shell
+      // shows the dashboard/tab UI instead of performing a history pop.
+      if (isMobile) {
+        setHash('#tab=home', 'push');
+        return;
+      } else {
+        router.back();
+        return;
+      }
+    };
+
+    return { push, replace, back }; 
+  }, [isMobile, mobileNav, router, user]);
 
   return <AppNavigationContext.Provider value={api}>{children}</AppNavigationContext.Provider>;
 }
@@ -154,6 +174,16 @@ export function useAppNavigation() {
       }
 
       router.replace(href);
+    },
+    back: () => {
+      // Mobile (outside provider or not): switch to the Home tab so the shell
+      // presents the dashboard UI predictably.
+      if (isMobile && !mobileNav) {
+        setHash('#tab=home', 'push');
+        return;
+      }
+
+      router.back();
     },
   } satisfies AppNavigationApi;
 }

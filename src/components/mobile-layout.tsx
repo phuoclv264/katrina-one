@@ -4,15 +4,15 @@ import React, { useMemo, useState, useEffect, act } from 'react';
 import dynamic from 'next/dynamic';
 import { useAuth } from '@/hooks/use-auth';
 import { BottomNav, NavTab } from '@/components/bottom-nav';
-import { 
-  Home, 
-  CalendarDays, 
+import {
+  Home,
+  CalendarDays,
   User,
-  ClipboardList, 
-  ShieldCheck, 
-  FileText, 
-  Banknote, 
-  CalendarClock 
+  ClipboardList,
+  ShieldCheck,
+  FileText,
+  Banknote,
+  CalendarClock
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import UserMenuView from '@/components/user-menu-view';
@@ -281,24 +281,47 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
   // When our virtual route changes (or the active tab/pathname changes), attempt to restore
   useEffect(() => {
     // call restore; hook will no-op on server
-    try { restoreScroll(); } catch {}
+    try { restoreScroll(); } catch { }
   }, [virtualHref, activeTab, pathname, restoreScroll]);
 
   const mobileNavApi = useMemo(
     () => ({
       push: (href: string) => {
-        try { persistScroll(); } catch {}
+        try { persistScroll(); } catch { }
         setActiveTab((prev) => (prev === 'menu' ? 'home' : prev));
         setIsTabContent(true);
         setVirtualHref(href);
         setPageHash(href, 'push');
       },
       replace: (href: string) => {
-        try { persistScroll(); } catch {}
+        try { persistScroll(); } catch { }
         setActiveTab((prev) => (prev === 'menu' ? 'home' : prev));
         setIsTabContent(true);
         setVirtualHref(href);
         setPageHash(href, 'replace');
+      },
+      back: () => {
+        // Optimistically clear virtual route state; popstate/hash listeners will sync the rest.
+        try { persistScroll(); } catch { }
+        setActiveTab('home');
+        setIsTabContent(true);
+        setVirtualHref(null);
+
+        if (typeof window === 'undefined') return;
+
+        const isHomePath = HOME_PATHS.some(p => window.location.pathname === p || window.location.pathname === '/');
+
+        // If already on a dashboard/home pathname, mirror the tab into the hash (avoids changing pathname).
+        if (isHomePath) {
+          setTabHash('home', 'push');
+          return;
+        }
+
+        // Otherwise, navigate the SPA to the homepage (no reload) and push a home tab state.
+        const next = '/#tab=home';
+        if (window.location.pathname + window.location.search + window.location.hash !== next) {
+          window.history.pushState(null, '', next);
+        }
       },
     }),
     [],
@@ -379,7 +402,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
 
     if (currentIsQuick && !quickTabVisible) {
       // Move back to home and navigate to the role's home path if needed
-      try { persistScroll(); } catch {}
+      try { persistScroll(); } catch { }
       setActiveTab('home');
       setIsTabContent(true);
       setVirtualHref(null);
@@ -391,7 +414,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
   if (!user) return null;
 
   const handleTabChange = (tabId: string) => {
-    try { persistScroll(); } catch {}
+    try { persistScroll(); } catch { }
     if (tabId === 'menu') {
       // Show the user menu page (mobile-friendly) instead of opening the drawer
       setActiveTab('menu');
@@ -514,7 +537,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
         if (user.role === 'Chủ nhà hàng') return <OwnerHomeView isStandalone={false} />;
         if (user.role === 'Pha chế') return <BartenderHomeView />;
         if (user.role === 'Quản lý') return <ManagerHomeView />;
-        return <HomeView />; 
+        return <HomeView />;
       case 'schedule':
         return <ScheduleView />;
       case 'checklist':
@@ -543,10 +566,10 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
           </div>
         </AppNavigationProvider>
       </MobileNavigationProvider>
-      <BottomNav 
-        tabs={tabs} 
-        activeTab={activeTab} 
-        onTabChange={handleTabChange} 
+      <BottomNav
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
         watchValue={isCheckedIn}
       />
     </div>

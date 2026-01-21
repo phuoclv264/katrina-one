@@ -594,10 +594,6 @@ function ReportView() {
             <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
                 <h1 className="text-2xl font-bold">Lỗi truy cập.</h1>
                 <p className="text-muted-foreground">URL không hợp lệ. Vui lòng quay lại và thử lại.</p>
-                <Button variant="link" className="mt-4 -ml-4" onClick={() => router.back()}>
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Quay lại tất cả báo cáo
-                </Button>
             </div>
         );
     }
@@ -607,10 +603,6 @@ function ReportView() {
             <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
                 <h1 className="text-2xl font-bold">Không tìm thấy báo cáo.</h1>
                 <p className="text-muted-foreground">Không có báo cáo nào được nộp cho ca này vào ngày đã chọn.</p>
-                <Button variant="link" className="mt-4 -ml-4" onClick={() => router.back()}>
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Quay lại tất cả báo cáo
-                </Button>
             </div>
         )
     }
@@ -628,10 +620,6 @@ function ReportView() {
         <>
             <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
                 <header className="mb-8">
-                    <Button variant="ghost" className="mb-4 -ml-4" onClick={() => router.back()}>
-                        <ArrowLeft className="mr-2 h-4 w-4" />
-                        Quay lại danh sách
-                    </Button>
                     <div className="flex flex-col md:flex-row justify-between md:items-start gap-4">
                         <div>
                             <h1 className="text-2xl md:text-3xl font-bold font-headline">Báo cáo {shift.name}</h1>

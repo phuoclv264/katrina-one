@@ -473,9 +473,6 @@ function InventoryPageComponent() {
         <TooltipProvider>
             <div className="container mx-auto p-4 sm:p-6 md:p-8 pb-32">
                 <header className="mb-8">
-                    <Button variant="ghost" className="-ml-4 mb-4" onClick={() => router.back()}>
-                        <ArrowLeft className="mr-2 h-4 w-4" /> Quay lại
-                    </Button>
                     <div className="flex flex-col md:flex-row gap-4 justify-between md:items-center">
                         <div>
                             <h1 className="text-3xl font-bold font-headline">Báo cáo Kiểm kê Tồn kho</h1>

@@ -56,15 +56,8 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
             if (activeKeys.includes('sang')) primaryItems.push({ href: '/checklist/sang', label: 'Báo cáo ca sáng', icon: Sun });
             if (activeKeys.includes('trua')) primaryItems.push({ href: '/checklist/trua', label: 'Báo cáo ca trưa', icon: Sunset });
             if (activeKeys.includes('toi')) primaryItems.push({ href: '/checklist/toi', label: 'Báo cáo ca tối', icon: Moon });
-            // show daily assignments when a shift is active
-            primaryItems.push({ href: '/daily-assignments', label: 'Công việc trong ngày', icon: ListChecks });
-          } else {
-            // fallback: show all shift links if none match (helps discoverability)
-            primaryItems.push({ href: '/checklist/sang', label: 'Báo cáo ca sáng', icon: Sun });
-            primaryItems.push({ href: '/checklist/trua', label: 'Báo cáo ca trưa', icon: Sunset });
-            primaryItems.push({ href: '/checklist/toi', label: 'Báo cáo ca tối', icon: Moon });
-            primaryItems.push({ href: '/daily-assignments', label: 'Công việc trong ngày', icon: ListChecks });
           }
+          primaryItems.push({ href: '/daily-assignments', label: 'Công việc trong ngày', icon: ListChecks });
         }
         primaryItems.push(commonScheduleMenu, commonViolationMenu, commonReportsFeedMenu);
         break;
@@ -228,7 +221,7 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
               <div className="flex items-center gap-2 mb-4 px-1">
                 <Sparkles className="w-4 h-4 text-amber-500" />
                 <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                  Vai trò phụ
+                  Tiện ích
                 </span>
               </div>
 

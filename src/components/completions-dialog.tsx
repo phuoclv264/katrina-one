@@ -8,6 +8,7 @@ import {
   DialogTitle, 
   DialogFooter,
 } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -88,6 +89,9 @@ export default function CompletionsDialog({ open, onOpenChange, otherStaffComple
       localPhotoUrls.forEach(u => URL.revokeObjectURL(u));
     };
   }, [open, currentCompletions]);
+
+  const [confirmDeleteIndex, setConfirmDeleteIndex] = React.useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = React.useState(false);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} dialogTag="completions-view" parentDialogTag={parentDialogTag}>
@@ -179,14 +183,12 @@ export default function CompletionsDialog({ open, onOpenChange, otherStaffComple
                             className="h-10 w-10 rounded-xl text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors"
                             onClick={() => {
                               if (!onDeleteCurrentCompletion) return;
-                              if (window.confirm('Bạn có chắc muốn xóa lần hoàn thành này?')) {
-                                onDeleteCurrentCompletion(entry.selfIndex!);
-                              }
+                              setConfirmDeleteIndex(entry.selfIndex!);
                             }}
                           >
                             <Trash2 className="h-5 w-5" />
                           </Button>
-                        )}
+                        )} 
                       </div>
                     </div>
 
@@ -279,10 +281,47 @@ export default function CompletionsDialog({ open, onOpenChange, otherStaffComple
           </ScrollArea>
         </div>
 
-        <DialogFooter className="p-5 bg-white border-t border-slate-100 sm:justify-center">
-            <Button 
-              variant="outline" 
+        {/* Confirm deletion using the shared AlertDialog (replaces window.confirm) */}
+        <AlertDialog open={confirmDeleteIndex !== null} onOpenChange={(v) => { if (!v) setConfirmDeleteIndex(null); }} parentDialogTag="completions-dialog" variant="destructive">
+          <AlertDialogContent className="rounded-3xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Xóa lần hoàn thành?</AlertDialogTitle>
+              <AlertDialogDescription>Hành động này sẽ xóa mục hoàn thành — thao tác không thể hoàn tác.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="rounded-xl" disabled={isDeleting}>Hủy</AlertDialogCancel>
+              <AlertDialogAction
+                className="rounded-xl"
+                isLoading={isDeleting}
+                disabled={isDeleting}
+                onClick={async () => {
+                  if (confirmDeleteIndex === null || !onDeleteCurrentCompletion || isDeleting) return;
+                  setIsDeleting(true);
+                  const idx = confirmDeleteIndex;
+                  try {
+                    // support both sync and async callbacks
+                    await Promise.resolve(onDeleteCurrentCompletion(idx));
+                    // close dialog only after successful deletion
+                    setConfirmDeleteIndex(null);
+                  } catch (err) {
+                    console.error('Failed to delete completion', err);
+                    // keep dialog open so user can retry; optionally show toast elsewhere
+                  } finally {
+                    setIsDeleting(false);
+                  }
+                }}
+              >
+                Xóa
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <DialogFooter className="sticky bottom-0 z-30 p-5 bg-white border-t border-slate-100 sm:justify-center backdrop-blur-sm">
+            <Button
+              variant="outline"
               onClick={() => onOpenChange(false)}
+              aria-label="Đóng"
               className="w-full sm:w-48 h-12 rounded-2xl font-black text-slate-600 border-slate-200 hover:bg-slate-50 transition-all active:scale-95 text-base shadow-sm"
             >
               Đóng

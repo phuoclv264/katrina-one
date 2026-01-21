@@ -5,6 +5,8 @@ import React, { createContext, useContext } from 'react';
 export type MobileNavigationApi = {
   push: (href: string) => void;
   replace: (href: string) => void;
+  /** Navigate back in the mobile navigation stack (history.go equivalent). */
+  back?: (delta?: number) => void;
 };
 
 const MobileNavigationContext = createContext<MobileNavigationApi | null>(null);
