@@ -75,7 +75,7 @@ export function DashboardActionCard({
       <div
         className={cn(
           "rounded-xl transition-colors duration-300 flex items-center justify-center shrink-0",
-          isPrimary ? "p-4 shadow-sm" : "p-2 mb-3 w-10 h-10 flex items-center justify-center",
+          isPrimary ? "p-2 shadow-sm" : "p-2 mb-3 w-10 h-10 flex items-center justify-center",
           isPrimary ? primaryIconStyles[color] : defaultIconStyles[color]
         )}
       >

@@ -81,8 +81,11 @@ if (typeof window !== 'undefined') {
 }
 
 // Also clean up old photos from IndexedDB
-// This will run when the app first loads the dataStore file.
-photoStore.cleanupOldPhotos();
+// Make sure this runs only in the browser (avoid calling IndexedDB during SSR/module init).
+if (typeof window !== 'undefined') {
+  // Defer and swallow errors so boot is not blocked by cleanup.
+  void photoStore.cleanupOldPhotos().catch((err) => console.error('Photo cleanup failed:', err));
+}
 
 const severityOrder: Record<ViolationCategory['severity'], number> = {
   low: 1,

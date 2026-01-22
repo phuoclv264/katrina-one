@@ -19,8 +19,8 @@ import UserMenuView from '@/components/user-menu-view';
 import usePreserveScroll from '@/hooks/use-preserve-scroll';
 import { cn } from '@/lib/utils';
 import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
-import { MobileNavigationProvider } from '@/contexts/mobile-navigation-context';
-import { AppNavigationProvider } from '@/contexts/app-navigation-context';
+
+import { AppNavigationProvider, useAppNavigation } from '@/contexts/app-navigation-context';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import WorkShiftGuard from '@/components/work-shift-guard';
 import { getActiveShiftKeys, DEFAULT_MAIN_SHIFT_TIMEFRAMES, type ShiftKey } from '@/lib/shift-utils';
@@ -284,48 +284,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
     try { restoreScroll(); } catch { }
   }, [virtualHref, activeTab, pathname, restoreScroll]);
 
-  const mobileNavApi = useMemo(
-    () => ({
-      push: (href: string) => {
-        try { persistScroll(); } catch { }
-        setActiveTab((prev) => (prev === 'menu' ? 'home' : prev));
-        setIsTabContent(true);
-        setVirtualHref(href);
-        setPageHash(href, 'push');
-      },
-      replace: (href: string) => {
-        try { persistScroll(); } catch { }
-        setActiveTab((prev) => (prev === 'menu' ? 'home' : prev));
-        setIsTabContent(true);
-        setVirtualHref(href);
-        setPageHash(href, 'replace');
-      },
-      back: () => {
-        // Optimistically clear virtual route state; popstate/hash listeners will sync the rest.
-        try { persistScroll(); } catch { }
-        setActiveTab('home');
-        setIsTabContent(true);
-        setVirtualHref(null);
-
-        if (typeof window === 'undefined') return;
-
-        const isHomePath = HOME_PATHS.some(p => window.location.pathname === p || window.location.pathname === '/');
-
-        // If already on a dashboard/home pathname, mirror the tab into the hash (avoids changing pathname).
-        if (isHomePath) {
-          setTabHash('home', 'push');
-          return;
-        }
-
-        // Otherwise, navigate the SPA to the homepage (no reload) and push a home tab state.
-        const next = '/#tab=home';
-        if (window.location.pathname + window.location.search + window.location.hash !== next) {
-          window.history.pushState(null, '', next);
-        }
-      },
-    }),
-    [],
-  );
+  const navigation = useAppNavigation();
 
   // Option B: keep tab navigation in-place, but mirror active tab into the URL hash.
   // This makes the device/browser back button switch tabs predictably.
@@ -529,7 +488,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
         return (
           <UserMenuView
             onNavigateToHome={() => handleTabChange('home')}
-            onNavigate={(href) => mobileNavApi.push(href)}
+            onNavigate={(href) => navigation.push(href)}
           />
         );
       case 'home':
@@ -559,13 +518,12 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-3.5rem)] md:hidden">
-      <MobileNavigationProvider value={mobileNavApi}>
         <AppNavigationProvider>
           <div key={`tab-content-${activeTab}-${virtualHref ?? 'null'}-${refreshTrigger}`} className={cn("flex-1 pb-16", isTabContent && "p-4")}>
             {renderContent()}
           </div>
         </AppNavigationProvider>
-      </MobileNavigationProvider>
+
       <BottomNav
         tabs={tabs}
         activeTab={activeTab}

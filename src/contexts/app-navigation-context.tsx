@@ -1,11 +1,19 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useMemo } from 'react';
 import { useRouter } from 'nextjs-toploader/app';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useMobileNavigation } from '@/contexts/mobile-navigation-context';
 import { useAuth } from '@/hooks/use-auth';
-import { getHomePathForRole } from '@/lib/navigation';
+import {
+  resetMobileHistory,
+  createHistoryEntry,
+  recordPushEntry,
+  recordReplaceEntry,
+  recordBackEntry,
+  applyHistoryEntry,
+  normalizeBackDelta,
+  initMobileHistory,
+} from '@/lib/mobile-history';
 
 export type AppNavigationApi = {
   push: (href: string) => void;
@@ -19,110 +27,70 @@ export type AppNavigationApi = {
 
 const AppNavigationContext = createContext<AppNavigationApi | null>(null);
 
-function parseMobileHashTarget(href: string):
-  | { kind: 'page'; value: string }
-  | { kind: 'tab'; value: string }
-  | null {
-  // Accept both "#/..." and "/path#..." forms.
-  const idx = href.indexOf('#');
-  const hash = idx >= 0 ? href.slice(idx) : href;
+// Mobile history helpers are provided by `src/lib/mobile-history.ts`
 
-  if (hash.startsWith('#page=')) {
-    const raw = hash.slice('#page='.length);
-    return { kind: 'page', value: raw };
-  }
-  if (hash.startsWith('#tab=')) {
-    const raw = hash.slice('#tab='.length);
-    return { kind: 'tab', value: raw };
-  }
-  return null;
-}
+// Move buildAppNavigationApi to module scope so it can be reused by the
+// provider and the fallback in `useAppNavigation`.
+const buildAppNavigationApi = (router: any, isMobile: boolean): AppNavigationApi => {
+  const push = (href: string) => {
+    if (isMobile) {
+      const entry = createHistoryEntry(href);
+      recordPushEntry(entry);
+      applyHistoryEntry(entry, 'push');
+      return;
+    }
 
-function decodeHashValue(raw: string): string {
-  try {
-    return decodeURIComponent(raw);
-  } catch {
-    return raw;
-  }
-}
+    // Desktop behavior: keep normal routing semantics.
+    router.push(href);
+  };
 
-function setHash(hash: string, mode: 'push' | 'replace') {
-  if (typeof window === 'undefined') return;
-  if (!hash.startsWith('#')) return;
-  if (window.location.hash === hash) return;
+  const replace = (href: string) => {
+    if (isMobile) {
+      const entry = createHistoryEntry(href);
+      recordReplaceEntry(entry);
+      applyHistoryEntry(entry, 'replace');
+      return;
+    }
+    router.replace(href);
+  };
 
-  const nextUrl = `${window.location.pathname}${window.location.search}${hash}`;
-  if (mode === 'replace') window.history.replaceState(null, '', nextUrl);
-  else window.history.pushState(null, '', nextUrl);
+  const back = (delta?: number) => {
+    if (isMobile) {
+      const steps = normalizeBackDelta(delta);
+      const entry = recordBackEntry(steps);
+      applyHistoryEntry(entry, 'replace');
+      return;
+    }
 
-  // Ensure listeners update immediately (some environments don't fire hashchange for pushState).
-  try {
-    window.dispatchEvent(new HashChangeEvent('hashchange'));
-  } catch {
-    window.dispatchEvent(new Event('hashchange'));
-  }
-}
+    router.back();
+    return;
+  };
+
+  return { push, replace, back };
+};
 
 export function AppNavigationProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const isMobile = useIsMobile();
-  const mobileNav = useMobileNavigation();
   const { user } = useAuth();
 
-  const api = useMemo<AppNavigationApi>(() => {
-    const push = (href: string) => {
-      if (isMobile && mobileNav) {
-        const parsed = parseMobileHashTarget(href);
-        if (parsed?.kind === 'page') {
-          mobileNav.push(decodeHashValue(parsed.value));
-          return;
-        }
-        if (parsed?.kind === 'tab') {
-          setHash(`#tab=${encodeURIComponent(decodeHashValue(parsed.value))}`, 'push');
-          return;
-        }
+  useEffect(() => () => {
+    resetMobileHistory();
+  }, []);
 
-        // Default mobile behavior: treat input as a "page" href.
-        mobileNav.push(href);
-        return;
-      }
+  useEffect(() => {
+    if (!isMobile) {
+      resetMobileHistory();
+      return;
+    }
 
-      // Desktop behavior: keep normal routing semantics.
-      router.push(href);
-    };
+    initMobileHistory();
+  }, [isMobile, user?.uid, user?.role]);
 
-    const replace = (href: string) => {
-      if (isMobile && mobileNav) {
-        const parsed = parseMobileHashTarget(href);
-        if (parsed?.kind === 'page') {
-          mobileNav.replace(decodeHashValue(parsed.value));
-          return;
-        }
-        if (parsed?.kind === 'tab') {
-          setHash(`#tab=${encodeURIComponent(decodeHashValue(parsed.value))}`, 'replace');
-          return;
-        }
+  // Use the module-level buildAppNavigationApi (defined above) so the same
+  // implementation is available to the provider and the fallback hook.
 
-        mobileNav.replace(href);
-        return;
-      }
-      router.replace(href);
-    };
-
-    const back = () => {
-      // If we're on a mobile device, always go to the Home *tab* so the shell
-      // shows the dashboard/tab UI instead of performing a history pop.
-      if (isMobile) {
-        setHash('#tab=home', 'push');
-        return;
-      } else {
-        router.back();
-        return;
-      }
-    };
-
-    return { push, replace, back }; 
-  }, [isMobile, mobileNav, router, user]);
+  const api = useMemo(() => buildAppNavigationApi(router, isMobile), [isMobile, router]);
 
   return <AppNavigationContext.Provider value={api}>{children}</AppNavigationContext.Provider>;
 }
@@ -130,60 +98,10 @@ export function AppNavigationProvider({ children }: { children: React.ReactNode 
 export function useAppNavigation() {
   const router = useRouter();
   const isMobile = useIsMobile();
-  const mobileNav = useMobileNavigation();
   const ctx = useContext(AppNavigationContext);
   if (ctx) return ctx;
 
   // Fallback: allow usage even when provider isn't mounted.
-  // This keeps the hook safe for isolated components/tests.
-  return {
-    push: (href: string) => {
-      // If we're on mobile but outside the provider tree (e.g. header-mounted components
-      // like NotificationSheet), we still want SPA hash navigation instead of router.
-      if (isMobile && !mobileNav) {
-        const parsed = parseMobileHashTarget(href);
-        if (parsed?.kind === 'page') {
-          setHash(`#page=${encodeURIComponent(decodeHashValue(parsed.value))}`, 'push');
-          return;
-        }
-        if (parsed?.kind === 'tab') {
-          setHash(`#tab=${encodeURIComponent(decodeHashValue(parsed.value))}`, 'push');
-          return;
-        }
-
-        setHash(`#page=${encodeURIComponent(href)}`, 'push');
-        return;
-      }
-
-      router.push(href);
-    },
-    replace: (href: string) => {
-      if (isMobile && !mobileNav) {
-        const parsed = parseMobileHashTarget(href);
-        if (parsed?.kind === 'page') {
-          setHash(`#page=${encodeURIComponent(decodeHashValue(parsed.value))}`, 'replace');
-          return;
-        }
-        if (parsed?.kind === 'tab') {
-          setHash(`#tab=${encodeURIComponent(decodeHashValue(parsed.value))}`, 'replace');
-          return;
-        }
-
-        setHash(`#page=${encodeURIComponent(href)}`, 'replace');
-        return;
-      }
-
-      router.replace(href);
-    },
-    back: () => {
-      // Mobile (outside provider or not): switch to the Home tab so the shell
-      // presents the dashboard UI predictably.
-      if (isMobile && !mobileNav) {
-        setHash('#tab=home', 'push');
-        return;
-      }
-
-      router.back();
-    },
-  } satisfies AppNavigationApi;
+  // Reuse the same implementation as the provider to avoid duplication.
+  return buildAppNavigationApi(router, isMobile);
 }
