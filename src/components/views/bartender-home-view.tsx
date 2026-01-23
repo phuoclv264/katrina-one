@@ -11,7 +11,6 @@ import DashboardLayout from '@/components/dashboard-layout';
 import type { MonthlyTaskAssignment } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { LoadingPage } from '@/components/loading/LoadingPage';
-import { DashboardActionCard } from '@/components/dashboard-action-card';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
 
 export function BartenderHomeView() {
@@ -54,26 +53,8 @@ export function BartenderHomeView() {
       description={todaysShifts.length > 0 ? `Hôm nay bạn có ca: ${shiftsText}. Chọn báo cáo để thực hiện.` : 'Bạn không có ca làm việc nào hôm nay.'}
       top={isCheckedIn && todaysMonthlyAssignments.length > 0 ? <TodaysTasksCard assignments={todaysMonthlyAssignments} /> : undefined}
     >
-      {isCheckedIn ? (
-        <div className="grid grid-cols-2 gap-3">
-          <DashboardActionCard
-            label="Vệ sinh quầy"
-            subLabel="Hàng ngày"
-            icon={ClipboardList}
-            onClick={() => nav.push('/bartender/hygiene-report')}
-            color="emerald"
-            variant="primary"
-          />
-          <DashboardActionCard
-            label="Kiểm kê kho"
-            subLabel="Cuối ca"
-            icon={Archive}
-            onClick={() => nav.push('/bartender/inventory')}
-            color="purple"
-            variant="primary"
-          />
-        </div>
-      ) : (
+      {/* Primary action cards are rendered by DashboardLayout now. Keep the alert here. */}
+      {!isCheckedIn && (
         <Alert variant="default" className="border-amber-500/30 bg-amber-500/10">
           <Info className="h-4 w-4 text-amber-600" />
           <AlertTitle className="text-amber-800 dark:text-amber-300">Chưa chấm công</AlertTitle>
@@ -81,7 +62,7 @@ export function BartenderHomeView() {
             Vui lòng chấm công để bắt đầu thực hiện báo cáo.
           </AlertDescription>
         </Alert>
-      )}
+      )} 
 
     </DashboardLayout>
   );

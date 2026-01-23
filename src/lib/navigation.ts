@@ -52,17 +52,17 @@ export function isHomeRoute(
       const raw = hash.slice('#page='.length);
       try {
         const p = normalize(decodeURIComponent(raw));
-        return homePaths.some(h => p === h || p.startsWith(h + '/'));
+        return homePaths.some(h => p === h);
       } catch {
         const p = normalize(raw);
-        return homePaths.some(h => p === h || p.startsWith(h + '/'));
+        return homePaths.some(h => p === h);
       }
     }
   }
 
   if (typeof pathname === 'string') {
     const p = normalize(pathname);
-    return homePaths.some(h => p === h || p.startsWith(h + '/'));
+    return homePaths.some(h => p === h);
   }
 
   return false;

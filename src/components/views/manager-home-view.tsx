@@ -57,27 +57,8 @@ export function ManagerHomeView() {
       description={todaysShifts.length > 0 ? `Hôm nay bạn có ca: ${shiftsText}. Chọn chức năng để thực hiện.` : 'Bạn không có ca làm việc nào hôm nay.'}
       top={isCheckedIn && todaysMonthlyAssignments.length > 0 ? <TodaysTasksCard assignments={todaysMonthlyAssignments} /> : undefined}
     >
-      {isCheckedIn ? (
-        <div className="grid grid-cols-2 gap-3">
-          <DashboardActionCard
-            label="Phiếu kiểm tra toàn diện"
-            subLabel="Định kỳ"
-            icon={FileSearch}
-            onClick={() => nav.push('/manager/comprehensive-report')}
-            color="orange"
-            className="col-span-2"
-            variant="primary"
-          />
-          <DashboardActionCard
-            label="Xem Báo cáo"
-            subLabel="Quản lý"
-            icon={CheckSquare}
-            onClick={() => nav.push('/reports')}
-            color="blue"
-            variant="primary"
-          />
-        </div>
-      ) : (
+      {/* Primary action cards are rendered by DashboardLayout now. Keep the alert and fallback UI. */}
+      {!isCheckedIn && (
         <Alert variant="default" className="border-amber-500/30 bg-amber-500/10">
           <Info className="h-4 w-4 text-amber-600" />
           <AlertTitle className="text-amber-800 dark:text-amber-300">Chưa chấm công</AlertTitle>

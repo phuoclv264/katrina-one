@@ -6,19 +6,16 @@ import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import {
-  LogOut, User, CalendarDays, CheckSquare, Coffee, Banknote, UserCog,
-  BarChart3, FileText, DollarSign, CalendarClock, Users2, ClipboardList, Sun, Sunset, Moon,
-  UtensilsCrossed, ListChecks, Package, FileSignature, History, ShieldX,
-  MessageSquare, ChevronRight, Sparkles, UserCircle,
-  Archive
+  LogOut, CalendarDays, ChevronRight, Sparkles, UserCircle,
+  CheckSquare, Coffee, Banknote, UserCog, BarChart3
 } from 'lucide-react';
 import { cn, getInitials } from '@/lib/utils';
 import { ProfileDialog } from './profile-dialog';
 import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
-import { getActiveShiftKeys, DEFAULT_MAIN_SHIFT_TIMEFRAMES } from '@/lib/shift-utils';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
+import { getUserAccessLinks } from '@/lib/user-access-links';
 
 interface UserMenuViewProps {
   onNavigateToHome?: () => void;
@@ -26,122 +23,53 @@ interface UserMenuViewProps {
 }
 
 export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuViewProps) {
-  const { user, logout, loading, isOnActiveShift } = useAuth();
+  const { user, logout, loading, isOnActiveShift, activeShifts } = useAuth();
   const { isCheckedIn } = useCheckInCardPlacement();
   const nav = useAppNavigation();
   const [profileOpen, setProfileOpen] = useState(false);
 
   if (!user) return null;
 
-  const getMenuItems = () => {
-    const canManageViolations = user.role === 'Quản lý' || user.role === 'Chủ nhà hàng';
-    const violationLabel = canManageViolations ? 'Ghi nhận Vi phạm' : 'Danh sách Vi phạm';
+  // Get all menu items from centralized access utility
+  const access = getUserAccessLinks({ user, isCheckedIn, activeShifts: activeShifts || [], isOnActiveShift });
+  
+  // Convert AccessLink to the format expected by the UI — exclude grouped links so
+  // they are rendered exclusively inside the accordion sections below.
+  const primaryItems = access.primary
+    .filter(l => !l.group)
+    .map(link => ({ href: link.href, label: link.label, icon: link.icon }));
 
-    const commonViolationMenu = { href: '/violations', label: violationLabel, icon: ShieldX };
-    const commonScheduleMenu = { href: '/schedule', label: 'Lịch làm việc', icon: CalendarDays };
-    const commonReportsFeedMenu = { href: '/reports-feed', label: 'Tố cáo', icon: MessageSquare };
+  const secondaryItems = access.secondary
+    .filter(l => !l.group)
+    .map(link => ({ role: link.roleTag || link.subLabel || '', item: { href: link.href, label: link.label, icon: link.icon } }));
 
-    let primaryItems: any[] = [];
-    let secondaryItems: { role: string; item: any }[] = [];
+  // Ensure a per-role "Home" (dashboard/overview) shortcut is available in the USER MENU only.
+  // This keeps the sidebar behavior unchanged and preserves original labels/icons.
+  const roleHomeMap: Record<string, { href: string; label: string; icon: any }> = {
+    'Phục vụ': { href: '/shifts', label: 'Bảng điều khiển', icon: CheckSquare },
+    'Pha chế': { href: '/bartender', label: 'Bảng điều khiển', icon: Coffee },
+    'Thu ngân': { href: '/cashier', label: 'Bảng điều khiển', icon: Banknote },
+    'Quản lý': { href: '/manager', label: 'Bảng điều khiển', icon: UserCog },
+    'Chủ nhà hàng': { href: '/admin', label: 'Tổng quan', icon: BarChart3 },
+  };
 
-    // For non-owner roles we only expose operational/dashboard links when the user is checked in.
-    // Always-visible items: schedule, violations, reports feed, and read-only report pages.
-    switch (user?.role) {
-      case 'Phục vụ':
-        if (isCheckedIn) {
-          primaryItems.push({ href: '/shifts', label: 'Bảng điều khiển', icon: CheckSquare });
-          // show only the currently relevant shift checklist links when possible
-          const activeKeys = getActiveShiftKeys(DEFAULT_MAIN_SHIFT_TIMEFRAMES);
-          if (activeKeys.length > 0) {
-            if (activeKeys.includes('sang')) primaryItems.push({ href: '/checklist/sang', label: 'Báo cáo ca sáng', icon: Sun });
-            if (activeKeys.includes('trua')) primaryItems.push({ href: '/checklist/trua', label: 'Báo cáo ca trưa', icon: Sunset });
-            if (activeKeys.includes('toi')) primaryItems.push({ href: '/checklist/toi', label: 'Báo cáo ca tối', icon: Moon });
-          }
-          primaryItems.push({ href: '/daily-assignments', label: 'Công việc trong ngày', icon: ListChecks });
-        }
-        primaryItems.push(commonScheduleMenu, commonViolationMenu, commonReportsFeedMenu);
-        break;
-      case 'Pha chế':
-        if (isCheckedIn) {
-          primaryItems.push({ href: '/bartender', label: 'Bảng điều khiển', icon: Coffee });
-          // expose quick links that appear on the bartender dashboard
-          primaryItems.push({ href: '/bartender/hygiene-report', label: 'Vệ sinh quầy', icon: ClipboardList });
-          primaryItems.push({ href: '/bartender/inventory', label: 'Kiểm kê kho', icon: History });
-          // daily assignments for bartender when checked in
-          primaryItems.push({ href: '/daily-assignments', label: 'Công việc trong ngày', icon: ListChecks });
-        }
-        primaryItems.push(commonScheduleMenu, commonViolationMenu, commonReportsFeedMenu);
-        break;
-      case 'Thu ngân':
-        if (isCheckedIn) primaryItems.push({ href: '/cashier', label: 'Bảng điều khiển', icon: Banknote }, { href: '/daily-assignments', label: 'Giao việc trong ngày', icon: ListChecks });
-        // reports should remain discoverable even when not checked-in
-        primaryItems.push(commonScheduleMenu, commonViolationMenu, { href: '/reports/cashier', label: 'Báo cáo Thu ngân', icon: Banknote }, commonReportsFeedMenu);
-        break;
-      case 'Quản lý':
-        if (isCheckedIn) {
-          primaryItems.push({ href: '/manager', label: 'Bảng điều khiển', icon: UserCog });
-          primaryItems.push({ href: '/manager/comprehensive-report', label: 'Phiếu kiểm tra toàn diện', icon: FileText });
-          primaryItems.push({ href: '/daily-assignments', label: 'Giao việc trong ngày', icon: ListChecks });
-        }
-        primaryItems.push({ href: '/reports', label: 'Xem báo cáo', icon: FileText }, commonScheduleMenu, commonViolationMenu, commonReportsFeedMenu);
-        break;
-      case 'Chủ nhà hàng':
-        // owner retains full access regardless of check-in
-        primaryItems.push(
-          { href: '/admin', label: 'Tổng quan', icon: BarChart3 },
-          { href: '/daily-assignments', label: 'Giao việc trong ngày', icon: ClipboardList },
-          { href: '/reports', label: 'Xem Báo cáo', icon: FileText },
-          { href: '/financial-report', label: 'Báo cáo Tài chính', icon: DollarSign },
-          { href: '/reports/cashier', label: 'Báo cáo Thu ngân', icon: Banknote },
-          { href: '/shift-scheduling', label: 'Xếp lịch & Phê duyệt', icon: CalendarDays },
-          { href: '/attendance', label: 'Quản lý Chấm công', icon: User },
-          { href: '/monthly-tasks', label: 'Công việc Định kỳ', icon: CalendarClock },
-          commonReportsFeedMenu,
-          { href: '/users', label: 'QL Người dùng', icon: Users2 },
-          { href: '/task-lists', label: 'QL Công việc Phục vụ', icon: ClipboardList },
-          { href: '/bartender-tasks', label: 'QL Công việc Pha chế', icon: UtensilsCrossed },
-          { href: '/comprehensive-checklist', label: 'QL Kiểm tra Toàn diện', icon: ListChecks },
-          { href: '/inventory-management', label: 'QL Hàng tồn kho', icon: Package },
-          { href: '/product-management', label: 'QL Mặt hàng & Công thức', icon: FileSignature },
-          { href: '/inventory-history', label: 'Lịch sử Kho', icon: History },
-          commonViolationMenu,
-        );
-        break;
-    }
-
-    const primaryHrefs = new Set(primaryItems.map(item => item.href));
-
-    // Secondary-role quick links: show only when user is checked in (operational shortcuts)
-    if (isCheckedIn) {
-      if (user?.secondaryRoles?.includes('Phục vụ') && !primaryHrefs.has('/shifts')) {
-        const activeKeys = getActiveShiftKeys(DEFAULT_MAIN_SHIFT_TIMEFRAMES);
-        secondaryItems.push({ role: 'Phục vụ', item: { href: '/shifts', label: 'Checklist Công việc', icon: CheckSquare } });
-        if (activeKeys.length > 0) {
-          if (activeKeys.includes('sang')) secondaryItems.push({ role: 'Phục vụ', item: { href: '/checklist/sang', label: 'Báo cáo ca sáng', icon: Sun } });
-          if (activeKeys.includes('trua')) secondaryItems.push({ role: 'Phục vụ', item: { href: '/checklist/trua', label: 'Báo cáo ca trưa', icon: Sunset } });
-          if (activeKeys.includes('toi')) secondaryItems.push({ role: 'Phục vụ', item: { href: '/checklist/toi', label: 'Báo cáo ca tối', icon: Moon } });
-        } else {
-          secondaryItems.push({ role: 'Phục vụ', item: { href: '/checklist/sang', label: 'Báo cáo ca sáng', icon: Sun } });
-          secondaryItems.push({ role: 'Phục vụ', item: { href: '/checklist/trua', label: 'Báo cáo ca trưa', icon: Sunset } });
-          secondaryItems.push({ role: 'Phục vụ', item: { href: '/checklist/toi', label: 'Báo cáo ca tối', icon: Moon } });
-        }
-      }
-      if (user?.secondaryRoles?.includes('Pha chế') && !primaryHrefs.has('/bartender')) {
-        secondaryItems.push({ role: 'Pha chế', item: { href: '/bartender/hygiene-report', label: 'Báo cáo Vệ sinh quầy', icon: ClipboardList } });
-        secondaryItems.push({ role: 'Pha chế', item: { href: '/bartender/inventory', label: 'Kiểm kê Tồn kho', icon: History } });
-      }
-      if (user?.secondaryRoles?.includes('Quản lý') && !primaryHrefs.has('/manager')) {
-        secondaryItems.push({ role: 'Quản lý', item: { href: '/manager/comprehensive-report', label: 'Phiếu kiểm tra toàn diện', icon: FileText } });
-      }
-      if (user?.secondaryRoles?.includes('Thu ngân') && !primaryHrefs.has('/cashier')) {
-        secondaryItems.push({ role: 'Thu ngân', item: { href: '/cashier', label: 'Báo cáo Thu ngân', icon: Banknote } });
-      }
-    }
-
-    return { primaryItems, secondaryItems };
+  const roleHome = roleHomeMap[user.role || ''];
+  if (roleHome && !primaryItems.some((i) => i.href === roleHome.href)) {
+    // always show home shortcut in the user menu (independent of check-in)
+    primaryItems.unshift(roleHome);
   }
 
-  const { primaryItems, secondaryItems } = getMenuItems();
+  // Build grouped links (items with group property) - exclude items already in primary/secondary
+  const existingHrefs = new Set([
+    ...primaryItems.map(i => i.href),
+    ...secondaryItems.map(s => s.item.href),
+  ]);
+  const grouped = [...access.primary, ...access.secondary].reduce((acc, l) => {
+    if (!l.group) return acc;
+    if (existingHrefs.has(l.href)) return acc; // don't duplicate
+    (acc[l.group] ||= []).push(l);
+    return acc;
+  }, {} as Record<string, typeof access.primary>);
 
   const handleNavigate = (href: string) => {
     // Check if this is a "Home" link (Dashboard/Overview)
@@ -149,8 +77,6 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
 
     if (isHomeLink && onNavigateToHome) {
       onNavigateToHome();
-    } else if (onNavigate) {
-      onNavigate(href);
     } else {
       nav.push(href);
     }
@@ -196,7 +122,7 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
       <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} parentDialogTag="root" />
 
       {/* Menu Items */}
-      <ScrollArea className="flex-1 px-4 pb-6">
+      <div className="flex-1 px-4 pb-6">
         <div className="space-y-3">
           {primaryItems.map((item, index) => (
             <button
@@ -214,6 +140,32 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
               </div>
               <ChevronRight className="w-5 h-5 text-muted-foreground/50 group-hover:text-primary transition-colors" />
             </button>
+          ))}
+
+          {/* Grouped links from centralized access utility (render inside accordions) */}
+          {Object.entries(grouped).map(([groupLabel, links]) => (
+            <div key={groupLabel} className="pt-4">
+              <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value={groupLabel}>
+                  <AccordionTrigger className="px-1 py-2 text-sm font-semibold flex items-center justify-between">{groupLabel}</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-2 mt-2">
+                      {links.map((l) => (
+                        <button
+                          key={l.href}
+                          onClick={() => handleNavigate(l.href)}
+                          className="group flex items-center w-full p-3 transition-all bg-muted/10 border rounded-lg hover:bg-card"
+                        >
+                          <div className="w-9 h-9 flex items-center justify-center rounded-lg bg-muted text-muted-foreground mr-3"><l.icon className="w-4 h-4" /></div>
+                          <div className="flex-1 text-left"><span className="font-medium">{l.label}</span></div>
+                          <ChevronRight className="w-4 h-4 text-muted-foreground/50" />
+                        </button>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
           ))}
 
           {secondaryItems.length > 0 && (
@@ -269,7 +221,7 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
             Đăng xuất
           </Button>
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }

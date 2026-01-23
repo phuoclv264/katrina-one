@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Capacitor, PluginListenerHandle } from "@capacitor/core";
 import { App } from "@capacitor/app";
+import usePreserveScroll from '@/hooks/use-preserve-scroll';
 
 interface LightboxControls {
   isLightboxOpen: boolean;
@@ -53,12 +54,15 @@ export function useBackButton(
     };
   }, [router, pathname, lightbox, dialog]);
 
+  const { restore, persist } = usePreserveScroll();
+
   useEffect(() => {
     // --- OPEN LIGHTBOX ---
     if (lightbox?.isLightboxOpen && !history.state?.lightbox) {
+      try { persist(); } catch {}
       window.history.pushState({ lightbox: true }, "", window.location.href);
     }
-  }, [lightbox?.isLightboxOpen]);
+  }, [lightbox?.isLightboxOpen, persist]);
 
   useEffect(() => {
     // --- OPEN DIALOG ---
@@ -68,6 +72,7 @@ export function useBackButton(
     if (dialog && typeof dialog.openDialogCount === 'number' && dialog.openDialogCount > 0) {
       const currentCount = history.state?.dialogCount;
       if (currentCount !== dialog.openDialogCount) {
+        try { persist(); } catch {}
         window.history.pushState({ dialog: true, dialogCount: dialog.openDialogCount }, "", window.location.href);
       }
     }
@@ -77,12 +82,14 @@ export function useBackButton(
       // CLOSE LIGHTBOX FIRST
       if (lightbox?.isLightboxOpen) {
         lightbox.closeLightbox();
+        try { restore(); } catch {}
         return; // prevent navigation
       }
 
       // CLOSE DIALOG (close top-most)
       if (dialog?.isAnyDialogOpen) {
         dialog.closeDialog();
+        try { restore(); } catch {}
         return; // prevent navigation
       }
     };

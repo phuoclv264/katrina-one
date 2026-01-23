@@ -16,7 +16,6 @@ import type { MonthlyTaskAssignment, ShiftTemplate } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { DashboardActionCard } from '@/components/dashboard-action-card';
 import { LoadingPage } from '../loading/LoadingPage';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
 
@@ -79,25 +78,8 @@ export function ServerHomeView() {
       description={todaysShifts.length > 0 ? `Hôm nay bạn có ca: ${shiftsText}. Chọn ca để báo cáo.` : 'Bạn không có ca làm việc nào hôm nay, liên hệ chủ quán để thay đổi lịch làm.'}
       top={isCheckedIn && todaysMonthlyAssignments.length > 0 ? <TodaysTasksCard assignments={todaysMonthlyAssignments} /> : undefined}
     >
-      {isCheckedIn && activeMainShiftKeys.length > 0 ? (
-        <div className="grid grid-cols-2 gap-3">
-          {activeMainShiftKeys.map((key) => {
-            const info = mainShiftInfo[key];
-            if (!info) return null;
-            return (
-              <DashboardActionCard
-                key={key}
-                label={info.name}
-                subLabel="Báo cáo ca"
-                icon={info.icon}
-                onClick={() => handleNavigate(info.href)}
-                color="blue"
-                variant="primary"
-              />
-            );
-          })}
-        </div>
-      ) : (
+      {/* Primary action cards are rendered by DashboardLayout now. Keep the alert/fallback here. */}
+      {! (isCheckedIn && activeMainShiftKeys.length > 0) && (
         <Alert variant="default" className="border-amber-500/30 bg-amber-500/10">
           <Info className="h-4 w-4 text-amber-600" />
           <AlertTitle className="text-amber-800 dark:text-amber-300">Không trong ca làm việc</AlertTitle>
@@ -108,7 +90,7 @@ export function ServerHomeView() {
           }
           </AlertDescription>
         </Alert>
-      )}
+      )} 
 
     </DashboardLayout>
   );

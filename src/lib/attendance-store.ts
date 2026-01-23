@@ -2,23 +2,23 @@
 
 import { db, storage } from './firebase';
 import {
-  collection,
-  doc,
-  getDoc,
-  onSnapshot,
-  query,
-  updateDoc,
-  deleteDoc,
-  setDoc,
-  serverTimestamp,
-  Timestamp,
-  where,
-  getDocs,
-  addDoc,
-  limit,
-  writeBatch,
-  orderBy,
-  arrayUnion,
+    collection,
+    doc,
+    getDoc,
+    onSnapshot,
+    query,
+    updateDoc,
+    deleteDoc,
+    setDoc,
+    serverTimestamp,
+    Timestamp,
+    where,
+    getDocs,
+    addDoc,
+    limit,
+    writeBatch,
+    orderBy,
+    arrayUnion,
 } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
 import { ref } from 'firebase/storage';
@@ -56,7 +56,7 @@ export function subscribeToLatestInProgressAttendanceRecord(userId: string, call
         orderBy('checkInTime', 'desc'),
         limit(1)
     );
-    
+
     return onSnapshot(q, (snapshot) => {
         // This will find the most recent record for the user. We then check if
         // it is 'in-progress' on the client. This avoids needing a composite index.
@@ -124,7 +124,8 @@ export async function requestLateCheckIn(user: AuthUser, reason: string, minutes
     if (photoId) {
         const photoBlob = await photoStore.getPhoto(photoId);
         if (!photoBlob) throw new Error("Local photo not found for late reason.");
-        const storagePath = `attendance/${format(new Date(), 'yyyy-MM-dd')}/${user.uid}/${uuidv4()}-late-reason.jpg`;
+        const extension = photoBlob.type.split('/')[1] || 'jpg';
+        const storagePath = `attendance/${format(new Date(), 'yyyy-MM-dd')}/${user.uid}/${uuidv4()}-late-reason.${extension}`;
         photoUrl = await uploadFile(photoBlob, storagePath);
     }
 
@@ -226,7 +227,7 @@ export async function createAttendanceRecord(user: AuthUser, photoId: string, is
             // Check if user role is "Quản lý" and the start time is 6:00 AM then set the start time to 7:00 AM
             let shiftStartTime = activeShift.timeSlot.start;
             if (user.role === 'Quản lý' && shiftStartTime === '06:00') {
-                    shiftStartTime = '07:00';
+                shiftStartTime = '07:00';
             }
             // Parse the scheduled shift start time into a Date
             const shiftStart = parse(`${activeShift.date} ${shiftStartTime}`, 'yyyy-MM-dd HH:mm', new Date());
@@ -319,7 +320,7 @@ export async function updateAttendanceRecord(recordId: string, photoId: string):
 
     const checkInTime = recordData.checkInTime.toDate();
     const checkOutTime = new Date(); // Use new Date() for consistency
-    
+
     const totalHours = differenceInMinutes(checkOutTime, checkInTime) / 60;
 
     // Fetch user data to get hourly rate
@@ -373,7 +374,7 @@ export async function endBreak(recordId: string, photoId: string): Promise<void>
 
     const recordData = recordSnap.data();
     const breaks = recordData.breaks || [];
-    
+
     if (breaks.length > 0) {
         const lastBreak = breaks[breaks.length - 1];
         lastBreak.breakEndTime = Timestamp.now();
@@ -419,9 +420,9 @@ export async function updateAttendanceRecordDetails(recordId: string, data: { ch
     const recordSnap = await getDoc(recordRef);
     if (!recordSnap.exists()) throw new Error("Attendance record not found.");
 
-    const totalHours = data.checkOutTime ? differenceInMinutes(data.checkOutTime, data.checkInTime)/60 : 0;
+    const totalHours = data.checkOutTime ? differenceInMinutes(data.checkOutTime, data.checkInTime) / 60 : 0;
     const status = data.checkOutTime ? 'completed' : 'in-progress';
-    
+
     // Prioritize the rate from the edit form, then the one on the record, then fallback to current user rate
     const hourlyRate = data.hourlyRate ?? recordSnap.data().hourlyRate ?? 0;
     const salary = Math.round(totalHours * hourlyRate);
@@ -459,11 +460,12 @@ export async function deleteAttendanceRecord(recordId: string): Promise<void> {
 
 export function subscribeToAttendanceRecordsForDateRange(
     dateRange: DateRange | undefined,
-    callback: (records: AttendanceRecord[]) => void
+    callback: (records: AttendanceRecord[]) => void,
+    showOnlyCheckedInRecords: boolean = true,
 ): () => void {
     if (!dateRange || !dateRange.from || !dateRange.to) {
         callback([]);
-        return () => {}; // Return a no-op unsubscribe function
+        return () => { }; // Return a no-op unsubscribe function
     }
 
     // dateRange.from is from beginning of the date, dateRange.to is the end of the date
@@ -474,11 +476,17 @@ export function subscribeToAttendanceRecordsForDateRange(
     toDate.setHours(23, 59, 59, 999);
 
 
-    const q = query(collection(db, 'attendance_records'), where('checkInTime', '>=', fromDate), where('checkInTime', '<=', toDate), orderBy('checkInTime', 'desc'));
+    // const q = query(collection(db, 'attendance_records'), where('checkInTime', '>=', fromDate), where('checkInTime', '<=', toDate), orderBy('checkInTime', 'desc'));
+    let q = query(collection(db, 'attendance_records'), where('createdAt', '>=', fromDate), where('updatedAt', '<=', toDate), orderBy('createdAt', 'desc'));
 
     return onSnapshot(q, (snapshot) => {
         const records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
-        callback(records);
+        if (showOnlyCheckedInRecords) {
+            const filtered = records.filter(r => r.checkInTime);
+            callback(filtered);
+        } else {
+            callback(records);
+        }
     });
 }
 
@@ -556,36 +564,36 @@ export function subscribeToUserCheckInStatus(userId: string, callback: (isChecke
 
 // --- Special Periods ---
 export function subscribeToSpecialPeriods(callback: (periods: SpecialPeriod[]) => void): () => void {
-  const q = query(collection(db, 'special_periods'), orderBy('startDate', 'desc'));
-  return onSnapshot(q, (snapshot) => {
-    const periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SpecialPeriod));
-    callback(periods);
-  });
+    const q = query(collection(db, 'special_periods'), orderBy('startDate', 'desc'));
+    return onSnapshot(q, (snapshot) => {
+        const periods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SpecialPeriod));
+        callback(periods);
+    });
 }
 
 export async function getSpecialPeriods(): Promise<SpecialPeriod[]> {
-  const q = query(collection(db, 'special_periods'), orderBy('startDate', 'desc'));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SpecialPeriod));
+    const q = query(collection(db, 'special_periods'), orderBy('startDate', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SpecialPeriod));
 }
 
 export async function createSpecialPeriod(period: Omit<SpecialPeriod, 'id' | 'createdAt' | 'updatedAt'>): Promise<void> {
-  const docRef = doc(collection(db, 'special_periods'));
-  await setDoc(docRef, {
-    ...period,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
+    const docRef = doc(collection(db, 'special_periods'));
+    await setDoc(docRef, {
+        ...period,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+    });
 }
 
 export async function updateSpecialPeriod(id: string, period: Partial<Omit<SpecialPeriod, 'id' | 'createdAt' | 'updatedAt'>>): Promise<void> {
-  const docRef = doc(db, 'special_periods', id);
-  await updateDoc(docRef, {
-    ...period,
-    updatedAt: serverTimestamp(),
-  });
+    const docRef = doc(db, 'special_periods', id);
+    await updateDoc(docRef, {
+        ...period,
+        updatedAt: serverTimestamp(),
+    });
 }
 
 export async function deleteSpecialPeriod(id: string): Promise<void> {
-  await deleteDoc(doc(db, 'special_periods', id));
+    await deleteDoc(doc(db, 'special_periods', id));
 }

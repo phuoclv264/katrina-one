@@ -84,6 +84,7 @@ export function ProfileDialog({ open, onOpenChange, parentDialogTag }: ProfileDi
             <Input
               id="displayName"
               value={displayName}
+              disabled
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder="Nhập tên của bạn"
             />

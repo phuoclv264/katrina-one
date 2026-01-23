@@ -488,7 +488,6 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
         return (
           <UserMenuView
             onNavigateToHome={() => handleTabChange('home')}
-            onNavigate={(href) => navigation.push(href)}
           />
         );
       case 'home':

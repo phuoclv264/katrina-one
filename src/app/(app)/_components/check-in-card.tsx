@@ -1,12 +1,14 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, AlertDialogOverlay, AlertDialogIcon } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
 import type { AssignedShift, AttendanceRecord } from '@/lib/types';
-import { Camera, CheckCircle, Loader2, Info, Clock, X, History, AlertTriangle, Coffee, LogOut, Play, Pause, ArrowRight, ArrowLeft, ChevronRight, User as UserIcon } from 'lucide-react';
+import { Camera, CheckCircle, Loader2, Info, Clock, X, History, AlertTriangle, Coffee, LogOut, Play, Pause, ArrowRight, ArrowLeft, ChevronRight, User as UserIcon, Upload } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import LateReasonDialog from '@/components/late-reason-dialog';
+import OffShiftReasonDialog from '@/components/off-shift-reason-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { vi } from 'date-fns/locale';
@@ -17,11 +19,11 @@ import { toast } from "@/components/ui/pro-toast"
 import Image from '@/components/ui/image';
 import { useLightbox } from '@/contexts/lightbox-context';
 import { Timestamp } from 'firebase/firestore';
-import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { photoStore } from '@/lib/photo-store';
 import { isToday } from 'date-fns';
+import { v4 as uuidv4 } from 'uuid';
 import WorkHistoryDialog from './work-history-dialog';
 
 export default function CheckInCard() {
@@ -43,12 +45,16 @@ export default function CheckInCard() {
     const [estimatedLateMinutes, setEstimatedLateMinutes] = useState<number | string>('');
     const [lateReasonPhotoId, setLateReasonPhotoId] = useState<string | null>(null);
     const [lateReasonPhotoUrl, setLateReasonPhotoUrl] = useState<string | null>(null);
+    const [lateReasonMediaType, setLateReasonMediaType] = useState<'photo' | 'video' | null>(null);
+    const { openLightbox } = useLightbox();
 
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [isWorkHistoryOpen, setIsWorkHistoryOpen] = useState(false);
     const [checkInPhotoUrl, setCheckInPhotoUrl] = useState<string | null>(null);
 
     const [currentTime, setCurrentTime] = useState(new Date());
+
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // The active shift is now derived from the useAuth hook
     useEffect(() => {
@@ -141,7 +147,41 @@ export default function CheckInCard() {
         setEstimatedLateMinutes('');
         setLateReasonPhotoId(null);
         setLateReasonPhotoUrl(null);
+        setLateReasonMediaType(null);
         setIsLateReasonDialogOpen(true);
+    };
+
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const isImage = file.type.startsWith('image/');
+        const isVideo = file.type.startsWith('video/');
+
+        if (!isImage && !isVideo) {
+            toast.error('Vui lòng chọn tệp hình ảnh hoặc video.');
+            return;
+        }
+
+        if (file.size > 20 * 1024 * 1024) {
+            toast.error('Kích thước tệp quá lớn (tối đa 20MB).');
+            return;
+        }
+
+        try {
+            setIsProcessing(true);
+            const id = uuidv4();
+            await photoStore.addPhoto(id, file);
+            setLateReasonPhotoId(id);
+            setLateReasonMediaType(isImage ? 'photo' : 'video');
+            toast.success('Đã tải tệp lên thành công.');
+        } catch (error) {
+            console.error("Failed to add file to store:", error);
+            toast.error('Không thể tải tệp. Vui lòng thử lại.');
+        } finally {
+            setIsProcessing(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
     };
 
     const handleLateReasonSubmit = async () => {
@@ -194,8 +234,10 @@ export default function CheckInCard() {
                     toast.success('Đã bắt đầu nghỉ trưa.', { id: toastId });
                 }
             } else if (cameraAction === 'late-request') {
-                if (photoId) {
-                    setLateReasonPhotoId(photoId);
+                const mediaItem = media[0];
+                if (mediaItem) {
+                    setLateReasonPhotoId(mediaItem.id);
+                    setLateReasonMediaType(mediaItem.type);
                 }
             } else { // 'check-in-out'
                 if (latestInProgressRecord?.status === 'in-progress') {
@@ -490,59 +532,25 @@ export default function CheckInCard() {
                 parentDialogTag="root"
             />
 
-            <Dialog open={isLateReasonDialogOpen} onOpenChange={setIsLateReasonDialogOpen} dialogTag="late-reason-dialog" parentDialogTag="root">
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Xin đi trễ</DialogTitle>
-                        <DialogDescription>
-                            Vui lòng nhập lý do và thời gian dự kiến đến trễ.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label>Lý do đi trễ</Label>
-                            <Input
-                                placeholder="Ví dụ: Kẹt xe, hỏng xe..."
-                                value={lateReason}
-                                onChange={(e) => setLateReason(e.target.value)}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Số phút trễ dự kiến</Label>
-                            <Input
-                                type="number"
-                                min="1"
-                                value={estimatedLateMinutes}
-                                onChange={(e) => setEstimatedLateMinutes(e.target.value)}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Hình ảnh minh chứng (tùy chọn)</Label>
-                            {lateReasonPhotoId ? (
-                                <div className="flex items-center gap-2 text-green-600 text-sm bg-green-50 p-2 rounded">
-                                    <CheckCircle className="h-4 w-4" />
-                                    Đã chụp ảnh
-                                    <Button variant="ghost" size="sm" onClick={() => setLateReasonPhotoId(null)} className="ml-auto h-6 text-red-500 hover:text-red-600 hover:bg-red-50">Xóa</Button>
-                                </div>
-                            ) : (
-                                <Button variant="outline" onClick={() => {
-                                    setCameraAction('late-request');
-                                    setIsCameraOpen(true);
-                                }} className="w-full">
-                                    <Camera className="mr-2 h-4 w-4" />
-                                    Chụp ảnh
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsLateReasonDialogOpen(false)}>Hủy</Button>
-                        <Button onClick={handleLateReasonSubmit} disabled={!lateReason || !estimatedLateMinutes || isProcessing}>
-                            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Gửi yêu cầu'}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <LateReasonDialog
+                open={isLateReasonDialogOpen}
+                onOpenChange={setIsLateReasonDialogOpen}
+                lateReason={lateReason}
+                setLateReason={setLateReason}
+                estimatedLateMinutes={estimatedLateMinutes}
+                setEstimatedLateMinutes={setEstimatedLateMinutes}
+                fileInputRef={fileInputRef}
+                lateReasonPhotoId={lateReasonPhotoId}
+                lateReasonPhotoUrl={lateReasonPhotoUrl}
+                lateReasonMediaType={lateReasonMediaType}
+                onOpenLightbox={openLightbox}
+                onPickFromCamera={() => { setCameraAction('late-request'); setIsCameraOpen(true); }}
+                onFileSelect={handleFileSelect}
+                onRemoveMedia={() => { setLateReasonPhotoId(null); setLateReasonMediaType(null); }}
+                onSubmit={handleLateReasonSubmit}
+                isProcessing={isProcessing}
+                parentDialogTag="root"
+            />
 
             <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen} dialogTag="history-dialog" parentDialogTag="root">
                 <DialogContent className="max-w-md">
@@ -607,27 +615,15 @@ export default function CheckInCard() {
                 </AlertDialogContent>
             </AlertDialog>
 
-            <Dialog open={isOffShiftReasonDialogOpen} onOpenChange={setIsOffShiftReasonDialogOpen} dialogTag="off-shift-reason-dialog" parentDialogTag="root">
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Lý do chấm công ngoài giờ</DialogTitle>
-                        <DialogDescription>
-                            Bạn đang chấm công vào thời điểm không có ca được phân công. Vui lòng nhập lý do.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="py-4">
-                        <Textarea
-                            placeholder="Ví dụ: Làm thay bạn A, Tăng ca đột xuất..."
-                            value={offShiftReason}
-                            onChange={(e) => setOffShiftReason(e.target.value)}
-                        />
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsOffShiftReasonDialogOpen(false)}>Hủy</Button>
-                        <Button onClick={handleReasonSubmit}>Tiếp tục</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <OffShiftReasonDialog
+                open={isOffShiftReasonDialogOpen}
+                onOpenChange={setIsOffShiftReasonDialogOpen}
+                value={offShiftReason}
+                onValueChange={setOffShiftReason}
+                onCancel={() => setIsOffShiftReasonDialogOpen(false)}
+                onSubmit={handleReasonSubmit}
+                parentDialogTag="root"
+            />
 
             {user && (
                 <WorkHistoryDialog

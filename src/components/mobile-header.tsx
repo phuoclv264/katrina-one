@@ -4,7 +4,7 @@
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useMemo, useState, useEffect } from 'react';
 import { NotificationBell } from './notification-bell';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Coffee } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { isHomeRoute } from '@/lib/navigation';
@@ -131,38 +131,47 @@ export function MobileHeader() {
     };
 
     return (
-        <div className="flex items-center justify-between w-full h-full gap-2">
+        <div className="flex items-center justify-between w-full h-full gap-2 px-1">
             <div className="flex items-center flex-1 min-w-0">
-                <div className={cn(
-                    "flex items-center transition-all duration-300 ease-in-out px-1",
-                    showBackButton ? "w-10 opacity-100" : "w-0 opacity-0 overflow-hidden"
-                )}>
+                <div className="flex items-center w-10 shrink-0">
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="h-10 w-10 -ml-3 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100/50 dark:hover:bg-zinc-800/50 rounded-full active:scale-90 transition-transform"
+                        className={cn(
+                            "h-10 w-10 relative flex items-center justify-center transition-all duration-300",
+                            "rounded-2xl active:scale-90",
+                            "bg-white/50 dark:bg-zinc-900/50 backdrop-blur-md border border-zinc-200/50 dark:border-zinc-800/50 shadow-sm",
+                            showBackButton ? "hover:bg-zinc-100 dark:hover:bg-zinc-800" : "cursor-default"
+                        )}
                         onClick={handleBack}
                     >
-                        <ChevronLeft className="h-7 w-7 stroke-[2.5px]" />
+                        <div className="relative h-6 w-6 flex items-center justify-center">
+                            <ChevronLeft className={cn(
+                                "h-6 w-6 stroke-[2.5px] text-zinc-900 dark:text-zinc-50 transition-all duration-500 absolute",
+                                showBackButton ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 -rotate-90"
+                            )} />
+                            <Coffee className={cn(
+                                "h-5 w-5 text-zinc-400 dark:text-zinc-500 transition-all duration-500 absolute",
+                                !showBackButton ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 rotate-90"
+                            )} />
+                        </div>
                     </Button>
                 </div>
                 
-                <div className={cn(
-                    "flex flex-col min-w-0 transition-all duration-300 transform",
-                    showBackButton ? "translate-x-0" : "translate-x-1"
-                )}>
-                   <h1 className="text-[19px] font-extrabold text-zinc-900 dark:text-zinc-50 truncate leading-none tracking-tight">
+                <div className="flex flex-col min-w-0 ml-3 transition-all duration-300">
+                   <h1 className="text-[18px] font-black text-zinc-900 dark:text-zinc-50 truncate leading-none tracking-tight">
                         {title}
                     </h1>
-                    {!showBackButton && (
-                         <span className="text-[10px] uppercase font-bold text-zinc-400 dark:text-zinc-500 tracking-[0.1em] mt-0.5 ml-0.5">
-                            Katrina Coffee
-                         </span>
-                    )}
+                    <span className={cn(
+                        "text-[9px] uppercase font-black tracking-[0.14em] mt-0.5 transition-all duration-300",
+                        showBackButton ? "text-primary/80 dark:text-primary/60" : "text-zinc-400 dark:text-zinc-500"
+                    )}>
+                        {showBackButton ? "Quay lại" : "Katrina Coffee"}
+                    </span>
                 </div>
             </div>
 
-            <div className="flex items-center shrink-0 ml-4">
+            <div className="flex items-center shrink-0">
                 <NotificationBell />
             </div>
         </div>

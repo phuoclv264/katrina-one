@@ -575,7 +575,7 @@ export default function ManagerReportView({ isStandalone = false }: ManagerRepor
                                 }).length;
                                 const sectionTotalCount = sectionTasks.length;
                                 const sectionProgress = sectionTotalCount > 0 ? Math.round((sectionCompletedCount / sectionTotalCount) * 100) : 0;
-                                
+
                                 return (
                                     <motion.div
                                         key={section.title}
@@ -597,7 +597,7 @@ export default function ManagerReportView({ isStandalone = false }: ManagerRepor
                                                     </div>
                                                 )}
                                             </div>
-                                            
+
                                             <div className="flex-1 min-w-0 flex flex-col justify-center">
                                                 <div className="flex items-center justify-between mb-2.5">
                                                     <h3 className="text-[13px] font-black text-slate-900 dark:text-white uppercase tracking-tight leading-tight mr-1">
@@ -609,7 +609,7 @@ export default function ManagerReportView({ isStandalone = false }: ManagerRepor
                                                 </div>
                                                 <div className="flex items-center gap-3">
                                                     <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
-                                                        <motion.div 
+                                                        <motion.div
                                                             className="h-full bg-primary"
                                                             initial={{ width: 0 }}
                                                             animate={{ width: `${sectionProgress}%` }}
@@ -621,7 +621,7 @@ export default function ManagerReportView({ isStandalone = false }: ManagerRepor
                                                     </span>
                                                 </div>
                                             </div>
-                                            
+
                                             <div className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-slate-50 dark:bg-slate-800 text-slate-400 group-active:text-primary transition-colors">
                                                 <ChevronRight className="h-4 w-4" />
                                             </div>
@@ -634,6 +634,16 @@ export default function ManagerReportView({ isStandalone = false }: ManagerRepor
                         <div className="space-y-6">
                             {/* Section Header with Back Button */}
                             <div className="sticky top-[56px] md:top-0 z-40 -mx-3 px-3 py-3 bg-background/80 backdrop-blur-xl border-b mb-6 flex items-center gap-3">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setActiveTab('')}
+                                    className="bg-muted rounded-xl hover:bg-muted/80 uppercase text-[10px] font-black px-3"
+                                >
+                                    <ChevronLeft className="h-4 w-4 mr-1" />
+                                    Quay lại danh mục
+                                </Button>
+                                <div className="h-4 w-px bg-border" />
                                 <h2 className="text-sm font-black text-slate-900 dark:text-white uppercase italic tracking-wider">
                                     {activeTab}
                                 </h2>
@@ -685,7 +695,7 @@ export default function ManagerReportView({ isStandalone = false }: ManagerRepor
                     )}
                 </div>
 
-                <TaskNoteDialog 
+                <TaskNoteDialog
                     isOpen={isNoteOpen}
                     onClose={handleNoteClose}
                     onSubmit={handleSaveNote}
@@ -695,7 +705,7 @@ export default function ManagerReportView({ isStandalone = false }: ManagerRepor
             </div>
 
             <div className={cn(
-                "fixed right-4 z-[20] transition-all duration-300 md:right-8", 
+                "fixed right-4 z-[20] transition-all duration-300 md:right-8",
                 isBottomNavVisible ? "bottom-20" : "bottom-6"
             )}>
                 <div className="relative">

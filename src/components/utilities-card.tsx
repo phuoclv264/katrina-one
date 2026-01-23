@@ -2,21 +2,17 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { ListChecks, Sun, Moon, Sunset, Sparkles, Package, Receipt } from 'lucide-react';
+import { ListChecks } from 'lucide-react';
 import { DashboardActionCard } from './dashboard-action-card';
-import { getActiveShiftKeys, DEFAULT_MAIN_SHIFT_TIMEFRAMES } from '@/lib/shift-utils';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { dataStore } from '@/lib/data-store';
-import type { DailyTask, UserRole, ManagedUser } from '@/lib/types';
-
-const mainShiftInfo: { [key: string]: { name: string; icon: React.ElementType; href: string } } = {
-  sang: { name: 'Báo cáo ca sáng', icon: Sun, href: '/checklist/sang' },
-  trua: { name: 'Báo cáo ca trưa', icon: Sunset, href: '/checklist/trua' },
-  toi: { name: 'Báo cáo ca tối', icon: Moon, href: '/checklist/toi' },
-};
+import { getUserAccessLinks } from '@/lib/user-access-links';
+import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
+import type { DailyTask, UserRole } from '@/lib/types';
 
 export default function UtilitiesCard() {
-  const { user } = useAuth();
+  const { user, isOnActiveShift, activeShifts } = useAuth();
+  const { isCheckedIn } = useCheckInCardPlacement();
   const nav = useAppNavigation();
   const [todayTasks, setTodayTasks] = useState<DailyTask[]>([]);
 
@@ -26,38 +22,19 @@ export default function UtilitiesCard() {
     return unsub;
   }, [user]);
 
-  const activeMainShiftKeys = useMemo(() => getActiveShiftKeys(DEFAULT_MAIN_SHIFT_TIMEFRAMES), [/* stable */]);
-
   const secondaryActions = useMemo(() => {
-    if (!user) return [] as any[];
+    if (!user) return [];
 
-    const actions: any[] = [];
+    const { secondary } = getUserAccessLinks({
+      user,
+      isCheckedIn,
+      activeShifts: activeShifts || [],
+      isOnActiveShift,
+    });
 
-    // Add active main shift actions for secondary 'Phục vụ'
-    if (user.secondaryRoles?.includes('Phục vụ') && activeMainShiftKeys.length > 0) {
-      activeMainShiftKeys.forEach((key) => {
-        const info = mainShiftInfo[key];
-        actions.push({ label: info.name, subLabel: 'Phục vụ', icon: info.icon, href: info.href, color: 'blue' as const });
-      });
-    }
 
-    // (Daily assignments handled separately below; only show when there are pending items.)
-    // Managers can still access the Giao việc screen via navigation if needed.
-
-    // Add role-specific utilities (existing behavior)
-    // Pha chế
-    if (user.secondaryRoles?.includes('Pha chế')) {
-      actions.push({ label: 'Vệ sinh quầy', subLabel: 'Pha chế', icon: Sparkles, href: '/bartender/hygiene-report', color: 'emerald' as const });
-      actions.push({ label: 'Kiểm kê kho', subLabel: 'Pha chế', icon: Package, href: '/bartender/inventory', color: 'purple' as const });
-    }
-
-    // Thu ngân
-    if (user.secondaryRoles?.includes('Thu ngân')) {
-      actions.push({ label: 'Báo cáo thu ngân', subLabel: 'Thu ngân', icon: Receipt, href: '/cashier', color: 'blue' as const });
-    }
-
-    return actions;
-  }, [user, activeMainShiftKeys]);
+    return secondary;
+  }, [user, activeShifts, isCheckedIn, isOnActiveShift]);
 
   const hasPendingDailyAssignment = useMemo(() => {
     if (!user) return false;
@@ -93,9 +70,10 @@ export default function UtilitiesCard() {
     }, 0);
   }, [todayTasks, user]);
 
-  const showDailyCardForManager = user?.role === 'Quản lý' || user?.role === 'Chủ nhà hàng';
+  const showDailyCardForManager = user?.role === 'Quản lý';
+  const hasActions = (secondaryActions?.length ?? 0) > 0 || showDailyCardForManager || hasPendingDailyAssignment;
 
-  if (!user || (!user.secondaryRoles || user.secondaryRoles.length === 0) && !showDailyCardForManager) return null;
+  if (!user || !hasActions) return null;
 
   return (
     <div className="space-y-3">
@@ -130,7 +108,7 @@ export default function UtilitiesCard() {
             <div key={index} className="relative h-full">
               <DashboardActionCard
                 label={action.label}
-                subLabel={action.subLabel}
+                subLabel={action.subLabel ?? action.roleTag}
                 icon={action.icon}
                 onClick={() => nav.push(action.href)}
                 color={action.color}

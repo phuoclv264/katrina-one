@@ -381,11 +381,13 @@ export type EmployeeAttendance = {
   checkOutTime: Date | null;
   lateMinutes: number | null;
   lateReason: string | null;
+  lateReasonPhotoUrl?: string | null;
+  lateReasonMediaType?: 'photo' | 'video' | null;
   /** If the user requested to be late, this is the estimated late minutes */
   estimatedLateMinutes?: number | null;
 };
 
-export type EmployeeStatus = 'present' | 'late' | 'absent' | 'pending_late';
+export type EmployeeStatus = 'present' | 'late' | 'absent' | 'pending_late' | 'off-shift';
 
 export type Schedule = {
   weekId: string; // e.g., "2024-W28"

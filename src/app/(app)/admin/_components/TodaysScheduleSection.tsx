@@ -5,9 +5,11 @@ import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { AssignedShift } from '@/lib/types';
-import { generateShortName, formatTime } from '@/lib/utils';
-import { AlertCircle } from 'lucide-react';
+import { generateShortName, formatTime, cn } from '@/lib/utils';
+import { AlertCircle, Eye } from 'lucide-react';
 import type { EmployeeAttendance } from '@/lib/types';
+import { parse, isAfter } from 'date-fns';
+import { useLightbox } from '@/contexts/lightbox-context';
 
 interface ShiftWithStatus extends AssignedShift {
   isActive?: boolean;
@@ -15,11 +17,14 @@ interface ShiftWithStatus extends AssignedShift {
 
 interface TodaysScheduleSectionProps {
   shifts: ShiftWithStatus[];
+  offShiftEmployees?: EmployeeAttendance[];
   onViewDetails?: () => void;
 }
 
-export function TodaysScheduleSection({ shifts, onViewDetails }: TodaysScheduleSectionProps) {
+export function TodaysScheduleSection({ shifts, offShiftEmployees, onViewDetails }: TodaysScheduleSectionProps) {
   const navigation = useAppNavigation();
+  const { openLightbox } = useLightbox();
+  const now = new Date();
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 flex-1">
@@ -51,6 +56,8 @@ export function TodaysScheduleSection({ shifts, onViewDetails }: TodaysScheduleS
           {shifts.map((shift) => {
             const activeShift = shift.isActive;
             const employeeCount = shift.assignedUsers.length;
+            const shiftStartTime = parse(shift.timeSlot.start, 'HH:mm', new Date(shift.date));
+            const hasStarted = isAfter(now, shiftStartTime);
 
             return (
               <div key={shift.id} className="relative pl-6">
@@ -102,7 +109,12 @@ export function TodaysScheduleSection({ shifts, onViewDetails }: TodaysScheduleS
                           <div key={user.userId} className="flex items-center gap-3">
                             <Badge
                               variant="outline"
-                              className="bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-700 text-xs"
+                              className={cn(
+                                "text-xs px-2 py-0.5",
+                                (!checkIn && hasStarted)
+                                  ? "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700 font-bold"
+                                  : "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-700"
+                              )}
                             >
                               {generateShortName(user.userName)}
                             </Badge>
@@ -110,7 +122,26 @@ export function TodaysScheduleSection({ shifts, onViewDetails }: TodaysScheduleS
                               {checkIn ? <span className="font-medium text-gray-700 dark:text-gray-200">{checkIn} - </span> : <span className="italic">Chưa check-in</span>}
                               {checkOut && <span className="font-medium text-gray-700 dark:text-gray-200">{checkOut}</span>}
                               {employeeInfo?.status === 'pending_late' && (
-                                <span className="ml-3 text-orange-500"></span>
+                                <span className="ml-3 inline-flex items-center gap-2 text-[13px]">
+                                  <span className="text-orange-600 font-semibold">Dự kiến trễ {employeeInfo.estimatedLateMinutes ?? '?'} phút</span>
+
+                                  {employeeInfo.lateReason && (
+                                    <span className="text-[11px] text-gray-500 dark:text-gray-400 italic line-clamp-1">{employeeInfo.lateReason}</span>
+                                  )}
+
+                                  {employeeInfo.lateReasonPhotoUrl && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 rounded-lg text-orange-600 hover:text-orange-700 hover:bg-orange-100 dark:hover:bg-orange-900/30"
+                                      onClick={() => openLightbox([{ src: employeeInfo.lateReasonPhotoUrl! }])}
+                                      title="Xem minh chứng"
+                                      aria-label={`Xem minh chứng của ${employeeInfo.name}`}
+                                    >
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                </span>
                               )}
                               {employeeInfo?.status === 'late' && (
                                 <span className="ml-3 text-red-500">
@@ -129,6 +160,65 @@ export function TodaysScheduleSection({ shifts, onViewDetails }: TodaysScheduleS
               </div>
             );
           })}
+
+          {/* Off-shift Employees */}
+          {offShiftEmployees && offShiftEmployees.length > 0 && (
+            <div className="relative pl-6 pt-2">
+              <div className="absolute -left-[5px] top-4 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-gray-800 bg-orange-400"></div>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span className="text-xs font-bold uppercase tracking-wider text-orange-600 dark:text-orange-400">
+                    Làm ngoài ca / Tăng cường
+                  </span>
+                </div>
+                <div className="flex flex-col gap-3 mt-1">
+                  {offShiftEmployees.map((emp) => (
+                    <div key={emp.id} className="flex items-center gap-3">
+                      <Badge 
+                        variant="outline" 
+                        className="bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-700 text-xs px-2 py-0.5"
+                      >
+                        {generateShortName(emp.name)}
+                      </Badge>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                        {formatTime(emp.checkInTime) && (
+                          <span className="font-medium text-gray-700 dark:text-gray-200">
+                            {formatTime(emp.checkInTime)} - {formatTime(emp.checkOutTime) || '...'}
+                          </span>
+                        )}
+                        {emp.lateReason ? (
+                          <div className="flex items-center gap-2">
+                            {(emp.estimatedLateMinutes) != null && (
+                              <span className="text-[10px] text-orange-500 dark:text-red-400 font-medium">
+                                Xin trễ {(emp.estimatedLateMinutes) ?? '?'} phút - {emp.lateReason}
+                              </span>
+                            )}
+
+                            {emp.lateReasonPhotoUrl && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 rounded-lg text-orange-600 hover:text-orange-700 hover:bg-orange-100 dark:hover:bg-orange-900/30"
+                                onClick={() => openLightbox([{ src: emp.lateReasonPhotoUrl! }])}
+                                title="Xem minh chứng"
+                                aria-label={`Xem minh chứng của ${emp.name}`}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-red-500 dark:text-red-400 font-medium">
+                            Làm ngoài ca
+                          </span>
+                        )} 
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
