@@ -1,10 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogCancel } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { dataStore } from '@/lib/data-store';
@@ -12,18 +10,68 @@ import type { MonthlySalarySheet, SalaryRecord, ManagedUser, Schedule, Attendanc
 import { format, startOfMonth, endOfMonth, getISOWeek, getYear, parseISO, differenceInMinutes, addMonths } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { toast } from '@/components/ui/pro-toast';
-import { Loader2, Download, RotateCw, AlertTriangle, CheckCircle, User, Clock, FileX, ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
+import { Loader2, Download, RotateCw, AlertTriangle, CheckCircle, User, Clock, FileX, ChevronsDownUp, ChevronsUpDown, ArrowLeft, TrendingUp, DollarSign, Calendar, Filter, Search, ChevronRight } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
-import SalaryRecordAccordionItem from './salary-record-accordion-item';
+import SalaryRecordSectionContent from './salary-record-section-content';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Combobox } from '@/components/combobox';
+import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Input } from '@/components/ui/input';
+import { UserAvatar } from '@/components/user-avatar';
 
 type SalaryManagementDialogProps = {
     isOpen: boolean;
     onClose: () => void;
     allUsers: ManagedUser[];
     parentDialogTag: string;
+};
+
+// Navigation trigger component for section headers
+const SalaryRecordNavigationTrigger: React.FC<{
+    record: SalaryRecord;
+    user: ManagedUser | null;
+    onClick: () => void;
+}> = ({ record, user, onClick }) => {
+    const takeHome = Math.ceil((record.totalSalary - (record.salaryAdvance || 0) + (record.bonus || 0)) / 50000) * 50000;
+
+    return (
+        <button
+            onClick={onClick}
+            className="w-full px-3 py-2.5 flex items-center justify-between hover:bg-zinc-50 active:bg-zinc-100 transition-colors border-b border-zinc-100 last:border-0 text-left"
+        >
+            <div className="flex items-center gap-3 flex-grow min-w-0">
+                <UserAvatar user={user} />
+                <div className="flex-grow min-w-0">
+                    <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-sm text-zinc-900">{record.userName}</span>
+                        {record.paymentStatus === 'paid' && (
+                            <Badge className="h-4 px-1 text-[8px] uppercase tracking-wider bg-blue-500 hover:bg-blue-600">Trả</Badge>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-0">
+                        <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-tight">{record.userRole}</span>
+                        <span className="text-[10px] text-zinc-300">•</span>
+                        <span className="text-[10px] text-zinc-500 font-medium">{record.totalWorkingHours.toFixed(1)}h</span>
+                    </div>
+                </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                <div className="text-right">
+                    <div className="font-bold text-sm text-zinc-900 leading-tight">
+                        {takeHome.toLocaleString('vi-VN')}đ
+                    </div>
+                    {record.totalUnpaidPenalties > 0 && (
+                        <div className="text-[9px] font-bold text-red-500 mt-0">
+                            -{record.totalUnpaidPenalties.toLocaleString('vi-VN')}đ phạt
+                        </div>
+                    )}
+                </div>
+                <ChevronRight className="w-4 h-4 text-zinc-300" />
+            </div>
+        </button>
+    );
 };
 
 const calculateSalarySheet = async (
@@ -143,13 +191,14 @@ const calculateSalarySheet = async (
 
 export default function SalaryManagementDialog({ isOpen, onClose, allUsers, parentDialogTag }: SalaryManagementDialogProps & { parentDialogTag: string }) {
     const { user: currentUser } = useAuth();
+    const isMobile = useIsMobile();
     const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
     const [salarySheet, setSalarySheet] = useState<MonthlySalarySheet | null>(null);
     const [isLoading, setIsLoading] = useState(false);
-    const [advanceAmounts, setAdvanceAmounts] = useState<Record<string, string>>({});
-    const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
     const [selectedUsers, setSelectedUsers] = useState<ManagedUser[]>([]);
+    const [searchQuery, setSearchQuery] = useState('');
     const [nextMonthSalaryByUser, setNextMonthSalaryByUser] = useState<Record<string, number>>({});
+    const [currentSection, setCurrentSection] = useState<string | null>(null); // null = main view, string = userId
     const eligibleThreshold = 500000;
 
     const availableMonths = useMemo(() => {
@@ -164,6 +213,9 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
 
     useEffect(() => {
         if (!isOpen) {
+            // Ensure detail section is closed when the dialog is closed so we don't land
+            // directly into a stale/open section on the next open.
+            setCurrentSection(null);
             return;
         }
 
@@ -172,10 +224,8 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
             setIsLoading(true);
             setSalarySheet(null); // Clear previous data
             try {
-                // Try fetching existing sheet first
                 let sheet = await dataStore.getMonthlySalarySheet(selectedMonth);
 
-                // If no sheet, calculate a new one
                 if (!sheet) {
                     if (!currentUser) {
                         if (isActive) setIsLoading(false);
@@ -191,7 +241,6 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
 
                 if (isActive) {
                     setSalarySheet(sheet);
-                    setOpenAccordionItems([]);
                 }
             } catch (error) {
                 console.error("Salary data handling failed:", error);
@@ -225,18 +274,29 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
     }, [salarySheet]);
 
     const filteredRecords = useMemo(() => {
-        if (selectedUsers.length === 0) return sortedSalaryRecords;
-        const selectedIds = new Set(selectedUsers.map(u => u.uid));
-        return sortedSalaryRecords.filter(r => selectedIds.has(r.userId));
-    }, [sortedSalaryRecords, selectedUsers]);
+        let records = sortedSalaryRecords;
+
+        if (selectedUsers.length > 0) {
+            const selectedIds = new Set(selectedUsers.map(u => u.uid));
+            records = records.filter(r => selectedIds.has(r.userId));
+        }
+
+        if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase();
+            records = records.filter(r =>
+                r.userName.toLowerCase().includes(query) ||
+                r.userRole.toLowerCase().includes(query)
+            );
+        }
+
+        return records;
+    }, [sortedSalaryRecords, selectedUsers, searchQuery]);
 
     const paidRecords = useMemo(() => {
         return filteredRecords.filter(r => r.paymentStatus === 'paid');
     }, [filteredRecords]);
 
     const eligibleRecords = useMemo(() => {
-        // Eligible only when: not already paid, next month expected salary meets threshold,
-        // AND the employee has no unpaid violation penalties.
         return filteredRecords.filter(r =>
             r.paymentStatus !== 'paid' &&
             (nextMonthSalaryByUser[r.userId] || 0) >= eligibleThreshold &&
@@ -245,7 +305,6 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
     }, [filteredRecords, nextMonthSalaryByUser]);
 
     const ineligibleRecords = useMemo(() => {
-        // Ineligible when not paid AND (next-month expected salary below threshold OR has unpaid penalties)
         return filteredRecords.filter(r =>
             r.paymentStatus !== 'paid' && (
                 (nextMonthSalaryByUser[r.userId] || 0) < eligibleThreshold ||
@@ -266,10 +325,6 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
         }, 0);
     }, [ineligibleRecords]);
 
-    // Count of records currently shown and whether all are expanded
-    const shownCount = eligibleRecords.length + ineligibleRecords.length + paidRecords.length;
-    const allExpanded = shownCount > 0 && openAccordionItems.length === shownCount;
-
     useEffect(() => {
         const computeNextMonthExpectedSalaries = async () => {
             if (!salarySheet) return;
@@ -277,7 +332,6 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
             const nextStart = startOfMonth(nextMonthDate);
             const nextEnd = endOfMonth(nextMonthDate);
 
-            // Fetch all attendance for the next month once
             const nextMonthAttendance = await dataStore.getAttendanceRecordsForDateRange({ from: nextStart, to: nextEnd });
 
             const map: Record<string, number> = {};
@@ -313,7 +367,6 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
     };
 
     const handleRecordUpdated = useCallback((userId: string, updates: Partial<SalaryRecord>) => {
-        // check if paidAt is undefined, delete that field
         if (updates.paidAt === undefined) {
             delete updates.paidAt;
         }
@@ -330,214 +383,229 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
         });
     }, []);
 
-    const handleToggleAll = () => {
-        const shownIds = [...eligibleRecords, ...ineligibleRecords, ...paidRecords].map(r => r.userId);
-        if (openAccordionItems.length === shownIds.length) {
-            setOpenAccordionItems([]);
-        } else {
-            setOpenAccordionItems(shownIds);
-        }
-    };
-
     return (
         <Dialog open={isOpen} onOpenChange={onClose} dialogTag="salary-management-dialog" parentDialogTag={parentDialogTag}>
-            <DialogContent className="max-w-4xl sm:h-[90vh] h-[100vh] flex flex-col p-0">
-                <DialogHeader className="flex flex-row items-center gap-2 px-4 py-2 border-b">
-                    <DialogTitle className="text-base sm:text-lg">Quản lý Bảng lương</DialogTitle>
-                </DialogHeader>
-                <div className="px-4 py-2 border-b bg-muted/30">
-                    <div className="grid grid-cols-12 gap-2 items-center">
-                        <div className="col-span-5 sm:col-span-3">
-                            <Combobox
-                                value={selectedMonth}
-                                onChange={setSelectedMonth}
-                                options={availableMonths.map(month => ({
-                                    value: month,
-                                    label: `Tháng ${format(parseISO(`${month}-01`), 'MM/yyyy')}`
-                                }))}
-                                className="w-full"
-                                placeholder="Tháng"
-                                compact
-                                searchable={false}
-                            />
-                        </div>
-                        <div className="col-span-7 sm:col-span-9">
-                            <Combobox
-                                options={allUsers
-                                    .filter(u => u.role !== 'Chủ nhà hàng')
-                                    .map(u => ({ value: u.uid, label: u.displayName }))}
-                                multiple
-                                value={selectedUsers.map(u => u.uid)}
-                                onChange={(next) => {
-                                    const nextIds = Array.isArray(next)
-                                        ? next
-                                        : typeof next === 'string' && next
-                                            ? [next]
-                                            : [];
-                                    setSelectedUsers(
-                                        nextIds
-                                            .map(id => allUsers.find(u => u.uid === id))
-                                            .filter((u): u is ManagedUser => !!u)
-                                    );
-                                }}
-                                placeholder="Nhân viên..."
-                                searchPlaceholder="Tìm nhân viên..."
-                                emptyText="Không thấy."
-                                className="w-full"
-                                compact
-                            />
-                        </div>
-                    </div>
-                    {salarySheet && (
-                        <div className="mt-2 grid grid-cols-12 gap-2 items-center">
-                            <div className="col-span-10 sm:col-span-10 flex flex-wrap items-center gap-1.5">
-                                <Badge variant="secondary" className="px-2 py-0 h-5 bg-green-100 text-green-700 border-green-200 text-[10px] sm:text-xs">
-                                    <CheckCircle className="h-3 w-3 mr-1" /> {eligibleRecords.length} Đủ ĐK
-                                </Badge>
-                                <Badge variant="outline" className="px-2 py-0 h-5 bg-amber-50 text-amber-700 border-amber-200 text-[10px] sm:text-xs">
-                                    <AlertTriangle className="h-3 w-3 mr-1" /> {ineligibleRecords.length} Chưa đủ ĐK
-                                </Badge>
-                                <Badge variant="outline" className="px-2 py-0 h-5 bg-blue-50 text-blue-700 border-blue-200 text-[10px] sm:text-xs">
-                                    <CheckCircle className="h-3 w-3 mr-1" /> {paidRecords.length} Đã trả
-                                </Badge>
-                            </div>
+            <DialogContent className="max-w-4xl flex flex-col p-0 overflow-hidden bg-zinc-50">
+                {currentSection === null ? (
+                    <>
+                        <div className="flex flex-col bg-white border-b shadow-sm">
+                            <DialogHeader variant='premium' className="flex flex-row items-center justify-between border-b">
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <DialogTitle className="text-base font-bold text-zinc-900">Bảng lương tháng {format(parseISO(`${selectedMonth}-01`), 'MM/yyyy')}</DialogTitle>
 
-                            <div className="col-span-2 sm:col-span-2 flex items-center justify-end gap-1">
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={handleRecalculate}
-                                    disabled={isLoading}
-                                    title="Tính toán lại"
-                                    className="h-8 w-8 text-primary"
-                                >
-                                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" />}
-                                </Button>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={handleToggleAll}
-                                    disabled={!salarySheet || shownCount === 0}
-                                    title={allExpanded ? 'Thu gọn tất cả' : 'Mở rộng tất cả'}
-                                    className="h-8 w-8"
-                                >
-                                    {allExpanded ? <ChevronsDownUp className="h-4 w-4" /> : <ChevronsUpDown className="h-4 w-4" />}
-                                </Button>
-                            </div>
-                        </div>
-                    )}
-                </div>
+                                    {/* Recalculate button placed directly next to the title for faster access */}
+                                    <Button
+                                        aria-label="Tính lại bảng lương"
+                                        title="Tính lại"
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={handleRecalculate}
+                                        disabled={isLoading}
+                                        className="h-9 w-9 text-zinc-500 hover:text-primary hover:bg-primary/5 flex-shrink-0"
+                                    >
+                                        <RotateCw className={cn("h-4.5 w-4.5", isLoading && "animate-spin")} />
+                                    </Button>
+                                </div>
 
-                <ScrollArea className="flex-grow min-h-0 px-4">
-                    {isLoading ? (
-                        <div className="flex justify-center items-center h-64">
-                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                        </div>
-                    ) : salarySheet ? (
-                        <div className="space-y-3 py-3">
-                            <Card className="border-l-4 border-green-500 shadow-sm overflow-hidden">
-                                <div className="py-2 px-3 border-b flex items-center justify-between bg-green-50/50">
-                                    <div className="flex items-center gap-1.5">
-                                        <CheckCircle className="h-4 w-4 text-green-600" />
-                                        <span className="font-bold text-sm sm:text-base text-green-800">Đủ điều kiện</span>
-                                        <Badge variant="secondary" className="px-1 py-0 h-4 text-[10px] font-normal bg-green-100">{eligibleRecords.length}</Badge>
+                                <div className="flex items-center gap-1">
+                                    {!isMobile && (
+                                        <Button variant="ghost" size="icon" onClick={onClose} className="h-9 w-9 text-zinc-400">
+                                            <ArrowLeft className="h-5 w-5 rotate-180" />
+                                        </Button>
+                                    )}
+                                </div>
+                            </DialogHeader>
+
+                            <div className="px-3 py-2 flex flex-col gap-2">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <div className="flex-1 min-w-[130px]">
+                                        <Combobox
+                                            value={selectedMonth}
+                                            onChange={setSelectedMonth}
+                                            options={availableMonths.map(month => ({
+                                                value: month,
+                                                label: `Tháng ${format(parseISO(`${month}-01`), 'MM/yyyy')}`
+                                            }))}
+                                            className="w-full h-9 bg-zinc-50 border-zinc-200"
+                                            placeholder="Chọn tháng"
+                                            compact
+                                            searchable={false}
+                                        />
                                     </div>
-                                    <span className="text-sm sm:text-base font-bold text-green-700">
-                                        {totalEligibleAmount.toLocaleString('vi-VN')}đ
-                                    </span>
-                                </div>
-                                <CardContent className="p-0">
-                                    <Accordion
-                                        type="multiple"
-                                        className="w-full"
-                                        value={openAccordionItems}
-                                        onValueChange={setOpenAccordionItems}
-                                    >
-                                        {eligibleRecords.map(record => (
-                                            <SalaryRecordAccordionItem
-                                                key={record.userId}
-                                                record={record}
-                                                monthId={salarySheet.id}
-                                                currentUser={currentUser ? { userId: currentUser.uid, userName: currentUser.displayName } : null}
-                                                currentUserRole={currentUser?.role}
-                                                scheduleMap={salarySheet.scheduleMap}
-                                                onRecordUpdated={handleRecordUpdated}
-                                            />
-                                        ))}
-                                    </Accordion>
-                                </CardContent>
-                            </Card>
-
-                            <Card className="border-l-4 border-amber-500 shadow-sm overflow-hidden">
-                                <div className="py-2 px-3 border-b flex items-center justify-between bg-amber-50/50">
-                                    <div className="flex items-center gap-1.5">
-                                        <AlertTriangle className="h-4 w-4 text-amber-600" />
-                                        <span className="font-bold text-sm sm:text-base text-amber-800">Chưa đủ điều kiện</span>
-                                        <Badge variant="outline" className="px-1 py-0 h-4 text-[10px] font-normal border-amber-200 bg-amber-100">{ineligibleRecords.length}</Badge>
+                                    <div className="flex-[2] min-w-[180px] relative">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                                        <Input
+                                            placeholder="Tìm tên nhân viên..."
+                                            className="pl-9 h-9 bg-zinc-50 border-zinc-200 focus-visible:ring-primary/20"
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                        />
                                     </div>
-                                    <span className="text-sm sm:text-base font-bold text-amber-700">{totalIneligibleAmount.toLocaleString('vi-VN')}đ</span>
                                 </div>
-                                <CardContent className="p-0">
-                                    <Accordion
-                                        type="multiple"
-                                        className="w-full"
-                                        value={openAccordionItems}
-                                        onValueChange={setOpenAccordionItems}
-                                    >
-                                        {ineligibleRecords.map(record => (
-                                            <SalaryRecordAccordionItem
-                                                key={record.userId}
-                                                record={record}
-                                                monthId={salarySheet.id}
-                                                currentUser={currentUser ? { userId: currentUser.uid, userName: currentUser.displayName } : null}
-                                                currentUserRole={currentUser?.role}
-                                                scheduleMap={salarySheet.scheduleMap}
-                                                onRecordUpdated={handleRecordUpdated}
-                                            />
-                                        ))}
-                                    </Accordion>
-                                </CardContent>
-                            </Card>
 
-                            <Card className="border-l-4 border-blue-500 shadow-sm overflow-hidden">
-                                <div className="py-2 px-3 border-b flex items-center gap-1.5 bg-blue-50/50">
-                                    <CheckCircle className="h-4 w-4 text-blue-600" />
-                                    <span className="font-bold text-sm sm:text-base text-blue-800">Đã trả</span>
-                                    <Badge variant="outline" className="px-1 py-0 h-4 text-[10px] font-normal border-blue-200 bg-blue-100">{paidRecords.length}</Badge>
+                                {salarySheet && (
+                                    <div className="w-full -mx-3 px-3">
+                                        <div className="w-full flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                                            <Card className="flex-1 border-none shadow-none bg-emerald-50/70 p-2 rounded-xl border border-emerald-100">
+                                                <div className="flex items-center gap-1.5 text-emerald-700 mb-0">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                                    <span className="text-[9px] font-bold uppercase tracking-wider">Đủ Trả</span>
+                                                </div>
+                                                <div className="text-sm font-black text-emerald-900">
+                                                    {totalEligibleAmount.toLocaleString('vi-VN')}đ
+                                                </div>
+                                                <div className="text-[9px] text-emerald-600/80 font-medium">
+                                                    {eligibleRecords.length} người
+                                                </div>
+                                            </Card>
+
+                                            <Card className="flex-1 border-none shadow-none bg-amber-50/70 p-2 rounded-xl border border-amber-100">
+                                                <div className="flex items-center gap-1.5 text-amber-700 mb-0">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                                    <span className="text-[9px] font-bold uppercase tracking-wider">Chưa đủ</span>
+                                                </div>
+                                                <div className="text-sm font-black text-amber-900">
+                                                    {totalIneligibleAmount.toLocaleString('vi-VN')}đ
+                                                </div>
+                                                <div className="text-[9px] text-amber-600/80 font-medium">
+                                                    {ineligibleRecords.length} người
+                                                </div>
+                                            </Card>
+
+                                            <Card className="flex-1 border-none shadow-none bg-blue-50/70 p-2 rounded-xl border border-blue-100">
+                                                <div className="flex items-center gap-1.5 text-blue-700 mb-0">
+                                                    <CheckCircle className="h-3 w-3" />
+                                                    <span className="text-[9px] font-bold uppercase tracking-wider">Đã Trả</span>
+                                                </div>
+                                                <div className="text-sm font-black text-blue-900">
+                                                    {paidRecords.length}
+                                                </div>
+                                                <div className="text-[9px] text-blue-600/80 font-medium">
+                                                    Hoàn thiện
+                                                </div>
+                                            </Card>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <ScrollArea className="flex-grow min-h-0 bg-zinc-50 overflow-y-auto">
+                            {isLoading ? (
+                                <div className="flex flex-col items-center justify-center h-64 gap-3">
+                                    <div className="relative">
+                                        <div className="h-12 w-12 rounded-full border-4 border-zinc-100 border-t-primary animate-spin" />
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            <DollarSign className="h-5 w-5 text-primary" />
+                                        </div>
+                                    </div>
+                                    <p className="text-sm font-medium text-zinc-500">Đang chuẩn bị dữ liệu...</p>
                                 </div>
-                                <CardContent className="p-0">
-                                    <Accordion
-                                        type="multiple"
-                                        className="w-full"
-                                        value={openAccordionItems}
-                                        onValueChange={setOpenAccordionItems}
-                                    >
-                                        {paidRecords.map(record => (
-                                            <SalaryRecordAccordionItem
-                                                key={record.userId}
-                                                record={record}
-                                                monthId={salarySheet.id}
-                                                currentUser={currentUser ? { userId: currentUser.uid, userName: currentUser.displayName } : null}
-                                                currentUserRole={currentUser?.role}
-                                                scheduleMap={salarySheet.scheduleMap}
-                                                onRecordUpdated={handleRecordUpdated}
-                                            />
-                                        ))}
-                                    </Accordion>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    ) : (
-                        <div className="text-center py-16 text-muted-foreground">
-                            <p>Không có dữ liệu bảng lương cho tháng này.</p>
-                            <p className="text-sm">Nhấn "Tính toán lại" để tạo mới.</p>
-                        </div>
-                    )}
-                </ScrollArea>
+                            ) : salarySheet ? (
+                                <div className="p-3 space-y-4 pb-20">
+                                    {eligibleRecords.length > 0 && (
+                                        <div className="space-y-1.5">
+                                            <div className="flex items-center justify-between px-1">
+                                                <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
+                                                    Đủ điều kiện trả lương
+                                                    <span className="bg-emerald-100 text-emerald-700 px-1 py-0.5 rounded text-[9px]">{eligibleRecords.length}</span>
+                                                </h3>
+                                            </div>
+                                            <div className="bg-white rounded-xl shadow-sm border border-zinc-100 overflow-hidden">
+                                                {eligibleRecords.map(record => (
+                                                    <SalaryRecordNavigationTrigger
+                                                        key={record.userId}
+                                                        record={record}
+                                                        user={allUsers.find(u => u.uid === record.userId) || null}
+                                                        onClick={() => setCurrentSection(record.userId)}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
 
-                <DialogFooter>
-                    <Button variant="outline" onClick={onClose}>Đóng</Button>
-                </DialogFooter>
+                                    {ineligibleRecords.length > 0 && (
+                                        <div className="space-y-1.5">
+                                            <div className="flex items-center justify-between px-1">
+                                                <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
+                                                    Chưa đủ điều kiện
+                                                    <span className="bg-amber-100 text-amber-700 px-1 py-0.5 rounded text-[9px]">{ineligibleRecords.length}</span>
+                                                </h3>
+                                            </div>
+                                            <div className="bg-white rounded-xl shadow-sm border border-zinc-100 overflow-hidden opacity-90">
+                                                {ineligibleRecords.map(record => (
+                                                    <SalaryRecordNavigationTrigger
+                                                        key={record.userId}
+                                                        record={record}
+                                                        user={allUsers.find(u => u.uid === record.userId) || null}
+                                                        onClick={() => setCurrentSection(record.userId)}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {paidRecords.length > 0 && (
+                                        <div className="space-y-1.5">
+                                            <div className="flex items-center justify-between px-1">
+                                                <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
+                                                    Đã thanh toán xong
+                                                    <span className="bg-blue-100 text-blue-700 px-1 py-0.5 rounded text-[9px]">{paidRecords.length}</span>
+                                                </h3>
+                                            </div>
+                                            <div className="bg-white rounded-xl shadow-sm border border-zinc-100 overflow-hidden grayscale-[0.3]">
+                                                {paidRecords.map(record => (
+                                                    <SalaryRecordNavigationTrigger
+                                                        key={record.userId}
+                                                        record={record}
+                                                        user={allUsers.find(u => u.uid === record.userId) || null}
+                                                        onClick={() => setCurrentSection(record.userId)}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {filteredRecords.length === 0 && (
+                                        <div className="flex flex-col items-center justify-center py-20 text-center px-6">
+                                            <div className="w-16 h-16 rounded-full bg-zinc-100 flex items-center justify-center mb-4">
+                                                <Search className="h-8 w-8 text-zinc-300" />
+                                            </div>
+                                            <h3 className="text-zinc-900 font-bold mb-1">Không tìm thấy kết quả</h3>
+                                            <p className="text-sm text-zinc-500 max-w-[240px]">Không tìm thấy nhân viên nào khớp với tìm kiếm của bạn.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-20 text-center px-6">
+                                    <div className="w-20 h-20 rounded-full bg-zinc-100 flex items-center justify-center mb-6">
+                                        <Calendar className="h-10 w-10 text-zinc-300" />
+                                    </div>
+                                    <h3 className="text-zinc-900 font-bold mb-2">Chưa có dữ liệu</h3>
+                                    <p className="text-sm text-zinc-500 max-w-[280px] mb-8">Bảng lương cho tháng này chưa được tạo hoặc cần dữ liệu mới.</p>
+                                    <Button onClick={handleRecalculate} className="rounded-xl px-8 h-12 font-bold shadow-lg shadow-primary/20">
+                                        <RotateCw className="w-4 h-4 mr-2" />
+                                        Tính toán ngay
+                                    </Button>
+                                </div>
+                            )}
+                        </ScrollArea>
+                        <DialogFooter>
+                            <DialogCancel onClick={onClose} className="w-full">Đóng</DialogCancel>
+                        </DialogFooter>
+                    </>
+                ) : salarySheet ? (
+                    <SalaryRecordSectionContent
+                        record={salarySheet.salaryRecords[currentSection]}
+                        monthId={salarySheet.id}
+                        currentUser={currentUser ? { userId: currentUser.uid, userName: currentUser.displayName } : null}
+                        currentUserRole={currentUser?.role}
+                        scheduleMap={salarySheet.scheduleMap}
+                        users={allUsers}
+                        onRecordUpdated={handleRecordUpdated}
+                        onBack={() => setCurrentSection(null)}
+                    />
+                ) : null}
             </DialogContent>
         </Dialog>
     );

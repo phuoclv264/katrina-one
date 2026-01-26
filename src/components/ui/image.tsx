@@ -6,7 +6,7 @@ import NextImage, { type ImageProps as NextImageProps } from 'next/image';
 // Behavior otherwise matches `next/image` exactly.
 export type { ImageProps } from 'next/image';
 
-const DEFAULT_SIZES = '28px';
+const DEFAULT_SIZES = '128px';
 
 function Image(props: NextImageProps) {
   const { fill, sizes, width, height, ...rest } = props;

@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
-import { Loader2, LucideIcon } from 'lucide-react';
+import { LucideIcon, Info, AlertTriangle, AlertCircle, Loader2 } from 'lucide-react';
 import { buttonVariants } from "@/components/ui/button"
 import {
   Dialog,
@@ -19,22 +19,31 @@ import {
 
 const variantStyles = {
   primary: {
-    iconBg: "bg-blue-100/50 dark:bg-blue-900/20",
-    iconHalo: "bg-blue-100 dark:bg-blue-900/40",
-    iconColor: "text-blue-600 dark:text-blue-400",
-    button: "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-blue-500/25",
+    glow: "bg-blue-500/10",
+    iconBg: "bg-blue-500/10",
+    iconColor: "text-blue-500",
+    iconHalo: "bg-blue-500",
+    button: "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25",
+    title: "text-white",
+    description: "text-zinc-400"
   },
   destructive: {
-    iconBg: "bg-red-100/50 dark:bg-red-950/20",
-    iconHalo: "bg-red-100 dark:bg-red-950/40",
-    iconColor: "text-red-600 dark:text-red-400",
-    button: "bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white shadow-red-500/25",
+    glow: "bg-rose-500/10",
+    iconBg: "bg-rose-500/10",
+    iconColor: "text-rose-500",
+    iconHalo: "bg-rose-500",
+    button: "bg-rose-500 hover:bg-rose-600 text-white shadow-rose-500/25",
+    title: "text-white",
+    description: "text-zinc-400"
   },
   warning: {
-    iconBg: "bg-amber-100/50 dark:bg-amber-950/20",
-    iconHalo: "bg-amber-100 dark:bg-amber-950/40",
-    iconColor: "text-amber-600 dark:text-amber-400",
-    button: "bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-amber-500/25",
+    glow: "bg-amber-500/10",
+    iconBg: "bg-amber-500/10",
+    iconColor: "text-amber-500",
+    iconHalo: "bg-amber-500",
+    button: "bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/25",
+    title: "text-white",
+    description: "text-zinc-400"
   }
 };
 
@@ -49,6 +58,10 @@ const AlertDialogContext = React.createContext<{
 type AlertDialogProps = Omit<React.ComponentPropsWithoutRef<typeof Dialog>, 'dialogTag' | 'parentDialogTag'> & {
   variant?: 'primary' | 'destructive' | 'warning';
   dialogTag?: string;
+  // When true the header icon (the decorative square) will be hidden.
+  // Useful for compact dialogs or when the caller renders a custom leading element.
+  hideicon?: boolean;
+  icon?: React.ReactNode;
   // Parent dialog tag must be provided by callers so they explicitly set the
   // relationship between nested dialogs. Do not provide a default here.
   parentDialogTag?: string;
@@ -94,14 +107,14 @@ const AlertDialogContent = React.forwardRef<
       ref={ref}
       portalContainer={portalContainer}
       className={cn(
-        "rounded-[42px] p-0 overflow-hidden border-none shadow-[0_32px_64px_-12px_rgba(0,0,0,0.14)] bg-white dark:bg-slate-950",
+        "rounded-[2.5rem] p-0 overflow-hidden border-none shadow-[0_32px_64px_-12px_rgba(0,0,0,0.14)] bg-white dark:bg-zinc-950",
         maxWidthClasses[maxWidth],
         className
       )}
       hideClose
       {...props}
     >
-      <div className="p-6 pb-6 relative">
+      <div className="relative flex flex-col">
         {children}
 
         {/* Decorative background element */}
@@ -117,27 +130,48 @@ AlertDialogContent.displayName = "AlertDialogContent"
 
 const AlertDialogHeader = ({
   className,
+  // allow callers to pass hideicon directly to the header when using the lower-level API
+  hideicon = true,
+  icon,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement> & { hideicon?: boolean, icon?: React.ReactNode }) => {
+  const { variant } = React.useContext(AlertDialogContext);
+  const headerVariant = ({
+    primary: "info",
+    destructive: "destructive",
+    warning: "warning",
+  } as const)[variant] || "default";
+
+  const headerIconKey = ({ primary: 'info', destructive: 'alert', warning: 'alert' } as const)[variant] ?? 'layout';
+
+  return (
+    <DialogHeader
+      variant={headerVariant}
+      hideicon={hideicon}
+      icon={icon}
+      iconkey={headerIconKey}
+      className={cn("text-left p-8", className)}
+      {...props}
+    />
+  );
+};
+AlertDialogHeader.displayName = "AlertDialogHeader"
+
+const AlertDialogBody = ({
+  className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div
-    className={cn(
-      "flex flex-col space-y-4 text-center sm:text-left",
-      className
-    )}
-    {...props}
-  />
-)
-AlertDialogHeader.displayName = "AlertDialogHeader"
+  <div className={cn("p-8 space-y-6", className)} {...props} />
+);
+AlertDialogBody.displayName = "AlertDialogBody"
 
 const AlertDialogFooter = ({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div
-    className={cn(
-      "mt-8 flex flex-col-reverse sm:flex-row sm:justify-end gap-3",
-      className
-    )}
+  <DialogFooter
+    variant="muted"
+    className={cn("p-6", className)}
     {...props}
   />
 )
@@ -188,8 +222,9 @@ const AlertDialogAction = React.forwardRef<
           <Loader2 className="h-4 w-4 animate-spin" />
           {children}
         </span>
-      ) :
-        <span className="tracking-tight">{children}</span>
+      ) : (
+        <span className="flex items-center justify-center gap-2 tracking-tight">{children}</span>
+      )
       }
     </button>
   );
@@ -214,24 +249,33 @@ const AlertDialogCancel = React.forwardRef<
 ))
 AlertDialogCancel.displayName = "AlertDialogCancel"
 
-const AlertDialogIcon = ({ icon: Icon }: { icon: LucideIcon }) => {
-  const { variant } = React.useContext(AlertDialogContext);
+const AlertDialogIcon = ({ 
+  icon, 
+  variant: propVariant,
+  className 
+}: { 
+  icon?: LucideIcon;
+  variant?: 'primary' | 'destructive' | 'warning';
+  className?: string;
+}) => {
+  const context = React.useContext(AlertDialogContext);
+  const variant = (propVariant || context.variant || 'primary') as 'primary' | 'destructive' | 'warning';
+  
+  // Choose default icon if not provided
+  const Icon = icon || ({
+    primary: Info,
+    destructive: AlertTriangle,
+    warning: AlertCircle
+  }[variant] as LucideIcon);
+  
   return (
-    <div className="flex justify-center sm:justify-start">
+    <div className={cn("flex justify-center sm:justify-start pb-2", className)}>
       <div className={cn(
         "relative h-16 w-16 rounded-[24px] flex items-center justify-center transition-transform hover:scale-105 duration-500",
         variantStyles[variant].iconBg
       )}>
-        <div className={cn(
-          "absolute inset-1.5 rounded-[20px] opacity-50 blur-xl animate-pulse",
-          variantStyles[variant].iconHalo
-        )} />
-        <div className={cn(
-          "h-11 w-11 rounded-[18px] flex items-center justify-center z-10 shadow-inner border border-white/20 dark:border-white/5",
-          variantStyles[variant].iconHalo
-        )}>
-          <Icon className={cn("h-6 w-6", variantStyles[variant].iconColor)} />
-        </div>
+        <Icon className={cn("h-8 w-8 relative z-10", variantStyles[variant].iconColor)} />
+        <div className={cn("absolute inset-0 rounded-[24px] opacity-40 blur-lg", variantStyles[variant].iconBg)} />
       </div>
     </div>
   );
@@ -314,6 +358,7 @@ export {
   AlertDialogOverlay,
   AlertDialogTrigger,
   AlertDialogContent,
+  AlertDialogBody,
   AlertDialogHeader,
   AlertDialogFooter,
   AlertDialogTitle,

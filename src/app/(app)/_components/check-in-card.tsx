@@ -9,7 +9,7 @@ import { Camera, CheckCircle, Loader2, Info, Clock, X, History, AlertTriangle, C
 import { Badge } from '@/components/ui/badge';
 import LateReasonDialog from '@/components/late-reason-dialog';
 import OffShiftReasonDialog from '@/components/off-shift-reason-dialog';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogBody, DialogCancel } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { vi } from 'date-fns/locale';
 import { format, getISOWeek } from 'date-fns';
@@ -355,7 +355,7 @@ export default function CheckInCard() {
                                     isCheckedIn ? "text-blue-100" : "text-zinc-500 dark:text-zinc-400"
                                 )}>Thời gian làm</p>
                                 <p className={cn(
-                                    "text-xl font-bold",
+                                    "text-lg font-bold",
                                     isCheckedIn ? "text-white" : "text-zinc-900 dark:text-white"
                                 )}>{getDuration()}</p>
                             </div>
@@ -370,7 +370,7 @@ export default function CheckInCard() {
                                     isCheckedIn ? "text-blue-100" : "text-zinc-500 dark:text-zinc-400"
                                 )}>Ca làm việc</p>
                                 <p className={cn(
-                                    "text-xl font-bold",
+                                    "text-lg font-bold",
                                     isCheckedIn ? "text-white" : "text-zinc-900 dark:text-white"
                                 )}>
                                     {activeShift ? `${activeShift.label} (${activeShift.assignedUsers.find(u => u.userId === user?.uid)?.assignedRole || 'N/A'})` : 'Ngoài giờ'}
@@ -554,38 +554,43 @@ export default function CheckInCard() {
 
             <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen} dialogTag="history-dialog" parentDialogTag="root">
                 <DialogContent className="max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>Lịch sử chấm công hôm nay</DialogTitle>
+                    <DialogHeader variant="premium" iconkey="history">
+                            <div>
+                                <DialogTitle>Lịch sử chấm công hôm nay</DialogTitle>
+                                <DialogDescription>
+                                    Xem lại các lượt vào/ra của bạn trong ngày.
+                                </DialogDescription>
+                            </div>
                     </DialogHeader>
-                    <div className="space-y-4 mt-4">
+                    <DialogBody>
                         {attendanceRecords.length === 0 ? (
-                            <p className="text-center text-muted-foreground py-8">Chưa có dữ liệu chấm công hôm nay.</p>
+                            <p className="text-center text-muted-foreground py-8 font-medium">Chưa có dữ liệu chấm công hôm nay.</p>
                         ) : (
                             <div className="space-y-3">
                                 {attendanceRecords.map((record) => (
-                                    <div key={record.id} className="flex items-center justify-between p-2 rounded-lg border bg-card">
+                                    <div key={record.id} className="flex items-center justify-between p-4 rounded-2xl border-none bg-muted/30 shadow-none">
                                         <div>
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <Badge variant={record.isOffShift ? "secondary" : "default"}>
+                                            <div className="flex items-center gap-2 mb-1.5">
+                                                <Badge variant={record.isOffShift ? "secondary" : "default"} className="rounded-lg font-bold px-2 py-0.5">
                                                     {record.isOffShift ? 'Ngoài giờ' : 'Ca chính'}
                                                 </Badge>
                                                 {record.status === 'in-progress' && (
-                                                    <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
+                                                    <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 rounded-lg font-bold px-2 py-0.5">
                                                         Đang làm
                                                     </Badge>
                                                 )}
                                             </div>
                                         </div>
                                         <div className="text-right text-sm">
-                                            <div className="flex items-center justify-end gap-2 text-green-600">
-                                                <ArrowRight className="h-3 w-3" />
-                                                <span className="font-mono font-medium">
+                                            <div className="flex items-center justify-end gap-2 text-green-600 font-bold font-mono">
+                                                <ArrowRight className="h-4 w-4" />
+                                                <span>
                                                     {record.checkInTime ? format((record.checkInTime as Timestamp).toDate(), 'HH:mm') : '--:--'}
                                                 </span>
                                             </div>
-                                            <div className="flex items-center justify-end gap-2 text-red-600 mt-1">
-                                                <ArrowLeft className="h-3 w-3" />
-                                                <span className="font-mono font-medium">
+                                            <div className="flex items-center justify-end gap-2 text-red-600 mt-1 font-bold font-mono">
+                                                <ArrowLeft className="h-4 w-4" />
+                                                <span>
                                                     {record.checkOutTime ? format((record.checkOutTime as Timestamp).toDate(), 'HH:mm') : '--:--'}
                                                 </span>
                                             </div>
@@ -594,7 +599,10 @@ export default function CheckInCard() {
                                 ))}
                             </div>
                         )}
-                    </div>
+                    </DialogBody>
+                    <DialogFooter>
+                        <DialogCancel className="w-full" onClick={() => setIsHistoryOpen(false)}>Đóng</DialogCancel>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
 

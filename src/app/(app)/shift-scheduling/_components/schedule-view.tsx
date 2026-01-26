@@ -846,13 +846,14 @@ export default function ScheduleView() {
                         </CardHeader>
                         <CardContent>
                             <div className="mb-4 p-4 border rounded-md bg-muted/30">
-                                <div className="flex items-center justify-between gap-3">
-                                    <div>
-                                        <Label className="font-semibold">Xếp lịch tự động</Label>
-                                        <p className="text-xs text-muted-foreground">Dựa vào đăng ký rảnh, vai trò, định mức và ràng buộc trong ứng dụng.</p>
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                                    <div className="w-full sm:w-auto">
+                                        <Label className="font-semibold block">Xếp lịch tự động</Label>
+                                        <p className="text-xs text-muted-foreground mt-1">Dựa vào đăng ký rảnh, vai trò, định mức và ràng buộc trong ứng dụng.</p>
                                     </div>
-                                    <Button variant="secondary" onClick={() => setIsAutoDialogOpen(true)} disabled={!canEditSchedule} aria-label="Xếp lịch tự động">
-                                        <Settings className="mr-2 h-4 w-4" /> Xếp lịch tự động
+                                    <Button variant="secondary" onClick={() => setIsAutoDialogOpen(true)} disabled={!canEditSchedule} aria-label="Xếp lịch tự động" className="w-full sm:w-auto">
+                                        <Settings className="mr-2 h-4 w-4" />
+                                        <span className="whitespace-nowrap">Xếp lịch tự động</span>
                                     </Button>
                                 </div>
                             </div>
@@ -1213,6 +1214,8 @@ export default function ScheduleView() {
                     availability={availability}
                     onSave={handleUpdateShiftAssignment}
                     allShiftsOnDay={localSchedule?.shifts.filter(s => s.date === activeShift.date) || []}
+                    weekInterval={weekInterval}
+                    weekShifts={localSchedule?.shifts ?? []}
                     passRequestingUser={activeNotification?.payload.requestingUser}
                     parentDialogTag="root"
                 />

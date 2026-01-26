@@ -7,11 +7,15 @@ import {
     DialogHeader,
     DialogTitle,
     DialogDescription,
+    DialogBody,
+    DialogFooter,
+    DialogAction,
+    DialogCancel,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Users, UserCheck, Send, Loader2, Replace } from 'lucide-react';
+import { Users, UserCheck, Send, Loader2, Replace, CheckCircle2 } from 'lucide-react';
 import type { ManagedUser, Schedule, AssignedShift, Availability, AuthUser, Notification, ShiftTemplate, UserRole } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -21,7 +25,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { hasTimeConflict } from '@/lib/schedule-utils';
 import { toast } from '@/components/ui/pro-toast';
 
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { UserAvatar } from '@/components/user-avatar';
 import { Badge } from '@/components/ui/badge';
 import { cn, getInitials } from '@/lib/utils';
 
@@ -145,67 +149,56 @@ export default function ShiftInfoDialog({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose} dialogTag="shift-info-dialog" parentDialogTag={parentDialogTag}>
-            <DialogContent className="w-[92vw] sm:max-w-lg p-0 overflow-hidden rounded-[38px] sm:rounded-[40px] border-none shadow-3xl bg-white dark:bg-slate-950">
-                <div className="p-4 sm:p-5 pb-0">
-                    <DialogHeader className="space-y-4">
-                        <div className="flex items-center gap-3 sm:gap-4">
-                            <div className="h-12 w-12 sm:h-14 sm:w-14 bg-blue-500/10 rounded-[18px] sm:rounded-[20px] flex items-center justify-center shrink-0">
-                                <Users className="h-6 w-6 sm:h-7 sm:w-7 text-blue-500" />
-                            </div>
-                            <div className="min-w-0">
-                                <DialogTitle className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-slate-50 leading-tight">
-                                    {shift.label}
-                                </DialogTitle>
-                                <DialogDescription className="text-sm sm:text-base font-semibold text-slate-500 dark:text-slate-400 mt-0.5">
-                                    {format(parseISO(shift.date), 'eeee, dd/MM', { locale: vi }).toUpperCase()} | {shift.timeSlot.start} - {shift.timeSlot.end}
-                                </DialogDescription>
-                            </div>
-                        </div>
-                    </DialogHeader>
-                </div>
+            <DialogContent>
+                <DialogHeader variant="premium" iconkey="info">
+                    <DialogTitle>{shift.label}</DialogTitle>
+                    <DialogDescription className="font-bold text-[10px] uppercase tracking-[0.2em] mt-1.5 opacity-80">
+                        {format(parseISO(shift.date), 'eeee, dd/MM', { locale: vi })} | {shift.timeSlot.start} - {shift.timeSlot.end}
+                    </DialogDescription>
+                </DialogHeader>
 
-                <Tabs defaultValue="colleagues" className="w-full mt-4 sm:mt-5">
-                    <div className="px-5 sm:px-6">
-                        <TabsList className="flex w-full h-10 sm:h-11 p-1 bg-slate-100 dark:bg-slate-900 rounded-[18px] sm:rounded-[20px] gap-1">
+                <Tabs defaultValue="colleagues" className="w-full">
+                    <div className="px-4 sm:px-8 py-4">
+                        <TabsList className="grid w-full grid-cols-2 h-11 sm:h-12 p-1.5 bg-muted/50 rounded-[20px] border border-muted-foreground/5">
                             <TabsTrigger
                                 value="colleagues"
-                                className="flex-1 rounded-[13px] sm:rounded-[14px] text-xs sm:text-sm font-black tracking-tight data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-sm data-[state=active]:text-blue-500 px-2"
+                                className="rounded-[14px] text-[10px] sm:text-[11px] font-black uppercase tracking-tight sm:tracking-wider data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all whitespace-nowrap overflow-hidden text-ellipsis"
                             >
-                                Nhân viên ca ({colleagues.length})
+                                Nhân viên ({colleagues.length})
                             </TabsTrigger>
                             <TabsTrigger
                                 value="available"
-                                className="flex-1 rounded-[13px] sm:rounded-[14px] text-xs sm:text-sm font-black tracking-tight data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-sm data-[state=active]:text-green-500 px-2"
+                                className="rounded-[14px] text-[10px] sm:text-[11px] font-black uppercase tracking-tight sm:tracking-wider data-[state=active]:bg-background data-[state=active]:text-emerald-500 data-[state=active]:shadow-sm transition-all whitespace-nowrap overflow-hidden text-ellipsis"
                             >
                                 Đang rảnh ({availableStaff.length})
                             </TabsTrigger>
                         </TabsList>
                     </div>
 
-                    <TabsContent value="colleagues" className="mt-3">
-                        <ScrollArea className="h-[36vh] sm:h-64 px-4 sm:px-5 pb-4">
+                    <DialogBody className="bg-muted/5 py-2">
+                        <TabsContent value="colleagues" className="mt-0 focus-visible:outline-none space-y-3 px-1 pb-4">
                             {colleagues.length > 0 ? (
-                                <div className="space-y-3">
+                                <div className="space-y-2.5">
                                     {colleagues.map(({ user, shift: colleagueShift, assignedRole }) => {
                                         const canSwap = shift.label !== colleagueShift.label || (shift.timeSlot.start !== colleagueShift.timeSlot.start || shift.timeSlot.end !== colleagueShift.timeSlot.end);
                                         const alreadyRequested = existingPendingRequests.some(r => r.payload.targetUserId === user.uid);
                                         const isThisUserProcessing = processingUserId === user.uid;
                                         return (
-                                            <div key={user.uid} className="group relative flex items-center justify-between p-2.5 sm:p-3 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all">
-                                                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-                                                    <Avatar className="h-9 w-9 sm:h-10 sm:w-10 rounded-[12px] sm:rounded-[14px]">
-                                                        <AvatarImage src={user.photoURL || ""} />
-                                                        <AvatarFallback className="bg-blue-100 text-blue-600 font-black text-[10px] sm:text-xs uppercase rounded-[12px] sm:rounded-[14px]">
-                                                            {getInitials(user.displayName)}
-                                                        </AvatarFallback>
-                                                    </Avatar>
+                                            <div key={user.uid} className="flex items-center justify-between p-3 sm:p-4 rounded-[22px] bg-background border border-muted-foreground/5 shadow-sm transition-all hover:border-primary/20 hover:shadow-md group">
+                                                <div className="flex items-center gap-2.5 sm:gap-4 min-w-0">
+                                                    <div className="relative shrink-0">
+                                                        <UserAvatar user={user} size="h-9 w-9 sm:h-11 sm:w-11" rounded="xl" />
+                                                        <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 sm:w-5 sm:h-5 bg-background rounded-full flex items-center justify-center border border-muted-foreground/10 shadow-sm">
+                                                            <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-500" />
+                                                        </div>
+                                                    </div>
                                                     <div className="min-w-0">
-                                                        <p className="font-black text-sm sm:text-base text-slate-900 dark:text-slate-100 tracking-tight break-words whitespace-normal leading-tight">{user.displayName}</p>
-                                                        <div className="flex items-center gap-1 sm:gap-1.5 mt-0.5">
-                                                            <Badge variant="outline" className="text-[9px] sm:text-[10px] h-4 sm:h-4 px-1 sm:px-1.5 font-black border-slate-200 dark:border-slate-800 text-slate-500 uppercase tracking-wider rounded-md">
+                                                        <p className="font-bold text-[13px] sm:text-sm text-foreground tracking-tight leading-none mb-1.5 group-hover:text-primary transition-colors">{user.displayName}</p>
+                                                        <div className="flex items-center gap-1.5 sm:gap-2">
+                                                            <Badge variant="outline" className="text-[8px] sm:text-[9px] h-4 sm:h-4.5 px-1 sm:px-1.5 font-black border-muted-foreground/10 bg-muted/30 text-muted-foreground/80 uppercase tracking-widest rounded-[6px]">
                                                                 {assignedRole || colleagueShift.role || 'NHÂN VIÊN'}
                                                             </Badge>
-                                                            <span className="text-[10px] sm:text-[11px] font-bold text-slate-400">
+                                                            <span className="text-[9px] sm:text-[10px] font-bold text-muted-foreground/50 tabular-nums bg-muted/20 px-1 sm:px-1.5 py-0.5 rounded-[6px] whitespace-nowrap">
                                                                 {colleagueShift.timeSlot.start}-{colleagueShift.timeSlot.end}
                                                             </span>
                                                         </div>
@@ -218,12 +211,19 @@ export default function ShiftInfoDialog({
                                                         onClick={() => handlePassRequest(user, true)}
                                                         disabled={isProcessing || isThisUserProcessing || alreadyRequested}
                                                         className={cn(
-                                                            "h-8 sm:h-9 rounded-xl font-black text-[11px] sm:text-[12px] px-3 sm:px-3.5 uppercase tracking-tighter transition-all",
-                                                            !alreadyRequested && "border-blue-500/20 text-blue-500 hover:bg-blue-500 hover:text-white"
+                                                            "h-9 sm:h-10 rounded-[14px] font-black text-[9px] sm:text-[10px] uppercase tracking-wider px-3 sm:px-4 transition-all active:scale-95 shrink-0 ml-2",
+                                                            !alreadyRequested && "border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary shadow-sm"
                                                         )}
                                                     >
-                                                        {isProcessing || isThisUserProcessing ? <Loader2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 animate-spin mr-1 sm:mr-1.5" /> : <Replace className="mr-1 sm:mr-1.5 h-3 w-3 sm:h-3.5 sm:w-3.5 text-blue-500 group-hover:text-white" />}
-                                                        {alreadyRequested ? 'Đã nhờ' : 'Đổi ca'}
+                                                        {isProcessing || isThisUserProcessing ? (
+                                                            <Loader2 className="h-3.5 w-3.5 animate-spin sm:mr-1.5" />
+                                                        ) : alreadyRequested ? (
+                                                            <CheckCircle2 className="sm:mr-1.5 h-3.5 w-3.5 text-primary" />
+                                                        ) : (
+                                                            <Replace className="sm:mr-1.5 h-3.5 w-3.5" />
+                                                        )}
+                                                        <span className="hidden sm:inline">{alreadyRequested ? 'Đã nhờ' : 'Đổi ca'}</span>
+                                                        <span className="sm:hidden">{alreadyRequested ? 'Đã nhờ' : 'Đổi'}</span>
                                                     </Button>
                                                 )}
                                             </div>
@@ -231,35 +231,33 @@ export default function ShiftInfoDialog({
                                     })}
                                 </div>
                             ) : (
-                                <div className="flex flex-col items-center justify-center py-10 sm:py-12 text-center">
-                                    <div className="h-9 w-9 sm:h-10 sm:w-10 bg-slate-100 dark:bg-slate-900 rounded-full flex items-center justify-center mb-3">
-                                        <Users className="h-5 w-5 sm:h-6 sm:w-6 text-slate-300 dark:text-slate-700" />
+                                <div className="flex flex-col items-center justify-center py-10 sm:py-16 text-center">
+                                    <div className="h-12 w-12 sm:h-16 sm:w-16 bg-muted/50 rounded-[22px] sm:rounded-[28px] flex items-center justify-center mb-4 border border-muted-foreground/5 shadow-inner">
+                                        <Users className="h-5 w-5 sm:h-7 sm:w-7 text-muted-foreground/30" />
                                     </div>
-                                    <p className="text-sm sm:text-base font-bold text-slate-400 uppercase tracking-widest">Không có đồng nghiệp</p>
+                                    <p className="text-[10px] font-black text-muted-foreground/40 uppercase tracking-[0.2em]">Không có đồng nghiệp</p>
                                 </div>
                             )}
-                        </ScrollArea>
-                    </TabsContent>
+                        </TabsContent>
 
-                    <TabsContent value="available" className="mt-3">
-                        <ScrollArea className="h-[36vh] sm:h-64 px-4 sm:px-5 pb-4">
+                        <TabsContent value="available" className="mt-0 focus-visible:outline-none space-y-3 px-1 pb-4">
                             {availableStaff.length > 0 ? (
-                                <div className="space-y-3">
+                                <div className="space-y-2.5">
                                     {availableStaff.map(user => {
                                         const alreadyRequested = existingPendingRequests.some(r => r.payload.targetUserId === user.uid);
                                         const isThisUserProcessing = processingUserId === user.uid;
                                         return (
-                                            <div key={user.uid} className="group relative flex items-center justify-between p-2.5 sm:p-3 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all">
-                                                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-                                                    <Avatar className="h-9 w-9 sm:h-10 sm:w-10 rounded-[12px] sm:rounded-[14px]">
-                                                        <AvatarImage src={user.photoURL || ""} />
-                                                        <AvatarFallback className="bg-green-100 text-green-600 font-black text-[10px] sm:text-xs uppercase rounded-[12px] sm:rounded-[14px]">
-                                                            {getInitials(user.displayName)}
-                                                        </AvatarFallback>
-                                                    </Avatar>
+                                            <div key={user.uid} className="flex items-center justify-between p-3 sm:p-4 rounded-[22px] bg-background border border-muted-foreground/5 shadow-sm transition-all hover:border-emerald-500/20 hover:shadow-md group">
+                                                <div className="flex items-center gap-2.5 sm:gap-4 min-w-0">
+                                                    <div className="relative shrink-0">
+                                                        <UserAvatar user={user} size="h-9 w-9 sm:h-11 sm:w-11" rounded="xl" />
+                                                        <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 sm:w-5 sm:h-5 bg-background rounded-full flex items-center justify-center border border-muted-foreground/10 shadow-sm">
+                                                            <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-500/50" />
+                                                        </div>
+                                                    </div>
                                                     <div className="min-w-0">
-                                                        <p className="font-black text-sm sm:text-base text-slate-900 dark:text-slate-100 tracking-tight break-words whitespace-normal leading-tight">{user.displayName}</p>
-                                                        <p className="text-[10px] sm:text-[11px] font-black text-green-500/80 uppercase tracking-widest mt-0.5">{user.role}</p>
+                                                        <p className="font-bold text-[13px] sm:text-sm text-foreground tracking-tight leading-none mb-1.5 group-hover:text-emerald-500 transition-colors">{user.displayName}</p>
+                                                        <p className="text-[8px] sm:text-[9px] font-black text-emerald-500/60 uppercase tracking-widest bg-emerald-500/5 px-2 py-0.5 rounded-[6px] w-fit">{user.role}</p>
                                                     </div>
                                                 </div>
                                                 <Button
@@ -268,34 +266,41 @@ export default function ShiftInfoDialog({
                                                     onClick={() => handlePassRequest(user, false)}
                                                     disabled={isProcessing || isThisUserProcessing || alreadyRequested}
                                                     className={cn(
-                                                        "h-8 sm:h-9 rounded-xl font-black text-[11px] sm:text-[12px] px-3 sm:px-3.5 uppercase tracking-tighter transition-all",
-                                                        !alreadyRequested && "border-green-500/20 text-green-500 hover:bg-green-500 hover:text-white"
+                                                        "h-9 sm:h-10 rounded-[14px] font-black text-[9px] sm:text-[10px] uppercase tracking-wider px-3 sm:px-4 transition-all active:scale-95 shrink-0 ml-2",
+                                                        !alreadyRequested && "border-emerald-500/20 text-emerald-500 hover:bg-emerald-500 hover:text-white hover:border-emerald-500 shadow-sm"
                                                     )}
                                                 >
-                                                    {isProcessing || isThisUserProcessing ? <Loader2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 animate-spin mr-1 sm:mr-1.5" /> : <Send className="mr-1 sm:mr-1.5 h-3 w-3 sm:h-3.5 sm:w-3.5 text-green-500 group-hover:text-white" />}
-                                                    {alreadyRequested ? 'Đã nhờ' : 'Nhờ nhận'}
+                                                    {isProcessing || isThisUserProcessing ? (
+                                                        <Loader2 className="h-3.5 w-3.5 animate-spin sm:mr-1.5" />
+                                                    ) : alreadyRequested ? (
+                                                        <CheckCircle2 className="sm:mr-1.5 h-3.5 w-3.5 text-emerald-500" />
+                                                    ) : (
+                                                        <Send className="sm:mr-1.5 h-3.5 w-3.5" />
+                                                    )}
+                                                    <span className="hidden sm:inline">{alreadyRequested ? 'Đã nhờ' : 'Nhờ nhận'}</span>
+                                                    <span className="sm:hidden">{alreadyRequested ? 'Đã nhờ' : 'Nhờ'}</span>
                                                 </Button>
                                             </div>
                                         )
                                     })}
                                 </div>
                             ) : (
-                                <div className="flex flex-col items-center justify-center py-10 sm:py-12 text-center">
-                                    <div className="h-9 w-9 sm:h-10 sm:w-10 bg-slate-100 dark:bg-slate-900 rounded-full flex items-center justify-center mb-3">
-                                        <UserCheck className="h-5 w-5 sm:h-6 sm:w-6 text-slate-300 dark:text-slate-700" />
+                                <div className="flex flex-col items-center justify-center py-10 sm:py-16 text-center">
+                                    <div className="h-12 w-12 sm:h-16 sm:w-16 bg-muted/50 rounded-[22px] sm:rounded-[28px] flex items-center justify-center mb-4 border border-muted-foreground/5 shadow-inner">
+                                        <UserCheck className="h-5 w-5 sm:h-7 sm:w-7 text-muted-foreground/30" />
                                     </div>
-                                    <p className="text-sm sm:text-base font-bold text-slate-400 uppercase tracking-widest">Không có nhân viên rảnh</p>
+                                    <p className="text-[10px] font-black text-muted-foreground/40 uppercase tracking-[0.2em]">Không có nhân viên rảnh</p>
                                 </div>
                             )}
-                        </ScrollArea>
-                    </TabsContent>
+                        </TabsContent>
+                    </DialogBody>
                 </Tabs>
 
-                <div className="px-4 sm:px-5 pb-4 sm:pb-5 pt-2">
-                    <Button variant="ghost" className="w-full h-11 sm:h-12 rounded-xl sm:rounded-2xl font-black text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-900 transition-all text-[12px] sm:text-sm uppercase tracking-widest" onClick={onClose}>
-                        ĐÓNG
-                    </Button>
-                </div>
+                <DialogFooter variant="muted" className="p-6">
+                    <DialogCancel onClick={onClose} className="w-full h-12 rounded-[18px] font-black uppercase tracking-widest text-xs">
+                        Đóng cửa sổ
+                    </DialogCancel>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     );

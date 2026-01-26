@@ -1,25 +1,32 @@
 
 'use client';
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { 
+    Dialog, 
+    DialogContent, 
+    DialogHeader, 
+    DialogTitle, 
+    DialogFooter, 
+    DialogDescription,
+    DialogBody,
+    DialogAction,
+    DialogCancel
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Users, Star, MessageSquare, Trophy, BarChart3, List, RefreshCw, Trash2, User, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
+import { Loader2, Users, Star, MessageSquareText, Trophy, BarChart3, List, RefreshCw, Trash2, CheckCircle2, AlertCircle, Clock, Search, Filter } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { getEventVotes, getEventDraws, deleteVote, runPrizeDraw } from '@/lib/events-store';
 import { useAuth } from '@/hooks/use-auth';
 import type { Event, EventVote, EventCandidate, ManagedUser, PrizeDrawResult, EventResult } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { format } from 'date-fns';
-import { Separator } from '@/components/ui/separator';
 import { toast } from '@/components/ui/pro-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn, formatTime } from '@/lib/utils';
 import { getEffectiveStatus, getStatusConfig } from '@/lib/events-utils';
 import { Label } from '@/components/ui/label';
-import { formatWithOptions } from 'util';
 
 type EventResultsDialogProps = {
     isOpen: boolean;
@@ -36,6 +43,8 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
     const [isLoading, setIsLoading] = useState(true);
     const { user } = useAuth();
     const [selectedVoters, setSelectedVoters] = useState<string[]>([]);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [activeTab, setActiveTab] = useState<string>('overview');
 
     const toggleSelectVoter = (id: string) => {
         setSelectedVoters(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
@@ -78,56 +87,91 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
     const allCandidates = useMemo(() => [...(event.candidates || []), ...(event.options || [])], [event]);
 
     const results = useMemo<EventResult[]>(() => {
-        if (event.type === 'vote' || event.type === 'multi-vote') {
+        if (event.type === 'vote' || event.type === 'multi-vote' || event.type === 'ballot') {
             const voteCounts: { [key: string]: number } = {};
             const votersByCandidate: { [key: string]: { name: string; userId: string }[] } = {};
+            const commentsByCandidate: { [key: string]: { text: string; author: string; userId: string; date: Date }[] } = {};
 
             allCandidates.forEach(c => {
                 voteCounts[c.id] = 0;
                 votersByCandidate[c.id] = [];
+                commentsByCandidate[c.id] = [];
             });
 
             votes.forEach(vote => {
+                const userId = vote.userId || vote.id;
                 (vote.votes || []).forEach(candidateId => {
                     if (voteCounts.hasOwnProperty(candidateId)) {
                         voteCounts[candidateId]++;
                         if (!event.anonymousResults) {
-                            votersByCandidate[candidateId].push({ name: vote.userDisplay.name, userId: vote.userId || vote.id });
+                            votersByCandidate[candidateId].push({ name: vote.userDisplay.name, userId });
                         }
                     }
                 });
+
+                if (vote.comments) {
+                    Object.entries(vote.comments).forEach(([candidateId, text]) => {
+                        if (text && text.trim() && commentsByCandidate[candidateId]) {
+                            commentsByCandidate[candidateId].push({
+                                text,
+                                author: event.anonymousResults ? 'Ẩn danh' : vote.userDisplay.name,
+                                userId,
+                                date: vote.createdAt.toDate()
+                            });
+                        }
+                    });
+                }
             });
 
             return Object.entries(voteCounts)
-                .map(([id, count]) => ({
-                    id,
-                    name: allCandidates.find(c => c.id === id)?.name || 'Không rõ',
-                    votes: count,
-                    voters: (votersByCandidate[id] || []).map(v => v.name),
-                    // include review fields with safe defaults so the shape matches EventResult
-                    avgRating: 0,
-                    ratingCount: 0,
-                    comments: []
-                }))
-                .sort((a, b) => b.votes - a.votes) as EventResult[];
+                .map(([id, count]) => {
+                    const candidateVoters = (votersByCandidate[id] || []);
+                    return {
+                        id,
+                        name: allCandidates.find(c => c.id === id)?.name || 'Không rõ',
+                        votes: count,
+                        voters: candidateVoters.map(v => v.name),
+                        // Extended data for local UI
+                        voterDetails: candidateVoters.map(v => ({
+                            id: v.userId,
+                            name: v.name,
+                            avatar: allUsers.find(u => u.uid === v.userId)?.photoURL
+                        })),
+                        avgRating: 0,
+                        ratingCount: 0,
+                        comments: commentsByCandidate[id] || []
+                    };
+                })
+                .sort((a, b) => b.votes - a.votes) as (EventResult & { voterDetails?: { id: string; name: string; avatar?: string }[] })[];
         }
 
         if (event.type === 'review') {
-            const reviewData: { [key: string]: { ratings: number[], comments: { text: string, author: string }[] } } = {};
+            const reviewData: { [key: string]: { ratings: { value: number; userId: string; name: string }[], comments: { text: string, author: string, userId?: string }[] } } = {};
             allCandidates.forEach(c => {
                 reviewData[c.id] = { ratings: [], comments: [] };
             });
 
             votes.forEach(vote => {
+                const userId = vote.userId || vote.id;
                 if (vote.ratings) {
                     Object.entries(vote.ratings).forEach(([candidateId, rating]) => {
-                        if (reviewData[candidateId]) reviewData[candidateId].ratings.push(rating);
+                        if (reviewData[candidateId]) {
+                            reviewData[candidateId].ratings.push({ 
+                                value: rating, 
+                                userId, 
+                                name: vote.userDisplay.name 
+                            });
+                        }
                     });
                 }
                 if (vote.comments) {
                     Object.entries(vote.comments).forEach(([candidateId, comment]) => {
-                        if (reviewData[candidateId] && comment) {
-                            reviewData[candidateId].comments.push({ text: comment, author: event.anonymousResults ? 'Ẩn danh' : vote.userDisplay.name });
+                        if (reviewData[candidateId] && comment && candidateId !== 'general') {
+                            reviewData[candidateId].comments.push({ 
+                                text: comment, 
+                                author: event.anonymousResults ? 'Ẩn danh' : vote.userDisplay.name,
+                                userId: event.anonymousResults ? undefined : userId
+                            });
                         }
                     });
                 }
@@ -136,166 +180,402 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
             return Object.entries(reviewData).map(([id, data]) => ({
                 id,
                 name: allCandidates.find(c => c.id === id)?.name || 'Không rõ',
-                avgRating: data.ratings.length > 0 ? data.ratings.reduce((a, b) => a + b, 0) / data.ratings.length : 0,
+                avgRating: data.ratings.length > 0 ? data.ratings.reduce((a, b) => a + b.value, 0) / data.ratings.length : 0,
                 ratingCount: data.ratings.length,
                 comments: data.comments,
-                // include vote fields for consistency
                 votes: 0,
-                voters: []
-            })).sort((a, b) => b.avgRating - a.avgRating) as EventResult[];
+                voters: data.ratings.map(r => r.name),
+                // Extended data
+                voterDetails: data.ratings.map(r => ({
+                    id: r.userId,
+                    name: r.name,
+                    avatar: allUsers.find(u => u.uid === r.userId)?.photoURL,
+                    rating: r.value
+                }))
+            })).sort((a, b) => b.avgRating - a.avgRating) as (EventResult & { voterDetails?: { id: string; name: string; avatar?: string; rating?: number }[] })[];
         }
 
         return [] as EventResult[];
     }, [votes, event, allCandidates]);
 
+    // Chart sizing: make height content-driven (rows × rowHeight) with sensible min/max caps.
+    const chartRowHeight = 36; // px per row (includes bar + gap)
+    const minChartHeight = 80;
+    const maxChartHeight = 260;
+    const chartHeight = useMemo(() => {
+        const rows = Math.max(1, results.length);
+        return Math.min(maxChartHeight, Math.max(minChartHeight, rows * chartRowHeight + 8));
+    }, [results.length]);
+
+    const allComments = useMemo(() => {
+        const list: { text: string; author: string; candidateName?: string; date: Date; userId: string; avatar?: string }[] = [];
+        votes.forEach(vote => {
+            if (vote.comments) {
+                Object.entries(vote.comments).forEach(([key, text]) => {
+                    if (!text || text.trim() === '') return;
+                    const candidate = allCandidates.find(c => c.id === key);
+                    
+                    // Filter by search query if applicable
+                    if (searchQuery && !text.toLowerCase().includes(searchQuery.toLowerCase()) && !vote.userDisplay.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+                        return;
+                    }
+    
+                    list.push({
+                        text,
+                        author: event.anonymousResults ? 'Ẩn danh' : vote.userDisplay.name,
+                        candidateName: key === 'general' ? 'Nhận xét chung' : (candidate?.name || 'Về: ' + key),
+                        date: vote.createdAt.toDate(),
+                        userId: vote.userId || vote.id,
+                        avatar: allUsers.find(u => u.uid === vote.userId)?.photoURL || undefined
+                    });
+                });
+            }
+        });
+        return list.sort((a, b) => b.date.getTime() - a.date.getTime());
+    }, [votes, event.anonymousResults, allCandidates, allUsers, searchQuery]);
+    
+    // Precompute a safe, type-narrowed display string for the top result so we don't access
+    // a property that may not exist on every EventResult variant (fixes TS2551).
+    const leadingStat = useMemo(() => {
+        if (results.length === 0) return '';
+        const top = results[0];
+        if (event.type === 'review') {
+            return `${top.avgRating.toFixed(1)} sao`;
+        }
+        // use 'in' narrowing to safely check for the votes property on non-review results
+        if ('votes' in top) {
+            return `${top.votes} phiếu`;
+        }
+        return '0 phiếu';
+    }, [results, event.type]);
+
     const renderContent = () => {
         if (isLoading) {
             return (
-                <div className="flex flex-col items-center justify-center h-64 gap-4">
-                    <Loader2 className="h-10 w-10 animate-spin text-primary opacity-50" />
-                    <p className="text-sm text-muted-foreground animate-pulse">Đang tải kết quả...</p>
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                    <div className="relative">
+                        <Loader2 className="h-12 w-12 animate-spin text-primary opacity-20" />
+                        <Loader2 className="h-12 w-12 animate-spin text-primary absolute inset-0 [animation-delay:-0.3s]" />
+                    </div>
+                    <p className="text-sm font-bold text-muted-foreground animate-pulse uppercase tracking-[0.2em]">Đang xử lý dữ liệu...</p>
                 </div>
             );
         }
 
         if (votes.length === 0) {
             return (
-                <div className="flex flex-col items-center justify-center h-64 gap-4 text-center px-6">
-                    <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center">
-                        <Users className="h-8 w-8 text-muted-foreground" />
+                <div className="flex flex-col items-center justify-center py-20 gap-6 text-center px-6">
+                    <div className="h-24 w-24 rounded-full bg-primary/5 flex items-center justify-center relative">
+                        <Users className="h-10 w-10 text-primary/20 absolute" />
+                        <div className="absolute inset-0 rounded-full border-2 border-dashed border-primary/10 animate-[spin_10s_linear_infinite]" />
                     </div>
-                    <div className="space-y-1">
-                        <h3 className="font-bold text-lg">Chưa có dữ liệu</h3>
-                        <p className="text-sm text-muted-foreground">Sự kiện này hiện chưa có lượt tham gia nào.</p>
+                    <div className="space-y-2">
+                        <h3 className="font-extrabold text-xl">Chưa có lượt tham gia</h3>
+                        <p className="text-sm text-muted-foreground max-w-[200px] mx-auto">Sự kiện này hiện tại chưa nhận được phản hồi nào từ nhân viên.</p>
                     </div>
                 </div>
             );
         }
 
         return (
-            <Tabs defaultValue="overview" className="w-full">
-                <div className="px-6 mb-4">
-                    <TabsList className="grid w-full grid-cols-2 h-11 p-1 bg-muted/50 rounded-xl">
-                        <TabsTrigger value="overview" className="rounded-lg data-[state=active]:shadow-sm">
-                            <BarChart3 className="h-4 w-4 mr-2" />
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <div className="px-6 mb-4 sticky top-0 z-20 pt-2 pb-4 bg-background/80 backdrop-blur-md">
+                    <TabsList className="grid w-full grid-cols-3 h-12 p-1 bg-muted/30 rounded-2xl border border-primary/5">
+                        <TabsTrigger value="overview" className="rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-soft font-black text-[10px] uppercase tracking-wider">
+                            <BarChart3 className="h-3.5 w-3.5 mr-2" />
                             Tổng quan
                         </TabsTrigger>
-                        <TabsTrigger value="details" className="rounded-lg data-[state=active]:shadow-sm">
-                            <List className="h-4 w-4 mr-2" />
-                            Chi tiết
+                        <TabsTrigger value="details" className="rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-soft font-black text-[10px] uppercase tracking-wider">
+                            <List className="h-3.5 w-3.5 mr-2" />
+                            Danh sách
+                        </TabsTrigger>
+                        <TabsTrigger value="comments" className="rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-soft font-black text-[10px] uppercase tracking-wider whitespace-nowrap">
+                            <MessageSquareText className="h-3.5 w-3.5 mr-2" />
+                            Bình luận
+                            {allComments.length > 0 && (
+                                <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-[9px]">{allComments.length}</span>
+                            )}
                         </TabsTrigger>
                     </TabsList>
                 </div>
 
-                <TabsContent value="overview" className="px-6 pb-6 space-y-6 outline-none">
-                    {/* Summary Cards */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <Card className="bg-primary/5 border-none shadow-none">
-                            <CardContent className="p-4 flex items-center gap-4">
-                                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                                    <Users className="h-5 w-5 text-primary" />
+                <TabsContent value="overview" className="px-6 pb-6 space-y-6 outline-none animate-in fade-in duration-300">
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="p-5 bg-gradient-to-br from-primary/10 to-transparent rounded-[2.5rem] border border-primary/5 relative overflow-hidden group">
+                           <Users className="absolute -right-2 -bottom-2 h-16 w-16 text-primary/5 rotate-12 group-hover:scale-110 transition-transform" />
+                            <p className="text-[10px] font-black text-primary/60 uppercase tracking-[0.15em] mb-1">Tham gia</p>
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-3xl font-black">{votes.length}</span>
+                                <span className="text-xs font-bold text-muted-foreground/60 leading-none">người</span>
+                            </div>
+                            {/* Mini avatar stack */}
+                            <div className="flex -space-x-2 mt-4 overflow-hidden">
+                                {votes.slice(0, 5).map((v, i) => (
+                                    <Avatar key={i} className="h-6 w-6 border-2 border-white shadow-sm shrink-0">
+                                        <AvatarImage src={allUsers.find(u => u.uid === v.userId)?.photoURL || undefined} />
+                                        <AvatarFallback className="text-[8px]">{v.userDisplay.name.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                ))}
+                                {votes.length > 5 && (
+                                    <div className="h-6 w-6 rounded-full bg-muted border-2 border-white flex items-center justify-center text-[8px] font-black z-10 shrink-0">
+                                        +{votes.length - 5}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        
+                        <div className="p-5 bg-gradient-to-br from-amber-500/10 to-transparent rounded-[2.5rem] border border-amber-500/5 relative overflow-hidden group">
+                            {results.length > 0 ? (
+                                <>
+                                    <Trophy className="absolute -right-2 -bottom-2 h-16 w-16 text-amber-500/5 rotate-12 group-hover:scale-110 transition-transform" />
+                                    <p className="text-[10px] font-black text-amber-600/60 uppercase tracking-[0.15em] mb-1">Dẫn đầu</p>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-sm font-black">{results[0].name}</span>
+                                        <Trophy className="h-4 w-4 text-amber-500 shrink-0" />
+                                    </div>
+                                    <p className="text-[10px] font-bold text-muted-foreground/60 italic">
+                                        {leadingStat}
+                                    </p>
+                                </>
+                            ) : (
+                                <div className="h-full flex flex-col justify-center">
+                                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.15em] mb-1">Dẫn đầu</p>
+                                    <p className="text-sm font-bold text-muted-foreground/30 italic">Chưa xác định</p>
                                 </div>
-                                <div>
-                                    <p className="text-[10px] font-bold text-primary uppercase tracking-wider">Tổng lượt tham gia</p>
-                                    <p className="text-2xl font-black">{votes.length}</p>
-                                </div>
-                            </CardContent>
-                        </Card>
-                        {/* Status summary uses shared helper for consistent labels/colors */}
-                        {(() => {
-                            const effectiveStatus = getEffectiveStatus(event.status, event.endAt);
-                            const cfg = getStatusConfig(effectiveStatus);
-                            return (
-                                <Card className={`border-none shadow-none ${cfg.bg}`}>
-                                    <CardContent className="p-4 flex items-center gap-4">
-                                        <div className="h-10 w-10 rounded-full bg-white/0 flex items-center justify-center shrink-0">
-                                            <CheckCircle2 className={`h-5 w-5 ${cfg.color}`} />
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Trạng thái</p>
-                                            <p className="text-lg font-bold">{cfg.label}</p>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            );
-                        })() }
+                            )}
+                        </div>
                     </div>
 
-                    {(event.type === 'vote' || event.type === 'multi-vote') && (
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                                <h4 className="text-sm font-bold flex items-center gap-2">
-                                    <BarChart3 className="h-4 w-4 text-primary" />
+                    {(event.type === 'vote' || event.type === 'multi-vote' || event.type === 'ballot') && (
+                        <div className="bg-primary/[0.03] dark:bg-white/[0.02] rounded-[2rem] border border-primary/5 relative group/chart overflow-hidden">
+                            <div className="px-5 pt-4 pb-0 flex items-center justify-between relative z-10">
+                                <h4 className="text-[9px] font-black uppercase tracking-[0.2em] flex items-center gap-2 text-primary/60">
+                                    <div className="h-1.5 w-1.5 rounded-full bg-primary/40" />
                                     Biểu đồ kết quả
                                 </h4>
+                                <span className="text-[8px] font-black text-muted-foreground/30 uppercase tracking-widest leading-none">Real-time</span>
                             </div>
-                            <div className="h-[300px] w-full bg-muted/20 rounded-2xl p-4 border border-muted/30">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={results} layout="vertical" margin={{ left: 20, right: 30, top: 10, bottom: 10 }}>
-                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(0,0,0,0.05)" />
-                                        <XAxis type="number" hide />
-                                        <YAxis
-                                            type="category"
-                                            dataKey="name"
-                                            width={100}
-                                            tick={{ fontSize: 11, fontWeight: 600 }}
-                                            axisLine={false}
-                                            tickLine={false}
-                                        />
-                                        <Tooltip
-                                            cursor={{ fill: 'rgba(0,0,0,0.02)' }}
-                                            content={({ active, payload }) => {
-                                                if (active && payload && payload.length) {
-                                                    return (
-                                                        <div className="bg-white p-3 shadow-xl border rounded-xl text-xs">
-                                                            <p className="font-bold mb-1">{payload[0].payload.name}</p>
-                                                            <p className="text-primary font-medium">{payload[0].value} phiếu ({((payload[0].value as number / votes.length) * 100).toFixed(1)}%)</p>
+                            <div className="p-2 sm:p-4 pt-0">
+                                <div className="w-full relative" style={{ height: chartHeight }}>
+                                    <ResponsiveContainer width="100%" height={chartHeight}>
+                                        <BarChart data={results} layout="vertical" margin={{ left: -10, right: 35, top: 8, bottom: 0 }}>
+                                            <XAxis type="number" hide />
+                                            <YAxis
+                                                type="category"
+                                                dataKey="name"
+                                                width={80}
+                                                tick={{ fontSize: 9, fontWeight: 800, fill: 'currentColor', opacity: 0.5 }}
+                                                axisLine={false}
+                                                tickLine={false}
+                                            />
+                                            <Tooltip
+                                                cursor={{ fill: 'rgba(var(--primary-rgb), 0.04)', radius: 10 }}
+                                                content={({ active, payload }) => {
+                                                    if (active && payload && payload.length) {
+                                                        const data = payload[0].payload;
+                                                        return (
+                                                            <div className="bg-white/95 dark:bg-black/95 backdrop-blur-xl px-2.5 py-1.5 shadow-2xl border border-primary/10 rounded-xl animate-in zoom-in-95 duration-200">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-xs font-black text-primary leading-none">{data.votes}</span>
+                                                                    <span className="text-[9px] font-bold text-muted-foreground/50">({((data.votes / Math.max(1, votes.length)) * 100).toFixed(0)}%)</span>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return null;
+                                                }}
+                                            />
+                                            <Bar
+                                                dataKey="votes"
+                                                radius={[0, 10, 10, 0]}
+                                                barSize={Math.min(24, Math.max(12, Math.floor(chartHeight / Math.max(1, results.length)) - 6))}
+                                            >
+                                                {results.map((entry, index) => (
+                                                    <Cell 
+                                                        key={`cell-${index}`} 
+                                                        fill={index === 0 ? 'var(--primary)' : 'rgba(var(--primary-rgb), 0.15)'} 
+                                                        className="transition-all duration-500 ease-out"
+                                                    />
+                                                ))}
+                                            </Bar>
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Detailed Selection Breakdown */}
+                    {(event.type === 'vote' || event.type === 'multi-vote' || event.type === 'ballot') && (
+                        <div className="space-y-3">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 px-2 text-muted-foreground/40">
+                                <Users className="h-3 w-3 text-primary/60" />
+                                Chi tiết lượt bình chọn
+                            </h4>
+                            <div className="grid gap-3">
+                                {results.map((res: any, idx) => (
+                                    <div key={res.id} className="p-3.5 sm:p-4 bg-background rounded-[1.5rem] border border-primary/5 shadow-sm hover:shadow-md transition-all">
+                                        {/* safely narrow EventResult union before accessing vote-specific props */}
+                                        {(() => {
+                                            const voteCount = 'votes' in res ? res.votes : 0;
+                                            const firstResult = results[0];
+                                            const leaderVotes = firstResult && 'votes' in firstResult ? firstResult.votes || 0 : Math.max(1, voteCount);
+                                            return (
+                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={cn(
+                                                            "w-8 h-8 rounded-full flex items-center justify-center font-black text-[10px] shrink-0",
+                                                            idx === 0 ? "bg-amber-400 text-white" : "bg-muted text-muted-foreground/40"
+                                                        )}>
+                                                            #{idx + 1}
                                                         </div>
-                                                    );
-                                                }
-                                                return null;
-                                            }}
-                                        />
-                                        <Bar dataKey="votes" radius={[0, 4, 4, 0]} barSize={24}>
-                                            {results.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={index === 0 ? 'var(--primary)' : 'var(--primary-foreground)'} fillOpacity={index === 0 ? 1 : 0.4} />
-                                            ))}
-                                        </Bar>
-                                    </BarChart>
-                                </ResponsiveContainer>
+                                                        <div className="min-w-0">
+                                                            <p className="font-black text-sm truncate">{res.name}</p>
+                                                            <p className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest">
+                                                                {voteCount} phiếu ({((voteCount / Math.max(1, votes.length)) * 100).toFixed(1)}%)
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="h-1.5 w-full sm:w-32 bg-muted rounded-full overflow-hidden shrink-0">
+                                                        <div 
+                                                            className={cn("h-full rounded-full transition-all duration-1000", idx === 0 ? "bg-primary" : "bg-primary/20")}
+                                                            style={{ width: `${(voteCount / Math.max(1, leaderVotes)) * 100}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+
+                                        {!event.anonymousResults && res.voterDetails && res.voterDetails.length > 0 && (
+                                            <div className="mt-4 space-y-2">
+                                                <p className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-[0.15em] ml-1">Danh sách bình chọn</p>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                                                    {res.voterDetails.map((voter: any) => (
+                                                        <div key={voter.id} className="flex items-center gap-2 p-2 rounded-xl bg-muted/20 hover:bg-primary/5 transition-colors border border-transparent hover:border-primary/10 group">
+                                                            <Avatar className="h-7 w-7 border border-white shadow-sm shrink-0">
+                                                                <AvatarImage src={voter.avatar} />
+                                                                <AvatarFallback className="text-[9px] font-bold">{voter.name.charAt(0)}</AvatarFallback>
+                                                            </Avatar>
+                                                            <span className="text-[11px] font-bold truncate flex-1">{voter.name}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Latest Comment for Vote/Ballot */}
+                                        {res.comments && res.comments.length > 0 && (
+                                            <div className="mt-4 pt-4 border-t border-black/[0.03]">
+                                                <div className="bg-sky-50/50 dark:bg-sky-900/10 p-3 sm:p-4 rounded-2xl sm:rounded-3xl relative">
+                                                    <div className="absolute -top-3 left-4 bg-sky-500 text-white text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                                        Ý kiến mới
+                                                    </div>
+                                                    <p className="text-xs sm:text-sm font-medium italic text-sky-800/80 dark:text-sky-300/80 line-clamp-2 leading-relaxed">
+                                                        "{res.comments[res.comments.length - 1].text}"
+                                                    </p>
+                                                    <div className="flex items-center gap-2 mt-2">
+                                                        <div className="h-0.5 w-3 rounded-full bg-sky-200" />
+                                                        <span className="text-[9px] font-black text-sky-600/60 uppercase">— {res.comments[res.comments.length - 1].author}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     )}
 
                     {event.type === 'review' && (
-                        <div className="space-y-4">
-                            <h4 className="text-sm font-bold flex items-center gap-2">
-                                <Star className="h-4 w-4 text-amber-500" />
-                                Điểm trung bình
+                        <div className="space-y-3">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 px-2 text-muted-foreground/40">
+                                <div className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                                Xếp hạng chi tiết
                             </h4>
                             <div className="grid gap-3">
-                                {results.map((res, idx) => (
-                                    <div key={res.id} className="flex items-center gap-4 p-3 bg-muted/30 rounded-xl border border-transparent hover:border-muted transition-all">
-                                        <div className="flex items-center justify-center h-8 w-8 rounded-full bg-primary/10 text-primary font-bold text-xs shrink-0">
-                                            {idx + 1}
-                                        </div>
-                                        <Avatar className="h-10 w-10 border-2 border-white shadow-sm">
-                                            <AvatarImage src={allCandidates.find(c => c.id === res.id)?.avatarUrl} />
-                                            <AvatarFallback>{res.name.charAt(0)}</AvatarFallback>
-                                        </Avatar>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-bold truncate">{res.name}</p>
-                                            <div className="flex items-center gap-1">
-                                                <div className="flex gap-0.5">
-                                                    {[1, 2, 3, 4, 5].map((s) => (
-                                                        <Star key={s} className={cn("h-3 w-3", s <= Math.round(res.avgRating) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30")} />
-                                                    ))}
-                                                </div>
-                                                <span className="text-[10px] text-muted-foreground ml-1">({res.ratingCount} đánh giá)</span>
+                                {results.map((res: any, idx) => (
+                                    <div key={res.id} className="group relative">
+                                        <div className="flex flex-col gap-3 p-3.5 sm:p-4 bg-background rounded-[1.5rem] border border-primary/5 shadow-sm hover:shadow-md transition-all relative overflow-hidden">
+                                            {/* Rank badge */}
+                                            <div className={cn(
+                                                "absolute -left-1 -top-1 w-8 h-8 rounded-br-2xl flex items-center justify-center font-black text-[10px]",
+                                                idx === 0 ? "bg-amber-400 text-white" : "bg-muted text-muted-foreground/40"
+                                            )}>
+                                                #{idx + 1}
                                             </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-lg font-black text-primary">{res.avgRating.toFixed(1)}</p>
+
+                                            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                                                <div className="flex items-center gap-4 flex-1">
+                                                    <div className="relative shrink-0">
+                                                        <Avatar className="h-12 w-12 sm:h-14 sm:w-14 border-2 border-white shadow-soft">
+                                                            <AvatarImage src={allCandidates.find(c => c.id === res.id)?.avatarUrl} className="object-cover" />
+                                                            <AvatarFallback className="font-bold text-lg">{res.name.charAt(0)}</AvatarFallback>
+                                                        </Avatar>
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm sm:text-md font-black truncate">{res.name}</p>
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            <div className="flex gap-0.5">
+                                                                {[1, 2, 3, 4, 5].map((s) => (
+                                                                    <Star key={s} className={cn("h-3 w-3", s <= Math.round(res.avgRating) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/20")} />
+                                                                ))}
+                                                            </div>
+                                                            <div className="h-1 w-1 rounded-full bg-muted-foreground/30" />
+                                                            <span className="text-[9px] sm:text-[10px] font-black text-muted-foreground/60 tracking-wider">
+                                                                {res.ratingCount} LƯỢT ĐÁNH GIÁ
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right flex items-end sm:flex-col justify-between sm:justify-start">
+                                                    <div className="sm:text-right">
+                                                        <p className="text-2xl sm:text-3xl font-black text-primary leading-none tracking-tighter">{res.avgRating.toFixed(1)}</p>
+                                                        <p className="text-[8px] font-black text-muted-foreground/40 uppercase mt-1 tracking-widest leading-none">stars</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Voters breakdown for this selection in Review */}
+                                            {!event.anonymousResults && res.voterDetails && res.voterDetails.length > 0 && (
+                                                <div className="mt-2 space-y-2">
+                                                    <p className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-[0.15em] ml-1">Danh sách đánh giá</p>
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[180px] overflow-y-auto pr-2 custom-scrollbar">
+                                                        {res.voterDetails.map((voter: any) => (
+                                                            <div key={voter.id} className="flex items-center justify-between p-2 rounded-xl bg-muted/20 hover:bg-amber-500/5 transition-colors border border-transparent hover:border-amber-500/10">
+                                                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                                    <Avatar className="h-6 w-6 border border-white shadow-sm shrink-0">
+                                                                        <AvatarImage src={voter.avatar} />
+                                                                        <AvatarFallback className="text-[8px] font-bold">{voter.name.charAt(0)}</AvatarFallback>
+                                                                    </Avatar>
+                                                                    <span className="text-[10px] font-bold truncate">{voter.name}</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-1 shrink-0 ml-2">
+                                                                    <span className="text-[11px] font-black text-amber-600 leading-none">{voter.rating}</span>
+                                                                    <Star className="h-2.5 w-2.5 fill-amber-500 text-amber-500" />
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Top Comment Preview for this candidate */}
+                                            {res.comments && res.comments.length > 0 && (
+                                                <div className="mt-1 pt-4 border-t border-black/[0.03]">
+                                                    <div className="bg-amber-50/50 dark:bg-amber-900/10 p-3 sm:p-4 rounded-2xl sm:rounded-3xl relative">
+                                                        <div className="absolute -top-3 left-4 bg-amber-500 text-white text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                                            Phản hồi mới
+                                                        </div>
+                                                        <p className="text-xs sm:text-sm font-medium italic text-amber-800/80 dark:text-amber-300/80 line-clamp-2 leading-relaxed">
+                                                            "{res.comments[res.comments.length - 1].text}"
+                                                        </p>
+                                                        <div className="flex items-center gap-2 mt-2">
+                                                            <div className="h-0.5 w-3 rounded-full bg-amber-200" />
+                                                            <span className="text-[9px] font-black text-amber-600/60 uppercase">— {res.comments[res.comments.length - 1].author}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
@@ -303,27 +583,64 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
                         </div>
                     )}
 
-                    {event.type === 'ballot' && (
-                        <div className="space-y-6">
-                            <div className="p-6 bg-gradient-to-br from-primary/10 to-primary/5 rounded-3xl border border-primary/10 relative overflow-hidden">
-                                <Trophy className="absolute -right-4 -bottom-4 h-32 w-32 text-primary/5 rotate-12" />
-                                <div className="relative z-10 space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <div className="space-y-1">
-                                            <h4 className="text-lg font-black flex items-center gap-2">
-                                                <Trophy className="h-5 w-5 text-primary" />
-                                                Rút thăm may mắn
-                                            </h4>
-                                            <p className="text-xs text-muted-foreground">Chọn số lượng người thắng và thực hiện rút thăm ngẫu nhiên.</p>
+                    {/* Latest General Feedback Section */}
+                    {allComments.filter(c => c.candidateName === 'Nhận xét chung').length > 0 && (
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between px-2">
+                                <h4 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-muted-foreground/60">
+                                    <MessageSquareText className="h-3 w-3 text-primary" />
+                                    Góp ý chung mới nhất
+                                </h4>
+                                <Button 
+                                    variant="ghost" 
+                                    className="h-7 text-[10px] font-black text-primary hover:bg-primary/5 uppercase tracking-wider"
+                                    onClick={() => setActiveTab('comments')}
+                                >
+                                    Xem tất cả ({allComments.length})
+                                </Button>
+                            </div>
+                            <div className="grid gap-3">
+                                {allComments
+                                    .filter(c => c.candidateName === 'Nhận xét chung')
+                                    .slice(0, 2)
+                                    .map((comment, i) => (
+                                        <div key={i} className="p-5 bg-white shadow-soft rounded-[2rem] border border-black/[0.03] flex gap-4 items-start">
+                                            <Avatar className="h-10 w-10 shrink-0 border-2 border-white shadow-sm overflow-hidden">
+                                                <AvatarImage src={comment.avatar} />
+                                                <AvatarFallback className="font-bold bg-muted">{comment.author.charAt(0)}</AvatarFallback>
+                                            </Avatar>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <p className="text-sm font-black">{comment.author}</p>
+                                                    <span className="text-[9px] font-bold text-muted-foreground/40">{format(comment.date, 'HH:mm • dd/MM')}</span>
+                                                </div>
+                                                <p className="text-sm font-medium leading-relaxed italic text-foreground/70 line-clamp-2">"{comment.text}"</p>
+                                            </div>
                                         </div>
+                                    ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {event.type === 'ballot' && (
+                        <div className="space-y-6 pt-4">
+                            <div className="p-8 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent rounded-[3rem] border border-primary/10 relative overflow-hidden">
+                                <Trophy className="absolute -right-8 -bottom-8 h-48 w-48 text-primary/5 -rotate-12" />
+                                <div className="relative z-10 space-y-6">
+                                    <div className="space-y-2">
+                                        <h4 className="text-2xl font-black flex items-center gap-3">
+                                            <Trophy className="h-8 w-8 text-amber-500 drop-shadow-sm" />
+                                            Rút thăm may mắn
+                                        </h4>
+                                        <p className="text-sm text-balance text-muted-foreground font-medium">Hệ thống sẽ chọn ngẫu nhiên các nhân viên đã tham gia sự kiện này.</p>
                                     </div>
 
-                                    {user && (user.uid === event.ownerId || user.role === 'Chủ nhà hàng') && (
-                                        <div className="flex items-center gap-3 bg-white/50 p-3 rounded-2xl border border-white shadow-sm">
-                                            <div className="space-y-1 flex-1">
-                                                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Số người thắng</Label>
+                                    {(user?.uid === event.ownerId || user?.role === 'Chủ nhà hàng') && (
+                                        <div className="flex flex-col sm:flex-row items-center gap-4 bg-white/60 dark:bg-black/20 p-4 rounded-[2rem] border border-white/40 shadow-xl backdrop-blur-2xl">
+                                            <div className="flex-1 w-full space-y-1.5 px-4 border-r-0 sm:border-r border-black/5">
+                                                <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60">Số người thắng</Label>
                                                 <input
-                                                    className="w-full bg-transparent border-none focus:ring-0 text-xl font-black p-0"
+                                                    className="w-full bg-transparent border-none focus:ring-0 text-3xl font-black p-0 h-10"
                                                     type="number"
                                                     min={1}
                                                     max={Math.max(1, votes.length)}
@@ -336,7 +653,7 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
                                                 onClick={async () => {
                                                     if (votes.length === 0) { toast.error('Chưa có người tham gia để rút thăm.'); return; }
                                                     try {
-                                                        await runPrizeDraw(event.id, winnerCount, user);
+                                                        await runPrizeDraw(event.id, winnerCount, user as any);
                                                         await fetchResults();
                                                         toast.success(`Đã rút ${winnerCount} người thắng.`);
                                                     } catch (e) {
@@ -344,9 +661,9 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
                                                         toast.error('Rút thăm thất bại.');
                                                     }
                                                 }}
-                                                className="rounded-xl px-8 font-bold shadow-lg shadow-primary/20"
+                                                className="w-full sm:w-auto h-16 rounded-[1.5rem] px-10 font-black text-md shadow-2xl shadow-primary/30 bg-primary hover:scale-[1.02] active:scale-[0.98] transition-all"
                                             >
-                                                Bắt đầu rút
+                                                BẮT ĐẦU RÚT THĂM
                                             </Button>
                                         </div>
                                     )}
@@ -354,28 +671,30 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
                             </div>
 
                             <div className="space-y-4">
-                                <h4 className="text-sm font-bold flex items-center gap-2">
-                                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                    Lịch sử rút thăm
+                                <h4 className="text-sm font-black uppercase tracking-widest flex items-center gap-2 px-2">
+                                    <Clock className="h-4 w-4 text-primary" />
+                                    Lịch sử kết quả
                                 </h4>
                                 {draws.length > 0 ? (
-                                    <div className="grid gap-3">
+                                    <div className="grid gap-4">
                                         {draws.map((draw, idx) => (
-                                            <Card key={draw.id} className="border-none bg-muted/20 shadow-none overflow-hidden">
-                                                <div className="bg-muted/30 px-4 py-2 border-b flex items-center justify-between">
-                                                    <span className="text-[10px] font-bold uppercase text-muted-foreground">Lượt #{draws.length - idx}</span>
-                                                    <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                                        <Clock className="h-3 w-3" />
-                                                        {format(draw.drawnAt.toDate(), 'HH:mm, dd/MM/yyyy')}
-                                                    </span>
+                                            <Card key={draw.id} className="border-none bg-background shadow-soft rounded-[2.5rem] overflow-hidden">
+                                                <div className="bg-muted/30 px-6 py-3 border-b border-black/5 flex items-center justify-between">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Lượt #{draws.length - idx}</span>
+                                                    <Badge variant="outline" className="text-[10px] font-bold bg-white/50 border-black/5">
+                                                        {format(draw.drawnAt.toDate(), 'HH:mm • dd/MM')}
+                                                    </Badge>
                                                 </div>
-                                                <CardContent className="p-4">
-                                                    <div className="flex flex-wrap gap-2">
+                                                <CardContent className="p-6">
+                                                    <div className="flex flex-wrap gap-3">
                                                         {draw.winners.map(winner => (
-                                                            <Badge key={winner.userId} variant="secondary" className="bg-white border-primary/20 text-primary font-bold py-1 px-3 rounded-lg">
-                                                                <Trophy className="h-3 w-3 mr-1.5 text-amber-500" />
-                                                                {winner.userName}
-                                                            </Badge>
+                                                            <div key={winner.userId} className="flex items-center gap-2 bg-primary/5 border border-primary/10 pl-1 pr-4 py-1 rounded-2xl">
+                                                                <Avatar className="h-8 w-8 shadow-sm">
+                                                                    <AvatarImage src={allUsers.find(u => u.uid === winner.userId)?.photoURL || undefined} />
+                                                                    <AvatarFallback className="text-[10px]">{winner.userName.charAt(0)}</AvatarFallback>
+                                                                </Avatar>
+                                                                <span className="text-sm font-black text-primary">{winner.userName}</span>
+                                                            </div>
                                                         ))}
                                                     </div>
                                                 </CardContent>
@@ -383,8 +702,8 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="p-8 text-center border-2 border-dashed rounded-3xl border-muted">
-                                        <p className="text-sm text-muted-foreground italic">Chưa có kết quả rút thăm nào.</p>
+                                    <div className="p-12 text-center border-2 border-dashed rounded-[3rem] border-primary/10">
+                                        <p className="text-sm text-muted-foreground font-bold italic">Chưa thực hiện lượt rút nào.</p>
                                     </div>
                                 )}
                             </div>
@@ -392,166 +711,201 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
                     )}
                 </TabsContent>
 
-                <TabsContent value="details" className="px-6 pb-6 space-y-6 outline-none">
-                    <div className="space-y-6">
-                        {/* Bulk selection toolbar for details */}
-                        {user && (user.uid === event.ownerId || user.role === 'Chủ nhà hàng') && (
-                            <div className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-2">
-                                    <input type="checkbox" className="h-4 w-4" checked={selectedVoters.length > 0 && selectedVoters.length === votes.length} onChange={(e) => {
-                                        if (e.currentTarget.checked) setSelectedVoters((votes || []).map(v => v.userId || v.id));
-                                        else setSelectedVoters([]);
-                                    }} />
-                                    <span className="text-xs text-muted-foreground">Chọn tất cả</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    {selectedVoters.length > 0 ? (
-                                        <div className="text-sm text-muted-foreground">Đã chọn {selectedVoters.length} báo cáo</div>
-                                    ) : (
-                                        <div className="text-sm text-muted-foreground">Chưa chọn báo cáo</div>
-                                    )}
-                                    <Button size="sm" variant="destructive" disabled={selectedVoters.length === 0} onClick={deleteSelectedVoters}>Xóa báo cáo đã chọn</Button>
-                                </div>
+                <TabsContent value="details" className="px-6 pb-6 outline-none animate-in slide-in-from-bottom-2 duration-300">
+                    <div className="space-y-4">
+                        <div className="flex flex-col gap-3">
+                            <div className="relative group/search">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/40 group-focus-within/search:text-primary transition-colors" />
+                                <input 
+                                    placeholder="Tìm tên nhân viên..."
+                                    className="w-full h-11 pl-11 pr-4 rounded-xl bg-muted/20 border border-primary/5 focus:border-primary/20 focus:ring-4 focus:ring-primary/5 text-sm font-bold transition-all placeholder:text-muted-foreground/30"
+                                    value={searchQuery}
+                                    onChange={e => setSearchQuery(e.target.value)}
+                                />
                             </div>
-                        )}
 
-                        {event.type === 'ballot' ? (
-                            <div className="grid gap-3">
-                                {(votes || []).map(v => (
-                                    <div key={v.id} className="flex items-center justify-between p-3 bg-muted/20 rounded-xl">
-                                        <div className="flex items-center gap-3">
-                                            {user && (user.uid === event.ownerId || user.role === 'Chủ nhà hàng') && (
-                                                <input type="checkbox" className="h-4 w-4" checked={selectedVoters.includes(v.userId || v.id)} onChange={() => toggleSelectVoter(v.userId || v.id)} />
-                                            )}
-                                            <Avatar className="h-10 w-10 border-2 border-white shadow-sm">
-                                                <AvatarFallback>{(v.userDisplay?.name || v.userId || '').charAt(0)}</AvatarFallback>
-                                            </Avatar>
-                                            <div>
-                                                <h5 className="font-bold text-sm">{v.userDisplay?.name || v.userId}</h5>
-                                                <p className="text-[10px] text-muted-foreground">Tham gia: {formatTime(v.createdAt, 'dd/MM/yyyy HH:mm')}</p>
-                                            </div>
+                            {(user?.uid === event.ownerId || user?.role === 'Chủ nhà hàng') && (
+                                <div className="flex items-center justify-between px-1">
+                                    <div 
+                                        className="flex items-center gap-2.5 cursor-pointer select-none group/select"
+                                        onClick={() => {
+                                            if (selectedVoters.length === votes.length) setSelectedVoters([]);
+                                            else setSelectedVoters(votes.map(v => v.userId || v.id));
+                                        }}
+                                    >
+                                        <div className={cn(
+                                            "h-5 w-5 rounded-md border-2 flex items-center justify-center transition-all duration-300",
+                                            selectedVoters.length > 0 ? "bg-primary border-primary shadow-sm" : "border-muted-foreground/20 group-hover/select:border-primary/40"
+                                        )}>
+                                            {selectedVoters.length === votes.length && <CheckCircle2 className="h-3 w-3 text-white" />}
+                                            {selectedVoters.length > 0 && selectedVoters.length < votes.length && <div className="h-1.5 w-1.5 bg-white rounded-full" />}
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            {user && (user.uid === event.ownerId || user.role === 'Chủ nhà hàng') && (
-                                                <button
-                                                    onClick={async () => {
-                                                        if (!confirm(`Xóa báo cáo của ${v.userDisplay?.name || v.userId}?`)) return;
-                                                        try {
-                                                            await deleteVote(event.id, v.userId || v.id);
-                                                            await fetchResults();
-                                                            setSelectedVoters(prev => prev.filter(i => i !== (v.userId || v.id)));
-                                                            toast.success('Đã xóa.');
-                                                        } catch (e) {
-                                                            toast.error('Lỗi khi xóa.');
-                                                        }
-                                                    }}
-                                                    className="p-1.5 text-muted-foreground hover:text-destructive transition-opacity"
+                                        <span className="text-[10px] font-black uppercase tracking-[0.1em] text-muted-foreground/60 transition-colors group-hover/select:text-primary">
+                                            {selectedVoters.length === 0 ? "Chọn tất cả tham gia" : `Đã chọn ${selectedVoters.length} nhân viên`}
+                                        </span>
+                                    </div>
+                                    
+                                    {selectedVoters.length > 0 && (
+                                        <Button 
+                                            size="sm" 
+                                            variant="destructive" 
+                                            className="h-8 rounded-lg font-black text-[10px] px-4 flex gap-2 animate-in zoom-in-95 duration-300 shadow-lg shadow-destructive/10 uppercase tracking-widest" 
+                                            onClick={deleteSelectedVoters}
+                                        >
+                                            <Trash2 className="h-3 w-3" />
+                                            Xóa bài gửi
+                                        </Button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="grid gap-2.5">
+                            {votes
+                                .filter(v => !searchQuery || v.userDisplay.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                                .map(v => (
+                                    <div 
+                                        key={v.id} 
+                                        className={cn(
+                                            "relative p-3.5 rounded-2xl border transition-all duration-300 group/item overflow-hidden",
+                                            selectedVoters.includes(v.userId || v.id) 
+                                                ? "bg-primary/[0.04] border-primary/20 shadow-md ring-1 ring-primary/10" 
+                                                : "bg-white dark:bg-black/20 border-primary/5 hover:border-primary/10 hover:shadow-soft"
+                                        )}
+                                    >
+                                        <div className="flex items-start gap-4 h-full">
+                                            {(user?.uid === event.ownerId || user?.role === 'Chủ nhà hàng') && (
+                                                <div 
+                                                    className={cn(
+                                                        "mt-1.5 h-6 w-6 rounded-full border-2 flex items-center justify-center shrink-0 cursor-pointer transition-all duration-300",
+                                                        selectedVoters.includes(v.userId || v.id) ? "bg-primary border-primary shadow-sm scale-110" : "border-muted-foreground/10 hover:border-primary/50"
+                                                    )}
+                                                    onClick={() => toggleSelectVoter(v.userId || v.id)}
                                                 >
-                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                </button>
+                                                    {selectedVoters.includes(v.userId || v.id) && <CheckCircle2 className="h-3.5 w-3.5 text-white" />}
+                                                </div>
                                             )}
+                                            
+                                            <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                                {/* Left side: Avatar + User Info */}
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <Avatar className="h-11 w-11 border-2 border-white shadow-soft shrink-0">
+                                                        <AvatarImage src={allUsers.find(u => u.uid === v.userId)?.photoURL || undefined} />
+                                                        <AvatarFallback className="font-bold bg-muted text-[10px]">{(v.userDisplay?.name || '').charAt(0)}</AvatarFallback>
+                                                    </Avatar>
+                                                    <div className="min-w-0">
+                                                        <h5 className="font-black text-sm leading-tight">{event.anonymousResults ? "Nhân viên ẩn danh" : v.userDisplay?.name}</h5>
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground/40">
+                                                                <Clock className="h-2.5 w-2.5" />
+                                                                {formatTime(v.createdAt, 'dd/MM HH:mm')}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Right side: Results/Selection badges */}
+                                                <div className="flex items-center justify-end gap-3 ml-auto sm:ml-0 min-w-0">
+                                                    {(event.type === 'vote' || event.type === 'multi-vote' || event.type === 'ballot') && (
+                                                        <div className="flex items-center gap-1.5 max-w-full">
+                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                {(v.votes || []).map((choiceId) => {
+                                                                    const choice = allCandidates.find(c => c.id === choiceId);
+                                                                    return (
+                                                                        <div
+                                                                            key={choiceId}
+                                                                            className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-muted/10 border border-primary/5 text-[12px] font-bold leading-snug break-words"
+                                                                            title={choice?.name || '—'}
+                                                                            aria-label={choice?.name || 'choice'}
+                                                                        >
+                                                                            <Avatar className="h-5 w-5 shrink-0">
+                                                                                <AvatarImage src={choice?.avatarUrl || undefined} />
+                                                                                <AvatarFallback className="text-[9px] bg-muted font-black">{(choice?.name || '·').charAt(0)}</AvatarFallback>
+                                                                            </Avatar>
+                                                                            <span className="whitespace-normal break-words leading-tight">{choice?.name || 'Không rõ'}</span>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                            {(v.votes || []).length > 0 && (
+                                                                <span className="text-[9px] font-black text-primary/50 uppercase tracking-tighter ml-1">
+                                                                    {(v.votes || []).length > 3 ? `+${(v.votes || []).length - 3}` : ""}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    
+                                                    {event.type === 'review' && v.ratings && (
+                                                        <div className="flex items-center gap-1 bg-amber-50 dark:bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-100 dark:border-amber-500/20">
+                                                            <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
+                                                            <span className="text-[10px] font-black text-amber-600/80">{Object.keys(v.ratings).length}</span>
+                                                        </div>
+                                                    )}
+
+                                                    {v.comments && ((Object.keys(v.comments).length > 0 && v.comments['general']) || Object.keys(v.comments).length > (v.comments['general'] ? 1 : 0)) && (
+                                                        <div className="h-7 w-7 flex items-center justify-center rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-500 border border-sky-100 dark:border-sky-500/20 transition-transform group-hover/item:scale-110">
+                                                            <MessageSquareText className="h-3 w-3" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
-                                {(votes || []).length === 0 && <p className="text-xs text-muted-foreground italic">Chưa có người tham gia.</p>}
-                            </div>
-                        ) : (
-                            results.map(res => (
-                                <div key={res.id} className="space-y-3">
-                                    <div className="flex items-center justify-between group">
+                        </div>
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="comments" className="px-6 pb-6 outline-none animate-in slide-in-from-right-2 duration-300">
+                    <div className="space-y-6">
+                        <div className="relative group">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50 group-focus-within:text-primary transition-colors" />
+                            <input 
+                                placeholder="Tìm trong bình luận..."
+                                className="w-full h-12 pl-12 pr-4 rounded-2xl bg-muted/30 border-none focus:ring-2 focus:ring-primary/20 text-sm font-bold transition-all"
+                                value={searchQuery}
+                                onChange={e => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+
+                        {allComments.length > 0 ? (
+                            <div className="grid gap-4">
+                                {allComments.map((comment, idx) => (
+                                    <div key={`${comment.userId}-${idx}`} className="flex flex-col gap-3 p-5 bg-background rounded-[2rem] border border-primary/5 shadow-soft hover:shadow-md transition-all group overflow-hidden relative">
+                                        <div className="absolute -right-4 -top-4 opacity-5 group-hover:scale-125 transition-transform duration-500">
+                                            <MessageSquareText className="h-16 w-16 text-primary" />
+                                        </div>
                                         <div className="flex items-center gap-3">
-                                            <Avatar className="h-10 w-10 border-2 border-white shadow-sm">
-                                                <AvatarImage src={allCandidates.find(c => c.id === res.id)?.avatarUrl} />
-                                                <AvatarFallback>{res.name.charAt(0)}</AvatarFallback>
+                                            <Avatar className="h-8 w-8 border-2 border-white shadow-sm shrink-0">
+                                                <AvatarImage src={comment.avatar || undefined} />
+                                                <AvatarFallback className="text-[10px] font-bold">{comment.author.charAt(0)}</AvatarFallback>
                                             </Avatar>
-                                            <div>
-                                                <h5 className="font-bold text-sm">{res.name}</h5>
-                                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">
-                                                    {event.type === 'review' ? `${res.ratingCount} đánh giá` : `${res.voters.length} phiếu bầu`}
-                                                </p>
+                                            <div className="min-w-0">
+                                                <p className="font-black text-sm truncate">{comment.author}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] font-bold text-muted-foreground/60">{format(comment.date, 'HH:mm • dd/MM')}</span>
+                                                    {comment.candidateName && (
+                                                        <Badge variant="outline" className={cn(
+                                                            "text-[9px] font-black h-4 px-1 border-none",
+                                                            comment.candidateName === 'Nhận xét chung' ? "bg-amber-100 text-amber-700" : "bg-sky-100 text-sky-700"
+                                                        )}>
+                                                            {comment.candidateName.toUpperCase()}
+                                                        </Badge>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
-                                        {user && (user.uid === event.ownerId || user.role === 'Chủ nhà hàng') && (
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                className="text-destructive hover:bg-destructive/10 font-bold text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                                                onClick={async () => {
-                                                    const voters = (votes || []).filter(v => (v.votes || []).includes(res.id) || (v.ratings && v.ratings[res.id] !== undefined) || (v.comments && v.comments[res.id]));
-                                                    if (voters.length === 0) return;
-                                                    if (!confirm(`Xóa tất cả ${voters.length} dữ liệu liên quan đến "${res.name}"? Lưu ý: đây sẽ xóa toàn bộ bài gửi của từng người (nếu một người đã bình chọn nhiều mục, cả các mục đó sẽ bị xóa).`)) return;
-                                                    try {
-                                                        for (const v of voters) {
-                                                            await deleteVote(event.id, v.userId || v.id);
-                                                        }
-                                                        await fetchResults();
-                                                        toast.success('Đã xóa dữ liệu.');
-                                                    } catch (e) {
-                                                        console.error('Failed to delete bulk:', e);
-                                                        toast.error('Lỗi khi xóa.');
-                                                    }
-                                                }}
-                                            >
-                                                Xóa tất cả (bằng báo cáo người gửi)
-                                            </Button>
-                                        )}
+                                        <div className="p-4 bg-muted/20 rounded-2xl border border-black/5 relative min-h-[3rem]">
+                                            <p className="text-sm font-medium leading-relaxed italic text-foreground/80">"{comment.text}"</p>
+                                        </div>
                                     </div>
-
-                                    <div className="grid gap-2 pl-4 border-l-2 border-muted ml-5">
-                                        {(() => {
-                                            const entries = (votes || []).filter(v => {
-                                                if (event.type === 'review') return (v.ratings && v.ratings[res.id] !== undefined) || (v.comments && v.comments[res.id]);
-                                                return (v.votes || []).includes(res.id) || (event.type === 'ballot' && res.id === v.userId);
-                                            });
-
-                                            if (entries.length === 0) return <p className="text-xs text-muted-foreground italic">Chưa có dữ liệu.</p>;
-
-                                            return entries.map(v => (
-                                                <div key={v.id} className="flex items-start justify-between p-3 bg-muted/20 rounded-xl group/item">
-                                                    <div className="space-y-1 flex-1 min-w-0">
-                                                        <div className="flex items-center gap-2">
-                                                            {user && (user.uid === event.ownerId || user.role === 'Chủ nhà hàng') && (
-                                                                <input type="checkbox" className="h-4 w-4" checked={selectedVoters.includes(v.userId || v.id)} onChange={() => toggleSelectVoter(v.userId || v.id)} />
-                                                            )}
-                                                            <span className="text-xs font-bold">
-                                                                {event.anonymousResults ? 'Người dùng ẩn danh' : (v.userDisplay?.name || v.userId)}
-                                                            </span>
-                                                            {v.ratings && v.ratings[res.id] !== undefined && (
-                                                                <Badge variant="secondary" className="bg-amber-100 text-amber-700 border-none text-[10px] h-5 px-1.5">
-                                                                    ⭐ {v.ratings[res.id]}
-                                                                </Badge>
-                                                            )}
-                                                        </div>
-                                                        {v.comments && v.comments[res.id] && (
-                                                            <p className="text-xs text-muted-foreground italic leading-relaxed">"{v.comments[res.id]}"</p>
-                                                        )}
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        {user && (user.uid === event.ownerId || user.role === 'Chủ nhà hàng') && (
-                                                            <button
-                                                                onClick={async () => {
-                                                                    if (!confirm(`Xóa báo cáo của ${event.anonymousResults ? 'Ẩn danh' : (v.userDisplay?.name || v.userId)}? (Sẽ xóa toàn bộ bài gửi của người này)`)) return;
-                                                                    try {
-                                                                        await deleteVote(event.id, v.userId || v.id);
-                                                                        await fetchResults();
-                                                                        setSelectedVoters(prev => prev.filter(i => i !== (v.userId || v.id)));
-                                                                        toast.success('Đã xóa.');
-                                                                    } catch (e) {
-                                                                        toast.error('Lỗi khi xóa.');
-                                                                    }
-                                                                }}
-                                                                className="p-1.5 text-muted-foreground hover:text-destructive transition-opacity"
-                                                            >
-                                                                <Trash2 className="h-3.5 w-3.5" />
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            ));
-                                        })()}
-                                    </div>
-                                </div>
-                            ))
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="py-12 flex flex-col items-center justify-center border-2 border-dashed rounded-[3rem] border-primary/5 text-center px-4">
+                                <MessageSquareText className="h-12 w-12 text-primary/10 mb-4" />
+                                <p className="text-sm text-muted-foreground font-bold italic">Không tìm thấy bình luận nào.</p>
+                            </div>
                         )}
                     </div>
                 </TabsContent>
@@ -561,37 +915,47 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }} dialogTag="event-results-dialog" parentDialogTag={parentDialogTag}>
-            <DialogContent className="max-w-2xl p-0 overflow-hidden border-none shadow-2xl flex flex-col max-h-[90vh]">
-                <div className="bg-primary/5 px-6 py-5 border-b flex items-center justify-between">
-                    <DialogHeader>
-                        <DialogTitle className="text-xl font-black flex items-center gap-2">
-                            <BarChart3 className="h-5 w-5 text-primary" />
-                            Kết quả: {event.title}
-                        </DialogTitle>
-                        <DialogDescription className="text-xs">
-                            Xem thống kê chi tiết và quản lý các lượt tham gia.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={fetchResults}
-                        disabled={isLoading}
-                        className="rounded-full h-9 w-9 bg-white shadow-sm border-muted hover:bg-primary/5 hover:text-primary transition-all"
-                    >
-                        <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
-                    </Button>
-                </div>
+            <DialogContent className="max-w-2xl p-0 overflow-hidden border-none shadow-2xl flex flex-col sm:rounded-[2rem] h-full sm:h-[90vh]">
+                <DialogHeader iconkey="layout" variant="premium" className="max-sm:px-4 max-sm:py-3 shrink-0">
+                    <div className="flex items-center justify-between w-full">
+                        <div className="text-left space-y-1">
+                            <DialogTitle className="max-sm:text-lg">
+                                {event.title}
+                            </DialogTitle>
+                            <DialogDescription className="text-[10px] font-bold uppercase tracking-widest text-primary/60">
+                                Kết quả sự kiện • {event.type}
+                            </DialogDescription>
+                        </div>
+                        <button
+                            onClick={fetchResults}
+                            disabled={isLoading}
+                            className="bg-white/20 hover:bg-white/40 backdrop-blur-md p-1 rounded-2xl transition-all active:scale-95 disabled:opacity-50 border border-white/20 shadow-xl"
+                        >
+                            <RefreshCw className={cn("h-5 w-5", isLoading && "animate-spin")} />
+                        </button>
+                    </div>
+                </DialogHeader>
 
-                <ScrollArea className="flex-1 overflow-auto">
-                    <div className="py-4">
+                <DialogBody className="p-0 flex-1 overflow-hidden">
+                    <div className="h-full overflow-y-auto custom-scrollbar">
                         {renderContent()}
                     </div>
-                </ScrollArea>
+                </DialogBody>
 
-                <div className="p-4 border-t bg-muted/10 flex justify-end">
-                    <Button variant="outline" onClick={onClose} className="font-bold px-8 rounded-xl">Đóng</Button>
-                </div>
+                <DialogFooter className="p-4 sm:p-6 bg-muted/10 border-t border-black/5 gap-3 shrink-0">
+                    <DialogCancel className="flex-1 sm:flex-none h-11 sm:h-12 px-10 rounded-xl sm:rounded-2xl bg-background border border-black/5 hover:bg-muted font-black text-sm uppercase tracking-widest">
+                        Đóng
+                    </DialogCancel>
+                    {(selectedVoters.length > 0) && (
+                         <Button 
+                            variant="destructive" 
+                            onClick={deleteSelectedVoters}
+                            className="flex-1 sm:flex-none h-11 sm:h-12 rounded-xl sm:rounded-2xl px-8 font-black shadow-lg shadow-destructive/20 uppercase tracking-widest"
+                        >
+                            Xóa {selectedVoters.length}
+                        </Button>
+                    )}
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     );

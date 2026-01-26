@@ -171,7 +171,7 @@ export default function TaskCard({ task, reports, canSubmit, pendingMedia, pendi
               {/* Collapsed Admin Actions Bar - More clean and grouped */}
               {(onEdit || onDelete || (isExpired && onRegenerate)) && (
                 <div className="flex items-center gap-1">
-                  {isInReview && onEdit && (
+                  {onEdit && !isCompleted && (
                     <Button
                       variant="outline"
                       size="sm"

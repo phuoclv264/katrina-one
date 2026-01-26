@@ -179,9 +179,9 @@ export default function ReportsFeedPage() {
       const element = reportRefs.current.get(reportId);
       element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       if (element) {
-        element.classList.add('ring-2', 'ring-primary', 'transition-all', 'duration-1000');
+        element.classList.add('ring-2', 'ring-primary', 'rounded-xl', 'transition-all', 'duration-1000');
         setTimeout(() => {
-          element.classList.remove('ring-2', 'ring-primary');
+          element.classList.remove('ring-2', 'ring-primary', 'rounded-xl');
         }, 2000);
       }
     }, 100);

@@ -8,7 +8,9 @@ import {
     DialogTitle,
     DialogDescription,
     DialogFooter,
-    DialogClose
+    DialogAction,
+    DialogCancel,
+    DialogBody
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -228,224 +230,316 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose} dialogTag="unpaid-slips-dialog" parentDialogTag={parentDialogTag}>
-            <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 bg-white dark:bg-card rounded-xl shadow-lg">
-                <DialogHeader className="p-4 sm:p-6 pb-0 sticky top-0 bg-muted/30 dark:bg-card/50 backdrop-blur-sm z-10 rounded-t-xl">
+            <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 overflow-hidden rounded-[2rem]">
+                <DialogHeader iconkey="wallet" variant="info">
                     <DialogTitle>Công nợ Chuyển khoản</DialogTitle>
                     <DialogDescription>
-                        Quản lý các phiếu chi chuyển khoản chưa thanh toán và xem lại lịch sử đã thanh toán.
+                        Quản lý các phiếu chi chuyển khoản chưa thanh toán và lịch sử đã thanh toán.
                     </DialogDescription>
-                    <DialogClose className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-                        <X className="h-4 w-4" />
-                        <span className="sr-only">Close</span>
-                    </DialogClose>
                 </DialogHeader>
 
-                <div className="flex-grow flex flex-col overflow-hidden">
-                    <Tabs defaultValue="unpaid" className="w-full flex-grow flex flex-col overflow-hidden px-4 sm:px-6">
-                        <TabsList className="grid w-full grid-cols-2 bg-muted dark:bg-background rounded-lg border">
-                            <TabsTrigger value="unpaid" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-700 data-[state=active]:shadow-sm dark:data-[state=active]:bg-green-900/50 dark:data-[state=active]:text-green-200">Chưa thanh toán</TabsTrigger>
-                            <TabsTrigger value="history" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700 data-[state=active]:shadow-sm dark:data-[state=active]:bg-blue-900/50 dark:data-[state=active]:text-blue-200">Lịch sử thanh toán</TabsTrigger>
-                        </TabsList>
+                <DialogBody className="p-0 flex flex-col overflow-hidden">
+                    <Tabs defaultValue="unpaid" className="w-full h-full flex flex-col overflow-hidden">
+                        <div className="px-4 py-3 bg-white dark:bg-card sticky top-0 z-20 border-b">
+                            <TabsList className="grid w-full grid-cols-2 p-1 bg-muted/20 rounded-xl">
+                                <TabsTrigger 
+                                    value="unpaid" 
+                                    className="rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm"
+                                >
+                                    Chưa thanh toán
+                                </TabsTrigger>
+                                <TabsTrigger 
+                                    value="history" 
+                                    className="rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm"
+                                >
+                                    Lịch sử thanh toán
+                                </TabsTrigger>
+                            </TabsList>
+                        </div>
 
-                        <TabsContent value="unpaid" className="flex-grow overflow-hidden pt-4">
+                        <TabsContent value="unpaid" className="flex-grow overflow-hidden m-0">
                             {sortedUnpaidSuppliers.length === 0 && unpaidOtherCostSlips.length === 0 ? (
-                                <div className="h-full flex items-center justify-center">
-                                    <div className="text-center">
-                                        <Check className="mx-auto h-12 w-12 text-green-500" />
-                                        <p className="mt-4 text-muted-foreground">Không có công nợ nào chưa thanh toán.</p>
+                                <div className="h-full flex items-center justify-center p-8">
+                                    <div className="text-center space-y-4">
+                                        <div className="bg-green-100 dark:bg-green-900/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto">
+                                            <Check className="h-8 w-8 text-green-600 dark:text-green-400" />
+                                        </div>
+                                        <p className="text-muted-foreground font-medium">Không có công nợ nào chưa thanh toán.</p>
                                     </div>
                                 </div>
                             ) : (
                                 <ScrollArea className="h-full">
-                                    <Accordion type="multiple" defaultValue={[...sortedUnpaidSuppliers, 'other-costs']} className="space-y-4">
-                                        {sortedUnpaidSuppliers.map(supplier => {
-                                            const supplierData = unpaidGroupedBySupplier[supplier];
-                                            const slipCount = Object.keys(supplierData.slips).length;
-                                            const allSlipsForSupplier = Object.keys(supplierData.slips).map(slipId => getCompositeKey(slipId, supplier));
-                                            const areAllSelected = allSlipsForSupplier.every(key => selectedItems.has(key));
+                                    <div className="p-4 space-y-4">
+                                        <Accordion type="multiple" defaultValue={[...sortedUnpaidSuppliers, 'other-costs']} className="space-y-4">
+                                            {sortedUnpaidSuppliers.map(supplier => {
+                                                const supplierData = unpaidGroupedBySupplier[supplier];
+                                                const slipCount = Object.keys(supplierData.slips).length;
+                                                const allSlipsForSupplier = Object.keys(supplierData.slips).map(slipId => getCompositeKey(slipId, supplier));
+                                                const areAllSelected = allSlipsForSupplier.every(key => selectedItems.has(key));
 
-                                            return (
-                                                <AccordionItem value={supplier} key={supplier} className="border rounded-lg shadow-sm">
-                                                    <AccordionTrigger className="p-4 text-lg font-semibold hover:no-underline">
-                                                        <div className="flex items-center justify-between w-full pr-4">
-                                                            <span>{supplier}</span>
-                                                            <span className="text-red-600 font-bold">{supplierData.total.toLocaleString('vi-VN')}đ</span>
+                                                return (
+                                                    <AccordionItem value={supplier} key={supplier} className="border-none rounded-[1.5rem] bg-muted/5 overflow-hidden">
+                                                        <AccordionTrigger className="px-5 py-4 hover:no-underline hover:bg-muted/10 transition-colors">
+                                                            <div className="flex items-center justify-between w-full pr-2">
+                                                                <div className="flex flex-col items-start text-left">
+                                                                    <span className="font-bold text-base sm:text-lg text-primary">{supplier}</span>
+                                                                    <span className="text-xs text-muted-foreground">{slipCount} phiếu chi</span>
+                                                                </div>
+                                                                <span className="text-red-600 font-bold text-base sm:text-lg shrink-0">
+                                                                    {supplierData.total.toLocaleString('vi-VN')}đ
+                                                                </span>
+                                                            </div>
+                                                        </AccordionTrigger>
+                                                        <AccordionContent className="px-5 pb-5 space-y-4">
+                                                            <div className="flex items-center gap-3 pt-2">
+                                                                <Checkbox
+                                                                    id={`select-all-${supplier}`}
+                                                                    checked={areAllSelected}
+                                                                    onCheckedChange={(checked) => handleSelectAllForSupplier(supplier, !!checked)}
+                                                                    className="w-5 h-5 rounded-md"
+                                                                />
+                                                                <label htmlFor={`select-all-${supplier}`} className="text-sm font-semibold cursor-pointer select-none">
+                                                                    Chọn tất cả để thanh toán
+                                                                </label>
+                                                            </div>
+                                                            <div className="space-y-3">
+                                                                {Object.entries(supplierData.slips).map(([slipId, slipData]) => {
+                                                                    const key = getCompositeKey(slipId, supplier);
+                                                                    const itemsSummary = slipData.items
+                                                                        .map(item => {
+                                                                            const inventoryItem = inventoryList.find(i => i.id === item.itemId);
+                                                                            const shortName = inventoryItem?.shortName || item.name;
+                                                                            const totalItemPrice = (item.quantity * item.unitPrice).toLocaleString('vi-VN') + 'đ';
+                                                                            return `${shortName} x ${item.quantity} (${totalItemPrice})`;
+                                                                        }).join(', ');
+
+                                                                    return (
+                                                                        <div 
+                                                                            key={key} 
+                                                                            className={cn(
+                                                                                "relative flex items-start gap-4 p-4 rounded-2xl transition-all border select-none cursor-pointer",
+                                                                                selectedItems.has(key) 
+                                                                                    ? "bg-primary/5 border-primary/20 shadow-sm" 
+                                                                                    : "bg-white dark:bg-background border-muted/20 hover:border-primary/30"
+                                                                            )}
+                                                                            onClick={() => handleSelectSlip(key, !selectedItems.has(key))}
+                                                                        >
+                                                                            <Checkbox
+                                                                                checked={selectedItems.has(key)}
+                                                                                className="mt-1 w-5 h-5 rounded-md shrink-0"
+                                                                                onCheckedChange={(checked) => {
+                                                                                    // Checkbox click handled by parent div
+                                                                                }}
+                                                                            />
+                                                                            <div className="flex-grow min-w-0">
+                                                                                <div className="flex justify-between items-start gap-2 mb-1">
+                                                                                    <span className="font-bold text-sm sm:text-base">
+                                                                                        Ngày {format(parseISO(slipData.slipDate), 'dd/MM/yyyy')}
+                                                                                    </span>
+                                                                                    <span className="font-bold text-red-600 shrink-0">
+                                                                                        {slipData.slipTotal.toLocaleString('vi-VN')}đ
+                                                                                    </span>
+                                                                                </div>
+                                                                                <div className="flex flex-col gap-1">
+                                                                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                                                                        <span className="bg-muted/50 px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider shrink-0">
+                                                                                            Lập bởi
+                                                                                        </span>
+                                                                                        <span className="font-medium truncate">{slipData.slipCreatedBy}</span>
+                                                                                    </div>
+                                                                                    <p className="text-xs text-muted-foreground/80 leading-relaxed italic line-clamp-2">
+                                                                                        {itemsSummary}
+                                                                                    </p>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </AccordionContent>
+                                                    </AccordionItem>
+                                                );
+                                            })}
+
+                                            {unpaidOtherCostSlips.length > 0 && (
+                                                <AccordionItem value="other-costs" className="border-none rounded-[1.5rem] bg-muted/5 overflow-hidden">
+                                                    <AccordionTrigger className="px-5 py-4 hover:no-underline hover:bg-muted/10 transition-colors">
+                                                        <div className="flex items-center justify-between w-full pr-2">
+                                                            <div className="flex flex-col items-start text-left">
+                                                                <span className="font-bold text-base sm:text-lg text-primary">Chi phí khác</span>
+                                                                <span className="text-xs text-muted-foreground">{unpaidOtherCostSlips.length} khoản chi</span>
+                                                            </div>
                                                         </div>
                                                     </AccordionTrigger>
-                                                    <AccordionContent className="p-4 border-t space-y-3">
-                                                        <div className="flex items-center gap-2">
-                                                            <Checkbox
-                                                                id={`select-all-${supplier}`}
-                                                                checked={areAllSelected}
-                                                                onCheckedChange={(checked) => handleSelectAllForSupplier(supplier, !!checked)}
-                                                            />
-                                                            <label htmlFor={`select-all-${supplier}`} className="text-sm font-medium">Chọn tất cả ({slipCount} phiếu)</label>
-                                                        </div>
-                                                        <div className="space-y-3">
-                                                            {Object.entries(supplierData.slips).map(([slipId, slipData]) => {
-                                                                const key = getCompositeKey(slipId, supplier);
-                                                                const itemsSummary = slipData.items
-                                                                    .map(item => {
-                                                                        const inventoryItem = inventoryList.find(i => i.id === item.itemId);
-                                                                        const shortName = inventoryItem?.shortName || item.name;
-                                                                        const totalItemPrice = (item.quantity * item.unitPrice).toLocaleString('vi-VN') + 'đ';
-                                                                        return `${shortName} x ${item.quantity} (${totalItemPrice})`;
-                                                                    }).join(', ');
-
-                                                                return (
-                                                                    <Card key={key} className={cn("bg-muted/50 cursor-pointer hover:bg-muted", selectedItems.has(key) && "ring-2 ring-primary")} onClick={() => handleSelectSlip(key, !selectedItems.has(key))}>
-                                                                        <CardContent className="p-4">
-                                                                            <div className="flex items-start justify-between mb-2">
-                                                                                <div className="flex items-center gap-3">
-                                                                                    <Checkbox
-                                                                                        checked={selectedItems.has(key)}
-                                                                                        onCheckedChange={(checked) => {
-                                                                                            const event = window.event as MouseEvent;
-                                                                                            event?.stopPropagation();
-                                                                                            handleSelectSlip(key, !!checked);
-                                                                                        }}
-                                                                                    />
-                                                                                    <div>
-                                                                                        <label htmlFor={key} className="font-semibold text-base cursor-pointer">
-                                                                                            Phiếu chi ngày {format(parseISO(slipData.slipDate), 'dd/MM/yyyy')}
-                                                                                        </label>
-                                                                                        <p className="text-sm text-muted-foreground">Lập bởi: {slipData.slipCreatedBy}</p>
-                                                                                    </div>
-                                                                                </div>
-                                                                                <p className="font-bold text-lg text-red-600">{slipData.slipTotal.toLocaleString('vi-VN')}đ</p>
-                                                                            </div>
-                                                                            <p className="text-xs text-muted-foreground pl-8">{itemsSummary}</p>
-                                                                        </CardContent>
-                                                                    </Card>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </AccordionContent>
-                                                </AccordionItem>
-                                            );
-                                        })}
-                                        {unpaidOtherCostSlips.length > 0 && (
-                                            <AccordionItem value="other-costs" className="border rounded-lg shadow-sm">
-                                                <AccordionTrigger className="p-4 text-lg font-semibold hover:no-underline">
-                                                    Chi phí khác
-                                                </AccordionTrigger>
-                                                <AccordionContent className="p-4 border-t space-y-3">
-                                                    {unpaidOtherCostSlips.map(slip => {
-                                                        const key = getCompositeKey(slip.id, 'other_cost');
-                                                        return (
-                                                            <Card key={slip.id} className={cn("bg-muted/50 cursor-pointer hover:bg-muted", selectedItems.has(key) && "ring-2 ring-primary")} onClick={() => handleSelectSlip(key, !selectedItems.has(key))}>
-                                                                <CardContent className="p-4 flex items-center justify-between">
-                                                                    <div className="flex items-center gap-3">
-                                                                        <Checkbox
-                                                                            checked={selectedItems.has(key)}
-                                                                            onCheckedChange={(checked) => {
-                                                                                const event = window.event as MouseEvent;
-                                                                                event?.stopPropagation();
-                                                                                handleSelectSlip(key, !!checked);
-                                                                            }}
-                                                                        />
-                                                                        <div>
-                                                                            <p className="font-semibold">{getSlipContentName(slip.items[0])}</p>
-                                                                            <p className="text-sm text-muted-foreground">
-                                                                                Ngày {format(parseISO(slip.date), 'dd/MM/yyyy')} - Lập bởi {slip.createdBy.userName}
+                                                    <AccordionContent className="px-5 pb-5 space-y-3">
+                                                        {unpaidOtherCostSlips.map(slip => {
+                                                            const key = getCompositeKey(slip.id, 'other_cost');
+                                                            return (
+                                                                <div 
+                                                                    key={slip.id} 
+                                                                    className={cn(
+                                                                        "relative flex items-center gap-4 p-4 rounded-2xl transition-all border select-none cursor-pointer",
+                                                                        selectedItems.has(key) 
+                                                                            ? "bg-primary/5 border-primary/20 shadow-sm" 
+                                                                            : "bg-white dark:bg-background border-muted/20 hover:border-primary/30"
+                                                                    )}
+                                                                    onClick={() => handleSelectSlip(key, !selectedItems.has(key))}
+                                                                >
+                                                                    <Checkbox
+                                                                        checked={selectedItems.has(key)}
+                                                                        className="w-5 h-5 rounded-md shrink-0"
+                                                                        onCheckedChange={() => {}}
+                                                                    />
+                                                                    <div className="flex-grow min-w-0">
+                                                                        <div className="flex justify-between items-center gap-2">
+                                                                            <p className="font-bold text-sm sm:text-base truncate">
+                                                                                {getSlipContentName(slip.items[0])}
+                                                                            </p>
+                                                                            <p className="font-bold text-red-600 shrink-0">
+                                                                                {slip.totalAmount.toLocaleString('vi-VN')}đ
                                                                             </p>
                                                                         </div>
+                                                                        <p className="text-xs text-muted-foreground">
+                                                                            Ngày {format(parseISO(slip.date), 'dd/MM/yyyy')} • Lập bởi {slip.createdBy.userName}
+                                                                        </p>
                                                                     </div>
-                                                                    <p className="font-bold text-red-600">{slip.totalAmount.toLocaleString('vi-VN')}đ</p>
-                                                                </CardContent>
-                                                            </Card>
-                                                        )
-                                                    })}
-                                                </AccordionContent>
-                                            </AccordionItem>
-                                        )}
-                                    </Accordion>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </AccordionContent>
+                                                </AccordionItem>
+                                            )}
+                                        </Accordion>
+                                    </div>
                                 </ScrollArea>
                             )}
                         </TabsContent>
-                        <TabsContent value="history" className="flex-grow overflow-hidden pt-4">
+
+                        <TabsContent value="history" className="flex-grow overflow-hidden m-0">
                             {sortedPaidSuppliers.length === 0 && paidOtherCostSlips.length === 0 ? (
-                                <div className="h-full flex items-center justify-center">
-                                    <div className="text-center">
-                                        <History className="mx-auto h-12 w-12 text-muted-foreground" />
-                                        <p className="mt-4 text-muted-foreground">Chưa có lịch sử thanh toán nào.</p>
+                                <div className="h-full flex items-center justify-center p-8">
+                                    <div className="text-center space-y-4">
+                                        <div className="bg-blue-100 dark:bg-blue-900/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto">
+                                            <History className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                                        </div>
+                                        <p className="text-muted-foreground font-medium">Chưa có lịch sử thanh toán nào.</p>
                                     </div>
                                 </div>
                             ) : (
                                 <ScrollArea className="h-full">
-                                    <Accordion type="multiple" defaultValue={[...sortedPaidSuppliers, 'other-costs-paid']} className="space-y-4">
-                                        {sortedPaidSuppliers.map(supplier => {
-                                            const supplierData = paidGroupedBySupplier[supplier];
-                                            return (
-                                                <AccordionItem value={supplier} key={`paid-${supplier}`} className="border rounded-lg shadow-sm">
-                                                    <AccordionTrigger className="p-4 text-lg font-semibold hover:no-underline">
-                                                        <div className="flex items-center justify-between w-full pr-4">
-                                                            <span>{supplier}</span>
-                                                            <span className="text-green-600 font-bold">{supplierData.total.toLocaleString('vi-VN')}đ</span>
-                                                        </div>
-                                                    </AccordionTrigger>
-                                                    <AccordionContent className="p-4 border-t space-y-3">
-                                                        {Object.entries(supplierData.slips).map(([slipId, slipData]) => (
-                                                            <Card key={`${slipId}-${supplier}`} className="bg-muted/50">
-                                                                <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                                                                    <div>
-                                                                        <p className="font-semibold text-base">Phiếu chi ngày {format(parseISO(slipData.slipDate), 'dd/MM/yyyy')}</p>
-                                                                        <p className="text-sm text-muted-foreground">
+                                    <div className="p-4 space-y-4">
+                                        <Accordion type="multiple" defaultValue={[...sortedPaidSuppliers, 'other-costs-paid']} className="space-y-4">
+                                            {sortedPaidSuppliers.map(supplier => {
+                                                const supplierData = paidGroupedBySupplier[supplier];
+                                                return (
+                                                    <AccordionItem value={supplier} key={`paid-${supplier}`} className="border-none rounded-[1.5rem] bg-muted/5 overflow-hidden">
+                                                        <AccordionTrigger className="px-5 py-4 hover:no-underline hover:bg-muted/10 transition-colors">
+                                                            <div className="flex items-center justify-between w-full pr-2">
+                                                                <span className="font-bold text-base sm:text-lg text-primary">{supplier}</span>
+                                                                <span className="text-green-600 font-bold text-base sm:text-lg shrink-0">
+                                                                    {supplierData.total.toLocaleString('vi-VN')}đ
+                                                                </span>
+                                                            </div>
+                                                        </AccordionTrigger>
+                                                        <AccordionContent className="px-5 pb-5 space-y-3">
+                                                            {Object.entries(supplierData.slips).map(([slipId, slipData]) => (
+                                                                <div 
+                                                                    key={`${slipId}-${supplier}`} 
+                                                                    className="bg-white dark:bg-background p-4 rounded-2xl border border-muted/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm"
+                                                                >
+                                                                    <div className="flex flex-col gap-1 min-w-0">
+                                                                        <div className="flex items-baseline gap-2">
+                                                                            <p className="font-bold text-sm sm:text-base">
+                                                                                Ngày {format(parseISO(slipData.slipDate), 'dd/MM/yyyy')}
+                                                                            </p>
+                                                                            <p className="text-green-600 font-bold text-sm">
+                                                                                {slipData.slipTotal.toLocaleString('vi-VN')}đ
+                                                                            </p>
+                                                                        </div>
+                                                                        <p className="text-xs text-muted-foreground truncate font-medium">
                                                                             Lập bởi: {slipData.slipCreatedBy}
                                                                         </p>
                                                                     </div>
-                                                                    <div className="flex items-center gap-2 self-end sm:self-center">
-                                                                        <span className="text-green-600 font-medium text-lg">{slipData.slipTotal.toLocaleString('vi-VN')}đ</span>
-                                                                        <Button size="sm" variant="outline" onClick={() => handleUndoPayment(slipId, supplier)} disabled={isProcessing}>
-                                                                            {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Undo className="mr-2 h-4 w-4" />}
-                                                                            Hoàn tác
-                                                                        </Button>
+                                                                    <Button 
+                                                                        size="sm" 
+                                                                        variant="ghost" 
+                                                                        className="h-8 rounded-lg text-xs bg-muted/30 hover:bg-muted font-bold text-primary shrink-0 w-full sm:w-auto mt-2 sm:mt-0"
+                                                                        onClick={() => handleUndoPayment(slipId, supplier)} 
+                                                                        disabled={isProcessing}
+                                                                    >
+                                                                        {isProcessing ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <Undo className="mr-1.5 h-3 w-3" />}
+                                                                        Hoàn tác
+                                                                    </Button>
+                                                                </div>
+                                                            ))}
+                                                        </AccordionContent>
+                                                    </AccordionItem>
+                                                );
+                                            })}
+
+                                            {paidOtherCostSlips.length > 0 && (
+                                                <AccordionItem value="other-costs-paid" className="border-none rounded-[1.5rem] bg-muted/5 overflow-hidden">
+                                                    <AccordionTrigger className="px-5 py-4 hover:no-underline hover:bg-muted/10 transition-colors">
+                                                        <div className="flex items-center justify-between w-full pr-2">
+                                                            <span className="font-bold text-base sm:text-lg text-primary">Chi phí khác đã thanh toán</span>
+                                                        </div>
+                                                    </AccordionTrigger>
+                                                    <AccordionContent className="px-5 pb-5 space-y-3">
+                                                        {paidOtherCostSlips.map(slip => (
+                                                            <div 
+                                                                key={slip.id} 
+                                                                className="bg-white dark:bg-background p-4 rounded-2xl border border-muted/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm"
+                                                            >
+                                                                <div className="min-w-0 flex flex-col gap-1">
+                                                                    <p className="font-bold text-sm sm:text-base truncate">{getSlipContentName(slip.items[0])}</p>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <p className="text-xs text-muted-foreground">
+                                                                            Ngày {format(parseISO(slip.date), 'dd/MM/yyyy')}
+                                                                        </p>
+                                                                        <span className="text-green-600 font-bold text-xs">
+                                                                            {slip.totalAmount.toLocaleString('vi-VN')}đ
+                                                                        </span>
                                                                     </div>
-                                                                </CardContent>
-                                                            </Card>
+                                                                </div>
+                                                                <Button 
+                                                                    size="sm" 
+                                                                    variant="ghost" 
+                                                                    className="h-8 rounded-lg text-xs bg-muted/30 hover:bg-muted font-bold text-primary shrink-0 w-full sm:w-auto"
+                                                                    onClick={() => handleUndoPayment(slip.id, 'other_cost')} 
+                                                                    disabled={isProcessing}
+                                                                >
+                                                                    {isProcessing ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <Undo className="mr-1.5 h-3 w-3" />}
+                                                                    Hoàn tác
+                                                                </Button>
+                                                            </div>
                                                         ))}
                                                     </AccordionContent>
                                                 </AccordionItem>
-                                            );
-                                        })}
-                                        {paidOtherCostSlips.length > 0 && (
-                                            <AccordionItem value="other-costs-paid" className="border rounded-lg shadow-sm">
-                                                <AccordionTrigger className="p-4 text-lg font-semibold hover:no-underline">
-                                                    Chi phí khác đã thanh toán
-                                                </AccordionTrigger>
-                                                <AccordionContent className="p-4 border-t space-y-3">
-                                                    {paidOtherCostSlips.map(slip => (
-                                                        <Card key={slip.id} className="bg-muted/50">
-                                                            <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                                                                <div>
-                                                                    <p className="font-semibold">{getSlipContentName(slip.items[0])}</p>
-                                                                    <p className="text-sm text-muted-foreground">
-                                                                        Ngày {format(parseISO(slip.date), 'dd/MM/yyyy')} - {slip.totalAmount.toLocaleString('vi-VN')}đ
-                                                                    </p>
-                                                                </div>
-                                                                <Button size="sm" variant="outline" onClick={() => handleUndoPayment(slip.id, 'other_cost')} disabled={isProcessing}>
-                                                                    {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Undo className="mr-2 h-4 w-4" />}
-                                                                    Hoàn tác
-                                                                </Button>
-                                                            </CardContent>
-                                                        </Card>
-                                                    ))}
-                                                </AccordionContent>
-                                            </AccordionItem>
-                                        )}
-                                    </Accordion>
+                                            )}
+                                        </Accordion>
+                                    </div>
                                 </ScrollArea>
                             )}
                         </TabsContent>
                     </Tabs>
-                </div>
+                </DialogBody>
 
-                <DialogFooter className="p-4 sm:p-6 shrink-0 bg-white dark:bg-card border-t z-10 rounded-b-xl">
-                    <Button variant="outline" onClick={onClose} className="h-11 text-base w-full sm:w-auto">Đóng</Button>
-                    <Button onClick={handleMarkAsPaid} disabled={isProcessing || selectedItems.size === 0} className="h-11 text-base w-full sm:w-auto">
-                        {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-                        Đánh dấu đã TT ({totalSelectedAmount > 0 ? totalSelectedAmount.toLocaleString('vi-VN') + 'đ' : selectedItems.size})
-                    </Button>
+                <DialogFooter>
+                    <DialogCancel onClick={onClose} disabled={isProcessing}>Đóng</DialogCancel>
+                    <DialogAction 
+                        onClick={handleMarkAsPaid} 
+                        disabled={isProcessing || selectedItems.size === 0}
+                        variant="default"
+                    >
+                        {isProcessing ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                            <Check className="mr-2 h-4 w-4" />
+                        )}
+                        {totalSelectedAmount > 0 
+                            ? `Xác nhận TT (${totalSelectedAmount.toLocaleString('vi-VN')}đ)` 
+                            : `Xác nhận TT (${selectedItems.size})`}
+                    </DialogAction>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

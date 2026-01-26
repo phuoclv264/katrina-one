@@ -7,7 +7,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogBody,
   DialogFooter,
+  DialogAction,
+  DialogCancel,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -124,33 +127,25 @@ export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDa
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose} dialogTag="availability-dialog" parentDialogTag={parentDialogTag}>
-      <DialogContent className="w-[92vw] sm:max-w-md p-0 overflow-hidden rounded-[38px] sm:rounded-[40px] border-none shadow-3xl bg-white dark:bg-slate-950">
-        <div className="p-5 sm:p-6 pb-0">
-          <DialogHeader className="space-y-4">
-            <div className="flex items-center gap-3 sm:gap-4">
-              <div className="h-12 w-12 sm:h-14 sm:w-14 bg-green-500/10 rounded-[18px] sm:rounded-[20px] flex items-center justify-center shrink-0">
-                <CalendarCheck2 className="h-6 w-6 sm:h-7 sm:w-7 text-green-500" />
-              </div>
-              <div className="min-w-0">
-                <DialogTitle className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-slate-50 leading-tight">
-                  Đăng ký rảnh
-                </DialogTitle>
-                <DialogDescription className="text-[12px] sm:text-sm font-bold text-slate-500 dark:text-slate-400 mt-0.5 uppercase tracking-wide">
-                  {format(selectedDate, 'eeee, dd/MM/yyyy', { locale: vi })}
-                </DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
-        </div>
+      <DialogContent className="w-[92vw] sm:max-w-md">
+        <DialogHeader variant="premium" iconkey="calendar">
+          <DialogTitle>Đăng ký rảnh</DialogTitle>
+          <DialogDescription className="font-bold text-[10px] uppercase tracking-[0.2em] mt-1.5 opacity-80">
+            {format(selectedDate, 'eeee, dd/MM/yyyy', { locale: vi })}
+          </DialogDescription>
+        </DialogHeader>
 
-        <div className="p-5 sm:p-6 space-y-6">
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-slate-400" />
-              <Label className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-slate-400">Chọn nhanh theo ca</Label>
+        <DialogBody className="space-y-6 pt-6">
+          {/* Quick Select Section */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 px-1">
+              <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                <Clock className="w-3.5 h-3.5" />
+              </div>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Chọn nhanh theo ca</Label>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2.5">
               {quickSelectSlots.special.map((slot, index) => {
                 const isSelected = selectedSlots.some(s => isEqual(s, slot));
                 return (
@@ -158,14 +153,14 @@ export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDa
                     key={`special-${index}`}
                     variant="outline"
                     className={cn(
-                      "h-11 sm:h-12 rounded-2xl font-black text-[11px] sm:text-xs transition-all border-2",
+                      "h-12 rounded-[20px] font-bold text-[11px] sm:text-xs transition-all border-2",
                       isSelected
-                        ? "bg-green-500 border-green-500 text-white shadow-lg shadow-green-500/20"
-                        : "bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-600 hover:border-green-500/30 hover:bg-green-50/50"
+                        ? "bg-primary border-primary text-primary-foreground shadow-md shadow-primary/10 scale-[0.98]"
+                        : "bg-muted/5 border-muted-foreground/10 text-muted-foreground hover:border-primary/20 hover:bg-primary/5"
                     )}
                     onClick={() => handleToggleSlot(slot)}
                   >
-                    {isSelected && <CheckCircle2 className="w-3 h-3 mr-1.5" />}
+                    {isSelected && <CheckCircle2 className="w-3.5 h-3.5 mr-1" />}
                     {slot.start} - {slot.end}
                   </Button>
                 )
@@ -177,14 +172,14 @@ export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDa
                     key={index}
                     variant="outline"
                     className={cn(
-                      "h-11 sm:h-12 rounded-2xl font-black text-[11px] sm:text-xs transition-all border-2",
+                      "h-12 rounded-[20px] font-bold text-[11px] sm:text-xs transition-all border-2",
                       isSelected
-                        ? "bg-green-500 border-green-500 text-white shadow-lg shadow-green-500/20"
-                        : "bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-600 hover:border-green-500/30 hover:bg-green-50/50"
+                        ? "bg-primary border-primary text-primary-foreground shadow-md shadow-primary/10 scale-[0.98]"
+                        : "bg-muted/5 border-muted-foreground/10 text-muted-foreground hover:border-primary/20 hover:bg-primary/5"
                     )}
                     onClick={() => handleToggleSlot(slot)}
                   >
-                    {isSelected && <CheckCircle2 className="w-3 h-3 mr-1.5" />}
+                    {isSelected && <CheckCircle2 className="w-3.5 h-3.5 mr-1" />}
                     {slot.start} - {slot.end}
                   </Button>
                 )
@@ -192,27 +187,36 @@ export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDa
             </div>
           </div>
 
-          <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-[28px] sm:rounded-[32px] border border-slate-100 dark:border-slate-800">
-            <Label className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-slate-400 px-1">Khung giờ đã chọn</Label>
+          {/* Selection List Section */}
+          <div className="space-y-4 p-5 bg-muted/30 rounded-[32px] border border-muted-foreground/5">
+            <div className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Khung giờ đã chọn</Label>
+            </div>
+
             {selectedSlots.length === 0 ? (
-              <div className="py-6 flex flex-col items-center justify-center text-center">
-                <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-2">
-                  <Clock className="w-5 h-5 text-slate-300 dark:text-slate-600" />
+              <div className="py-8 flex flex-col items-center justify-center text-center">
+                <div className="w-12 h-12 rounded-2xl bg-muted/50 flex items-center justify-center mb-3">
+                  <Clock className="w-6 h-6 text-muted-foreground/30" />
                 </div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Chưa chọn khung giờ</p>
+                <p className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-widest">Chưa chọn khung giờ</p>
               </div>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {selectedSlots.map((slot, index) => (
-                  <Badge key={index} variant="secondary" className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 text-[11px] sm:text-xs h-9 sm:h-10 px-3 pl-4 rounded-xl flex items-center gap-2 font-black tracking-tight">
+                  <Badge 
+                    key={index} 
+                    variant="secondary" 
+                    className="bg-background border border-muted-foreground/10 text-foreground text-[11px] font-bold h-10 px-3 pl-4 rounded-[14px] flex items-center gap-2 group transition-all hover:border-primary/20"
+                  >
                     <span>{slot.start} - {slot.end}</span>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 rounded-lg hover:bg-red-50 hover:text-red-500 transition-colors"
+                      className="h-6 w-6 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/5"
                       onClick={() => handleRemoveSlot(slot)}
                     >
-                      <X className="h-3 w-3" />
+                      <X className="h-3.5 h-3.5" />
                       <span className="sr-only">Xóa</span>
                     </Button>
                   </Badge>
@@ -220,20 +224,20 @@ export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDa
               </div>
             )}
           </div>
-        </div>
+        </DialogBody>
 
-        <DialogFooter className="p-5 sm:p-6 pt-0 flex flex-row items-center gap-3 sm:gap-4">
-          <Button variant="ghost" className="flex-1 h-11 sm:h-12 rounded-xl sm:rounded-2xl font-black text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-900 transition-all text-[11px] sm:text-xs uppercase tracking-widest" onClick={onClose} disabled={isSaving}>
+        <DialogFooter variant="muted" className="p-6 pt-4">
+          <DialogCancel onClick={onClose} disabled={isSaving} className="rounded-2xl h-12 flex-1 sm:flex-none">
             HỦY
-          </Button>
-          <Button
-            className="flex-[2] h-11 sm:h-12 rounded-xl sm:rounded-2xl bg-slate-900 dark:bg-slate-50 text-white dark:text-slate-900 font-black text-[11px] sm:text-xs uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-slate-200 dark:shadow-none translate-y-0"
+          </DialogCancel>
+          <DialogAction
             onClick={handleSave}
             disabled={isSaving}
+            isLoading={isSaving}
+            className="flex-1 sm:flex-none"
           >
-            {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
             Lưu thay đổi
-          </Button>
+          </DialogAction>
         </DialogFooter>
       </DialogContent>
     </Dialog>

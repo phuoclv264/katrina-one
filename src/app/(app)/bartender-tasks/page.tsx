@@ -260,7 +260,7 @@ function AiAssistant({
             {/* Add Preview Dialog */}
             <Dialog open={showAddPreview} onOpenChange={setShowAddPreview} dialogTag="bartender-add-preview-dialog" parentDialogTag="root">
                 <DialogContent className="max-w-2xl">
-                    <DialogHeader>
+                    <DialogHeader iconkey="layout">
                         <DialogTitle>Xem trước các công việc sẽ được thêm</DialogTitle>
                         <DialogDescription>
                             AI đã phân tích đầu vào của bạn. Kiểm tra lại danh sách dưới đây trước khi thêm chúng vào khu vực <span className="font-bold">"{targetSection}"</span>.

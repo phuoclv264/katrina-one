@@ -208,7 +208,7 @@ export default function ProductTools({ inventoryList, existingProducts, onProduc
 
             <Dialog open={showPreview} onOpenChange={setShowPreview} dialogTag="product-preview-dialog" parentDialogTag="product-tools">
                 <DialogContent className="max-w-4xl">
-                    <DialogHeader>
+                    <DialogHeader iconkey="layout">
                         <DialogTitle>Xem trước Công thức đã tạo</DialogTitle>
                         <DialogDescription>AI đã phân tích và liên kết các nguyên liệu. Vui lòng kiểm tra và xác nhận.</DialogDescription>
                     </DialogHeader>

@@ -6,14 +6,17 @@ import {
     DialogHeader,
     DialogTitle,
     DialogDescription,
-    DialogFooter
+    DialogFooter,
+    DialogBody,
+    DialogAction,
+    DialogCancel
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { Schedule, ManagedUser, Notification, AuthUser, UserRole, AssignedShift } from '@/lib/types';
 import { format, parseISO, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { ArrowRight, AlertCircle, CheckCircle, XCircle, Undo, Info, UserCheck, Trash2, Calendar, Clock, User as UserIcon, Send, Loader2, UserCog, Replace, ChevronsDownUp, MailQuestion, FileUp, Users } from 'lucide-react';
+import { ArrowRight, AlertCircle, CheckCircle, XCircle, Undo, Info, UserCheck, Trash2, Calendar, Clock, User as UserIcon, Send, Loader2, UserCog, Replace, ChevronsDownUp, MailQuestion, FileUp, Users, History as HistoryIcon } from 'lucide-react';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -35,7 +38,7 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { UserAvatar } from '@/components/user-avatar';
 
 
 type RequestCardProps = {
@@ -63,18 +66,18 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
     // --- Status and Type Configuration ---
     const getStatusConfig = () => {
         switch (status) {
-            case 'pending': return { text: 'Đang chờ', icon: MailQuestion, className: 'bg-amber-500/10 text-amber-600', dot: 'bg-amber-500', cardBorder: 'border-amber-100 dark:border-amber-900/30' };
-            case 'pending_approval': return { text: 'Chờ duyệt', icon: AlertCircle, className: 'bg-blue-500/10 text-blue-600', dot: 'bg-blue-500', cardBorder: 'border-blue-100 dark:border-blue-900/30' };
-            case 'resolved': return { text: 'Đã xong', icon: CheckCircle, className: 'bg-green-500/10 text-green-600', dot: 'bg-green-500', cardBorder: 'border-green-100 dark:border-green-900/30' };
-            case 'cancelled': return { text: 'Đã huỷ', icon: XCircle, className: 'bg-red-500/10 text-red-600', dot: 'bg-red-500', cardBorder: 'border-red-100 dark:border-red-900/30' };
-            default: return { text: 'Không rõ', icon: Info, className: 'bg-slate-500/10 text-slate-600', dot: 'bg-slate-500', cardBorder: 'border-slate-100' };
+            case 'pending': return { text: 'Đang chờ', icon: MailQuestion, className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400', dot: 'bg-amber-500' };
+            case 'pending_approval': return { text: 'Chờ duyệt', icon: AlertCircle, className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', dot: 'bg-blue-500' };
+            case 'resolved': return { text: 'Hoàn tất', icon: CheckCircle, className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400', dot: 'bg-emerald-500' };
+            case 'cancelled': return { text: 'Đã hủy', icon: XCircle, className: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400', dot: 'bg-rose-500' };
+            default: return { text: 'Không rõ', icon: Info, className: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400', dot: 'bg-slate-500' };
         }
     };
 
     const getTypeConfig = () => {
-        if (payload.isSwapRequest) return { text: 'ĐỔI CA', Icon: Replace, className: 'bg-purple-500/10 text-purple-600 border-purple-100 dark:border-purple-900/30' };
-        if (payload.targetUserId) return { text: 'NHỜ NHẬN', Icon: Send, className: 'bg-indigo-500/10 text-indigo-600 border-indigo-100 dark:border-indigo-900/30' };
-        return { text: 'CÔNG KHAI', Icon: MailQuestion, className: 'bg-slate-500/10 text-slate-600 border-slate-100 dark:border-slate-800' };
+        if (payload.isSwapRequest) return { text: 'Đổi ca', Icon: Replace, className: 'bg-indigo-50 text-indigo-600 border-indigo-100/50 dark:bg-indigo-950/30 dark:text-indigo-400 dark:border-indigo-900/30' };
+        if (payload.targetUserId) return { text: 'Nhờ nhận', Icon: Send, className: 'bg-violet-50 text-violet-600 border-violet-100/50 dark:bg-violet-950/30 dark:text-violet-400 dark:border-violet-900/30' };
+        return { text: 'Công khai', Icon: Users, className: 'bg-slate-50 text-slate-600 border-slate-100/50 dark:bg-slate-900/50 dark:text-slate-400 dark:border-slate-800' };
     };
 
     const statusConfig = getStatusConfig();
@@ -99,7 +102,6 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
             recUser = allUsers.find(u => u.uid === recipientId);
         }
 
-        // Attempt to resolve shift role from the provided schedule where possible
         const findShiftRole = (label: string, timeSlot: { start: string, end: string }, date: string, userId?: string | null) => {
             const matched = schedule?.shifts.find(s => s.date === date && s.label === label && s.timeSlot.start === timeSlot.start && s.timeSlot.end === timeSlot.end);
             if (!matched) return null;
@@ -128,7 +130,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
         }
 
         return { requester: reqUser, recipient: recUser, shiftA: sA, shiftB: sB };
-    }, [payload, allUsers, status]);
+    }, [payload, allUsers, status, schedule?.shifts]);
 
     const metadataText = useMemo(() => {
         if (status === 'resolved' && resolvedBy && resolvedAt) {
@@ -140,29 +142,16 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
                 const resolverRole = resolverDetails?.role || 'Nhân viên';
                 return `Hủy bởi ${resolverRole}: ${resolvedBy.userName}`;
             }
-            return `Lý do hủy: ${payload.cancellationReason}`;
+            return `Lý do: ${payload.cancellationReason}`;
         }
         if (status === 'pending_approval' && payload.takenBy) {
-            return `${payload.takenBy.userName} đã nhận và đang chờ duyệt`;
+            return `${payload.takenBy.userName} đã nhận (Chờ duyệt)`;
         }
         if (payload.declinedBy && payload.declinedBy.length > 0) {
-            return `${payload.declinedBy.length} người đã từ chối.`;
+            return `${payload.declinedBy.length} người đã từ chối`;
         }
         return `Tạo lúc ${format(parseISO(createdAt as string), 'HH:mm')}`;
     }, [status, resolvedBy, resolvedAt, payload, createdAt, allUsers]);
-
-    // --- Helper Components ---
-    const UserAvatar = ({ user, size = "h-8 w-8" }: { user?: ManagedUser, size?: string }) => {
-        if (!user) return <div className={cn(size, "rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[10px] font-black")}>?</div>;
-        return (
-            <Avatar className={cn(size, "rounded-lg sm:rounded-xl")}>
-                <AvatarImage src={user.photoURL || ""} />
-                <AvatarFallback className="bg-slate-100 text-slate-500 font-black text-[10px] uppercase rounded-lg sm:rounded-xl">
-                    {getInitials(user.displayName)}
-                </AvatarFallback>
-            </Avatar>
-        );
-    }
 
     const UserBlock = ({ user, shift, label }: { user?: ManagedUser, shift?: { label: string, timeSlot: { start: string, end: string }, date: string, role?: string | null } | null, label: string }) => {
         const shiftLabelWithRole = shift && (shift.role ? `${shift.label} (${shift.role})` : shift?.label);
@@ -170,17 +159,17 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
         const dateText = shift ? format(parseISO(shift.date), 'eee, dd/MM', { locale: vi }) : '';
 
         return (
-            <div className="flex items-start gap-2.5 flex-1 min-w-0">
-                <UserAvatar user={user} size="h-9 w-9 sm:h-10 sm:w-10" />
-                <div className="min-w-0">
-                    <p className="text-[10px] sm:text-[11px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</p>
-                    <p className="text-xs sm:text-sm font-black text-slate-900 dark:text-slate-100 break-words whitespace-normal tracking-tight leading-tight" title={user?.displayName || "Chưa có"}>
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+                <UserAvatar user={user} size="h-10 w-10 sm:h-12 sm:w-12" className="ring-2 ring-primary/5" />
+                <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">{label}</p>
+                    <p className="text-sm font-bold text-foreground" title={user?.displayName || "Chưa xác định"}>
                         {user?.displayName || "Trống"}
                     </p>
                     {shift && (
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
-                            <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 leading-tight">{shiftInfoText}</span>
-                            <Badge variant="outline" className="h-4 px-1 text-[8px] sm:text-[9px] font-black border-slate-200 dark:border-slate-800 text-slate-500 uppercase rounded-sm shrink-0">
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                            <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">{shiftInfoText}</span>
+                            <Badge variant="secondary" className="h-4.5 px-1.5 text-[9px] font-bold rounded-md bg-muted/50">
                                 {dateText}
                             </Badge>
                         </div>
@@ -190,22 +179,30 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
         );
     };
 
-    // --- Action Button Logic ---
     const isMyRequest = payload.requestingUser.userId === currentUser.uid;
     const isDirectRequestToMe = status === 'pending' && payload.targetUserId === currentUser.uid;
+
+    const ActionButton = ({ onClick, variant = "default", icon: Icon, children, disabled }: { onClick: () => void, variant?: any, icon?: any, children: React.ReactNode, disabled?: boolean }) => (
+        <Button 
+            size="sm" 
+            variant={variant} 
+            onClick={onClick} 
+            disabled={disabled || isProcessing}
+            className="h-9 px-3 sm:h-10 sm:px-4 font-bold rounded-xl flex-1 sm:flex-initial min-w-[80px] sm:min-w-[100px] text-[11px] sm:text-sm"
+        >
+            {isProcessing ? <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" /> : Icon && <Icon className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+            {children}
+        </Button>
+    );
 
     const renderActions = () => {
         if (isDirectRequestToMe) {
             return (
                 <div className="flex gap-2 w-full sm:w-auto">
-                    <Button variant="outline" size="sm" onClick={() => onDecline(notification)} disabled={isProcessing} className="flex-1">
-                        {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="mr-2 h-4 w-4" />}
-                        Từ chối
-                    </Button>
-                    <Button size="sm" onClick={() => onAccept(notification)} disabled={isProcessing} className="flex-1">
-                        {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                        {payload.isSwapRequest ? 'Đồng ý đổi' : 'Nhận ca'}
-                    </Button>
+                    <ActionButton variant="outline" icon={XCircle} onClick={() => onDecline(notification)}>Từ chối</ActionButton>
+                    <ActionButton icon={CheckCircle} onClick={() => onAccept(notification)}>
+                        {payload.isSwapRequest ? 'Đồng ý' : 'Nhận ca'}
+                    </ActionButton>
                 </div>
             );
         }
@@ -220,14 +217,8 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
                 if (canOwnerApprove || canManagerApprove) {
                     return (
                         <div className="flex gap-2 w-full sm:w-auto">
-                            <Button variant="destructive" size="sm" onClick={() => onRejectApproval(notification.id)} disabled={isProcessing} className="flex-1">
-                                {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="mr-2 h-4 w-4" />}
-                                Từ chối
-                            </Button>
-                            <Button size="sm" onClick={() => onApprove(notification)} disabled={isProcessing} className="flex-1">
-                                {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                                Phê duyệt
-                            </Button>
+                            <ActionButton variant="destructive" icon={XCircle} onClick={() => onRejectApproval(notification.id)}>Từ chối</ActionButton>
+                            <ActionButton icon={CheckCircle} onClick={() => onApprove(notification)}>Phê duyệt</ActionButton>
                         </div>
                     );
                 }
@@ -235,24 +226,21 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
             if (status === 'pending' && currentUser.role === 'Chủ nhà hàng' && (!payload.targetUserId || !payload.isSwapRequest)) {
                 return (
                     <div className="flex gap-2 w-full sm:w-auto">
-                        <Button variant="secondary" size="sm" onClick={() => onAssign(notification)} disabled={isProcessing} className="flex-1"><UserCheck className="mr-2 h-4 w-4" />Chỉ định</Button>
+                        <ActionButton variant="secondary" icon={UserCheck} onClick={() => onAssign(notification)}>Chỉ định</ActionButton>
                         <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                             <AlertDialogTrigger asChild>
-                                <Button variant="destructive" size="sm" disabled={isProcessing} className="flex-1">
-                                    {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                                <Button size="sm" variant="destructive" disabled={isProcessing} className="h-9 px-3 sm:h-10 sm:px-4 font-bold rounded-xl flex-1 sm:flex-initial text-[11px] sm:text-sm">
+                                    {isProcessing ? <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" /> : <Trash2 className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />}
                                     Hủy
                                 </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                                 <AlertDialogHeader>
-                                    <AlertDialogIcon icon={Trash2} />
-                                    <div className="space-y-2 text-center sm:text-left">
-                                        <AlertDialogTitle>Hủy yêu cầu?</AlertDialogTitle>
-                                        <AlertDialogDescription>Hành động này sẽ hủy yêu cầu và không thể hoàn tác.</AlertDialogDescription>
-                                    </div>
+                                    <DialogTitle>Hủy yêu cầu?</DialogTitle>
+                                    <DialogDescription>Hành động này sẽ hủy yêu cầu và không thể hoàn tác.</DialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                    <AlertDialogCancel>Không</AlertDialogCancel>
+                                    <AlertDialogCancel>Bỏ qua</AlertDialogCancel>
                                     <AlertDialogAction onClick={() => onCancel(notification.id)}>Xác nhận Hủy</AlertDialogAction>
                                 </AlertDialogFooter>
                             </AlertDialogContent>
@@ -264,28 +252,15 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
 
         if (status === 'pending' && !isMyRequest) {
             const isManagerViewing = currentUser.role === 'Quản lý' || currentUser.role === 'Chủ nhà hàng';
-
-            // A manager can only 'take' a public request, not a direct swap/pass between others.
             if (isManagerViewing && !payload.targetUserId && !payload.isSwapRequest && payload.requestingUser.userId !== currentUser.uid) {
                 return (
-                    <div className="flex gap-2 w-full sm:w-auto">
-                        <Button size="sm" onClick={() => onAccept(notification)} disabled={isProcessing} className="flex-1">
-                            {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                            Nhận ca
-                        </Button>
-                    </div>
+                    <ActionButton icon={CheckCircle} onClick={() => onAccept(notification)}>Nhận ca</ActionButton>
                 )
-            } else if (!payload.targetUserId) { // Public request for regular staff
+            } else if (!payload.targetUserId) {
                 return (
                     <div className="flex gap-2 w-full sm:w-auto">
-                        <Button variant="outline" size="sm" onClick={() => onDecline(notification)} disabled={isProcessing} className="flex-1">
-                            {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="mr-2 h-4 w-4" />}
-                            Bỏ qua
-                        </Button>
-                        <Button size="sm" onClick={() => onAccept(notification)} disabled={isProcessing} className="flex-1">
-                            {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                            Nhận ca
-                        </Button>
+                        <ActionButton variant="outline" icon={XCircle} onClick={() => onDecline(notification)}>Bỏ qua</ActionButton>
+                        <ActionButton icon={CheckCircle} onClick={() => onAccept(notification)}>Nhận ca</ActionButton>
                     </div>
                 )
             }
@@ -293,47 +268,44 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
 
         if (status === 'pending' && isMyRequest) {
             return (
-                <Button variant="outline" size="sm" onClick={() => onCancel(notification.id)} disabled={isProcessing}>
-                    {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Hủy yêu cầu
-                </Button>
+                <div className="flex justify-end w-full sm:w-auto">
+                    <ActionButton variant="outline" onClick={() => onCancel(notification.id)}>Hủy yêu cầu</ActionButton>
+                </div>
             );
         }
 
         if (isManagerOrOwner) {
             if (status === 'resolved' && currentUser.role === 'Chủ nhà hàng') {
                 return (
-                    <div className="flex gap-2 w-full sm:w-auto">
+                    <div className="flex gap-2 w-full sm:w-auto justify-end">
                         <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="warning">
                             <AlertDialogTrigger asChild>
-                                <Button variant="outline" size="sm" disabled={isProcessing}>
-                                    {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Undo className="mr-2 h-4 w-4" />}
+                                <Button size="sm" variant="outline" disabled={isProcessing} className="h-9 px-3 sm:h-10 sm:px-4 font-bold rounded-xl text-[11px] sm:text-sm">
+                                    {isProcessing ? <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" /> : <Undo className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />}
                                     Hoàn tác
                                 </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                                 <AlertDialogHeader>
-                                    <AlertDialogIcon icon={Undo} />
-                                    <div className="space-y-2 text-center sm:text-left">
-                                        <AlertDialogTitle>Hoàn tác yêu cầu?</AlertDialogTitle>
-                                        <AlertDialogDescription>Hành động này sẽ khôi phục trạng thái trước đó của yêu cầu.</AlertDialogDescription>
-                                    </div>
+                                    <DialogTitle>Hoàn tác yêu cầu?</DialogTitle>
+                                    <DialogDescription>Khôi phục trạng thái nhận ca của yêu cầu này.</DialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                    <AlertDialogCancel>Không</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => onRevert(notification)}>Xác nhận</AlertDialogAction>
+                                    <AlertDialogCancel>Thoát</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => onRevert(notification)}>Đồng ý</AlertDialogAction>
                                 </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>
                         <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
-                            <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-9 w-9"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="text-destructive h-9 w-9 sm:h-10 sm:w-10 rounded-xl hover:bg-destructive/10">
+                                    <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                </Button>
+                            </AlertDialogTrigger>
                             <AlertDialogContent>
                                 <AlertDialogHeader>
-                                    <AlertDialogIcon icon={Trash2} />
-                                    <div className="space-y-2 text-center sm:text-left">
-                                        <AlertDialogTitle>Xóa khỏi lịch sử?</AlertDialogTitle>
-                                        <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn thông báo này khỏi lịch sử.</AlertDialogDescription>
-                                    </div>
+                                    <DialogTitle>Xóa vĩnh viễn?</DialogTitle>
+                                    <DialogDescription>Hành động này sẽ xóa hoàn toàn thông báo khỏi lịch sử.</DialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                     <AlertDialogCancel>Hủy</AlertDialogCancel>
@@ -346,22 +318,25 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
             }
             if (status === 'cancelled' && currentUser.role === 'Chủ nhà hàng') {
                 return (
-                    <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
-                        <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-9 w-9"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogIcon icon={Trash2} />
-                                <div className="space-y-2 text-center sm:text-left">
-                                    <AlertDialogTitle>Xóa khỏi lịch sử?</AlertDialogTitle>
-                                    <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn thông báo này khỏi lịch sử.</AlertDialogDescription>
-                                </div>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => onDeleteHistory(notification.id)}>Xóa</AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
+                    <div className="flex justify-end w-full">
+                        <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
+                            <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="text-destructive h-9 w-9 sm:h-10 sm:w-10 rounded-xl hover:bg-destructive/10">
+                                    <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <DialogTitle>Xóa vĩnh viễn?</DialogTitle>
+                                    <DialogDescription>Hành động này sẽ xóa hoàn toàn thông báo khỏi lịch sử.</DialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => onDeleteHistory(notification.id)}>Xóa</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </div>
                 );
             }
         }
@@ -372,58 +347,55 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
     const actions = renderActions();
 
     return (
-        <Card className={cn("overflow-hidden border-none shadow-none bg-slate-100/40 dark:bg-slate-900/40 rounded-[28px] sm:rounded-[32px] transition-all", statusConfig.cardBorder)}>
-            <div className="p-4 sm:p-5">
-                <div className="flex items-center justify-between gap-2 mb-4">
-                    <div className="flex items-center gap-2">
-                        <Badge className={cn("h-6 px-2.5 rounded-full border-none font-black text-[9px] sm:text-[10px] tracking-tight uppercase", typeConfig.className)}>
-                            <TypeIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-1.5" />
+        <Card className="overflow-hidden border border-slate-200 dark:border-slate-800 shadow-none bg-card rounded-[20px] sm:rounded-[24px] transition-all hover:shadow-md hover:shadow-primary/5">
+            <div className="p-3.5 sm:p-5">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4">
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                        <Badge className={cn("h-5.5 sm:h-6 px-2 sm:px-2.5 rounded-full border border-transparent font-bold text-[9px] sm:text-[10px] tracking-tight uppercase", typeConfig.className)}>
+                            <TypeIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-1 sm:mr-1.5" />
                             {typeConfig.text}
                         </Badge>
-                        <div className={cn("flex items-center gap-1.5 h-6 px-2.5 rounded-full font-black text-[9px] sm:text-[10px] tracking-tight uppercase", statusConfig.className)}>
-                            <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", statusConfig.dot)} />
+                        <div className={cn("flex items-center gap-1 sm:gap-1.5 h-5.5 sm:h-6 px-2 sm:px-2.5 rounded-full font-bold text-[9px] sm:text-[10px] tracking-tight uppercase", statusConfig.className)}>
+                            <div className={cn("w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full", statusConfig.dot)} />
                             {statusConfig.text}
                         </div>
                     </div>
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{metadataText}</span>
+                    <span className="text-[9px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{metadataText}</span>
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-6 bg-white dark:bg-slate-950 p-3.5 sm:p-4 rounded-[20px] sm:rounded-[24px] border border-slate-100 dark:border-slate-800 shadow-sm">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-6 bg-muted/30 dark:bg-muted/10 p-3 sm:p-4 rounded-[16px] sm:rounded-[20px] border border-slate-100 dark:border-slate-800/50">
                     <UserBlock user={requester} shift={shiftA} label="Người gửi" />
 
-                    {payload.isSwapRequest && (
-                        <div className="hidden sm:flex items-center justify-center">
-                            <ChevronsDownUp className="w-5 h-5 text-slate-200 rotate-90" />
-                        </div>
-                    )}
-                    {payload.isSwapRequest && (
-                        <div className="flex sm:hidden items-center gap-3">
-                            <Separator className="flex-1 bg-slate-100 dark:bg-slate-800" />
-                            <ChevronsDownUp className="w-4 h-4 text-slate-300" />
-                            <Separator className="flex-1 bg-slate-100 dark:bg-slate-800" />
-                        </div>
-                    )}
+                    <div className="flex sm:flex-col items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-0">
+                        <div className="h-px sm:w-px flex-1 bg-slate-200 dark:bg-slate-700/50 min-w-[12px] sm:min-h-[16px]" />
+                        {payload.isSwapRequest ? (
+                            <Replace className="w-4 h-4 sm:w-5 sm:h-5 text-primary/40 rotate-90 sm:rotate-0" />
+                        ) : (
+                            <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-primary/40 rotate-90 sm:rotate-0" />
+                        )}
+                        <div className="h-px sm:w-px flex-1 bg-slate-200 dark:bg-slate-700/50 min-w-[12px] sm:min-h-[16px]" />
+                    </div>
 
                     {payload.isSwapRequest ? (
                         <UserBlock user={recipient} shift={shiftB} label="Đổi với" />
                     ) : recipient ? (
                         <UserBlock user={recipient} shift={null} label="Người nhận" />
                     ) : (
-                        <div className="flex items-start gap-2.5 flex-1 min-w-0 opacity-50">
-                            <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-lg sm:rounded-xl bg-slate-100 dark:bg-slate-900 flex items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-800">
-                                <Users className="w-4 h-4 text-slate-400" />
+                        <div className="flex items-start gap-3 flex-1 min-w-0 opacity-60">
+                            <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center border border-dashed border-slate-300 dark:border-slate-700">
+                                <Users className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
                             </div>
-                            <div className="min-w-0">
-                                <p className="text-[10px] sm:text-[11px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Công khai</p>
-                                <p className="text-xs sm:text-sm font-black text-slate-500 dark:text-slate-400 truncate tracking-tight">Mọi người</p>
+                            <div className="min-w-0 flex-1">
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-0.5">Đối tượng</p>
+                                <p className="text-[13px] sm:text-sm font-bold text-slate-500">Mọi người (Công khai)</p>
                             </div>
                         </div>
                     )}
                 </div>
 
-                {renderActions() && (
-                    <div className="mt-4 flex flex-wrap justify-end gap-2 px-1">
-                        {renderActions()}
+                {actions && (
+                    <div className="mt-4 flex flex-wrap justify-end gap-2">
+                        {actions}
                     </div>
                 )}
             </div>
@@ -576,117 +548,110 @@ export default function PassRequestsDialog({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose} dialogTag="pass-requests-dialog" parentDialogTag={parentDialogTag}>
-            <DialogContent className="w-[94vw] sm:max-w-2xl h-[90vh] sm:h-[85vh] flex flex-col p-0 overflow-hidden rounded-[38px] sm:rounded-[40px] border-none shadow-3xl bg-white dark:bg-slate-950">
-                <div className="p-5 sm:p-6 pb-2">
-                    <DialogHeader className="space-y-4">
-                        <div className="flex items-center gap-3 sm:gap-4">
-                            <div className="h-12 w-12 sm:h-14 sm:w-14 bg-indigo-500/10 rounded-[18px] sm:rounded-[20px] flex items-center justify-center shrink-0">
-                                <Send className="h-6 w-6 sm:h-7 sm:w-7 text-indigo-500" />
-                            </div>
-                            <div className="min-w-0">
-                                <DialogTitle className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-slate-50 leading-tight">
-                                    Quản lý Pass ca
-                                </DialogTitle>
-                                <DialogDescription className="text-[12px] sm:text-sm font-bold text-slate-500 dark:text-slate-400 mt-0.5 uppercase tracking-wide">
-                                    Tuần từ {format(weekInterval.start, 'dd/MM')} đến {format(weekInterval.end, 'dd/MM/yyyy')}
-                                </DialogDescription>
-                            </div>
+            <DialogContent className="sm:max-w-2xl">
+                <DialogHeader variant="premium" iconkey="send">
+                    <DialogTitle className="text-lg sm:text-xl">Quản lý Pass ca</DialogTitle>
+                    <DialogDescription className="font-bold uppercase tracking-widest text-[9px] sm:text-[10px]">
+                        Tuần từ {format(weekInterval.start, 'dd/MM')} đến {format(weekInterval.end, 'dd/MM/yyyy')}
+                    </DialogDescription>
+                </DialogHeader>
+
+                <DialogBody className="p-0 flex flex-col overflow-hidden bg-slate-50/30 dark:bg-slate-900/10 h-[60vh] sm:h-auto max-h-[70vh]">
+                    <Tabs defaultValue="pending" className="flex flex-col flex-1 overflow-hidden">
+                        <div className="px-4 sm:px-5 pt-4 sm:pt-5 pb-2 sm:pb-3 bg-background/50 backdrop-blur-sm border-b border-slate-100 dark:border-slate-800/50">
+                            <TabsList className="grid w-full grid-cols-2 h-10 sm:h-11 p-1 bg-muted/50 rounded-xl">
+                                <TabsTrigger
+                                    value="pending"
+                                    className="rounded-lg text-[10px] sm:text-[11px] font-bold uppercase tracking-wider data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                                >
+                                    Đang chờ
+                                    {pendingRequests.length > 0 && (
+                                        <Badge variant="default" className="ml-1.5 sm:ml-2 h-4 sm:h-4.5 px-1 sm:px-1.5 rounded-md text-[8px] sm:text-[9px] bg-primary text-primary-foreground shadow-sm shrink-0">
+                                            {pendingRequests.length}
+                                        </Badge>
+                                    )}
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="history"
+                                    className="rounded-lg text-[10px] sm:text-[11px] font-bold uppercase tracking-wider data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                                >
+                                    Lịch sử
+                                </TabsTrigger>
+                            </TabsList>
                         </div>
-                    </DialogHeader>
-                </div>
 
-                <Tabs defaultValue="pending" className="flex-grow flex flex-col overflow-hidden">
-                    <div className="px-5 sm:px-6">
-                        <TabsList className="flex w-full h-11 sm:h-12 p-1.5 bg-slate-100 dark:bg-slate-900 rounded-[18px] sm:rounded-[20px] gap-1">
-                            <TabsTrigger
-                                value="pending"
-                                className="flex-1 rounded-[13px] sm:rounded-[14px] text-[10px] sm:text-xs font-black tracking-tight data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-sm data-[state=active]:text-indigo-500 px-1"
-                            >
-                                Đang chờ
-                                {pendingRequests.length > 0 && <Badge className="ml-1.5 sm:ml-2 h-4.5 px-1.5 rounded-md bg-indigo-500 text-white border-none font-black text-[9px]">{pendingRequests.length}</Badge>}
-                            </TabsTrigger>
-                            <TabsTrigger
-                                value="history"
-                                className="flex-1 rounded-[13px] sm:rounded-[14px] text-[10px] sm:text-xs font-black tracking-tight data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-sm data-[state=active]:text-slate-500 px-1"
-                            >
-                                Lịch sử
-                            </TabsTrigger>
-                        </TabsList>
-                    </div>
-
-                    <ScrollArea className="flex-grow">
-                        <TabsContent value="pending" className="m-0 p-5 sm:p-6 pt-4 space-y-4">
-                            {pendingRequests.length > 0 ? (
-                                <div className="space-y-4 pb-6">
-                                    {pendingRequests.map(notification => (
-                                        <RequestCard
-                                            key={notification.id}
-                                            notification={notification}
-                                            schedule={schedule}
-                                            currentUser={currentUser}
-                                            allUsers={allUsers}
-                                            processingNotificationId={processingNotificationId}
-                                            onAccept={onAccept}
-                                            onDecline={onDecline}
-                                            onCancel={onCancel}
-                                            onRevert={onRevert}
-                                            onAssign={onAssign}
-                                            onApprove={onApprove}
-                                            onRejectApproval={onRejectApproval}
-                                            onDeleteHistory={handleDeleteFromHistory}
-                                        />
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="flex flex-col items-center justify-center py-20 text-center">
-                                    <div className="h-16 w-16 bg-green-500/10 rounded-full flex items-center justify-center mb-4">
-                                        <CheckCircle className="h-8 w-8 text-green-500" />
+                        <ScrollArea className="flex-1">
+                            <TabsContent value="pending" className="m-0 p-3.5 sm:p-5 space-y-3 sm:space-y-4">
+                                {pendingRequests.length > 0 ? (
+                                    <div className="space-y-3 sm:space-y-4 pb-6">
+                                        {pendingRequests.map(notification => (
+                                            <RequestCard
+                                                key={notification.id}
+                                                notification={notification}
+                                                schedule={schedule}
+                                                currentUser={currentUser}
+                                                allUsers={allUsers}
+                                                processingNotificationId={processingNotificationId}
+                                                onAccept={onAccept}
+                                                onDecline={onDecline}
+                                                onCancel={onCancel}
+                                                onRevert={onRevert}
+                                                onAssign={onAssign}
+                                                onApprove={onApprove}
+                                                onRejectApproval={onRejectApproval}
+                                                onDeleteHistory={handleDeleteFromHistory}
+                                            />
+                                        ))}
                                     </div>
-                                    <p className="text-sm font-black text-slate-800 dark:text-slate-100">Đã sạch bóng yêu cầu!</p>
-                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Không có gì cần xử lý lúc này</p>
-                                </div>
-                            )}
-                        </TabsContent>
-
-                        <TabsContent value="history" className="m-0 p-5 sm:p-6 pt-4 space-y-4">
-                            {historicalRequests.length > 0 ? (
-                                <div className="space-y-4 pb-10">
-                                    {historicalRequests.map(notification => (
-                                        <RequestCard
-                                            key={notification.id}
-                                            notification={notification}
-                                            schedule={schedule}
-                                            currentUser={currentUser}
-                                            allUsers={allUsers}
-                                            processingNotificationId={processingNotificationId}
-                                            onAccept={onAccept}
-                                            onDecline={onDecline}
-                                            onCancel={onCancel}
-                                            onRevert={onRevert}
-                                            onAssign={onAssign}
-                                            onApprove={onApprove}
-                                            onRejectApproval={onRejectApproval}
-                                            onDeleteHistory={handleDeleteFromHistory}
-                                        />
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="flex flex-col items-center justify-center py-20 text-center">
-                                    <div className="h-16 w-16 bg-slate-100 dark:bg-slate-900 rounded-full flex items-center justify-center mb-4">
-                                        <Info className="h-8 w-8 text-slate-300 dark:text-slate-700" />
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-16 sm:py-24 text-center px-4">
+                                        <div className="h-14 w-14 sm:h-16 sm:w-16 bg-emerald-500/10 rounded-full flex items-center justify-center mb-4">
+                                            <CheckCircle className="h-7 w-7 sm:h-8 sm:w-8 text-emerald-500" />
+                                        </div>
+                                        <p className="text-sm font-bold text-foreground">Bạn đã hoàn thành mọi thứ!</p>
+                                        <p className="text-[10px] sm:text-[11px] font-medium text-muted-foreground uppercase tracking-widest mt-1">Không có yêu cầu nào cần xử lý</p>
                                     </div>
-                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Lịch sử trống</p>
-                                </div>
-                            )}
-                        </TabsContent>
-                    </ScrollArea>
-                </Tabs>
+                                )}
+                            </TabsContent>
 
-                <div className="p-5 sm:p-6 pt-2 border-t border-slate-100 dark:border-slate-800">
-                    <Button variant="ghost" className="w-full h-11 sm:h-12 rounded-xl sm:rounded-2xl font-black text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-900 transition-all text-[11px] sm:text-xs uppercase tracking-widest" onClick={onClose}>
-                        ĐÓNG
-                    </Button>
-                </div>
+                            <TabsContent value="history" className="m-0 p-3.5 sm:p-5 space-y-3 sm:space-y-4">
+                                {historicalRequests.length > 0 ? (
+                                    <div className="space-y-3 sm:space-y-4 pb-10">
+                                        {historicalRequests.map(notification => (
+                                            <RequestCard
+                                                key={notification.id}
+                                                notification={notification}
+                                                schedule={schedule}
+                                                currentUser={currentUser}
+                                                allUsers={allUsers}
+                                                processingNotificationId={processingNotificationId}
+                                                onAccept={onAccept}
+                                                onDecline={onDecline}
+                                                onCancel={onCancel}
+                                                onRevert={onRevert}
+                                                onAssign={onAssign}
+                                                onApprove={onApprove}
+                                                onRejectApproval={onRejectApproval}
+                                                onDeleteHistory={handleDeleteFromHistory}
+                                            />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-16 sm:py-24 text-center px-4">
+                                        <div className="h-14 w-14 sm:h-16 sm:w-16 bg-muted/50 rounded-full flex items-center justify-center mb-4">
+                                            <HistoryIcon className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground/40" />
+                                        </div>
+                                        <p className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Lịch sử trống</p>
+                                    </div>
+                                )}
+                            </TabsContent>
+                        </ScrollArea>
+                    </Tabs>
+                </DialogBody>
+
+                <DialogFooter variant="muted">
+                    <DialogCancel className="w-full sm:w-auto">ĐÓNG</DialogCancel>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     );

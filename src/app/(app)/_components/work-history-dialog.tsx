@@ -7,7 +7,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogBody,
   DialogFooter,
+  DialogCancel,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -111,97 +113,98 @@ export default function WorkHistoryDialog({ isOpen, onClose, user, parentDialogT
   return (
     <Dialog open={isOpen} onOpenChange={onClose} dialogTag="work-history-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 gap-0">
-        <DialogHeader className="p-4 pb-2 space-y-0.5">
-          <DialogTitle className="text-lg">Lịch sử làm việc của bạn</DialogTitle>
+        <DialogHeader variant="premium" iconkey="history">
+          <DialogTitle className="text-lg">Lịch sử làm việc</DialogTitle>
           <DialogDescription className="text-xs">
-            Xem lại giờ làm và lương dự tính của bạn.
+            Xem lại giờ làm và lương dự tính
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 py-2 border-y px-4 bg-muted/20">
-          <div className="flex items-center gap-1.5 w-full sm:w-auto">
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setCurrentMonth(addMonths(currentMonth, -1))}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className={cn('w-full sm:w-[140px] justify-center font-medium h-8')}
-            >
-              <CalendarIcon className="mr-1.5 h-3.5 w-3.5" />
-              {format(currentMonth, 'MM/yyyy')}
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs px-2"
-              onClick={() => setCurrentMonth(startOfMonth(new Date()))}
-            >
-              Hiện tại
-            </Button>
-          </div>
-          <div className="w-full sm:w-auto">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
-              {/* Total Estimated Salary */}
-              <div className="rounded-lg border bg-white shadow-sm p-1.5 flex flex-col min-w-[80px]">
-                <p className="text-[10px] font-medium text-muted-foreground leading-tight truncate">Lương dự tính</p>
-                <p className="text-xs font-bold text-primary truncate">
-                  {summary.totalSalary.toLocaleString('vi-VN')}đ
-                </p>
-              </div>
-
-              {/* Total Hours */}
-              <div className="rounded-lg border bg-white shadow-sm p-1.5 flex flex-col min-w-[80px]">
-                <p className="text-[10px] font-medium text-muted-foreground leading-tight truncate">Giờ làm</p>
-                <p className="text-xs font-semibold truncate">
-                  {summary.totalHours.toFixed(2)}
-                  <span className="text-[10px] text-muted-foreground ml-0.5">h</span>
-                </p>
-              </div>
-
-              {/* Hourly Rate */}
-              <div className="rounded-lg border bg-white shadow-sm p-1.5 flex flex-col min-w-[80px]">
-                <p className="text-[10px] font-medium text-muted-foreground leading-tight truncate">Mức lương</p>
-                <p className="text-xs font-semibold truncate">
-                  {hourlyRate !== null ? `${hourlyRate.toLocaleString('vi-VN')}đ` : 'N/A'}
-                </p>
-              </div>
-
-              {/* This Month Payout */}
-              <div className="rounded-lg border bg-white shadow-sm p-1.5 flex flex-col min-w-[80px]">
-                <p className="text-[10px] font-medium text-muted-foreground leading-tight truncate">Đã trả</p>
-
-                {monthlyPayInfo?.status === 'paid' ? (
-                  <p className="text-xs font-semibold text-green-600 truncate">
-                    {(monthlyPayInfo.actualPaidAmount || 0).toLocaleString('vi-VN')}đ
+        <DialogBody className="p-0">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 py-2 border-y px-4 bg-muted/20">
+            <div className="flex items-center gap-1.5 w-full sm:w-auto">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setCurrentMonth(addMonths(currentMonth, -1))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn('w-full sm:w-[140px] justify-center font-medium h-8')}
+              >
+                <CalendarIcon className="mr-1.5 h-3.5 w-3.5" />
+                {format(currentMonth, 'MM/yyyy')}
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs px-2"
+                onClick={() => setCurrentMonth(startOfMonth(new Date()))}
+              >
+                Hiện tại
+              </Button>
+            </div>
+            <div className="w-full sm:w-auto">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
+                {/* Total Estimated Salary */}
+                <div className="rounded-lg border bg-white shadow-sm p-1.5 flex flex-col min-w-[80px]">
+                  <p className="text-[10px] font-medium text-muted-foreground leading-tight truncate">Lương dự tính</p>
+                  <p className="text-xs font-bold text-primary truncate">
+                    {summary.totalSalary.toLocaleString('vi-VN')}đ
                   </p>
-                ) : (
-                  <p className="text-xs font-semibold text-muted-foreground truncate">Chưa</p>
-                )}
+                </div>
+
+                {/* Total Hours */}
+                <div className="rounded-lg border bg-white shadow-sm p-1.5 flex flex-col min-w-[80px]">
+                  <p className="text-[10px] font-medium text-muted-foreground leading-tight truncate">Giờ làm</p>
+                  <p className="text-xs font-semibold truncate">
+                    {summary.totalHours.toFixed(2)}
+                    <span className="text-[10px] text-muted-foreground ml-0.5">h</span>
+                  </p>
+                </div>
+
+                {/* Hourly Rate */}
+                <div className="rounded-lg border bg-white shadow-sm p-1.5 flex flex-col min-w-[80px]">
+                  <p className="text-[10px] font-medium text-muted-foreground leading-tight truncate">Mức lương</p>
+                  <p className="text-xs font-semibold truncate">
+                    {hourlyRate !== null ? `${hourlyRate.toLocaleString('vi-VN')}đ` : 'N/A'}
+                  </p>
+                </div>
+
+                {/* This Month Payout */}
+                <div className="rounded-lg border bg-white shadow-sm p-1.5 flex flex-col min-w-[80px]">
+                  <p className="text-[10px] font-medium text-muted-foreground leading-tight truncate">Đã trả</p>
+
+                  {monthlyPayInfo?.status === 'paid' ? (
+                    <p className="text-xs font-semibold text-green-600 truncate">
+                      {(monthlyPayInfo.actualPaidAmount || 0).toLocaleString('vi-VN')}đ
+                    </p>
+                  ) : (
+                    <p className="text-xs font-semibold text-muted-foreground truncate">Chưa</p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <ScrollArea className="flex-grow px-4 py-2 overflow-auto">
-          {isLoading ? (
-            <div className="flex items-center justify-center h-full py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : isMobile ? (
+          <ScrollArea className="flex-grow px-4 py-2 overflow-auto">
+            {isLoading ? (
+              <div className="flex items-center justify-center h-full py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : isMobile ? (
             <div className="space-y-2">
               {records.length > 0 ? records.map((record) => {
                 const recordDate = (record.checkInTime as Timestamp).toDate();
@@ -332,9 +335,10 @@ export default function WorkHistoryDialog({ isOpen, onClose, user, parentDialogT
             </div>
           )}
         </ScrollArea>
+      </DialogBody>
 
         <DialogFooter className="p-2 sm:p-3 border-t">
-          <Button variant="outline" size="sm" className="h-8" onClick={onClose}>Đóng</Button>
+          <DialogCancel className="w-full">Đóng</DialogCancel>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogAction, DialogCancel } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -198,8 +198,8 @@ export default function CashHandoverDialog({
     <>
       <Dialog open={open} onOpenChange={onOpenChange} dialogTag="cash-handover-dialog" parentDialogTag={parentDialogTag}>
         <DialogContent className="max-w-md h-full md:h-auto md:max-h-[90vh] flex flex-col p-0">
-          <DialogHeader className="p-6 pb-4 border-b shrink-0 bg-muted/30">
-            <DialogTitle className="text-2xl flex items-center gap-2"><Wallet /> {dialogTitle}</DialogTitle>
+          <DialogHeader variant="premium" iconkey="wallet">
+            <DialogTitle>{dialogTitle}</DialogTitle>
             <DialogDescription>Kiểm đếm và nhập số tiền mặt thực tế trong quầy.</DialogDescription>
           </DialogHeader>
           <div className="flex-grow overflow-y-auto">
@@ -248,29 +248,61 @@ export default function CashHandoverDialog({
                   </Card>
                 )}
 
-                <Card className="border-primary ring-2 ring-primary/50 rounded-xl">
-                  <CardHeader className="pb-2"><CardTitle className="text-base text-primary">Tiền mặt thực tế</CardTitle></CardHeader>
-                  <CardContent><Input type="text" placeholder="Nhập số tiền..." value={formattedActualCash ? formattedActualCash + '' : ''} onChange={handleActualCashChange} className="font-bold text-2xl h-14 text-right" autoFocus onFocus={e => e.target.select()} /></CardContent>
+                <Card className="border-primary/20 bg-primary/5 shadow-sm rounded-[2rem] overflow-hidden border-2 transition-all hover:bg-primary/[0.07]">
+                  <CardHeader className="pb-2 text-center">
+                    <CardTitle className="text-sm font-bold uppercase tracking-widest text-primary/70">Tiền mặt thực tế</CardTitle>
+                  </CardHeader>
+                  <CardContent className="pb-6">
+                    <div className="relative group">
+                      <Input 
+                        type="text" 
+                        placeholder="0" 
+                        value={formattedActualCash ? formattedActualCash : ''} 
+                        onChange={handleActualCashChange} 
+                        className="font-black text-4xl h-20 text-center bg-transparent border-none focus-visible:ring-0 shadow-none transition-all placeholder:opacity-20" 
+                        autoFocus 
+                        onFocus={e => e.target.select()} 
+                      />
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 text-2xl font-bold text-primary/30 pointer-events-none">đ</div>
+                    </div>
+                  </CardContent>
                 </Card>
                 {discrepancy !== 0 && (
-                  <Card className="border-destructive ring-2 ring-destructive/30 mt-6 rounded-xl">
+                  <Card className="border-destructive/20 bg-destructive/5 shadow-sm rounded-[2rem] overflow-hidden border-2 mt-6">
                     <CardHeader className="pb-4">
-                      <CardTitle className="text-destructive flex items-center gap-2 text-lg"><AlertCircle /> Chênh lệch: {discrepancy.toLocaleString('vi-VN')}đ</CardTitle>
-                      <CardDescription>Vui lòng nhập lý do chi tiết và chụp ảnh bằng chứng (nếu cần).</CardDescription>
+                      <CardTitle className="text-destructive flex items-center justify-center gap-2 text-xl font-bold">
+                        <AlertCircle className="h-6 w-6" /> 
+                        Chênh lệch: {discrepancy > 0 ? '+' : ''}{discrepancy.toLocaleString('vi-VN')}đ
+                      </CardTitle>
+                      <CardDescription className="text-center text-destructive/70 font-medium">Vui lòng nhập lý do chi tiết và bằng chứng.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <Textarea ref={discrepancyReasonRef} placeholder="Nhập lý do chênh lệch ở đây..." value={discrepancyReason} onChange={e => setDiscrepancyReason(e.target.value)} disabled={!isOwnerView && !!countToEdit} />
-                      <div className="space-y-2">
+                      <Textarea 
+                        ref={discrepancyReasonRef} 
+                        placeholder="Tại sao lại chênh lệch?..." 
+                        value={discrepancyReason} 
+                        onChange={e => setDiscrepancyReason(e.target.value)} 
+                        disabled={!isOwnerView && !!countToEdit} 
+                        className="bg-background/50 border-destructive/10 focus-visible:ring-destructive/20 min-h-[100px] rounded-xl"
+                      />
+                      <div className="space-y-3">
                         {(!countToEdit || isOwnerView) && (
-                          <Button variant="outline" className="w-full h-12" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-5 w-5" /> Chụp ảnh bằng chứng</Button>
+                          <Button variant="outline" className="w-full h-12 rounded-xl border-destructive/20 hover:bg-destructive/10 text-destructive font-bold group" onClick={() => setIsCameraOpen(true)}>
+                            <Camera className="mr-2 h-5 w-5 group-hover:scale-110 transition-transform" /> 
+                            Chụp ảnh bằng chứng
+                          </Button>
                         )}
                         {allPhotos.length > 0 && (
-                          <div className="flex gap-2 flex-wrap">
+                          <div className="flex gap-3 justify-center flex-wrap pt-2">
                             {allPhotos.map((photo, i) => (
-                              <div key={photo.id} className="relative h-16 w-16 group">
-                                <button onClick={() => openLightbox(allPhotos.map(p => ({ src: p.url })), i)} className="w-full h-full rounded-md overflow-hidden"><Image src={photo.url} alt={`proof-${i}`} fill className="object-cover" /></button>
+                              <div key={photo.id} className="relative h-20 w-20 group/photo">
+                                <button onClick={() => openLightbox(allPhotos.map(p => ({ src: p.url })), i)} className="w-full h-full rounded-2xl overflow-hidden ring-2 ring-destructive/20 shadow-lg group-hover/photo:ring-destructive/40 transition-all">
+                                  <Image src={photo.url} alt={`proof-${i}`} fill className="object-cover" />
+                                </button>
                                 {(!countToEdit || isOwnerView) && (
-                                  <Button variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5 rounded-full" onClick={() => localPhotos.some(p => p.id === photo.id) ? handleDeleteLocalPhoto(photo.id) : handleDeleteExistingPhoto(photo.url)}><X className="h-3 w-3" /></Button>
+                                  <Button variant="destructive" size="icon" className="absolute -top-2 -right-2 h-6 w-6 rounded-full shadow-lg opacity-0 group-hover/photo:opacity-100 transition-opacity" onClick={() => localPhotos.some(p => p.id === photo.id) ? handleDeleteLocalPhoto(photo.id) : handleDeleteExistingPhoto(photo.url)}>
+                                    <X className="h-3.5 w-3.5" />
+                                  </Button>
                                 )}
                               </div>
                             ))}
@@ -283,13 +315,17 @@ export default function CashHandoverDialog({
               </div>
             </ScrollArea>
           </div>
-          <DialogFooter className="p-6 pt-4 border-t shrink-0 bg-muted/30">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Đóng</Button>
+          <DialogFooter variant="muted" className="shrink-0 p-6">
+            <DialogCancel onClick={() => onOpenChange(false)}>Đóng</DialogCancel>
             {(!countToEdit || isOwnerView) && (
-              <Button onClick={handleConfirmAndSave} disabled={isProcessing || typeof actualCashCounted !== 'number'}>
-                {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
-                {isProcessing ? 'Đang lưu...' : (countToEdit ? 'Lưu thay đổi' : 'Hoàn tất & Gửi')}
-              </Button>
+              <DialogAction 
+                onClick={handleConfirmAndSave} 
+                isLoading={isProcessing}
+                disabled={typeof actualCashCounted !== 'number'}
+              >
+                {!isProcessing && !countToEdit && <ArrowRight className="mr-2 h-4 w-4" />}
+                {countToEdit ? 'Lưu thay đổi' : 'Hoàn tất & Gửi'}
+              </DialogAction>
             )}
           </DialogFooter>
         </DialogContent>

@@ -8,16 +8,19 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogBody,
+  DialogAction,
+  DialogCancel,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { User, CheckCircle, AlertTriangle, AlertCircle } from 'lucide-react';
+import { User, CheckCircle, AlertTriangle, AlertCircle, Clock } from 'lucide-react';
 import type { AssignedShift, Availability, ManagedUser, UserRole, AssignedUser } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { isUserAvailable, hasTimeConflict } from '@/lib/schedule-utils';
+import { isUserAvailable, hasTimeConflict, calculateTotalHours } from '@/lib/schedule-utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Combobox } from '@/components/combobox';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
   AlertDialog,
@@ -45,6 +48,8 @@ type ShiftAssignmentDialogProps = {
   onClose: () => void;
   allShiftsOnDay: AssignedShift[];
   passRequestingUser?: AssignedUser | null;
+  weekInterval: { start: Date; end: Date };
+  weekShifts: AssignedShift[];
   parentDialogTag: string;
 };
 
@@ -66,6 +71,12 @@ const getRoleTextColor = (role: UserRole): string => {
   }
 };
 
+const formatHours = (value: number): string => {
+  const normalized = Math.round(value * 10) / 10;
+  if (normalized === 0) return '0h';
+  return Number.isInteger(normalized) ? `${normalized}h` : `${normalized.toFixed(1)}h`;
+};
+
 export default function ShiftAssignmentDialog({
   shift,
   allUsers,
@@ -77,6 +88,8 @@ export default function ShiftAssignmentDialog({
   onClose,
   allShiftsOnDay,
   passRequestingUser,
+  weekInterval,
+  weekShifts,
   parentDialogTag
 }: ShiftAssignmentDialogProps) {
 
@@ -152,6 +165,35 @@ export default function ShiftAssignmentDialog({
     return { selectedUsers: selectedList, availableUsers: availableList, busyUsers: busyList };
   }, [allUsers, shift.role, shift.timeSlot, availability, isPassAssignmentMode, passRequestingUser, currentUserRole, selectedUserIds]);
 
+  const assignedHoursByUser = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!weekShifts.length) return map;
+    const interval = { start: weekInterval.start, end: weekInterval.end };
+    for (const weekShift of weekShifts) {
+      const shiftDate = parseISO(weekShift.date);
+      if (!isWithinInterval(shiftDate, interval)) continue;
+      const duration = calculateTotalHours([weekShift.timeSlot]);
+      const assignees = weekShift.assignedUsersWithRole ?? weekShift.assignedUsers;
+      for (const assignedUser of assignees) {
+        map.set(assignedUser.userId, (map.get(assignedUser.userId) || 0) + duration);
+      }
+    }
+    return map;
+  }, [weekInterval.start, weekInterval.end, weekShifts]);
+
+  const availabilityHoursByUser = useMemo(() => {
+    const map = new Map<string, number>();
+    const interval = { start: weekInterval.start, end: weekInterval.end };
+    for (const record of availability) {
+      const recordDate = typeof record.date === 'string' ? parseISO(record.date) : record.date.toDate();
+      if (!isWithinInterval(recordDate, interval)) continue;
+      const total = calculateTotalHours(record.availableSlots);
+      if (total <= 0) continue;
+      map.set(record.userId, (map.get(record.userId) || 0) + total);
+    }
+    return map;
+  }, [availability, weekInterval.start, weekInterval.end]);
+
   const handleSelectUser = (user: ManagedUser) => {
     // Prevent manager from selecting busy users. Only owner can.
     const isAvailable = isUserAvailable(user.uid, shift.timeSlot, availability.filter(a => a.date === shift.date));
@@ -210,22 +252,29 @@ export default function ShiftAssignmentDialog({
     const isSelected = selectedUserIds.has(user.uid);
     const conflict = hasTimeConflict(user.uid, shift, allShiftsOnDay.filter(s => s.id !== shift.id));
     const canSelect = currentUserRole === 'Chủ nhà hàng' || isAvailable;
+    const assignedHours = assignedHoursByUser.get(user.uid) ?? 0;
+    const availableHours = availabilityHoursByUser.get(user.uid) ?? 0;
 
     return (
       <Card
         className={cn(
-          "cursor-pointer transition-all",
-          isSelected ? 'border-primary ring-2 ring-primary' : 'hover:border-primary/50',
-          !canSelect && !isSelected && 'opacity-60 bg-muted/50 cursor-not-allowed'
+          "cursor-pointer transition-all border-none shadow-none transform-gpu transition-transform",
+          isSelected 
+            ? 'bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background scale-105 z-10 mb-3' 
+            : 'bg-muted/30 hover:bg-muted/50 text-foreground',
+          !canSelect && !isSelected && 'opacity-60 bg-muted/20 cursor-not-allowed'
         )}
         onClick={() => handleSelectUser(user)}
       >
-        <CardContent className="p-3 flex items-center justify-between gap-3">
+        <CardContent className={cn(isSelected ? 'p-5' : 'p-4', 'flex items-center justify-between gap-3')}>
           <div className="flex-1 space-y-1">
-            <p className="font-semibold">{user.displayName}</p>
-            <p className={cn("text-xs", getRoleTextColor(user.role))}>{user.role}</p>
+            <p className="font-bold">{user.displayName}</p>
+            <p className={cn("text-xs font-medium opacity-80", isSelected ? 'text-primary-foreground' : getRoleTextColor(user.role))}>{user.role}</p>
+            <p className="text-[11px] leading-tight text-white-foreground/80">
+              Đã xếp: {formatHours(assignedHours)} · Đăng ký: {formatHours(availableHours)}
+            </p>
             {isSelected && currentUserRole === 'Chủ nhà hàng' && (
-              <div className="mt-1">
+              <div className="mt-2 pt-2 border-t border-primary-foreground/20">
                 {/* Use only user's main + secondary roles as options */}
                 {((user.secondaryRoles?.filter(r => r !== 'Thu ngân') || []).length || 0) > 0 ? (
                   (() => {
@@ -244,28 +293,33 @@ export default function ShiftAssignmentDialog({
                           options={roleOptions.map(r => ({ value: r, label: r }))}
                           compact
                           searchable={false}
-                          className="h-7 w-36 text-xs"
+                          className={cn(
+                            "h-8 w-40 text-xs font-semibold",
+                            isSelected ? "bg-primary-foreground/10 border-primary-foreground/20 text-white" : ""
+                          )}
                           placeholder="Vai trò"
                         />
                       </div>
                     );
                   })()
                 ) : (
-                  <div className="text-xs text-muted-foreground">Vai trò: <span className="font-medium">{user.role}</span></div>
+                  <div className="text-xs opacity-90">Vai trò: <span className="font-bold">{user.role}</span></div>
                 )}
               </div>
             )}
           </div>
-          <div className="flex flex-col items-end gap-1">
+          <div className="flex flex-col items-end gap-1.5">
             {isSelected ? (
               <>
-                <CheckCircle className="h-5 w-5 text-primary" />
-                {!isAvailable && <Badge variant="destructive" className="bg-yellow-500 text-yellow-900 text-xs">Chọn dù bận</Badge>}
+                <div className="bg-primary-foreground/20 p-1 rounded-full">
+                  <CheckCircle className="h-5 w-5 text-white" />
+                </div>
+                {!isAvailable && <Badge variant="destructive" className="bg-yellow-400 text-yellow-950 border-none text-[10px] uppercase font-black px-1.5 py-0">Chọn dù bận</Badge>}
               </>
             ) : (
               conflict
-                ? <Badge variant="destructive" className="bg-yellow-500 text-yellow-900 text-xs">Trùng ca</Badge>
-                : (!isAvailable && <Badge variant="destructive" className="bg-yellow-500 text-yellow-900 text-xs">Bận</Badge>)
+                ? <Badge variant="destructive" className="bg-rose-500 text-white border-none text-[10px] uppercase font-black px-1.5 py-0 shadow-sm">Trùng ca</Badge>
+                : (!isAvailable && <Badge variant="destructive" className="bg-sky-500 text-white border-none text-[10px] uppercase font-black px-1.5 py-0 shadow-sm">Bận</Badge>)
             )}
           </div>
         </CardContent>
@@ -273,66 +327,104 @@ export default function ShiftAssignmentDialog({
     );
   }
 
-  const SectionHeader = ({ title }: { title: string }) => (
-    <h4 className="text-sm font-semibold mb-2 sticky top-0 bg-background/95 backdrop-blur-sm z-10 py-2 -mt-2">
-      {title}
-    </h4>
+  const SectionHeader = ({ title, count }: { title: string, count: number }) => (
+    <div className="flex items-center justify-between mb-3 px-1 sticky top-0 bg-background/95 backdrop-blur-sm z-20 py-1">
+      <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground/60">
+        {title}
+      </h4>
+      <Badge variant="outline" className="rounded-full px-2 py-0 h-5 text-[10px] border-muted-foreground/20 font-bold bg-muted/5">
+        {count}
+      </Badge>
+    </div>
   );
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose} dialogTag="shift-assignment-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent className="max-w-md">
-        <DialogHeader>
+        <DialogHeader iconkey="user" variant="premium">
           <DialogTitle>{isPassAssignmentMode ? 'Chỉ định ca thay thế' : `Phân công: ${shift.label}`}</DialogTitle>
           <DialogDescription>
-            {format(parseISO(shift.date), 'eeee, dd/MM/yyyy', { locale: vi })} | {shift.timeSlot.start} - {shift.timeSlot.end}
-            {isPassAssignmentMode && ` cho ${passRequestingUser?.userName}`}
+            {format(parseISO(shift.date), 'eeee, dd/MM/yyyy', { locale: vi })}
+            <span className="flex items-center gap-1.5 mt-1 text-primary font-bold">
+              <Clock className="w-3.5 h-3.5" />
+              {shift.timeSlot.start} - {shift.timeSlot.end}
+            </span>
+            {isPassAssignmentMode && (
+              <span className="mt-2 text-xs font-medium bg-primary/5 text-primary-foreground border border-primary/10 rounded-full px-3 py-1 inline-flex items-center gap-1">
+                Thay thế cho: <span className="font-bold">{passRequestingUser?.userName}</span>
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
-        <ScrollArea className="max-h-[50vh] -mx-4 px-2">
-          <div className="space-y-4 px-2 pb-4">
+
+        <DialogBody className="bg-slate-50/50 dark:bg-zinc-950/50">
+          <div className="space-y-8 py-2">
             {selectedUsers.length > 0 && (
               <div>
-                <SectionHeader title={`Nhân viên trong ca (${selectedUsers.length})`} />
-                <div className="space-y-2">
-                  {selectedUsers.map(user => <UserCard key={user.uid} user={user} isAvailable={isUserAvailable(user.uid, shift.timeSlot, availability.filter(a => a.date === shift.date))} />)}
+                <SectionHeader title="Nhân viên trong ca" count={selectedUsers.length} />
+                <div className="grid gap-2">
+                  {selectedUsers.map(user => (
+                    <UserCard 
+                      key={user.uid} 
+                      user={user} 
+                      isAvailable={isUserAvailable(user.uid, shift.timeSlot, availability.filter(a => a.date === shift.date))} 
+                    />
+                  ))}
                 </div>
               </div>
             )}
+            
             {availableUsers.length > 0 && (
               <div>
-                <SectionHeader title={`Nhân viên rảnh (${availableUsers.length})`} />
-                <div className="space-y-2">
-                  {availableUsers.map(user => <UserCard key={user.uid} user={user} isAvailable={true} />)}
+                <SectionHeader title="Nhân viên rảnh" count={availableUsers.length} />
+                <div className="grid gap-2">
+                  {availableUsers.map(user => (
+                    <UserCard 
+                      key={user.uid} 
+                      user={user} 
+                      isAvailable={true} 
+                    />
+                  ))}
                 </div>
               </div>
             )}
+
             {busyUsers.length > 0 && (
               <div>
-                <SectionHeader title={`Nhân viên bận hoặc chưa đăng ký (${busyUsers.length})`} />
-                <div className="space-y-2">
-                  {busyUsers.map(user => <UserCard key={user.uid} user={user} isAvailable={false} />)}
+                <SectionHeader title="Nhân viên bận/Chưa đăng ký" count={busyUsers.length} />
+                <div className="grid gap-2">
+                  {busyUsers.map(user => (
+                    <UserCard 
+                      key={user.uid} 
+                      user={user} 
+                      isAvailable={false} 
+                    />
+                  ))}
                 </div>
               </div>
             )}
+
             {selectedUsers.length === 0 && availableUsers.length === 0 && busyUsers.length === 0 && (
-              <p className="text-sm text-center text-muted-foreground py-8">Không có nhân viên nào phù hợp để chỉ định.</p>
+              <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                <User className="w-12 h-12 mb-3 opacity-20" />
+                <p className="text-sm font-medium">Không có nhân viên nào phù hợp.</p>
+              </div>
             )}
           </div>
-        </ScrollArea>
+        </DialogBody>
+
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Hủy</Button>
-          <Button onClick={handleSave}>Lưu thay đổi</Button>
+          <DialogCancel>Hủy</DialogCancel>
+          <DialogAction onClick={handleSave}>Lưu thay đổi</DialogAction>
         </DialogFooter>
 
-        <AlertDialog open={!!conflictError} onOpenChange={() => setConflictError(null)} dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
+        <AlertDialog open={!!conflictError} onOpenChange={() => setConflictError(null)} dialogTag="alert-dialog" parentDialogTag="shift-assignment-dialog" variant="destructive">
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogIcon icon={AlertCircle} />
               <div className="space-y-2 text-center sm:text-left">
                 <AlertDialogTitle>Lỗi: Phân công bị trùng</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Nhân viên <span className="font-bold">{conflictError?.userName}</span> đã được xếp vào ca <span className="font-bold">{conflictError?.shiftLabel}</span>, bị trùng giờ với ca này.
+                  Nhân viên <span className="font-bold text-foreground">{conflictError?.userName}</span> đã được xếp vào ca <span className="font-bold text-foreground">{conflictError?.shiftLabel}</span>, bị trùng giờ với ca này.
                   <br /><br />
                   Vui lòng bỏ phân công ở ca đó trước khi thêm vào ca này.
                 </AlertDialogDescription>

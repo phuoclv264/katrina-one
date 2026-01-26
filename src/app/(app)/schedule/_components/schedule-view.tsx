@@ -665,17 +665,21 @@ export default function ScheduleView() {
                                             canRegisterAvailability && (
                                                 <div className="flex items-center gap-2">
                                                     {availabilityForDay.length > 0 ? (
-                                                        <div className="flex items-center justify-end gap-1 sm:gap-1.5 overflow-x-auto whitespace-nowrap">
+                                                        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-1.5 max-w-full">
                                                             {availabilityForDay.map((slot, i) => (
-                                                                <div key={i} className="inline-flex items-center flex-shrink-0 px-2 py-1 sm:px-2.5 sm:py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg sm:rounded-xl text-[10px] sm:text-[11px] font-semibold sm:font-black gap-1 shadow-sm text-slate-700 dark:text-slate-200 mr-1">
+                                                                <div
+                                                                    key={i}
+                                                                    className="inline-flex items-center px-2 py-1 sm:px-2.5 sm:py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg sm:rounded-xl text-[10px] sm:text-[11px] font-semibold sm:font-black gap-1 shadow-sm text-slate-700 dark:text-slate-200 whitespace-nowrap"
+                                                                >
                                                                     <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-primary" />
                                                                     {slot.start} – {slot.end}
                                                                 </div>
                                                             ))}
+
                                                             <Button
                                                                 size="sm"
                                                                 variant="ghost"
-                                                                className="rounded-xl h-7 px-2 sm:h-8 sm:px-3 text-[9px] sm:text-[10px] font-black hover:bg-primary/5 text-primary transition-all flex-shrink-0"
+                                                                className="rounded-xl h-7 px-2 sm:h-8 sm:px-3 text-[9px] sm:text-[10px] font-black hover:bg-primary/5 text-primary transition-all w-full sm:w-auto mt-2 sm:mt-0 flex-shrink-0"
                                                                 onClick={() => openAvailabilityDialog(day)}
                                                             >
                                                                 SỬA GIỜ

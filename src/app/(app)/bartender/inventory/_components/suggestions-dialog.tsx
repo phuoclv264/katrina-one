@@ -140,7 +140,7 @@ export function SuggestionsDialog({
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()} dialogTag="inventory-suggestions-dialog" parentDialogTag={parentDialogTag}>
             <DialogContent className="max-w-2xl h-full md:h-auto md:max-h-[90vh] flex flex-col">
-                <DialogHeader className="shrink-0">
+                <DialogHeader iconkey="layout" className="shrink-0">
                     <DialogTitle>Xác nhận Đề xuất Đặt hàng</DialogTitle>
                     <DialogDescription>
                         Kiểm tra và chỉnh sửa danh sách các mặt hàng cần đặt. Chỉ những mục được chọn mới được đưa vào báo cáo.

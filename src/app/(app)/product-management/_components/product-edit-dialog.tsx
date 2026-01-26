@@ -1,6 +1,16 @@
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogBody,
+  DialogAction,
+  DialogCancel,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -216,126 +226,217 @@ function AddIngredientDialog({
   return (
     <Dialog open={isOpen} onOpenChange={onClose} dialogTag="add-ingredient-dialog" parentDialogTag="product-edit-dialog">
       <DialogContent
-        className="max-w-4xl p-0 h-full md:h-[90vh] flex flex-col bg-background rounded-xl shadow-lg"
+        className="max-w-4xl p-0 h-[90vh] flex flex-col bg-card"
       >
-        <DialogHeader className="p-4 sm:p-6 pb-4 border-b">
+        <DialogHeader iconkey="layout">
           <DialogTitle>Thêm nguyên liệu</DialogTitle>
+          <DialogDescription>Chọn nguyên liệu từ kho hoặc từ các món đã pha chế sẵn.</DialogDescription>
         </DialogHeader>
 
-        <div className="flex-grow flex flex-col md:flex-row overflow-hidden">
+        <DialogBody className="p-0 flex flex-col md:flex-row">
           {/* Left Panel: Search & Select */}
           <div className={cn(
-            "w-full md:w-1/2 flex flex-col border-r overflow-y-auto",
+            "w-full md:w-[45%] flex flex-col border-r bg-muted/5",
             selectedItem && "hidden md:flex"
           )}>
-            <div className="p-4 space-y-4 sticky top-0 bg-background z-10 border-b">
-              <RadioGroup defaultValue="inventory" value={ingredientSource} onValueChange={(v) => { setIngredientSource(v as any); setSelectedItem(null); }} className="grid grid-cols-2 gap-2">
-                <Label htmlFor="source-inventory" className="flex items-center justify-center gap-2 border rounded-lg p-3 h-14 text-sm font-medium cursor-pointer data-[state=checked]:border-primary data-[state=checked]:bg-primary/10">
-                  <RadioGroupItem value="inventory" id="source-inventory" /><Box className="h-4 w-4" /> Kho
+            <div className="p-4 space-y-4 border-b bg-background">
+              <RadioGroup 
+                defaultValue="inventory" 
+                value={ingredientSource} 
+                onValueChange={(v) => { setIngredientSource(v as any); setSelectedItem(null); }} 
+                className="grid grid-cols-2 gap-2"
+              >
+                <Label 
+                  htmlFor="source-inventory" 
+                  className="flex flex-col items-center justify-center gap-1.5 border-2 rounded-xl p-3 h-20 text-xs font-bold cursor-pointer transition-all hover:bg-muted/50 data-[state=checked]:border-primary data-[state=checked]:bg-primary/[0.03] data-[state=checked]:text-primary"
+                >
+                  <RadioGroupItem value="inventory" id="source-inventory" className="sr-only" />
+                  <Box className="h-5 w-5" /> KHO HÀNG
                 </Label>
-                <Label htmlFor="source-product" className="flex items-center justify-center gap-2 border rounded-lg p-3 h-14 text-sm font-medium cursor-pointer data-[state=checked]:border-primary data-[state=checked]:bg-primary/10">
-                  <RadioGroupItem value="product" id="source-product" /><Beaker className="h-4 w-4" /> SP Khác
+                <Label 
+                  htmlFor="source-product" 
+                  className="flex flex-col items-center justify-center gap-1.5 border-2 rounded-xl p-3 h-20 text-xs font-bold cursor-pointer transition-all hover:bg-muted/50 data-[state=checked]:border-primary data-[state=checked]:bg-primary/[0.03] data-[state=checked]:text-primary"
+                >
+                  <RadioGroupItem value="product" id="source-product" className="sr-only" />
+                  <Beaker className="h-5 w-5" /> MÓN CÔNG THỨC
                 </Label>
               </RadioGroup>
-              <Command>
-                <CommandInput placeholder="Tìm nguyên liệu..." value={search} onValueChange={setSearch} className="h-12 text-base" />
-                <CommandList>
-                  <CommandEmpty>Không tìm thấy.</CommandEmpty>
-                  <CommandGroup>
-                    {filteredItems.map((item) => (
-                      <CommandItem key={item.id} onSelect={() => handleSelect(item)} className="p-4 cursor-pointer">
-                        {item.name}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
+
+              <div className="relative group">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                <Input 
+                  placeholder="Tìm tên nguyên liệu..." 
+                  value={search} 
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="h-11 pl-10 rounded-xl bg-muted/20 border-transparent focus:bg-background transition-all" 
+                />
+              </div>
             </div>
+
+            <ScrollArea className="flex-1">
+              <div className="p-2 space-y-1">
+                {filteredItems.length === 0 ? (
+                  <div className="py-20 text-center text-muted-foreground">
+                    <p className="text-sm italic">Không tìm thấy kết quả nào</p>
+                  </div>
+                ) : (
+                  filteredItems.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => handleSelect(item)}
+                      className={cn(
+                        "w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-white dark:hover:bg-slate-900 border border-transparent hover:border-border transition-all group",
+                        selectedItem?.id === item.id && "bg-white dark:bg-slate-900 border-border shadow-sm ring-1 ring-primary/10"
+                      )}
+                    >
+                      <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
+                        {ingredientSource === 'inventory' ? (
+                          <Box className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
+                        ) : (
+                          <Beaker className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
+                        )}
+                      </div>
+                      <span className="text-sm font-semibold group-hover:text-primary transition-colors">
+                        {item.name}
+                      </span>
+                      <ChevronsRight className="h-4 w-4 ml-auto text-muted-foreground/30 opacity-0 group-hover:opacity-100 transition-all" />
+                    </button>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
           </div>
 
           {/* Right Panel: Details & Staging */}
           <div className={cn(
-            "flex-1 flex flex-col overflow-y-auto p-4",
-            !selectedItem && "items-center justify-center"
+            "flex-1 flex flex-col bg-muted/[0.03]",
+            !selectedItem && "items-center justify-center p-8 text-center"
           )}>
             {!selectedItem ? (
-              <div className="text-center text-muted-foreground">
-                <Box className="mx-auto h-12 w-12 opacity-50" />
-                <p className="mt-4 text-sm">Chọn một nguyên liệu để xem chi tiết.</p>
+              <div className="max-w-[280px] space-y-4">
+                <div className="h-20 w-20 rounded-3xl bg-muted/20 flex items-center justify-center mx-auto">
+                  <Plus className="h-8 w-8 text-muted-foreground/40" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground/80">Chưa chọn nguyên liệu</h3>
+                  <p className="text-sm text-muted-foreground">Vui lòng chọn một nguyên liệu từ danh sách bên trái để định lượng.</p>
+                </div>
               </div>
             ) : (
-              <div className="flex flex-col gap-4">
-                <Button variant="ghost" onClick={() => setSelectedItem(null)} className="self-start -ml-4 md:hidden">
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Chọn nguyên liệu khác
-                </Button>
-                <Card className="flex-1 flex flex-col bg-background rounded-2xl shadow-lg">
-                  <CardHeader>
-                    <CardTitle className="truncate text-xl">{selectedItem.name}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="flex-grow space-y-4">
-                    <div className="space-y-2">
-                      <Label className="text-base">Số lượng</Label>
-                      <Input type="number" value={quantity} onChange={e => setQuantity(parseFloat(e.target.value) || 1)} min="0.1" step="0.1" className="h-12 text-lg" onFocus={(e) => e.target.select()} />
+              <div className="flex-1 flex flex-col min-h-0">
+                <div className="p-4 md:p-6 border-b bg-background flex items-center gap-4">
+                  <Button variant="ghost" size="icon" onClick={() => setSelectedItem(null)} className="md:hidden">
+                    <ArrowLeft className="h-5 w-5" />
+                  </Button>
+                  <div className="flex-1 truncate">
+                    <div className="flex items-center gap-2 mb-0.5">
+                       <Badge variant="outline" className="text-[10px] uppercase font-black py-0 px-1.5 h-4 border-primary/20 bg-primary/[0.03] text-primary/70">
+                         {ingredientSource === 'inventory' ? 'Kho' : 'Công thức'}
+                       </Badge>
                     </div>
-                    <div className="space-y-2">
-                      <Label className="text-base">Đơn vị sử dụng</Label>
-                      <Combobox
-                        value={selectedUnit}
-                        onChange={(val) => setSelectedUnit(val as string)}
-                        options={availableUnits.map(unit => ({ value: unit, label: unit }))}
-                        placeholder="Chọn đơn vị..."
-                        compact
-                        searchable={false}
-                        className="h-12 text-base w-full"
-                      />
-                    </div>
-                    {ingredientSource === 'inventory' && 'baseUnit' in selectedItem && (
-                      <div className="pt-4 mt-4 border-t">
-                        <AddUnitSimple
-                          baseUnitName={selectedItem.baseUnit}
-                          onAdd={handleAddNewUnit}
-                          globalUnits={globalUnits}
-                          onGlobalUnitsChange={onGlobalUnitsChange}
-                          canManageUnits={canManageUnits}
-                        />
+                    <h3 className="text-lg font-black tracking-tight truncate">{selectedItem.name}</h3>
+                  </div>
+                </div>
+
+                <ScrollArea className="flex-1">
+                  <div className="p-6 space-y-8">
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Định lượng sử dụng</Label>
+                        <div className="flex gap-2">
+                          <Input 
+                            type="number" 
+                            value={quantity} 
+                            onChange={e => setQuantity(parseFloat(e.target.value) || 0)} 
+                            min="0.001" 
+                            step="0.1" 
+                            className="h-12 text-lg font-bold border-2 focus-visible:ring-primary/20" 
+                            onFocus={(e) => e.target.select()} 
+                          />
+                          <div className="w-[160px] shrink-0">
+                            <Combobox
+                              value={selectedUnit}
+                              onChange={(val) => setSelectedUnit(val as string)}
+                              options={availableUnits.map(unit => ({ value: unit, label: unit }))}
+                              placeholder="Đơn vị..."
+                              compact
+                              searchable={false}
+                              className="h-12 text-base w-full font-bold border-2"
+                            />
+                          </div>
+                        </div>
                       </div>
-                    )}
-                  </CardContent>
-                  <CardFooter>
-                    <Button onClick={handleStageIngredient} disabled={!selectedItem || !selectedUnit} className="h-12 text-base w-full">
-                      Thêm
-                    </Button>
-                  </CardFooter>
-                </Card>
+
+                      {ingredientSource === 'inventory' && 'baseUnit' in selectedItem && (
+                        <div className="rounded-2xl border-2 border-dashed p-1">
+                          <AddUnitSimple
+                            baseUnitName={selectedItem.baseUnit}
+                            onAdd={handleAddNewUnit}
+                            globalUnits={globalUnits}
+                            onGlobalUnitsChange={onGlobalUnitsChange}
+                            canManageUnits={canManageUnits}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </ScrollArea>
+
+                <div className="p-6 pt-0">
+                  <Button 
+                    onClick={handleStageIngredient} 
+                    disabled={!selectedItem || !selectedUnit || quantity <= 0} 
+                    className="h-12 text-base font-bold w-full rounded-2xl shadow-lg shadow-primary/10"
+                  >
+                    Thêm vào danh sách tạm
+                  </Button>
+                </div>
               </div>
             )}
           </div>
-        </div>
+        </DialogBody>
 
-        <DialogFooter className="p-4 sm:p-6 bg-muted/50 border-t flex-col md:flex-row h-auto">
+        <DialogFooter className="p-4 sm:p-6 bg-muted/10 border-t flex flex-col gap-4">
           {stagedIngredients.length > 0 && (
-            <div className="w-full mb-2 md:mb-0 md:flex-1 overflow-hidden">
+            <div className="w-full space-y-2">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                  Hàng chờ thêm ({stagedIngredients.length})
+                </span>
+                <button 
+                  onClick={() => setStagedIngredients([])} 
+                  className="text-[10px] font-bold text-destructive hover:underline uppercase tracking-tighter"
+                >
+                  Xóa tất cả
+                </button>
+              </div>
               <ScrollArea className="w-full whitespace-nowrap">
-                <div className="flex w-max space-x-2 pb-2">
+                <div className="flex w-max space-x-2 pb-2 px-1">
                   {stagedIngredients.map((ing, index) => {
                     const isSubProduct = !!ing.productId;
                     return (
-                      <Badge key={index} variant="secondary" className="text-sm h-auto py-1 pl-3 pr-1">
+                      <div 
+                        key={index} 
+                        className="flex items-center gap-2 py-1.5 pl-3 pr-1 bg-background border rounded-xl shadow-sm animate-in fade-in zoom-in duration-200"
+                      >
                         <div className="flex items-center gap-1.5">
-                          {isSubProduct ? <Beaker className="h-3 w-3 text-purple-500" /> : <Box className="h-3 w-3 text-blue-500" />}
-                          <span>{ing.name} <span className="font-normal text-muted-foreground">({ing.quantity} {ing.unit})</span></span>
+                          {isSubProduct ? (
+                            <Beaker className="h-3.5 w-3.5 text-purple-500" />
+                          ) : (
+                            <Box className="h-3.5 w-3.5 text-blue-500" />
+                          )}
+                          <span className="text-sm font-bold truncate max-w-[120px]">{ing.name}</span>
+                          <span className="text-xs text-muted-foreground mr-1">{ing.quantity} {ing.unit}</span>
                         </div>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-5 w-5 ml-1"
+                          className="h-6 w-6 rounded-lg hover:bg-destructive/10 text-destructive/50 hover:text-destructive"
                           onClick={() => handleRemoveStaged(index)}
                         >
-                          <X className="h-3 w-3" />
-                          <span className="sr-only">Xóa</span>
+                          <X className="h-3.5 w-3.5" />
                         </Button>
-                      </Badge>
+                      </div>
                     )
                   })}
                 </div>
@@ -343,15 +444,22 @@ function AddIngredientDialog({
               </ScrollArea>
             </div>
           )}
-          <div className="flex w-full md:w-auto gap-2 justify-end">
-            <Button variant="outline" onClick={onClose} className="h-11 text-base w-full sm:w-auto">Đóng</Button>
-            <Button onClick={handleFinalSubmit} disabled={stagedIngredients.length === 0} className="h-11 text-base w-full sm:w-auto">
-              Thêm ({stagedIngredients.length}) nguyên liệu
-            </Button>
+          <div className="flex items-center justify-end gap-3 w-full">
+            <DialogCancel onClick={onClose} className="flex-1 sm:flex-none">
+              Đóng
+            </DialogCancel>
+            <DialogAction 
+              onClick={handleFinalSubmit} 
+              disabled={stagedIngredients.length === 0} 
+              className="flex-1 sm:flex-none min-w-[160px]"
+            >
+              Thành công
+            </DialogAction>
           </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
   )
 }
 
@@ -447,182 +555,270 @@ export default function ProductEditDialog({ isOpen, onClose, onSave, productToEd
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && handleAttemptClose()} dialogTag="product-edit-dialog" parentDialogTag="root">
         <DialogContent
-          className="max-w-3xl flex flex-col h-[90vh] p-0 bg-card rounded-xl shadow-lg"
+          className="max-w-3xl flex flex-col h-[90vh] p-0 bg-card overflow-hidden"
         >
-          <DialogHeader className="p-6 pb-4 border-b">
+          <DialogHeader iconkey="layout">
             <DialogTitle>{productToEdit ? 'Chỉnh sửa mặt hàng' : 'Thêm mặt hàng mới'}</DialogTitle>
             <DialogDescription>
-              Quản lý công thức và thông tin chi tiết của sản phẩm.
+              Quản lý công thức và thông tin chi tiết của sản phẩm để tự động hóa định lượng kho.
             </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="flex-grow">
-            <div className="space-y-6 p-6">
 
+          <DialogBody className="bg-muted/[0.02]">
+            <div className="space-y-8 py-2">
               {/* Section: Basic Info */}
               <div className="space-y-4">
-                <h4 className="text-sm font-semibold flex items-center gap-2 text-primary"><Box className="h-4 w-4" />Thông tin cơ bản</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="product-name" className="text-xs text-muted-foreground">Tên mặt hàng</Label>
-                    <Input id="product-name" value={product.name || ''} onChange={(e) => handleFieldChange('name', e.target.value)} placeholder="VD: Cà phê sữa đá" onFocus={(e) => e.target.select()} />
+                <div className="flex items-center gap-2 mb-2">
+                   <div className="h-6 w-1 bg-primary rounded-full shadow-[0_0_8px_rgba(var(--primary),0.5)]" />
+                   <h4 className="text-sm font-black uppercase tracking-widest text-foreground/70">Thông tin cơ bản</h4>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-background p-6 rounded-[2rem] border shadow-sm">
+                  <div className="space-y-2">
+                    <Label htmlFor="product-name" className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Tên mặt hàng</Label>
+                    <Input 
+                      id="product-name" 
+                      value={product.name || ''} 
+                      onChange={(e) => handleFieldChange('name', e.target.value)} 
+                      placeholder="VD: Cà phê sữa đá" 
+                      className="h-12 rounded-xl border-muted-foreground/20 font-bold text-base bg-muted/5 group-hover:bg-muted/10 transition-all"
+                      onFocus={(e) => e.target.select()} 
+                    />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="product-category" className="text-xs text-muted-foreground">Danh mục</Label>
-                    <Input id="product-category" value={product.category || ''} onChange={(e) => handleFieldChange('category', e.target.value)} placeholder="VD: CÀ PHÊ TRUYỀN THỐNG" onFocus={(e) => e.target.select()} />
+                  <div className="space-y-2">
+                    <Label htmlFor="product-category" className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Danh mục</Label>
+                    <Input 
+                      id="product-category" 
+                      value={product.category || ''} 
+                      onChange={(e) => handleFieldChange('category', e.target.value)} 
+                      placeholder="VD: CÀ PHÊ TRUYỀN THỐNG" 
+                      className="h-12 rounded-xl border-muted-foreground/20 font-bold text-base bg-muted/5 group-hover:bg-muted/10 transition-all"
+                      onFocus={(e) => e.target.select()} 
+                    />
                   </div>
                 </div>
               </div>
-
-              <Separator />
 
               {/* Section: Sub-recipe options */}
               <div className="space-y-4">
-                <h4 className="text-sm font-semibold flex items-center gap-2 text-primary"><Settings className="h-4 w-4" />Tùy chọn</h4>
-                <Label htmlFor="is-ingredient-switch" className="flex items-center justify-between cursor-pointer rounded-lg border p-3 shadow-sm">
-                  <div>
-                    <span className="font-medium text-sm">Dùng làm nguyên liệu cho món khác</span>
-                    <p className="text-xs text-muted-foreground">Bật nếu đây là công thức con (ví dụ: kem nền, trà ủ sẵn).</p>
+                <div className="flex items-center gap-2 mb-2">
+                   <div className="h-6 w-1 bg-primary rounded-full shadow-[0_0_8px_rgba(var(--primary),0.5)]" />
+                   <h4 className="text-sm font-black uppercase tracking-widest text-foreground/70">Cấu hình pha chế</h4>
+                </div>
+                
+                <div className="space-y-4 bg-background p-6 rounded-[2rem] border shadow-sm">
+                  <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/10 border-2 border-transparent hover:border-primary/10 transition-all group">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                        <Beaker className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <Label htmlFor="is-ingredient-switch" className="font-bold text-sm cursor-pointer block">Dùng làm nguyên liệu</Label>
+                        <p className="text-xs text-muted-foreground">Bật nếu đây là công thức con (ví dụ: kem nền, trà ủ sẵn).</p>
+                      </div>
+                    </div>
+                    <Switch
+                      id="is-ingredient-switch"
+                      checked={product.isIngredient}
+                      onCheckedChange={(checked) => handleFieldChange('isIngredient', checked)}
+                    />
                   </div>
-                  <Switch
-                    id="is-ingredient-switch"
-                    checked={product.isIngredient}
-                    onCheckedChange={(checked) => handleFieldChange('isIngredient', checked)}
-                  />
-                </Label>
 
-                {product.isIngredient && (
-                  <div className="grid grid-cols-2 gap-4 pl-4 border-l-2 ml-2">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="yield-qty" className="text-xs text-muted-foreground">Số lượng thành phẩm</Label>
-                      <Input id="yield-qty" type="number" placeholder="Số lượng" value={product.yield?.quantity || ''} onChange={(e) => handleFieldChange('yield', { ...product.yield, quantity: Number(e.target.value) })} onFocus={(e) => e.target.select()} />
+                  {product.isIngredient && (
+                    <div className="grid grid-cols-2 gap-4 pt-2 border-t border-dashed mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                      <div className="space-y-2">
+                        <Label htmlFor="yield-qty" className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Lượng thành phẩm</Label>
+                        <Input 
+                          id="yield-qty" 
+                          type="number" 
+                          placeholder="Số lượng" 
+                          value={product.yield?.quantity || ''} 
+                          onChange={(e) => handleFieldChange('yield', { ...product.yield, quantity: Number(e.target.value) })} 
+                          className="h-11 rounded-xl font-bold"
+                          onFocus={(e) => e.target.select()} 
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="yield-unit" className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Đơn vị đo</Label>
+                        <Input 
+                          id="yield-unit" 
+                          placeholder="ml, g,..." 
+                          value={product.yield?.unit || ''} 
+                          onChange={(e) => handleFieldChange('yield', { ...product.yield, unit: e.target.value })} 
+                          className="h-11 rounded-xl font-bold"
+                          onFocus={(e) => e.target.select()} 
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="yield-unit" className="text-xs text-muted-foreground">Đơn vị thành phẩm</Label>
-                      <Input id="yield-unit" placeholder="ml, g,..." value={product.yield?.unit || ''} onChange={(e) => handleFieldChange('yield', { ...product.yield, unit: e.target.value })} onFocus={(e) => e.target.select()} />
-                    </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-
-              <Separator />
 
               {/* Section: Ingredients */}
-              <div className="space-y-2">
-                <Label className="font-semibold">Công thức</Label>
-                <div className="border rounded-md">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[45%]">Nguyên liệu</TableHead>
-                        <TableHead className="w-[20%] text-right">Số lượng</TableHead>
-                        <TableHead className="w-[25%]">Đơn vị</TableHead>
-                        <TableHead className="w-[10%]"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(product.ingredients || []).length > 0 ? (
-                        (product.ingredients || []).map((ing, index) => {
-                          const isSubProduct = !!ing.productId;
-                          const item = isSubProduct
-                            ? allProducts.find(p => p.id === ing.productId)
-                            : inventoryList.find(i => i.id === ing.inventoryItemId);
-
-                          let availableUnits: string[] = [];
-                          if (item) {
-                            if (isSubProduct && 'yield' in item) {
-                              availableUnits = [(item as Product).yield?.unit || 'phần'];
-                            } else if (!isSubProduct && 'units' in item) {
-                              availableUnits = (item as InventoryItem).units.map(u => u.name);
-                            }
-                          } else {
-                            availableUnits = [ing.unit];
-                          }
-
-                          return (
-                            <TableRow key={`${ing.inventoryItemId || ing.productId}-${index}`}>
-                              <TableCell className="font-medium">
-                                <div className="flex items-center gap-2">
-                                  {isSubProduct ? <Beaker className="h-4 w-4 text-purple-500" /> : <Box className="h-4 w-4 text-blue-500" />}
-                                  {item ? <span>{item.name}</span> : <span className="flex items-center gap-2 text-yellow-600"><AlertTriangle className="h-4 w-4" />{ing.name || 'Không rõ'}</span>}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <Input
-                                  type="number"
-                                  value={ing.quantity}
-                                  onChange={(e) => handleIngredientChange(index, 'quantity', parseFloat(e.target.value) || 0)}
-                                  className="h-8 text-right"
-                                  onFocus={(e) => e.target.select()}
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Combobox
-                                  value={ing.unit}
-                                  onChange={(val) => handleIngredientChange(index, 'unit', val as string)}
-                                  options={availableUnits.map(unit => ({ value: unit, label: unit }))}
-                                  compact
-                                  searchable={false}
-                                  className="h-8 w-full"
-                                />
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button variant="ghost" size="icon" onClick={() => handleRemoveIngredient(index)} className="h-8 w-8">
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent><p>Xóa nguyên liệu</p></TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              </TableCell>
-                            </TableRow>
-                          )
-                        })
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">Chưa có nguyên liệu nào.</TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="h-6 w-1 bg-primary rounded-full shadow-[0_0_8px_rgba(var(--primary),0.5)]" />
+                    <h4 className="text-sm font-black uppercase tracking-widest text-foreground/70">Công thức pha chế</h4>
+                  </div>
+                  <Badge variant="outline" className="font-black rounded-lg">
+                    {(product.ingredients || []).length} mục
+                  </Badge>
                 </div>
-                <Button variant="outline" className="w-full" onClick={() => setIsAddIngredientOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />Thêm nguyên liệu
-                </Button>
-              </div>
 
-              <Separator />
+                <div className="bg-background rounded-[2rem] border shadow-sm overflow-hidden">
+                  <div className="overflow-x-auto min-h-[140px]">
+                    <Table>
+                      <TableHeader className="bg-muted/30">
+                        <TableRow className="hover:bg-transparent border-none">
+                          <TableHead className="w-[45%] h-11 text-[10px] font-black uppercase tracking-widest">Nguyên liệu</TableHead>
+                          <TableHead className="w-[20%] h-11 text-[10px] font-black uppercase tracking-widest text-right">Số lượng</TableHead>
+                          <TableHead className="w-[25%] h-11 text-[10px] font-black uppercase tracking-widest">Đơn vị</TableHead>
+                          <TableHead className="w-[10%] h-11"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(product.ingredients || []).length > 0 ? (
+                          (product.ingredients || []).map((ing, index) => {
+                            const isSubProduct = !!ing.productId;
+                            const item = isSubProduct
+                              ? allProducts.find(p => p.id === ing.productId)
+                              : inventoryList.find(i => i.id === ing.inventoryItemId);
+
+                            let availableUnits: string[] = [];
+                            if (item) {
+                              if (isSubProduct && 'yield' in item) {
+                                availableUnits = [(item as Product).yield?.unit || 'phần'];
+                              } else if (!isSubProduct && 'units' in item) {
+                                availableUnits = (item as InventoryItem).units.map(u => u.name);
+                              }
+                            } else {
+                              availableUnits = [ing.unit];
+                            }
+
+                            return (
+                              <TableRow key={`${ing.inventoryItemId || ing.productId}-${index}`} className="group hover:bg-muted/5 border-muted/10">
+                                <TableCell className="py-3">
+                                  <div className="flex items-center gap-2.5">
+                                    <div className={cn(
+                                      "h-8 w-8 rounded-lg flex items-center justify-center shrink-0",
+                                      isSubProduct ? "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400" : "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                                    )}>
+                                      {isSubProduct ? <Beaker className="h-4 w-4" /> : <Box className="h-4 w-4" />}
+                                    </div>
+                                    <div className="flex flex-col min-w-0">
+                                      {item ? (
+                                        <span className="text-sm font-bold truncate">{item.name}</span>
+                                      ) : (
+                                        <span className="flex items-center gap-1.5 text-xs font-bold text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 rounded-md">
+                                          <AlertTriangle className="h-3 w-3" /> {ing.name || 'Không rõ'}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="py-3 text-right">
+                                  <Input
+                                    type="number"
+                                    value={ing.quantity}
+                                    onChange={(e) => handleIngredientChange(index, 'quantity', parseFloat(e.target.value) || 0)}
+                                    className="h-9 text-right font-black rounded-lg border-muted-foreground/10 bg-muted/10 w-20 ml-auto"
+                                    onFocus={(e) => e.target.select()}
+                                  />
+                                </TableCell>
+                                <TableCell className="py-3">
+                                  <Combobox
+                                    value={ing.unit}
+                                    onChange={(val) => handleIngredientChange(index, 'unit', val as string)}
+                                    options={availableUnits.map(unit => ({ value: unit, label: unit }))}
+                                    compact
+                                    searchable={false}
+                                    className="h-9 w-full rounded-lg border-muted-foreground/10"
+                                  />
+                                </TableCell>
+                                <TableCell className="py-3 text-right">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={() => handleRemoveIngredient(index)} 
+                                    className="h-8 w-8 rounded-lg text-destructive/40 hover:text-destructive hover:bg-destructive/10 transition-all opacity-0 group-hover:opacity-100"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            )
+                          })
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={4} className="h-32 text-center text-muted-foreground/50 italic text-sm">
+                              Chưa có nguyên liệu nào trong công thức này
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <div className="p-4 bg-muted/5 border-t">
+                    <Button 
+                      variant="outline" 
+                      className="w-full h-11 rounded-xl border-dashed border-2 hover:bg-background hover:border-primary/50 transition-all font-bold gap-2" 
+                      onClick={() => setIsAddIngredientOpen(true)}
+                    >
+                      <Plus className="h-4 w-4" /> THÊM NGUYÊN LIỆU CHI TIẾT
+                    </Button>
+                  </div>
+                </div>
+              </div>
 
               {/* Section: Notes */}
-              <div className="space-y-1.5">
-                <Label htmlFor="product-note" className="text-xs text-muted-foreground">Ghi chú pha chế</Label>
-                <Textarea id="product-note" value={product.note || ''} onChange={(e) => handleFieldChange('note', e.target.value)} rows={3} placeholder="VD: Lắc đều trước khi phục vụ..." onFocus={(e) => e.target.select()} />
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                   <div className="h-6 w-1 bg-primary rounded-full shadow-[0_0_8px_rgba(var(--primary),0.5)]" />
+                   <h4 className="text-sm font-black uppercase tracking-widest text-foreground/70">Ghi chú & Hướng dẫn</h4>
+                </div>
+                <div className="bg-background p-6 rounded-[2rem] border shadow-sm space-y-2">
+                  <Label htmlFor="product-note" className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Lưu ý khi pha chế (tùy chọn)</Label>
+                  <Textarea 
+                    id="product-note" 
+                    value={product.note || ''} 
+                    onChange={(e) => handleFieldChange('note', e.target.value)} 
+                    rows={3} 
+                    placeholder="VD: Lắc đều trước khi phục vụ, thêm đá sau cùng..." 
+                    className="rounded-2xl border-muted-foreground/20 focus:border-primary/50 bg-muted/5 group-hover:bg-muted/10 transition-all min-h-[100px]"
+                    onFocus={(e) => e.target.select()} 
+                  />
+                </div>
               </div>
             </div>
-          </ScrollArea>
-          <DialogFooter className="p-6 pt-4 border-t bg-muted/30">
-            <Button variant="outline" onClick={handleAttemptClose} disabled={isProcessing}>Hủy</Button>
-            <Button onClick={handleSave} disabled={isProcessing}>
-              {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isProcessing ? 'Đang lưu...' : 'Lưu mặt hàng'}
-            </Button>
+          </DialogBody>
+
+          <DialogFooter className="bg-muted/10 border-t p-6">
+            <DialogCancel onClick={handleAttemptClose} disabled={isProcessing} className="flex-1 sm:flex-none">
+              Hủy bỏ
+            </DialogCancel>
+            <DialogAction 
+              onClick={handleSave} 
+              disabled={isProcessing} 
+              isLoading={isProcessing}
+              className="flex-1 sm:flex-none min-w-[180px]"
+            >
+              {isProcessing ? 'Đang lưu dữ liệu...' : 'Hoàn tất & Lưu'}
+            </DialogAction>
           </DialogFooter>
+          
           <AlertDialog open={isConfirmCloseOpen} onOpenChange={setIsConfirmCloseOpen} dialogTag="alert-dialog" parentDialogTag="root" variant="warning">
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogIcon icon={AlertTriangle} />
-                <div className="space-y-2 text-center sm:text-left">
+                <div className="space-y-2">
                   <AlertDialogTitle>Hủy các thay đổi?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Các thay đổi bạn đã thực hiện sẽ không được lưu. Bạn có chắc chắn muốn thoát?
+                    Mọi dữ liệu bạn vừa nhập liệu cho công thức này sẽ bị xóa bỏ hoàn toàn. Bạn có chắc chắn muốn thoát ngay bây giờ?
                   </AlertDialogDescription>
                 </div>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Ở lại</AlertDialogCancel>
-                <AlertDialogAction onClick={handleConfirmClose}>Hủy thay đổi</AlertDialogAction>
+                <AlertDialogCancel>Ở lại tiếp tục</AlertDialogCancel>
+                <AlertDialogAction onClick={handleConfirmClose}>Xác nhận hủy</AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>

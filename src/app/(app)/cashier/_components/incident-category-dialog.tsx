@@ -7,14 +7,16 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogBody,
+  DialogCancel,
+  DialogAction,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Edit, Loader2 } from 'lucide-react';
+import { Trash2, Plus, Edit, Loader2, Check } from 'lucide-react';
 import type { IncidentCategory } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { toast } from '@/components/ui/pro-toast';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -86,71 +88,117 @@ export default function IncidentCategoryDialog({ open, onOpenChange, parentDialo
   return (
     <Dialog open={open} onOpenChange={onOpenChange} dialogTag="incident-category-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Quản lý Loại Sự cố</DialogTitle>
+        <DialogHeader variant="premium" iconkey="alert">
+          <DialogTitle>Loại Sự cố</DialogTitle>
           <DialogDescription>
-            Thêm, sửa, hoặc xóa các danh mục sự cố cho thu ngân lựa chọn.
+            Quản lý các danh mục sự cố phát sinh tại cửa hàng.
           </DialogDescription>
         </DialogHeader>
-        <div className="py-4 space-y-4">
-          <div className="flex gap-2">
-            <Input
-              placeholder="Tên loại sự cố mới..."
-              value={newCategoryName}
-              onChange={e => setNewCategoryName(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleAdd()}
-            />
-            <Button onClick={handleAdd}><Plus className="mr-2 h-4 w-4" /> Thêm</Button>
-          </div>
-          <ScrollArea className="h-64 border rounded-md">
-            <div className="p-2 space-y-2">
-              {isLoading ? (
-                <div className="flex items-center justify-center h-full">
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                </div>
-              ) : categories.length > 0 ? (
-                categories.map(cat => (
-                  <div key={cat.id} className="flex items-center gap-2 p-2 rounded-md hover:bg-muted">
-                    {editingCategory && editingCategory.id === cat.id ? (
-                      <Input
-                        value={editingCategory.name}
-                        onChange={e => setEditingCategory({ ...editingCategory, name: e.target.value })}
-                        onKeyDown={e => e.key === 'Enter' && handleUpdate()}
-                        onBlur={handleUpdate}
-                        autoFocus
-                        className="h-8"
-                      />
-                    ) : (
-                      <p className="flex-1">{cat.name}</p>
-                    )}
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingCategory(cat)}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <AlertDialog parentDialogTag="root">
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Xóa "{cat.name}"?</AlertDialogTitle>
-                          <AlertDialogDescription>Hành động này không thể được hoàn tác.</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Hủy</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDelete(cat.id)}>Xóa</AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                ))
-              ) : (
-                <p className="text-center text-sm text-muted-foreground py-4">Chưa có loại sự cố nào.</p>
-              )}
+
+        <DialogBody className="bg-zinc-50/50">
+          <div className="flex flex-col gap-6 py-2">
+            <div className="flex gap-2 p-1 bg-white rounded-2xl shadow-sm ring-1 ring-zinc-200 focus-within:ring-zinc-900 transition-all">
+              <Input
+                placeholder="Tên loại sự cố mới..."
+                value={newCategoryName}
+                onChange={e => setNewCategoryName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAdd()}
+                className="border-none focus-visible:ring-0 shadow-none h-11 text-sm bg-transparent"
+              />
+              <DialogAction 
+                onClick={handleAdd}
+                className="text-white px-4 rounded-xl flex items-center justify-center transition-colors active:scale-95 shrink-0"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                <span className="text-xs font-bold uppercase tracking-wider">Thêm</span>
+              </DialogAction>
             </div>
-          </ScrollArea>
-        </div>
+
+            <div className="space-y-3">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 px-1">
+                Danh sách hiện tại ({categories.length})
+              </h3>
+              
+              <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1 custom-scrollbar">
+                {isLoading ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-zinc-300">
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                  </div>
+                ) : categories.length > 0 ? (
+                  categories.map(cat => (
+                    <div key={cat.id} className="group flex items-center gap-3 p-3 rounded-2xl bg-white ring-1 ring-zinc-200 hover:ring-zinc-900 transition-all shadow-sm">
+                      <div className="w-8 h-8 rounded-xl bg-zinc-50 flex items-center justify-center shrink-0">
+                        <Check className="h-4 w-4 text-zinc-400" />
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        {editingCategory && editingCategory.id === cat.id ? (
+                          <Input
+                            value={editingCategory.name}
+                            onChange={e => setEditingCategory({ ...editingCategory, name: e.target.value })}
+                            onKeyDown={e => e.key === 'Enter' && handleUpdate()}
+                            onBlur={handleUpdate}
+                            autoFocus
+                            className="h-8 text-sm font-bold border-zinc-200 focus-visible:ring-zinc-900 rounded-lg"
+                          />
+                        ) : (
+                          <p className="font-bold text-zinc-900 text-sm">{cat.name}</p>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 rounded-lg text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100" 
+                          onClick={() => setEditingCategory(cat)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog parentDialogTag="incident-category-dialog">
+                          <AlertDialogTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 rounded-lg text-zinc-300 hover:text-red-500 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent className="rounded-[2rem]">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle className="text-xl font-bold">Xóa hạng mục?</AlertDialogTitle>
+                              <AlertDialogDescription className="text-sm">
+                                Bạn có chắc muốn xóa "{cat.name}"? Hạng mục này sẽ không còn xuất hiện trong danh sách báo cáo.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter className="gap-2">
+                              <AlertDialogCancel className="h-12 rounded-2xl font-bold border-none bg-zinc-100">Hủy</AlertDialogCancel>
+                              <AlertDialogAction 
+                                onClick={() => handleDelete(cat.id)}
+                                className="h-12 rounded-2xl bg-red-500 hover:bg-red-600 text-white font-bold border-none"
+                              >
+                                Xác nhận xóa
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12 bg-white rounded-3xl border border-dashed border-zinc-200">
+                    <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Chưa có dữ liệu</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </DialogBody>
+
+        <DialogFooter className="bg-white border-t border-zinc-100">
+          <DialogCancel onClick={() => onOpenChange(false)} className="w-full">Đóng</DialogCancel>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

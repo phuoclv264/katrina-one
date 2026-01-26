@@ -14,7 +14,7 @@ import type { ShiftReport, TasksByShift, InventoryReport, TaskSection, Comprehen
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { useToast } from '@/components/ui/use-toast';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogTrigger } from '@/components/ui/dialog'; // This is a duplicate import, but let's keep it for safety.
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogTrigger, DialogBody } from '@/components/ui/dialog'; // This is a duplicate import, but let's keep it for safety.
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogIcon, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -72,13 +72,13 @@ function CleanupDialog({ className }: CleanupDialogProps) {
                 </Button>
             </DialogTrigger>
             <DialogContent>
-                <DialogHeader>
+                <DialogHeader iconkey="trash" variant="destructive">
                     <DialogTitle>Dọn dẹp báo cáo cũ</DialogTitle>
                     <DialogDescription>
                         Hành động này sẽ xóa vĩnh viễn các báo cáo (bao gồm cả hình ảnh) để giải phóng dung lượng.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="py-4">
+                <DialogBody>
                     <Label htmlFor="days">Giữ lại báo cáo trong (ngày)</Label>
                     <Input
                         id="days"
@@ -90,7 +90,7 @@ function CleanupDialog({ className }: CleanupDialogProps) {
                     <p className="text-xs text-muted-foreground mt-2">
                         Tất cả các báo cáo cũ hơn {daysToKeep} ngày sẽ bị xóa.
                     </p>
-                </div>
+                </DialogBody>
                 <DialogFooter>
                     <DialogClose asChild>
                         <Button variant="outline">Hủy</Button>

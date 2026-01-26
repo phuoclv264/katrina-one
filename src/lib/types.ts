@@ -19,6 +19,8 @@ export type ManagedUser = {
   notes?: string;
   hourlyRate?: number; // Added for payroll
   photoURL?: string | null;
+  /** Mark internal/dev accounts that should see test-only features/docs */
+  isTestAccount?: boolean;
 };
 
 export type SimpleUser = {
@@ -610,6 +612,8 @@ export interface AuthUser extends User {
   secondaryRoles?: UserRole[];
   anonymousName?: string;
   photoURL: string | null;
+  /** Internal/dev flag: test accounts can see test-only events/features */
+  isTestAccount?: boolean;
 }
 
 // --- Cashier Types ---
@@ -1209,6 +1213,8 @@ export type Event = {
     description: string;
     imageUrl?: string;
   };
+  /** Mark event as test-only — only visible to users with `isTestAccount` */
+  isTest?: boolean;
 };
 
 export type EventVote = {

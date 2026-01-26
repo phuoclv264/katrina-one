@@ -1,12 +1,11 @@
 'use client';
-import React, { useState, useRef, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogBody, DialogAction, DialogCancel } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Wand2, Loader2, Edit, Trash2, X, Send, Upload, Eye } from 'lucide-react';
+import { Wand2, Loader2, Edit, Trash2, X, Send, Upload, Eye, MessageSquareText, Calendar, Clock, User2 } from 'lucide-react';
 import { toast } from '@/components/ui/pro-toast';
 import { callRefineText } from '@/lib/ai-service';
 import type { WhistleblowingReport, AuthUser, ManagedUser, ReportComment, CommentMedia } from '@/lib/types';
@@ -60,7 +59,19 @@ export default function CommentDialog({
     const [editingText, setEditingText] = useState('');
 
     const scrollAreaRef = useRef<HTMLDivElement>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Auto-resize textarea when text changes (e.g. from AI refine)
+    useEffect(() => {
+        if (textareaRef.current && commentText) {
+            const el = textareaRef.current;
+            el.style.height = "auto";
+            el.style.height = Math.min(el.scrollHeight, 140) + "px";
+        } else if (textareaRef.current && !commentText) {
+            textareaRef.current.style.height = "56px";
+        }
+    }, [commentText]);
 
     const handleCommentDialogSubmit = async (reportId: string, commentText: string, medias: CommentMedia[], isAnonymous: boolean) => {
         setIsSubmitting(true);
@@ -80,9 +91,9 @@ export default function CommentDialog({
         setCommentMedia([]);
 
         setTimeout(() => {
-            const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
-            if (viewport) {
-                viewport.scrollTop = viewport.scrollHeight;
+            const el = scrollAreaRef.current;
+            if (el) {
+                el.scrollTop = el.scrollHeight;
             }
         }, 100);
     };
@@ -169,127 +180,175 @@ export default function CommentDialog({
         <TooltipProvider>
             <Dialog open={isOpen} onOpenChange={onClose} dialogTag="comment-dialog" parentDialogTag={parentDialogTag}>
                 <DialogContent
-                    className="max-w-2xl h-[90vh] flex flex-col p-0 bg-white dark:bg-card rounded-xl shadow-lg"
+                    className="max-w-3xl flex flex-col p-0 bg-background overflow-hidden"
                 >
                     <div id="comment-lightbox-container"></div>
-                    <DialogHeader className="p-4 sm:p-6 pb-2 border-b shrink-0">
-                        <DialogTitle className="text-xl">Thảo luận về bài đăng</DialogTitle>
-                        <DialogDescription className="truncate">
+                    <DialogHeader iconkey="message" className="shrink-0">
+                        <DialogTitle className="text-xl sm:text-2xl font-black uppercase tracking-tight">Thảo luận bài đăng</DialogTitle>
+                        <DialogDescription className="max-w-[90%] truncate opacity-60 italic font-medium">
                             "{report.title}"
                         </DialogDescription>
                     </DialogHeader>
 
-                    <ScrollArea className="flex-grow px-4" ref={scrollAreaRef}>
-                        <div className="space-y-4 py-4">
-                            {(report.comments || []).map(comment => {
-                                const isMyComment = comment.authorId === currentUser.uid;
-                                const canDelete = isMyComment || currentUser.role === 'Chủ nhà hàng';
-                                const isEditingThis = editingCommentId === comment.id;
-                                const displayName = getCommenterDisplayName(comment, report);
+                    <DialogBody className="bg-muted/5 flex flex-col">
+                        <div ref={scrollAreaRef} className="flex-1 flex flex-col gap-6 overflow-auto">
+                            {(report.comments || []).length > 0 ? (
+                                (report.comments || []).map(comment => {
+                                    const isMyComment = comment.authorId === currentUser.uid;
+                                    const canDelete = isMyComment || currentUser.role === 'Chủ nhà hàng';
+                                    const isEditingThis = editingCommentId === comment.id;
+                                    const displayName = getCommenterDisplayName(comment, report);
 
-                                return (
-                                    <div key={comment.id} className="flex items-start gap-3">
-                                        <Card className={cn("flex-1 rounded-xl shadow-sm", isMyComment ? "bg-primary/5" : "bg-muted/50")}>
-                                            <CardContent className="p-3">
-                                                <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                                                    <span className="font-bold text-sm text-foreground">{displayName}</span>
-                                                    <div className="flex items-center gap-0">
-                                                        <span>{new Date(comment.createdAt as any).toLocaleString('vi-VN')}</span>
+                                    return (
+                                        <div key={comment.id} className={cn("flex flex-col gap-2", isMyComment ? "items-end" : "items-start")}>
+                                            <div className={cn(
+                                                "group relative flex flex-col gap-2 p-4 sm:p-5 transition-all shadow-sm border",
+                                                isMyComment
+                                                    ? "bg-primary/[0.03] border-primary/10 rounded-3xl rounded-tr-none ml-8 sm:ml-20"
+                                                    : "bg-card border-muted rounded-3xl rounded-tl-none mr-8 sm:mr-20"
+                                            )}>
+                                                <div className="flex items-center justify-between gap-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={cn(
+                                                            "w-7 h-7 rounded-full flex items-center justify-center shrink-0 border shadow-inner",
+                                                            isMyComment ? "bg-primary text-primary-foreground border-primary/20" : "bg-muted text-muted-foreground border-muted-foreground/10"
+                                                        )}>
+                                                            <User2 className="h-3.5 w-3.5" />
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[11px] font-black uppercase tracking-widest text-foreground/80 leading-none">
+                                                                {displayName}
+                                                            </span>
+                                                            <span className="text-[9px] font-bold text-muted-foreground/50 uppercase tracking-tighter mt-1">
+                                                                {new Date(comment.createdAt as any).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-2">
                                                         {isMyComment && !isEditingThis && (
-                                                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEditClick(comment)}><Edit className="h-3 w-3" /></Button>
+                                                            <Button aria-label="Chỉnh sửa bình luận" title="Chỉnh sửa" variant="ghost" size="icon" className="h-8 w-8 rounded-full touchable" onClick={() => handleEditClick(comment)}>
+                                                                <Edit className="h-4 w-4" />
+                                                            </Button>
                                                         )}
                                                         {canDelete && !isEditingThis && (
-                                                            <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
+                                                            <AlertDialog dialogTag="alert-dialog" parentDialogTag="comment-dialog" variant="destructive">
                                                                 <AlertDialogTrigger asChild>
-                                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive"><Trash2 className="h-3 w-3" /></Button>
+                                                                    <Button aria-label="Xóa bình luận" title="Xóa" variant="ghost" size="icon" className="h-8 w-8 rounded-full text-destructive touchable">
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                    </Button>
                                                                 </AlertDialogTrigger>
                                                                 <AlertDialogContent>
                                                                     <AlertDialogHeader>
-                                                                        <AlertDialogIcon icon={Trash2} />
-                                                                        <div className="space-y-2 text-center sm:text-left">
-                                                                            <AlertDialogTitle>Xóa bình luận?</AlertDialogTitle>
-                                                                            <AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription>
-                                                                        </div>
+                                                                        <AlertDialogIcon icon={Trash2} className='pb-2'/>
+                                                                        <AlertDialogTitle>Xóa bình luận?</AlertDialogTitle>
+                                                                        <AlertDialogDescription>Hành động này không thể hoàn tác và bình luận của bạn sẽ biến mất vĩnh viễn.</AlertDialogDescription>
                                                                     </AlertDialogHeader>
                                                                     <AlertDialogFooter>
-                                                                        <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                                        <AlertDialogAction onClick={() => onCommentDelete(report.id, comment.id)}>Xóa</AlertDialogAction>
+                                                                        <AlertDialogCancel>Hủy bỏ</AlertDialogCancel>
+                                                                        <AlertDialogAction
+                                                                            isLoading={isSubmitting}
+                                                                            onClick={async () => {
+                                                                                setIsSubmitting(true);
+                                                                                try {
+                                                                                    await Promise.resolve(onCommentDelete(report.id, comment.id));
+                                                                                    toast.success('Đã xóa bình luận');
+                                                                                } catch (err) {
+                                                                                    toast.error('Không thể xóa bình luận lúc này.');
+                                                                                } finally {
+                                                                                    setIsSubmitting(false);
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            Xác nhận xóa
+                                                                        </AlertDialogAction>
                                                                     </AlertDialogFooter>
                                                                 </AlertDialogContent>
                                                             </AlertDialog>
                                                         )}
-                                                    </div>
+                                                    </div> 
                                                 </div>
+
                                                 {isEditingThis ? (
-                                                    <div className="space-y-2 mt-1">
-                                                        <Textarea value={editingText} onChange={(e) => setEditingText(e.target.value)} rows={2} autoFocus />
+                                                    <div className="space-y-3 mt-1">
+                                                        <Textarea
+                                                            value={editingText}
+                                                            onChange={(e) => setEditingText(e.target.value)}
+                                                            rows={3}
+                                                            autoFocus
+                                                            className="rounded-2xl border-primary/20 bg-background shadow-inner resize-none text-sm font-medium"
+                                                        />
                                                         <div className="flex justify-end gap-2">
-                                                            <Button variant="ghost" size="sm" onClick={() => setEditingCommentId(null)}>Hủy</Button>
-                                                            <Button size="sm" onClick={handleSaveEdit}>Lưu</Button>
+                                                            <Button variant="ghost" size="sm" className="rounded-xl h-8 px-4 font-bold" onClick={() => setEditingCommentId(null)}>Hủy</Button>
+                                                            <DialogAction variant="pastel-blue" size="sm" className="h-8 px-5 rounded-xl border-none shadow-sm" onClick={handleSaveEdit}>Cập nhật</DialogAction>
                                                         </div>
                                                     </div>
                                                 ) : (
-                                                    <>
-                                                        <p className="text-sm whitespace-pre-wrap leading-relaxed">{comment.content}</p>
-                                                        {(comment.media && comment.media.length > 0) && (
-                                                            <div className="mt-2 flex gap-2 flex-wrap">
+                                                    <div className="mt-1 space-y-3">
+                                                        <p className="text-sm sm:text-base leading-relaxed text-foreground/90 font-medium whitespace-pre-wrap">
+                                                            {comment.content}
+                                                        </p>
+                                                        {comment.media && comment.media.length > 0 && (
+                                                            <div className="flex gap-2.5 flex-wrap">
                                                                 {comment.media.map((mediaItem, index) => (
-                                                                    <button key={index} onClick={() => handleOpenCommentLightbox(comment.media!, index)} className="relative w-20 h-20 rounded-md overflow-hidden hover:opacity-90 transition-opacity bg-muted">
+                                                                    <button
+                                                                        key={index}
+                                                                        onClick={() => handleOpenCommentLightbox(comment.media!, index)}
+                                                                        className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden hover:scale-105 transition-transform bg-muted shadow-sm border border-black/5"
+                                                                    >
                                                                         {mediaItem.type === 'photo' ? (
                                                                             <Image src={mediaItem.url} alt={`Comment media ${index + 1}`} fill className="object-cover" />
                                                                         ) : (
                                                                             <>
                                                                                 <video src={`${mediaItem.url}#t=0.1`} preload="metadata" muted playsInline className="w-full h-full object-cover" />
-                                                                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center"><Video className="h-8 w-8 text-white" /></div>
+                                                                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                                                                    <Video className="h-7 w-7 text-white" />
+                                                                                </div>
                                                                             </>
                                                                         )}
                                                                     </button>
                                                                 ))}
                                                             </div>
                                                         )}
-                                                    </>
+                                                    </div>
                                                 )}
-                                            </CardContent>
-                                        </Card>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+                                    <div className="p-5 rounded-full bg-muted/30">
+                                        <MessageSquareText className="h-10 w-10 text-muted-foreground/40" />
                                     </div>
-                                );
-                            })}
-                            {(!report.comments || report.comments.length === 0) && (
-                                <p className="text-sm text-center text-muted-foreground py-10">Chưa có bình luận nào. Hãy là người đầu tiên!</p>
+                                    <div className="space-y-1">
+                                        <p className="text-sm font-black uppercase tracking-widest text-muted-foreground/60">Chưa có thảo luận</p>
+                                        <p className="text-xs text-muted-foreground/40 font-medium">Hãy là người đầu tiên để lại ý kiến của bạn!</p>
+                                    </div>
+                                </div>
                             )}
                         </div>
-                    </ScrollArea>
+                    </DialogBody>
 
-                    <DialogFooter className="border-t bg-muted/30 p-3">
-                        <div className="flex flex-col w-full gap-2">
-
-                            {/* Hàng 1: các nút chức năng */}
-                            <div className="flex flex-wrap items-center justify-between bg-white dark:bg-card rounded-xl shadow-sm p-2 border border-muted">
-                                <div className="flex items-center gap-1 flex-wrap">
-                                    {/* Nút AI */}
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="icon" onClick={handleRefineComment} disabled={isAiLoading || !commentText}>
-                                                {isAiLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Wand2 className="h-5 w-5" />}
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>Chuốt lại câu từ</TooltipContent>
-                                    </Tooltip>
-
-                                    {/* Nút Upload ảnh */}
+                    <DialogFooter variant="muted" className="shrink-0 p-4 sm:p-6 border-t bg-background/95 backdrop-blur-md flex flex-col gap-3">
+                        <div className="w-full flex flex-col gap-3">
+                            <div className="flex items-center justify-between px-1">
+                                <div className="flex items-center gap-2">
                                     <Tooltip>
                                         <TooltipTrigger asChild>
                                             <Button
-                                                variant="ghost"
+                                                variant="outline"
                                                 size="icon"
+                                                className="h-10 w-10 rounded-full border-muted/50 text-muted-foreground hover:text-primary hover:border-primary/30 bg-background shadow-xs transition-all active:scale-95"
                                                 onClick={() => fileInputRef.current?.click()}
                                                 disabled={isSubmitting}
                                             >
                                                 <Upload className="h-5 w-5" />
                                             </Button>
                                         </TooltipTrigger>
-                                        <TooltipContent>Tải ảnh lên</TooltipContent>
+                                        <TooltipContent side="top">Đính kèm ảnh/video</TooltipContent>
                                     </Tooltip>
+
                                     <input
                                         type="file"
                                         ref={fileInputRef}
@@ -299,95 +358,95 @@ export default function CommentDialog({
                                         multiple
                                     />
 
-                                    {/* Nút xem / xóa ảnh nếu có ảnh */}
                                     {commentMedia.length > 0 && (
-                                        <>
-                                            <div className="flex flex-wrap gap-1">
-                                                {commentMedia.map((media, index) => (
-                                                    <div key={media.id} className="relative group">
-                                                        <button onClick={() => handleOpenCommentLightbox(commentMedia, index)} className="relative w-10 h-10 rounded-md overflow-hidden bg-muted">
-                                                            {media.type === 'photo' ? (
-                                                                <Image src={media.url} alt={`Preview ${index}`} fill className="object-cover" />
-                                                            ) : (
-                                                                <div className="w-full h-full flex items-center justify-center">
-                                                                    <Video className="h-5 w-5 text-muted-foreground" />
-                                                                </div>
-                                                            )}
-                                                        </button>
-                                                        <Button
-                                                            variant="destructive"
-                                                            size="icon"
-                                                            className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                                            onClick={() => handleDeletePreviewMedia(media.id)}
-                                                        >
-                                                            <X className="h-2.5 w-2.5" />
-                                                        </Button>
-                                                    </div>
-                                                ))}
-                                            </div>
-
-                                            <Button
-                                                variant="link"
-                                                size="sm"
-                                                className="text-destructive h-auto p-1"
-                                                onClick={() => {
-                                                    commentMedia.forEach((media) => handleDeletePreviewMedia(media.id));
-                                                }}
-                                            >
-                                                Xóa
-                                            </Button>
-                                        </>
+                                        <div className="flex items-center gap-2 overflow-x-auto py-1 max-w-[180px] sm:max-w-[300px] scrollbar-hide px-1">
+                                            {commentMedia.map((media, index) => (
+                                                <div key={media.id} className="relative group shrink-0">
+                                                    <button onClick={() => handleOpenCommentLightbox(commentMedia, index)} className="relative w-10 h-10 rounded-xl overflow-hidden bg-muted border border-black/5 shadow-sm active:scale-95 transition-all">
+                                                        {media.type === 'photo' ? (
+                                                            <Image src={media.url} alt={`Preview ${index}`} fill className="object-cover" />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center">
+                                                                <Video className="h-4 w-4 text-muted-foreground" />
+                                                            </div>
+                                                        )}
+                                                    </button>
+                                                    <Button
+                                                        aria-label="Xóa media"
+                                                        title="Xóa"
+                                                        variant="destructive"
+                                                        size="icon"
+                                                        className="absolute -top-1.5 -right-1.5 h-6 w-6 rounded-full shadow-md z-10 transition-transform"
+                                                        onClick={() => handleDeletePreviewMedia(media.id)}
+                                                    >
+                                                        <X className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                </div>
+                                            ))}
+                                        </div>
                                     )}
                                 </div>
 
-                                {/* Toggle ẩn danh */}
-                                <div className="flex items-center space-x-2">
-                                    <Switch id="anonymous-comment-switch" checked={isAnonymous} onCheckedChange={setIsAnonymous} />
-                                    <Label htmlFor="anonymous-comment-switch" className="text-sm font-medium whitespace-nowrap">Ẩn danh</Label>
+                                <div className="flex items-center gap-2 bg-background/50 border border-muted/60 pl-3 pr-2 py-1.5 rounded-full shadow-xs">
+                                    <Label htmlFor="anonymous-comment-switch" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/80 cursor-pointer select-none">
+                                        Ẩn danh
+                                    </Label>
+                                    <Switch
+                                        id="anonymous-comment-switch"
+                                        checked={isAnonymous}
+                                        onCheckedChange={setIsAnonymous}
+                                        className="scale-90 data-[state=checked]:bg-primary"
+                                    />
                                 </div>
                             </div>
 
-                            {/* Hàng 2: input + gửi */}
-                            <div className="flex items-end gap-2 bg-white dark:bg-card rounded-xl shadow-sm p-2 border border-muted">
+                            <div className="relative flex items-end gap-2">
                                 <Textarea
-                                    placeholder="Nhập nội dung..."
+                                    ref={textareaRef}
+                                    placeholder="Chia sẻ suy nghĩ của bạn..."
                                     value={commentText}
                                     onChange={(e) => {
                                         setCommentText(e.target.value);
                                         const el = e.target as HTMLTextAreaElement;
                                         el.style.height = "auto";
-                                        el.style.height = Math.min(el.scrollHeight, 72) + "px"; // giãn tối đa 3 dòng
+                                        el.style.height = Math.min(el.scrollHeight, 140) + "px";
                                     }}
                                     disabled={isSubmitting}
-                                    rows={1}
-                                    className="flex-1 resize-none border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm bg-transparent leading-[1.5] py-[10px] transition-all"
-                                    style={{
-                                        height: "auto",
-                                        minHeight: "24px", // 1 dòng
-                                        maxHeight: "72px",
-                                        overflowY: "auto",
-                                    }}
+                                    className="flex-1 min-h-[56px] pr-24 pl-5 py-4 rounded-[1.75rem] border-muted/60 bg-background focus:ring-primary/10 focus:border-primary/20 transition-all resize-none font-medium text-sm leading-relaxed shadow-xs"
+                                    style={{ height: "56px" }}
                                 />
 
-                                {/* Nút gửi */}
-                                <Button
-                                    size="icon"
-                                    onClick={handleSubmit}
-                                    disabled={isSubmitting || (!commentText.trim() && commentMedia.length === 0)}
-                                    className="h-9 w-9 rounded-full"
-                                >
-                                    {isSubmitting ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <Send className="h-4 w-4" />
-                                    )}
-                                </Button>
+                                <div className="absolute right-2 bottom-2 flex items-center gap-1.5 px-0.5 pb-0.5">
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-10 w-10 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors"
+                                                onClick={handleRefineComment}
+                                                disabled={isAiLoading || !commentText.trim()}
+                                            >
+                                                {isAiLoading ? <Loader2 className="h-4.5 w-4.5 animate-spin" /> : <Wand2 className="h-4.5 w-4.5" />}
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top">Chuốt lại câu từ bằng AI</TooltipContent>
+                                    </Tooltip>
+
+                                    <DialogAction
+                                        size="icon"
+                                        onClick={handleSubmit}
+                                        isLoading={isSubmitting}
+                                        disabled={isSubmitting || (!commentText.trim() && commentMedia.length === 0)}
+                                        className="h-10 w-10 rounded-full shadow-md transition-all active:scale-90 bg-primary hover:bg-primary/90"
+                                    >
+                                        {!isSubmitting && <Send className="h-4.5 w-4.5" />}
+                                    </DialogAction>
+                                </div>
                             </div>
                         </div>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-
         </TooltipProvider>
     );
 }

@@ -120,6 +120,22 @@ export function timestampToString(value?: unknown, formatStr: string = 'dd/MM/yy
   }
 }
 
+/**
+ * Return a string formatted for `input[type="datetime-local"]`.
+ * - Produces `yyyy-MM-dd'T'HH:mm` or the empty string when value is invalid.
+ * - Accepts Date | number | ISO string | Firestore Timestamp-like.
+ */
+export function toDatetimeLocalInput(value?: unknown): string {
+  if (!value) return '';
+  const d = toDateSafe(value);
+  if (!d || Number.isNaN(d.getTime())) return '';
+  try {
+    return format(d, "yyyy-MM-dd'T'HH:mm");
+  } catch (e) {
+    return '';
+  }
+}
+
 function revenueStatTimestampMs(stat: RevenueStats): number {
   const createdAt = toDateSafe(stat.createdAt);
   if (createdAt && !Number.isNaN(createdAt.getTime())) return createdAt.getTime();

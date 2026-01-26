@@ -20,6 +20,8 @@ export interface AuthUser extends User {
   secondaryRoles?: UserRole[];
   anonymousName?: string;
   photoURL: string | null;
+  /** Internal/dev flag: test accounts can see test-only events/features */
+  isTestAccount?: boolean;
 }
 
 export const useAuth = () => {
@@ -95,6 +97,7 @@ export const useAuth = () => {
             secondaryRoles: userData.secondaryRoles || [],
             anonymousName: userData.anonymousName,
             photoURL: userData.photoURL || firebaseUser.photoURL || null,
+            isTestAccount: userData.isTestAccount,
           } as AuthUser;
           setUser(authUser);
 
@@ -119,6 +122,7 @@ export const useAuth = () => {
                   secondaryRoles: serverData.secondaryRoles || [],
                   anonymousName: serverData.anonymousName,
                   photoURL: serverData.photoURL || firebaseUser.photoURL || null,
+                  isTestAccount: serverData.isTestAccount,
                 } as AuthUser;
                 // Update state only if there's a change to avoid unnecessary re-renders
                 setUser(currentUser => 

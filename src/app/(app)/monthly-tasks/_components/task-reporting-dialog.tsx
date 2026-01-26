@@ -8,11 +8,12 @@ import {
     DialogTitle,
     DialogDescription,
     DialogFooter,
-    DialogClose
+    DialogClose,
+    DialogBody,
+    DialogAction,
+    DialogCancel
 } from "@/components/ui/dialog"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import {
     User,
@@ -167,350 +168,305 @@ export function TaskReportingDialog({
     return (
         <>
             <Dialog open={isOpen} onOpenChange={onOpenChange} dialogTag="task-reporting-dialog" parentDialogTag="root">
-                <DialogContent className="max-w-[500px] max-h-[90vh] w-[95%] rounded-[32px] p-0 overflow-hidden border-none shadow-2xl bg-slate-50 dark:bg-slate-950">
-                    <DialogHeader className="px-6 pt-6 pb-4 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 shrink-0">
-                        <div className="flex items-center gap-4">
-                            <div className="w-13 h-13 rounded-2xl bg-indigo-50 dark:bg-indigo-950/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-inner ring-1 ring-indigo-100/50 dark:ring-indigo-900/50 shrink-0">
-                                <CheckCircle className="w-6 h-6" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                    <DialogTitle className="text-xl font-black tracking-tight text-slate-800 dark:text-slate-100 leading-tight">
-                                        {assignment.taskName}
-                                    </DialogTitle>
-                                    {assignment.description && (
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-6 w-6 rounded-full bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-800 shadow-sm ring-1 ring-indigo-100 dark:ring-indigo-800/50 transition-all active:scale-90"
-                                                >
-                                                    <Info className="h-3.5 w-3.5 fill-indigo-600/10" />
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-72 rounded-2xl p-4 shadow-xl border-slate-100 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm z-[100]">
-                                                <p className="text-sm font-medium text-slate-600 dark:text-slate-300 leading-relaxed">
-                                                    {assignment.description}
-                                                </p>
-                                            </PopoverContent>
-                                        </Popover>
-                                    )}
-                                </div>
-                            </div>
+                <DialogContent className="max-w-[500px]">
+                    <DialogHeader iconkey="check" variant="success">
+                        <div className="flex items-center gap-2">
+                            <DialogTitle className="">
+                                {assignment.taskName}
+                            </DialogTitle>
+                            {assignment.description && (
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <button className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center text-primary hover:bg-primary/20 transition-colors shrink-0">
+                                            <Info className="h-3 w-3" />
+                                        </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-72 rounded-2xl p-4 shadow-xl border-border bg-popover/95 backdrop-blur-sm z-[100]">
+                                        <p className="text-sm font-medium leading-relaxed">
+                                            {assignment.description}
+                                        </p>
+                                    </PopoverContent>
+                                </Popover>
+                            )}
                         </div>
+                        <DialogDescription>
+                            {assignment.appliesToRole ? `Vai trò: ${assignment.appliesToRole}` : "Báo cáo tiến độ công việc"}
+                        </DialogDescription>
                     </DialogHeader>
 
-                    <ScrollArea className="max-h-[75vh]">
-                        <div className="p-5 space-y-6">
-                            {/* --- ACTION SECTION (Your Report) --- */}
-                            <section className="relative">
-                                <div className="bg-white dark:bg-slate-900 rounded-[28px] p-5 border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
-                                    <div className="absolute top-0 left-0 w-1 h-full bg-primary/40" />
-                                    <h5 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                        <User className="w-3.5 h-3.5 text-primary" />
-                                        BÁO CÁO CỦA BẠN
-                                    </h5>
+                    <DialogBody className="bg-muted/[0.02] space-y-8 py-6">
+                        {/* --- ACTION SECTION --- */}
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-2 mb-2">
+                               <div className="h-6 w-1 bg-primary rounded-full shadow-[0_0_8px_rgba(var(--primary),0.5)]" />
+                               <h4 className="text-sm font-black uppercase tracking-widest text-foreground/70">Báo cáo của bạn</h4>
+                            </div>
 
-                                    <div className="flex flex-col gap-4">
-                                        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
-                                            {!currentUserCompletion ? (
-                                                <Button
-                                                    size="lg"
-                                                    onClick={() => setIsCameraOpen(true)}
-                                                    className="h-14 w-full sm:w-auto px-4 sm:px-8 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl shadow-xl shadow-emerald-200/50 dark:shadow-none font-bold text-base tracking-wide transition-all active:scale-[0.98] border-none group"
-                                                >
-                                                    <div className="flex items-center gap-2.5">
-                                                        <Camera className="h-6 w-6 group-hover:rotate-12 transition-transform" />
-                                                        <span>CHỤP BÁO CÁO</span>
-                                                    </div>
-                                                </Button>
-                                            ) : (
-                                                <Button
-                                                    size="lg"
-                                                    variant="secondary"
-                                                    onClick={() => setIsCameraOpen(true)}
-                                                    className="h-14 w-full sm:w-auto px-4 sm:px-6 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 text-slate-700 dark:text-slate-200 font-bold text-sm transition-all active:scale-[0.98]"
-                                                >
-                                                    <Plus className="mr-2 h-5 w-5 text-primary" />
-                                                    BỔ SUNG ẢNH
-                                                </Button>
-                                            )}
+                            <div className="bg-background p-6 rounded-[2rem] border shadow-sm space-y-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {!currentUserCompletion ? (
+                                        <DialogAction
+                                            variant="pastel-mint"
+                                            size="lg"
+                                            className="w-full h-14 rounded-xl font-bold"
+                                            onClick={() => setIsCameraOpen(true)}
+                                        >
+                                            <Camera className="h-6 w-6" />
+                                            CHỤP BÁO CÁO
+                                        </DialogAction>
+                                    ) : (
+                                        <DialogAction
+                                            variant="secondary"
+                                            size="lg"
+                                            className="w-full h-14 rounded-xl font-bold"
+                                            onClick={() => setIsCameraOpen(true)}
+                                        >
+                                            <Plus className="h-6 w-6" />
+                                            BỔ SUNG ẢNH
+                                        </DialogAction>
+                                    )}
 
-                                            <Button
-                                                size="lg"
-                                                variant="outline"
-                                                onClick={() => {
-                                                    setNoteContent(currentUserCompletion?.note || "")
-                                                    setIsNoteDialogOpen(true)
-                                                }}
-                                                className={`h-14 w-full sm:w-auto sm:px-5 rounded-2xl transition-all active:scale-[0.98] border-2 ${currentUserCompletion?.note
-                                                    ? "border-amber-500/30 bg-amber-50/50 text-amber-700"
-                                                    : "border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 hover:bg-slate-50"
-                                                    }`}
-                                            >
-                                                <AlertCircle className={`h-5 w-5 mr-2 ${currentUserCompletion?.note ? "text-amber-500" : "text-slate-400"}`} />
-                                                <span className="font-bold text-sm">{currentUserCompletion?.note ? "SỬA GHI CHÚ" : "GỬI GHI CHÚ"}</span>
-                                            </Button>
-                                        </div>
-
-                                        {/* Evidence Section */}
-                                        {currentUserCompletion?.media && currentUserCompletion.media.length > 0 && (
-                                            <div className="space-y-3">
-                                                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Bằng chứng đã tải lên</p>
-                                                <div className="flex flex-wrap gap-3 items-center pb-1">
-                                                    {currentUserCompletion.media.map((att, mIdx) => (
-                                                        <button
-                                                            key={mIdx}
-                                                            onClick={() => handleOpenLightbox(currentUserCompletion.media!, mIdx)}
-                                                            className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden ring-2 ring-slate-100 dark:ring-slate-800 group hover:ring-primary/30 transition-all shadow-sm"
-                                                        >
-                                                            {att.type === "photo" ? (
-                                                                <Image src={att.url || "/placeholder.svg"} alt="Evidence" fill sizes="(max-width: 640px) 4rem, 4rem" className="object-cover group-hover:scale-110 transition-transform duration-500" />
-                                                            ) : (
-                                                                <div className="absolute inset-0 bg-slate-900 flex items-center justify-center">
-                                                                    <Video className="h-6 w-6 text-white" />
-                                                                </div>
-                                                            )}
-                                                            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {currentUserCompletion?.note && (
-                                            <div className="bg-amber-50/40 dark:bg-amber-950/20 rounded-[24px] p-4 border border-amber-100 dark:border-amber-900/30">
-                                                <div className="flex items-start gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center shrink-0">
-                                                        <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <p className="text-sm text-amber-900 dark:text-amber-200 font-bold mb-1">Ghi chú của bạn:</p>
-                                                        <p className="text-sm text-amber-800/80 dark:text-amber-300/80 leading-relaxed font-medium italic">"{currentUserCompletion.note}"</p>
-                                                        {currentUserCompletion.noteCreatedAt && (
-                                                            <div className="flex items-center gap-1.5 mt-2">
-                                                                <Clock className="w-3 h-3 text-amber-600/40" />
-                                                                <p className="text-[10px] text-amber-600/60 dark:text-amber-400/60 font-bold uppercase">
-                                                                    {format(currentUserCompletion.noteCreatedAt.toDate(), "HH:mm, dd/MM")}
-                                                                </p>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </section>
-
-                            {/* --- STATS SECTION --- */}
-                            <section className="grid grid-cols-3 gap-3">
-                                <div className="bg-white dark:bg-slate-900 rounded-[28px] p-4 border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center gap-1.5 transition-all hover:scale-[1.02]">
-                                    <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 mb-0.5">
-                                        <CheckCircle className="w-4 h-4" />
-                                    </div>
-                                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Đã xong</p>
-                                    <p className="text-2xl font-black text-slate-800 dark:text-slate-100">{stats.done}</p>
+                                    <DialogAction
+                                        variant="outline"
+                                        size="lg"
+                                        className="w-full h-14 rounded-xl font-bold border-2"
+                                        onClick={() => {
+                                            setNoteContent(currentUserCompletion?.note || "")
+                                            setIsNoteDialogOpen(true)
+                                        }}
+                                    >
+                                        <AlertCircle className="h-6 w-6" />
+                                        {currentUserCompletion?.note ? "SỬA GHI CHÚ" : "GỬI GHI CHÚ"}
+                                    </DialogAction>
                                 </div>
 
-                                <div className="bg-white dark:bg-slate-900 rounded-[28px] p-4 border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center gap-1.5 transition-all hover:scale-[1.02]">
-                                    <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 mb-0.5">
-                                        <XCircle className="w-4 h-4" />
-                                    </div>
-                                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Chờ làm</p>
-                                    <p className="text-2xl font-black text-slate-800 dark:text-slate-100">{stats.remaining}</p>
-                                </div>
-
-                                <div className="bg-white dark:bg-slate-900 rounded-[28px] p-4 border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center gap-1.5 transition-all hover:scale-[1.02]">
-                                    <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 mb-0.5">
-                                        <User className="w-4 h-4" />
-                                    </div>
-                                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Chỉ tiêu</p>
-                                    <p className="text-2xl font-black text-slate-800 dark:text-slate-100">{stats.totalAssigned}</p>
-                                </div>
-                            </section>
-
-                            {/* --- HISTORY SECTION --- */}
-                            <section>
-                                <div className="flex items-center justify-between mb-3">
-                                    <h5 className="text-[11px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-widest flex items-center gap-2">
-                                        <Clock className="w-3.5 h-3.5 text-indigo-500" />
-                                        LỊCH SỬ HOÀN THÀNH
-                                    </h5>
-                                    <Badge variant="outline" className="rounded-full px-2 py-0.5 bg-slate-50 text-slate-500 border-slate-200 font-bold text-[9px]">
-                                        {allCompletions.length} báo cáo
-                                    </Badge>
-                                </div>
-
-                                {allCompletions.length > 0 ? (
+                                {/* Evidence Thumbnails */}
+                                {currentUserCompletion?.media && currentUserCompletion.media.length > 0 && (
                                     <div className="space-y-3">
+                                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Bằng chứng đã tải lên</p>
+                                        <div className="flex flex-wrap gap-3 pb-1">
+                                            {currentUserCompletion.media.map((att, mIdx) => (
+                                                <button
+                                                    key={mIdx}
+                                                    onClick={() => handleOpenLightbox(currentUserCompletion.media!, mIdx)}
+                                                    className="relative w-16 h-16 rounded-2xl overflow-hidden border-2 border-muted group hover:border-primary transition-all shadow-sm"
+                                                >
+                                                    {att.type === "photo" ? (
+                                                        <Image src={att.url || "/placeholder.svg"} alt="Evidence" fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
+                                                    ) : (
+                                                        <div className="absolute inset-0 bg-slate-900 flex items-center justify-center">
+                                                            <Video className="h-6 w-6 text-white" />
+                                                        </div>
+                                                    )}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {currentUserCompletion?.note && (
+                                    <div className="bg-amber-50/50 dark:bg-amber-950/20 rounded-2xl p-4 border border-amber-100/50 dark:border-amber-900/30">
+                                        <div className="flex items-start gap-3">
+                                            <AlertCircle className="h-4 w-4 text-amber-600 mt-1 shrink-0" />
+                                            <div className="flex-1">
+                                                <p className="text-[10px] font-black text-amber-600 dark:text-amber-500 uppercase tracking-widest mb-1">Ghi chú của bạn</p>
+                                                <p className="text-sm text-amber-900 dark:text-amber-200 font-medium italic leading-relaxed">"{currentUserCompletion.note}"</p>
+                                                {currentUserCompletion.noteCreatedAt && (
+                                                    <p className="text-[9px] text-amber-600/60 dark:text-amber-500/60 font-black mt-2 uppercase tracking-tighter">
+                                                        {format(currentUserCompletion.noteCreatedAt.toDate(), "HH:mm, dd/MM/yyyy")}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* --- STATS SECTION --- */}
+                        <div className="grid grid-cols-3 gap-3">
+                            <div className="bg-emerald-50/50 dark:bg-emerald-950/20 rounded-[2rem] p-4 text-center border border-emerald-100/50 shadow-sm transition-all hover:scale-[1.02]">
+                                <p className="text-[10px] font-black text-emerald-600/60 uppercase tracking-widest mb-1">Đã xong</p>
+                                <p className="text-2xl font-black text-emerald-700">{stats.done}</p>
+                            </div>
+                            <div className="bg-amber-50/50 dark:bg-amber-950/20 rounded-[2rem] p-4 text-center border border-amber-100/50 shadow-sm transition-all hover:scale-[1.02]">
+                                <p className="text-[10px] font-black text-amber-600/60 uppercase tracking-widest mb-1">Đang chờ</p>
+                                <p className="text-2xl font-black text-amber-700">{stats.remaining}</p>
+                            </div>
+                            <div className="bg-primary/5 rounded-[2rem] p-4 text-center border border-primary/10 shadow-sm transition-all hover:scale-[1.02]">
+                                <p className="text-[10px] font-black text-primary/60 uppercase tracking-widest mb-1">Chỉ tiêu</p>
+                                <p className="text-2xl font-black text-primary">{stats.totalAssigned}</p>
+                            </div>
+                        </div>
+
+                        {/* --- HISTORY SECTION --- */}
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                   <div className="h-6 w-1 bg-primary rounded-full shadow-[0_0_8px_rgba(var(--primary),0.5)]" />
+                                   <h4 className="text-sm font-black uppercase tracking-widest text-foreground/70">Lịch sử hoàn thành</h4>
+                                </div>
+                                <Badge variant="outline" className="font-black rounded-lg bg-background">
+                                    {allCompletions.length} báo cáo
+                                </Badge>
+                            </div>
+
+                            <div className="bg-background rounded-[2rem] border shadow-sm overflow-hidden divide-y divide-muted/10">
+                                {allCompletions.length > 0 ? (
+                                    <div className="divide-y divide-muted/10">
                                         {allCompletions.map((completion, idx) => (
-                                            <div key={idx} className="bg-white dark:bg-slate-900 rounded-[24px] border border-slate-100 dark:border-slate-800 p-4 shadow-sm transition-all hover:shadow-md">
-                                                <div className="flex items-start justify-between mb-2">
+                                            <div key={idx} className="p-5 hover:bg-muted/5 transition-colors group">
+                                                <div className="flex items-start justify-between mb-4">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-11 h-11 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden shrink-0">
-                                                            {completion.completedBy?.userId === user?.uid ? (
-                                                                <div className="w-full h-full bg-primary/10 flex items-center justify-center">
-                                                                    <User className="h-6 w-6 text-primary" />
-                                                                </div>
-                                                            ) : (
-                                                                <User className="h-6 w-6 text-slate-300" />
-                                                            )}
+                                                        <div className="w-12 h-12 rounded-2xl bg-muted/30 flex items-center justify-center overflow-hidden shrink-0 border border-border/50 group-hover:scale-105 transition-transform">
+                                                            <User className="h-6 w-6 text-muted-foreground/40" />
                                                         </div>
                                                         <div className="min-w-0">
                                                             <div className="flex flex-wrap items-center gap-2">
-                                                                <span className="font-bold text-base text-slate-800 dark:text-slate-100 break-words leading-tight">
+                                                                <span className="font-black text-base text-foreground break-words">
                                                                     {completion.completedBy?.userName || "Ẩn danh"}
                                                                 </span>
                                                                 {completion.completedBy?.userId === user?.uid && (
-                                                                    <Badge className="bg-primary/10 text-primary border-none text-[9px] font-black h-4 px-1.5">BẠN</Badge>
-                                                                )}
-                                                                {assignment.responsibleUsersByShift.find(s => s.users.some(u => u.userId === completion.completedBy?.userId))?.shiftLabel && (
-                                                                    <Badge variant="outline" className="text-[10px] h-5 font-black uppercase bg-indigo-50/50 border-indigo-100 text-indigo-500 px-2 py-0">
-                                                                        Ca {assignment.responsibleUsersByShift.find(s => s.users.some(u => u.userId === completion.completedBy?.userId))?.shiftLabel}
-                                                                    </Badge>
+                                                                    <Badge className="bg-primary/10 text-primary border-none text-[9px] h-4 px-1.5 font-black shrink-0">BẠN</Badge>
                                                                 )}
                                                             </div>
-                                                            <div className="flex items-center gap-1.5 mt-1">
-                                                                <Clock className="w-3.5 h-3.5 text-slate-400" />
-                                                                <span className="text-xs text-slate-400 font-semibold uppercase tracking-tight">
+                                                            <div className="flex items-center gap-2 mt-1">
+                                                                {assignment.responsibleUsersByShift.find(s => s.users.some(u => u.userId === completion.completedBy?.userId))?.shiftLabel && (
+                                                                    <Badge variant="outline" className="text-[9px] h-4 font-black border-primary/20 bg-primary/5 text-primary px-2 py-0 uppercase shrink-0">
+                                                                        CA {assignment.responsibleUsersByShift.find(s => s.users.some(u => u.userId === completion.completedBy?.userId))?.shiftLabel}
+                                                                    </Badge>
+                                                                )}
+                                                                <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-bold uppercase tracking-tighter">
+                                                                    <Clock className="w-3 h-3" />
                                                                     {completion.completedAt
                                                                         ? format(completion.completedAt.toDate(), "HH:mm, dd/MM")
                                                                         : completion.noteCreatedAt
                                                                             ? format(completion.noteCreatedAt.toDate(), "HH:mm, dd/MM")
-                                                                            : "Chưa có giờ"}
-                                                                </span>
+                                                                            : "Chưa rõ thời gian"}
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
                                                     {completion.completedAt && (
-                                                        <div className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400">
-                                                            <CheckCircle className="w-5 h-5" />
+                                                        <div className="h-8 w-8 rounded-full bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center text-emerald-600">
+                                                            <CheckCircle className="w-5 h-5 shadow-emerald-200/50" />
                                                         </div>
                                                     )}
                                                 </div>
 
                                                 {completion.media && completion.media.length > 0 && (
-                                                    <div className="flex flex-wrap gap-2.5 mb-3">
+                                                    <div className="flex flex-wrap gap-2.5 mb-4 px-1">
                                                         {completion.media.map((att, mIdx) => (
-                                                            <button key={mIdx} onClick={() => handleOpenLightbox(completion.media!, mIdx)} className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden ring-1 ring-slate-100 dark:ring-slate-800 shadow-sm group">
-                                                                {att.type === "photo" ? <Image src={att.url || "/placeholder.svg"} fill className="object-cover group-hover:scale-110 transition-transform" alt="" /> : <div className="bg-slate-900 w-full h-full flex items-center justify-center"><Video className="w-4 h-4 text-white" /></div>}
+                                                            <button key={mIdx} onClick={() => handleOpenLightbox(completion.media!, mIdx)} className="relative w-14 h-14 rounded-2xl overflow-hidden border-2 border-muted shadow-sm group/thumb">
+                                                                {att.type === "photo" ? <Image src={att.url || "/placeholder.svg"} fill className="object-cover group-hover/thumb:scale-110 transition-transform" alt="" /> : <div className="bg-slate-900 w-full h-full flex items-center justify-center"><Video className="w-5 h-5 text-white" /></div>}
                                                             </button>
                                                         ))}
                                                     </div>
                                                 )}
 
                                                 {completion.note && (
-                                                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-[20px] p-4 border border-slate-100 dark:border-slate-800">
-                                                        <p className="text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed">"{completion.note}"</p>
+                                                    <div className="bg-muted/20 rounded-2xl p-4 border border-border/50">
+                                                        <p className="text-sm text-foreground font-medium leading-relaxed italic">"{completion.note}"</p>
                                                     </div>
                                                 )}
                                             </div>
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="bg-white dark:bg-slate-900 rounded-[32px] p-10 border-2 border-dashed border-slate-100 dark:border-slate-800 flex flex-col items-center text-center gap-3">
-                                        <div className="w-16 h-16 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
-                                            <Clock className="w-8 h-8 text-slate-200" />
+                                    <div className="py-16 flex flex-col items-center text-center gap-4">
+                                        <div className="w-20 h-20 rounded-full bg-muted/20 flex items-center justify-center">
+                                            <Clock className="w-10 h-10 text-muted-foreground/20" />
                                         </div>
-                                        <p className="text-base font-bold text-slate-400 italic">Chưa có người nào báo cáo</p>
+                                        <div className="space-y-1">
+                                            <p className="text-base font-black text-muted-foreground/60">Chưa có báo cáo</p>
+                                            <p className="text-xs font-bold text-muted-foreground/40 uppercase tracking-widest">Hãy là người đầu tiên hoàn thành!</p>
+                                        </div>
                                     </div>
                                 )}
-                            </section>
+                            </div>
+                        </div>
 
-                            {/* --- REMAINING USERS SECTION (compact & scrollable) --- */}
-                            <section className="pb-2">
-                                <h5 className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                    <XCircle className="w-3.5 h-3.5 text-slate-300" />
-                                    DANH SÁCH CHƯA HOÀN THÀNH
-                                </h5>
+                        {/* --- REMAINING USERS SECTION --- */}
+                        <div className="space-y-4 pb-4">
+                            <div className="flex items-center gap-2 mb-2">
+                               <div className="h-6 w-1 bg-amber-500 rounded-full shadow-[0_0_8px_rgba(var(--amber-500),0.5)]" />
+                               <h4 className="text-sm font-black uppercase tracking-widest text-foreground/70">Chưa hoàn thành</h4>
+                            </div>
 
-                                {notDoneUsers.length > 0 ? (
-                                    <div className="pr-1 space-y-2">
+                            {notDoneUsers.length > 0 ? (
+                                <div className="bg-background rounded-[2rem] border shadow-sm p-6">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         {notDoneUsers.map((u, idx) => (
                                             <div
                                                 key={idx}
-                                                className="bg-slate-50/50 dark:bg-slate-900/30 rounded-lg p-2.5 border border-slate-100 dark:border-slate-800 flex items-start gap-3 transition-all hover:bg-white dark:hover:bg-slate-900 hover:shadow-sm"
+                                                className="bg-muted/10 border border-border/50 rounded-2xl p-4 flex items-center gap-4 hover:bg-muted/20 transition-all hover:scale-[1.02]"
                                             >
-                                                <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 flex items-center justify-center shrink-0 shadow-sm border border-slate-100 dark:border-slate-700">
-                                                    <User className="h-4 w-4 text-slate-300" />
+                                                <div className="w-10 h-10 rounded-xl bg-background border border-border flex items-center justify-center shrink-0 shadow-sm">
+                                                    <User className="h-5 w-5 text-muted-foreground/30" />
                                                 </div>
-
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="font-bold text-sm text-slate-700 dark:text-slate-200 break-words leading-tight whitespace-normal">{u.userName}</p>
-                                                    <div className="flex items-center gap-1 mt-1">
-                                                        <Badge variant="secondary" className="text-[9px] font-black bg-indigo-50 text-indigo-500 border-none h-4 px-1.5">CA {u.shiftLabel}</Badge>
-                                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Đang chờ...</span>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="font-black text-sm text-foreground break-words leading-tight">{u.userName}</p>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <Badge className="text-[9px] font-black bg-amber-500/10 text-amber-600 border-none h-4 px-1.5 uppercase tracking-tighter shrink-0">
+                                                            CA {u.shiftLabel}
+                                                        </Badge>
+                                                        <span className="text-[10px] text-muted-foreground/60 font-black uppercase whitespace-nowrap">Đang chờ...</span>
                                                     </div>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
-                                ) : (
-                                    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20 rounded-[24px] p-4 border-2 border-dashed border-emerald-100 dark:border-emerald-900/50 flex flex-col items-center gap-2 text-center">
-                                        <div className="w-12 h-12 rounded-full bg-white dark:bg-emerald-900/50 flex items-center justify-center shadow-md shadow-emerald-200/40 dark:shadow-none">
-                                            <CheckCircle className="w-7 h-7 text-emerald-500" />
-                                        </div>
-                                        <div>
-                                            <p className="text-base font-black text-emerald-700 dark:text-emerald-400">Tuyệt vời!</p>
-                                            <p className="text-xs font-bold text-emerald-600/80 dark:text-emerald-500/80">Tất cả nhân sự đã hoàn thành công việc.</p>
-                                        </div>
+                                </div>
+                            ) : (
+                                <div className="bg-emerald-500/5 rounded-[2rem] p-8 border-2 border-dashed border-emerald-500/20 flex flex-col items-center gap-4 text-center">
+                                    <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.1)]">
+                                        <CheckCircle className="w-10 h-10 text-emerald-500" />
                                     </div>
-                                )}
-                            </section>
+                                    <div className="space-y-1">
+                                        <p className="text-lg font-black text-emerald-700">Mục tiêu hoàn thành!</p>
+                                        <p className="text-xs font-bold text-emerald-600/60 uppercase tracking-widest">Tất cả nhân sự đã gửi báo cáo công việc.</p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                    </ScrollArea>
+                    </DialogBody>
                 </DialogContent>
             </Dialog>
 
             {/* --- SUB-DIALOGS --- */}
             <Dialog open={isNoteDialogOpen} onOpenChange={setIsNoteDialogOpen} dialogTag="task-note-dialog" parentDialogTag="task-reporting-dialog">
-                <DialogContent className="max-w-[440px] w-[95%] rounded-[32px] p-0 overflow-hidden border-none shadow-2xl bg-white dark:bg-slate-950">
-                    <div className="p-8">
-                        <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/30 flex items-center justify-center text-amber-600 mb-6">
-                            <AlertCircle className="h-6 w-6" />
-                        </div>
+                <DialogContent className="max-w-[440px] p-0 overflow-hidden border-none shadow-2xl bg-card">
+                    <DialogHeader iconkey="edit" variant="warning">
+                        <DialogTitle>Ghi chú công việc</DialogTitle>
+                        <DialogDescription>
+                            Gửi phản hồi, báo cáo sự cố hoặc lý do chậm trễ.
+                        </DialogDescription>
+                    </DialogHeader>
 
-                        <DialogHeader className="p-0 text-left mb-6">
-                            <DialogTitle className="text-2xl font-black tracking-tight text-slate-800 dark:text-slate-100">
-                                Ghi chú công việc
-                            </DialogTitle>
-                            <DialogDescription className="text-slate-500 font-medium text-sm mt-1">
-                                Gửi phản hồi, báo cáo sự cố hoặc lý do chậm trễ. Teammates sẽ nhìn thấy ghi chú này.
-                            </DialogDescription>
-                        </DialogHeader>
-
-                        <div className="space-y-4">
+                    <DialogBody className="bg-muted/[0.02] p-6">
+                        <div className="bg-background p-6 rounded-[2rem] border shadow-sm space-y-3">
+                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 mb-1">Chi tiết báo cáo</p>
                             <Textarea
                                 value={noteContent}
                                 onChange={(e) => setNoteContent(e.target.value)}
                                 placeholder="Nhập nội dung ghi chú tại đây..."
                                 rows={5}
-                                className="text-base rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 focus:ring-amber-500/20 focus:border-amber-500/50 transition-all resize-none font-medium p-4 leading-relaxed shadow-inner"
+                                className="text-base rounded-2xl border-muted-foreground/20 bg-muted/5 focus:border-primary/50 transition-all resize-none font-medium p-4 leading-relaxed"
+                                onFocus={(e) => e.target.select()}
                             />
-
-                            <div className="flex gap-3 pt-2">
-                                <DialogClose asChild>
-                                    <Button variant="ghost" className="flex-1 rounded-2xl h-14 font-bold text-slate-400 hover:text-slate-500 hover:bg-slate-50 transition-all">
-                                        HỦY
-                                    </Button>
-                                </DialogClose>
-                                <Button
-                                    size="lg"
-                                    onClick={handleNoteSubmit}
-                                    className="flex-[2] rounded-2xl h-14 font-black bg-slate-900 dark:bg-slate-100 dark:text-slate-900 text-white shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
-                                >
-                                    {isNoteSubmitting ? (
-                                        <span className="flex items-center justify-center gap-2">
-                                            <Loader2 className="h-5 w-5 animate-spin" />
-                                            Đang gửi...
-                                        </span>
-                                    ) : "GỬI BÁO CÁO"}
-                                </Button>
-                            </div>
                         </div>
-                    </div>
+                    </DialogBody>
+
+                    <DialogFooter className="bg-muted/10 border-t p-6">
+                        <DialogCancel className="rounded-xl font-bold flex-1 sm:flex-none">HỦY</DialogCancel>
+                        <DialogAction
+                            isLoading={isNoteSubmitting}
+                            onClick={handleNoteSubmit}
+                            className="rounded-xl font-black flex-1 sm:flex-none min-w-[160px]"
+                        >
+                            GỬI BÁO CÁO
+                        </DialogAction>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
 

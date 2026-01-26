@@ -9,6 +9,17 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogIcon,
+} from '@/components/ui/alert-dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/pro-toast';
@@ -649,7 +660,7 @@ export default function CameraDialog({
       <DialogContent
         hideClose={true}
         overlayClassName={parentDialogTag.includes("dialog") ? "bg-transparent" : undefined}
-        className="max-h-[95vh] max-w-3xl p-0 overflow-hidden border-none bg-transparent sm:rounded-[40px] shadow-2xl"
+        className="max-h-[95vh] max-w-3xl p-0 overflow-hidden border-none bg-transparent rounded-[30px] sm:rounded-[40px] shadow-2xl"
       >
         <div className="relative h-[90vh] sm:h-[80vh] w-full flex flex-col">
           {/* Main Camera View - Absolutely positioned to fill background */}
@@ -667,7 +678,7 @@ export default function CameraDialog({
           {/* Header Overlay - Gradient for legibility */}
           <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-6 bg-gradient-to-b from-black/80 via-black/20 to-transparent text-white">
             <div className="space-y-1">
-              <DialogTitle className="text-xl font-bold tracking-tight">Bằng chứng</DialogTitle>
+              <DialogTitle className="text-xl text-white font-bold tracking-tight">Bằng chứng</DialogTitle>
               <DialogDescription className="text-sm text-white/70 italic line-clamp-1">
                 {singlePhotoMode ? 'Vui lòng chụp 1 tấm ảnh' : 'Chụp ảnh hoặc video'}
               </DialogDescription>
@@ -940,19 +951,31 @@ export default function CameraDialog({
       </DialogContent>
 
       {/* Discard-confirm dialog: shown when user attempts to close with unsent media */}
-      <Dialog open={showDiscardConfirm} onOpenChange={(open) => !open && setShowDiscardConfirm(false)} dialogTag="camera-discard-confirm" parentDialogTag="camera-dialog">
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Bạn có chắc chắn?</DialogTitle>
-            <DialogDescription>Có {capturedMedia.length} ảnh/video chưa gửi. Nếu bạn đóng bây giờ, các media tạm thời sẽ bị xóa và không thể khôi phục.</DialogDescription>
-          </DialogHeader>
+      <AlertDialog 
+        open={showDiscardConfirm} 
+        onOpenChange={(open) => !open && setShowDiscardConfirm(false)} 
+        variant="destructive"
+        dialogTag="camera-discard-confirm" 
+        parentDialogTag="camera-dialog"
+      >
+        <AlertDialogContent maxWidth="md">
+          <AlertDialogHeader hideicon={false}>
+            <AlertDialogTitle>Bạn có chắc chắn?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Có {capturedMedia.length} ảnh/video chưa gửi. Nếu bạn đóng bây giờ, các media tạm thời sẽ bị xóa và không thể khôi phục.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
 
-          <div className="mt-6 flex justify-end gap-3">
-            <Button variant="ghost" onClick={() => setShowDiscardConfirm(false)}>Tiếp tục chụp</Button>
-            <Button variant="destructive" onClick={confirmDiscardAndClose}>Bỏ và đóng</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowDiscardConfirm(false)}>
+              Tiếp tục chụp
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDiscardAndClose}>
+              Bỏ và đóng
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </Dialog>
   );

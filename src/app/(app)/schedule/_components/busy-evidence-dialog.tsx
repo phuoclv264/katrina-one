@@ -4,8 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Image from '@/components/ui/image';
 import { format, addWeeks, startOfWeek, endOfWeek, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogBody, DialogAction } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -351,56 +350,52 @@ export function BusyEvidenceDialog({ open, onOpenChange, schedule, currentUser, 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} dialogTag="busy-evidence-dialog" parentDialogTag={parentDialogTag}>
-      <DialogContent className="max-w-4xl max-h-[92vh] flex flex-col p-0 overflow-hidden border-none sm:rounded-2xl">
-        <DialogHeader className="p-4 pb-0 space-y-1">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
-              <AlertTriangle className="h-5 w-5" />
-            </div>
-            <div>
-              <DialogTitle className="text-lg sm:text-xl font-bold font-headline">Báo bận cho ca thiếu người</DialogTitle>
-              <DialogDescription className="text-xs sm:text-sm line-clamp-1">
-                {weekRange
-                  ? `Tuần ${format(weekRange.start, 'dd/MM')} - ${format(weekRange.end, 'dd/MM/yyyy')}`
-                  : 'Vui lòng cung cấp lý do và bằng chứng bạn bận.'}
-              </DialogDescription>
-            </div>
-          </div>
+      <DialogContent className="max-w-4xl max-h-[92vh]" overlayClassName='bg-transparent'>
+        <DialogHeader variant="warning" iconkey="alert">
+          <DialogTitle>Báo bận cho ca thiếu người</DialogTitle>
+          <DialogDescription>
+            {weekRange
+              ? `Tuần ${format(weekRange.start, 'dd/MM')} - ${format(weekRange.end, 'dd/MM/yyyy')}`
+              : 'Vui lòng cung cấp lý do và bằng chứng bạn bận.'}
+          </DialogDescription>
         </DialogHeader>
 
         {!currentUser ? (
-          <div className="p-8 text-center text-muted-foreground italic flex flex-col items-center gap-2">
-            <Loader2 className="h-6 w-6 animate-spin text-primary/40" />
-            Đang xác định tài khoản...
-          </div>
+          <DialogBody className="flex flex-col items-center justify-center py-12 gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-primary/40" />
+            <p className="text-muted-foreground italic text-sm">Đang xác định tài khoản...</p>
+          </DialogBody>
         ) : relevantShifts.length === 0 ? (
-          <div className="p-8 text-center text-muted-foreground italic text-sm">
-            Không có ca thiếu người phù hợp vai trò của bạn.
-          </div>
+          <DialogBody className="flex items-center justify-center py-12">
+            <p className="text-muted-foreground italic text-sm">
+              Không có ca thiếu người phù hợp vai trò của bạn.
+            </p>
+          </DialogBody>
         ) : (
-          <div className="flex-1 flex flex-col min-h-0">
-            <div className="px-4 py-2">
+          <DialogBody className="p-0">
+            {/* Summary Banner */}
+            <div className="px-6 py-4 sticky top-0 z-20 bg-card/95 backdrop-blur-sm border-b border-primary/5">
               <div className={cn(
-                'flex items-center gap-3 rounded-xl border px-4 py-2.5 text-xs sm:text-sm transition-all duration-300',
+                'flex items-center gap-3 rounded-2xl border px-4 py-3 transition-all duration-300',
                 pendingCount > 0
-                  ? 'border-amber-200 bg-amber-50/50 dark:border-amber-900/40 dark:bg-amber-900/10'
-                  : 'border-emerald-200 bg-emerald-50/50 dark:border-emerald-900/40 dark:bg-emerald-900/10'
+                  ? 'border-amber-200 bg-amber-50/50 dark:border-amber-900/20 dark:bg-amber-900/5'
+                  : 'border-emerald-200 bg-emerald-50/50 dark:border-emerald-900/20 dark:bg-emerald-900/5'
               )}>
                 <div className={cn(
-                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
-                  pendingCount > 0 ? 'bg-amber-100 dark:bg-amber-800/40 text-amber-600' : 'bg-emerald-100 dark:bg-emerald-800/40 text-emerald-600'
+                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
+                  pendingCount > 0 ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/40' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40'
                 )}>
                   {pendingCount > 0 ? (
-                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTriangle className="h-5 w-5" />
                   ) : (
-                    <Check className="h-4 w-4" />
+                    <Check className="h-5 w-5" />
                   )}
                 </div>
                 <div className="flex-1">
-                  <p className="font-bold leading-tight">
+                  <p className="font-bold text-sm leading-tight">
                     {pendingCount > 0 ? 'Yêu cầu báo bận' : 'Đã hoàn thành'}
                   </p>
-                  <p className="text-muted-foreground text-[11px] sm:text-xs leading-tight">
+                  <p className="text-muted-foreground text-xs leading-tight mt-0.5">
                     {pendingCount > 0 ? (
                       <>Còn <strong>{pendingCount}</strong>/{relevantShifts.length} ca cần bạn xác nhận.</>
                     ) : (
@@ -411,229 +406,225 @@ export function BusyEvidenceDialog({ open, onOpenChange, schedule, currentUser, 
               </div>
             </div>
 
-            <ScrollArea className="flex-1 px-4 pb-4 overflow-auto">
-              <div className="space-y-4">
-                {relevantShifts.map((shift) => {
-                  const draft = drafts[shift.id];
-                  if (!draft) return null;
+            <div className="p-6 space-y-6">
+              {relevantShifts.map((shift) => {
+                const draft = drafts[shift.id];
+                if (!draft) return null;
 
-                  const missingCount = Math.max(0, (shift.minUsers ?? 0) - shift.assignedUsers.length);
-                  const submitted = evidences.find((entry) => entry.shiftId === shift.id && entry.submittedBy.userId === currentUser.uid);
-                  const submittedAt = submitted ? toDate(submitted.submittedAt) : null;
-                  const shiftDate = parseISO(shift.date);
-                  const isSubmitted = !!submitted;
+                const submitted = evidences.find((entry) => entry.shiftId === shift.id && entry.submittedBy.userId === currentUser.uid);
+                const submittedAt = submitted ? toDate(submitted.submittedAt) : null;
+                const shiftDate = parseISO(shift.date);
+                const isSubmitted = !!submitted;
 
-                  return (
-                    <div
-                      key={shift.id}
-                      className={cn(
-                        "group relative overflow-hidden rounded-xl border transition-all duration-300",
-                        isSubmitted ? "border-emerald-100 bg-emerald-50/20 dark:border-emerald-900/30 dark:bg-emerald-900/5 shadow-none" : "bg-card border-slate-200 dark:border-slate-800 shadow-sm"
-                      )}
-                    >
-                      {/* Accent Bar */}
-                      <div className={cn(
-                        "absolute top-0 left-0 w-1 h-full transition-all duration-300",
-                        isSubmitted ? "bg-emerald-500" : "bg-primary/20 group-hover:bg-primary/40"
-                      )} />
-
-                      <div className="p-4">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="flex gap-3">
-                            <div className={cn(
-                              "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border text-base font-bold",
-                              getRoleColor(shift.role)
-                            )}>
-                              {shift.label.slice(0, 1)}
+                return (
+                  <div
+                    key={shift.id}
+                    className={cn(
+                      "group relative overflow-hidden rounded-[2rem] border transition-all duration-300",
+                      isSubmitted 
+                        ? "border-emerald-100 bg-emerald-50/5 dark:border-emerald-900/20 dark:bg-emerald-900/5" 
+                        : "bg-background border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-primary/20"
+                    )}
+                  >
+                    <div className="p-5 sm:p-6">
+                      {/* Shift Header */}
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex gap-4">
+                          <div className={cn(
+                            "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border text-xl font-bold font-headline shadow-sm",
+                            getRoleColor(shift.role)
+                          )}>
+                            {shift.label.slice(0, 1)}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="text-lg font-bold tracking-tight">{shift.label}</h3>
+                              <Badge variant="outline" className={cn('text-[10px] px-2 py-0.5 h-5 font-bold uppercase leading-none rounded-lg', getRoleColor(shift.role))}>
+                                {shift.role}
+                              </Badge>
                             </div>
-                            <div>
-                              <div className="flex items-center gap-1.5 mb-0.5">
-                                <h3 className="text-base font-bold tracking-tight">{shift.label}</h3>
-                                <Badge variant="outline" className={cn('text-[9px] px-1 py-0 h-3.5 font-bold uppercase leading-none', getRoleColor(shift.role))}>{shift.role}</Badge>
-                              </div>
-                              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-                                <span className="font-medium text-foreground">
-                                  {format(shiftDate, 'EEE, dd/MM', { locale: vi })}
-                                </span>
-                                <span className="text-muted-foreground/30">•</span>
-                                <span className="font-semibold text-primary">
-                                  {shift.timeSlot.start} - {shift.timeSlot.end}
-                                </span>
-                              </div>
+                            <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+                              <span className="font-bold text-slate-700 dark:text-slate-300">
+                                {format(shiftDate, 'EEEE, dd/MM', { locale: vi })}
+                              </span>
+                              <span className="text-muted-foreground/30">•</span>
+                              <span className="font-bold text-primary">
+                                {shift.timeSlot.start} - {shift.timeSlot.end}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="destructive" className="rounded-xl font-bold py-1 px-3 shadow-sm border-none">
+                            {getShiftMissingDetails(shift, allUsers).text}
+                          </Badge>
+                          {submittedAt && (
+                            <Badge variant="secondary" className="bg-emerald-100/50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-xl px-3 font-medium border-none">
+                              {format(submittedAt, 'HH:mm dd/MM')}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mt-6 space-y-5">
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                            Lý do bận <span className="text-rose-500">*</span>
+                          </label>
+                          <Textarea
+                            value={draft.note}
+                            onChange={(event) => handleNoteChange(shift.id, event.target.value)}
+                            placeholder="Mô tả cụ thể lịch bận của bạn (ví dụ: bận lịch học, việc gia đình...)"
+                            className="min-h-[100px] text-base resize-none border-slate-200 dark:border-slate-800 focus:border-primary/50 focus:ring-primary/20 rounded-[1.25rem] px-4 py-3 bg-slate-50/30 dark:bg-slate-900/30 shadow-inner"
+                          />
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="flex flex-col gap-2.5">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                              Bằng chứng <span className="text-rose-500">*</span>
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <DialogAction
+                                variant="outline"
+                                size="sm"
+                                className="h-9 px-3 text-xs rounded-xl"
+                                onClick={() => setActiveCameraShiftId(shift.id)}
+                              >
+                                <Camera className="h-4 w-4 text-primary" />
+                                <span>Chụp ảnh</span>
+                              </DialogAction>
+                              <DialogAction
+                                variant="outline"
+                                size="sm"
+                                className="h-9 px-3 text-xs rounded-xl"
+                                onClick={() => fileInputRefs.current[shift.id]?.click()}
+                              >
+                                <Upload className="h-4 w-4 text-primary" />
+                                <span>Tải lên</span>
+                              </DialogAction>
+                              <input
+                                ref={(element) => {
+                                  fileInputRefs.current[shift.id] = element;
+                                }}
+                                type="file"
+                                accept="image/*,video/*"
+                                multiple
+                                className="hidden"
+                                onChange={(event) => handleFileUpload(shift.id, event)}
+                              />
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-1.5 self-start shrink-0">
-                            <Badge variant="destructive" className="rounded-md font-bold text-[10px] h-5">
-                              {getShiftMissingDetails(shift, allUsers).text}
-                            </Badge>
-                            {submittedAt && (
-                              <Badge variant="outline" className="bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/40 dark:border-emerald-800 dark:text-emerald-400 text-[10px] h-5">
-                                {format(submittedAt, 'HH:mm dd/MM')}
-                              </Badge>
+                          <div className="min-h-[100px] rounded-[1.5rem] border-2 border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/10 p-4 transition-all duration-300">
+                            {(draft.existingAttachments.length > 0 || draft.newMedia.length > 0) ? (
+                              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                                {draft.existingAttachments.map((attachment) => (
+                                  <div key={attachment.url} className="group/media relative aspect-square overflow-hidden rounded-2xl border-2 border-white dark:border-slate-800 shadow-sm ring-1 ring-slate-200 dark:ring-slate-800">
+                                    {attachment.type === 'photo' ? (
+                                      <Image
+                                        src={attachment.url}
+                                        alt="Đính kèm"
+                                        fill
+                                        className="cursor-pointer object-cover transition-transform group-hover/media:scale-105"
+                                        onClick={() => handleOpenAttachment(attachment.url)}
+                                      />
+                                    ) : (
+                                      <video
+                                        src={`${attachment.url}#t=0.1`}
+                                        className="h-full w-full cursor-pointer object-cover transition-transform group-hover/media:scale-105"
+                                        muted
+                                        playsInline
+                                        onClick={() => handleOpenAttachment(attachment.url)}
+                                      />
+                                    )}
+                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/media:opacity-100 transition-opacity flex items-center justify-center p-2">
+                                      <Button
+                                        variant="destructive"
+                                        size="icon"
+                                        className="h-9 w-9 rounded-xl shadow-lg"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleRemoveExistingAttachment(shift.id, attachment.url);
+                                        }}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))}
+                                {draft.newMedia.map((item) => (
+                                  <div key={item.id} className="group/media relative aspect-square overflow-hidden rounded-2xl border-2 border-dashed border-primary/40 shadow-sm ring-1 ring-primary/20 bg-primary/5">
+                                    {item.type === 'photo' ? (
+                                      <Image
+                                        src={item.url}
+                                        alt="Mới"
+                                        fill
+                                        className="cursor-pointer object-cover transition-transform group-hover/media:scale-105"
+                                        onClick={() => handleOpenAttachment(item.url)}
+                                      />
+                                    ) : (
+                                      <video
+                                        src={`${item.url}#t=0.1`}
+                                        className="h-full w-full cursor-pointer object-cover transition-transform group-hover/media:scale-105"
+                                        muted
+                                        playsInline
+                                        onClick={() => handleOpenAttachment(item.url)}
+                                      />
+                                    )}
+                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/media:opacity-100 transition-opacity flex items-center justify-center p-2">
+                                      <Button
+                                        variant="destructive"
+                                        size="icon"
+                                        className="h-9 w-9 rounded-xl shadow-lg"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleRemoveNewMedia(shift.id, item.id);
+                                        }}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                    <div className="absolute top-1 right-1 bg-primary text-primary-foreground px-1.5 py-0.5 rounded-lg text-[8px] font-bold uppercase tracking-tighter">Mới</div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="h-[100px] flex flex-col items-center justify-center text-muted-foreground gap-2">
+                                <Camera className="h-8 w-8 text-slate-300 dark:text-slate-700" />
+                                <p className="text-xs font-medium">Chưa có hình ảnh/video minh chứng</p>
+                              </div>
                             )}
                           </div>
                         </div>
 
-                        <div className="mt-4 space-y-4">
-                          <div className="space-y-1.5">
-                            <label className="text-xs font-bold text-foreground inline-flex items-center gap-1.5">
-                              Lý do bận
-                              <span className="text-rose-500">*</span>
-                            </label>
-                            <Textarea
-                              value={draft.note}
-                              onChange={(event) => handleNoteChange(shift.id, event.target.value)}
-                              placeholder="Mô tả cụ thể lịch bận (học, gia đình...)"
-                              className="min-h-[80px] text-sm resize-none border-slate-200 focus:border-primary/50 focus:ring-primary/20 rounded-xl px-3 py-2"
-                            />
-                          </div>
-
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between gap-2">
-                              <label className="text-xs font-bold text-foreground inline-flex items-center gap-1.5">
-                                Minh chứng bằng hình ảnh/video
-                                <span className="text-rose-500">*</span>
-                              </label>
-                              <div className="flex items-center gap-1.5">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 px-2.5 text-[11px] rounded-lg border-slate-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900"
-                                  onClick={() => setActiveCameraShiftId(shift.id)}
-                                >
-                                  <Camera className="mr-1.5 h-3.5 w-3.5 text-primary" />
-                                  Chụp
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 px-2.5 text-[11px] rounded-lg border-slate-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900"
-                                  onClick={() => fileInputRefs.current[shift.id]?.click()}
-                                >
-                                  <Upload className="mr-1.5 h-3.5 w-3.5 text-primary" />
-                                  Tải lên
-                                </Button>
-                                <input
-                                  ref={(element) => {
-                                    fileInputRefs.current[shift.id] = element;
-                                  }}
-                                  type="file"
-                                  accept="image/*,video/*"
-                                  multiple
-                                  className="hidden"
-                                  onChange={(event) => handleFileUpload(shift.id, event)}
-                                />
-                              </div>
-                            </div>
-
-                            <div className="min-h-[80px] rounded-xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/20 p-2.5 transition-all duration-300">
-                              {(draft.existingAttachments.length > 0 || draft.newMedia.length > 0) ? (
-                                <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-1.5">
-                                  {draft.existingAttachments.map((attachment) => (
-                                    <div key={attachment.url} className="group/media relative aspect-square overflow-hidden rounded-lg border-2 border-white dark:border-slate-800 shadow-sm ring-1 ring-slate-200 dark:ring-slate-800">
-                                      {attachment.type === 'photo' ? (
-                                        <Image
-                                          src={attachment.url}
-                                          alt="Đính kèm"
-                                          fill
-                                          className="cursor-pointer object-cover"
-                                          onClick={() => handleOpenAttachment(attachment.url)}
-                                        />
-                                      ) : (
-                                        <video
-                                          src={`${attachment.url}#t=0.1`}
-                                          className="h-full w-full cursor-pointer object-cover"
-                                          muted
-                                          playsInline
-                                          onClick={() => handleOpenAttachment(attachment.url)}
-                                        />
-                                      )}
-                                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/media:opacity-100 transition-opacity flex items-center justify-center">
-                                        <Button
-                                          variant="destructive"
-                                          size="icon"
-                                          className="h-7 w-7 rounded-full"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleRemoveExistingAttachment(shift.id, attachment.url);
-                                          }}
-                                        >
-                                          <Trash2 className="h-3.5 w-3.5" />
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  ))}
-                                  {draft.newMedia.map((item) => (
-                                    <div key={item.id} className="group/media relative aspect-square overflow-hidden rounded-lg border-2 border-dashed border-primary/40 shadow-sm ring-1 ring-primary/20 bg-primary/5">
-                                      {item.type === 'photo' ? (
-                                        <Image
-                                          src={item.url}
-                                          alt="Mới"
-                                          fill
-                                          className="cursor-pointer object-cover"
-                                          onClick={() => handleOpenAttachment(item.url)}
-                                        />
-                                      ) : (
-                                        <video
-                                          src={`${item.url}#t=0.1`}
-                                          className="h-full w-full cursor-pointer object-cover"
-                                          muted
-                                          playsInline
-                                          onClick={() => handleOpenAttachment(item.url)}
-                                        />
-                                      )}
-                                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/media:opacity-100 transition-opacity flex items-center justify-center">
-                                        <Button
-                                          variant="destructive"
-                                          size="icon"
-                                          className="h-7 w-7 rounded-full"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleRemoveNewMedia(shift.id, item.id);
-                                          }}
-                                        >
-                                          <Trash2 className="h-3.5 w-3.5" />
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <div className="h-[80px] flex flex-col items-center justify-center text-muted-foreground gap-1">
-                                  <Camera className="h-6 w-6 text-muted-foreground/30" />
-                                  <p className="text-[11px] italic">Chưa có ảnh/video minh chứng.</p>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
-                            <Button
-                              onClick={() => handleSubmitEvidence(shift.id)}
-                              disabled={draft.isSubmitting || (isSubmitted && !draft.dirty)}
-                              size="sm"
-                              className={cn(
-                                "h-9 px-5 rounded-lg font-bold transition-all duration-300 text-xs",
-                                isSubmitted && !draft.dirty ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 hover:bg-emerald-100" : "shadow-md shadow-primary/20"
-                              )}
-                            >
-                              {draft.isSubmitting ? (
-                                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                              ) : isSubmitted && !draft.dirty ? (
-                                <Check className="mr-1.5 h-3.5 w-3.5" />
-                              ) : null}
-                              {isSubmitted && !draft.dirty ? 'Đã gửi' : (isSubmitted && draft.dirty ? 'Cập nhật' : 'Gửi báo bận')}
-                            </Button>
-                          </div>
+                        <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800/50">
+                          <DialogAction
+                            onClick={() => handleSubmitEvidence(shift.id)}
+                            isLoading={draft.isSubmitting}
+                            disabled={isSubmitted && !draft.dirty}
+                            variant={isSubmitted && !draft.dirty ? "secondary" : "default"}
+                            size="default"
+                            className={cn(
+                              "min-w-[140px] rounded-2xl",
+                              isSubmitted && !draft.dirty ? "opacity-50 grayscale cursor-default" : "shadow-md shadow-primary/20"
+                            )}
+                          >
+                            {isSubmitted && !draft.dirty ? (
+                              <><Check className="h-4 w-4" /> Đã gửi báo bận</>
+                            ) : (
+                              <>{isSubmitted && draft.dirty ? 'Cập nhật thông tin' : 'Gửi báo bận ngay'}</>
+                            )}
+                          </DialogAction>
                         </div>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            </ScrollArea>
-          </div>
+                  </div>
+                );
+              })}
+            </div>
+          </DialogBody>
         )}
       </DialogContent>
       <CameraDialog

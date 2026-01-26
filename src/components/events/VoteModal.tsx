@@ -8,6 +8,9 @@ import {
     DialogTitle,
     DialogDescription,
     DialogFooter,
+    DialogBody,
+    DialogAction,
+    DialogCancel,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -15,7 +18,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, CheckCircle, Info, Star, Send, Trophy, Users, StarHalf, ClipboardCheck, Sparkles } from 'lucide-react';
+import { Loader2, CheckCircle, Info, Star, Send, Trophy, Users, StarHalf, ClipboardCheck, Sparkles, MessageSquare } from 'lucide-react';
 import { toast } from '@/components/ui/pro-toast';
 import { getUserVote, submitVote } from '@/lib/events-store';
 import type { Event, EventCandidate, AuthUser, EventVote } from '@/lib/types';
@@ -69,6 +72,7 @@ export default function VoteModal({ isOpen, onClose, event, currentUser, parentD
     const [isProcessing, setIsProcessing] = useState(false);
     const [ratings, setRatings] = useState<{ [candidateId: string]: number }>({});
     const [comments, setComments] = useState<{ [candidateId: string]: string }>({});
+    const [generalComment, setGeneralComment] = useState('');
     const [missingReviewIds, setMissingReviewIds] = useState<string[]>([]);
 
     const allCandidates = useMemo(() => [...(event.candidates || []), ...(event.options || [])], [event]);
@@ -86,11 +90,13 @@ export default function VoteModal({ isOpen, onClose, event, currentUser, parentD
                     setSelectedCandidates(vote.votes || []);
                     setRatings(vote.ratings || {});
                     setComments(vote.comments || {});
+                    setGeneralComment(vote.comments?.general || '');
                     setMissingReviewIds([]);
                 } else {
                     setSelectedCandidates([]);
                     setRatings({});
                     setComments({});
+                    setGeneralComment('');
                     setMissingReviewIds([]);
                 }
                 setIsProcessing(false);
@@ -166,6 +172,9 @@ export default function VoteModal({ isOpen, onClose, event, currentUser, parentD
 
             if (event.type === 'vote' || event.type === 'multi-vote' || event.type === 'ballot') {
                 voteData.votes = event.type === 'ballot' ? [currentUser.uid] : selectedCandidates;
+                if (event.allowComments && generalComment.trim()) {
+                    voteData.comments = { general: generalComment.trim() };
+                }
             }
 
             if (event.type === 'review') {
@@ -224,7 +233,11 @@ export default function VoteModal({ isOpen, onClose, event, currentUser, parentD
         switch (event.type) {
             case 'vote':
                 return (
-                    <RadioGroup value={selectedCandidates[0]} onValueChange={handleSingleVoteChange}>
+                    <RadioGroup
+                        value={selectedCandidates[0]}
+                        onValueChange={handleSingleVoteChange}
+                        className="p-6 sm:p-8 space-y-4 bg-muted/5 rounded-2xl"
+                    >
                         <div className="space-y-3">
                             {allCandidates.map((candidate, idx) => (
                                 <motion.div
@@ -250,6 +263,27 @@ export default function VoteModal({ isOpen, onClose, event, currentUser, parentD
                                 </motion.div>
                             ))}
                         </div>
+
+                        {event.allowComments && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.3 }}
+                                className="mt-8 space-y-3"
+                            >
+                                <Label className="text-sm font-bold flex items-center gap-2">
+                                    <MessageSquare className="h-4 w-4 text-primary" />
+                                    Lời nhắn hoặc góp ý
+                                </Label>
+                                <Textarea
+                                    placeholder="Để lại bình luận của bạn (không bắt buộc)..."
+                                    value={generalComment}
+                                    onChange={(e) => setGeneralComment(e.target.value)}
+                                    rows={3}
+                                    className="resize-none bg-background focus:ring-1 focus:ring-primary rounded-xl"
+                                />
+                            </motion.div>
+                        )}
                     </RadioGroup>
                 );
             case 'multi-vote':
@@ -294,6 +328,27 @@ export default function VoteModal({ isOpen, onClose, event, currentUser, parentD
                                 </motion.div>
                             ))}
                         </div>
+
+                        {event.allowComments && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.3 }}
+                                className="mt-8 space-y-4 p-1"
+                            >
+                                <Label className="text-sm font-bold flex items-center gap-2">
+                                    <MessageSquare className="h-4 w-4 text-primary" />
+                                    Lời nhắn hoặc góp ý
+                                </Label>
+                                <Textarea
+                                    placeholder="Để lại bình luận của bạn (không bắt buộc)..."
+                                    value={generalComment}
+                                    onChange={(e) => setGeneralComment(e.target.value)}
+                                    rows={3}
+                                    className="bg-background focus:ring-1 focus:ring-primary rounded-xl"
+                                />
+                            </motion.div>
+                        )}
                     </div>
                 );
             case 'review':
@@ -392,6 +447,27 @@ export default function VoteModal({ isOpen, onClose, event, currentUser, parentD
                                 * Mỗi nhân viên chỉ được tham gia 1 lần duy nhất.
                             </p>
                         </div>
+
+                        {event.allowComments && (
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                transition={{ delay: 0.2 }}
+                                className="w-full pt-4 space-y-3 text-left"
+                            >
+                                <Label className="text-sm font-bold flex items-center gap-2">
+                                    <MessageSquare className="h-4 w-4 text-primary" />
+                                    Lời nhắn hoặc góp ý
+                                </Label>
+                                <Textarea
+                                    placeholder="Lời nhắn từ bạn (không bắt buộc)..."
+                                    value={generalComment}
+                                    onChange={(e) => setGeneralComment(e.target.value)}
+                                    rows={3}
+                                    className="resize-none bg-background focus:ring-1 focus:ring-primary rounded-xl"
+                                />
+                            </motion.div>
+                        )}
                     </motion.div>
                 );
             default:
@@ -406,47 +482,46 @@ export default function VoteModal({ isOpen, onClose, event, currentUser, parentD
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose} dialogTag="vote-modal" parentDialogTag={parentDialogTag}>
-            <DialogContent className="max-w-md p-0 overflow-hidden flex flex-col min-h-0 max-h-[90vh] sm:rounded-2xl">
-                <DialogHeader className="p-6 pb-4 border-b bg-muted/5 flex-shrink-0">
-                    <div className="flex items-center gap-3 mb-1">
-                        <div className="p-2 rounded-lg bg-background shadow-sm border">
-                            {getEventIcon()}
-                        </div>
+            <DialogContent className="max-w-md p-0 overflow-hidden flex flex-col bg-card sm:rounded-[2rem] border-none shadow-2xl">
+                <DialogHeader iconkey="event" variant="premium" className="flex-shrink-0">
+                    <div className="flex items-center gap-3">
                         <DialogTitle className="text-xl font-bold leading-tight">{event.title}</DialogTitle>
                     </div>
-                    <DialogDescription className="text-sm line-clamp-2">
-                        {event.description}
-                    </DialogDescription>
                 </DialogHeader>
 
-                <ScrollArea className="flex-1 px-6 min-h-0 overflow-auto">
-                    <div className="py-6">
+                <DialogBody className="flex-1 p-0 flex flex-col">
+                    <ScrollArea className="flex-1 px-5 sm:px-8 py-6 overflow-y-auto">
                         {isProcessing && userVote === undefined ? (
                             <div className="flex flex-col items-center justify-center h-60 space-y-4">
                                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                                <p className="text-sm text-muted-foreground animate-pulse">Đang tải dữ liệu...</p>
+                                <p className="text-sm text-muted-foreground animate-pulse font-bold uppercase tracking-widest text-[10px]">Đang tải dữ liệu...</p>
                             </div>
-                        ) : renderContent()}
-                    </div>
-                </ScrollArea>
+                        ) : (
+                            <div className="space-y-2">
+                                {!userVote && event.description && (
+                                    <div className="text-zinc-700 bg-gray-50 dark:bg-gray-900 rounded-2xl text-sm text-muted-foreground leading-relaxed italic border border-gray-100 dark:border-gray-800">
+                                        {event.description}
+                                    </div>
+                                )}
+                                {renderContent()}
+                            </div>
+                        )}
+                    </ScrollArea>
+                </DialogBody>
 
-                <DialogFooter className="p-6 pt-4 border-t bg-muted/5 flex sm:justify-between items-center gap-4 flex-shrink-0">
-                    <Button variant="ghost" onClick={onClose} className="rounded-full" aria-label="Đóng">
+                <DialogFooter>
+                    <DialogCancel onClick={onClose}>
                         Đóng
-                    </Button>
+                    </DialogCancel>
                     {!userVote && (
-                        <Button
+                        <DialogAction
                             onClick={handleSubmit}
                             disabled={!canSubmit || isProcessing}
-                            className="rounded-full px-8 shadow-lg shadow-primary/20 transition-all active:scale-95"
+                            isLoading={isProcessing}
+                            className="rounded-xl h-12 px-8 min-w-[140px] font-black uppercase tracking-widest text-xs shadow-lg shadow-primary/20 transition-all active:scale-95"
                         >
-                            {isProcessing ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                                <Send className="mr-2 h-4 w-4" />
-                            )}
                             {event.type === 'ballot' ? 'Tham gia ngay' : 'Gửi kết quả'}
-                        </Button>
+                        </DialogAction>
                     )}
                 </DialogFooter>
             </DialogContent>
