@@ -653,11 +653,6 @@ export default function ScheduleView() {
                                                 {format(day, 'eeee', { locale: vi }).toUpperCase()}
                                             </span>
                                         </div>
-                                        {isToday && (
-                                            <Badge className="bg-primary hover:bg-primary shadow-lg shadow-primary/20 text-[10px] h-5 px-2 uppercase font-black tracking-widest rounded-full border-none">
-                                                Hôm nay
-                                            </Badge>
-                                        )}
                                     </div>
 
                                     <div className="flex items-center justify-end">
@@ -738,13 +733,17 @@ export default function ScheduleView() {
                                                                     <div className="min-w-0">
                                                                         <div className="flex items-center gap-2 mb-0.5">
                                                                             <h3 className={cn(
-                                                                                "font-black text-[15px] tracking-tight truncate",
+                                                                                "font-black text-sm tracking-tight",
                                                                                 isPastShift ? "text-slate-400" : "text-slate-900 dark:text-slate-50"
                                                                             )}>
                                                                                 {shift.label}
                                                                             </h3>
                                                                             {myAssignedRole && (
-                                                                                <Badge variant="outline" className="text-[8px] h-4 px-1.5 font-black border-primary/20 text-primary uppercase tracking-wider bg-primary/5 rounded-md">
+                                                                                <Badge
+                                                                                    variant="outline"
+                                                                                    title={myAssignedRole}
+                                                                                    className="text-[8px] sm:text-[10px] h-5 px-2 font-black border-primary/20 text-primary uppercase tracking-wider bg-primary/5 rounded-md whitespace-nowrap max-w-none"
+                                                                                >
                                                                                     {myAssignedRole}
                                                                                 </Badge>
                                                                             )}

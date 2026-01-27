@@ -11,6 +11,8 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogBody,
+  DialogAction,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -41,7 +43,7 @@ import type { AssignedShift, ManagedUser, Schedule, ShiftBusyEvidence, BusyRepor
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from '@/components/ui/pro-toast';
 import { subscribeToBusyReportRequestsForWeek, setBusyReportRecipients } from '@/lib/schedule-store';
-import { cn } from '@/lib/utils';
+import { cn, generateShortName } from '@/lib/utils';
 import { getRoleColor, userMatchesRole, toDate, buildSlides, getEligibleAndPendingUsers, getRelevantUnderstaffedShifts, getShiftMissingDetails } from './understaffed-evidence-utils';
 
 export function UnderstaffedEvidenceDialog({
@@ -186,7 +188,6 @@ export function UnderstaffedEvidenceDialog({
     const shiftActiveReq = busyRequests.find(r => r.shiftId === shift.id && r.active);
     const { pendingUsers, eligibleUsers } = getEligibleAndPendingUsers(shift, allUsers, shiftEvidences, shiftActiveReq);
 
-    // If an owner has targeted recipients for this shift, filter the pending list to those targets
     let displayedPendingUsers = pendingUsers;
     if (shiftActiveReq) {
       if (shiftActiveReq.targetMode === 'all') {
@@ -204,67 +205,71 @@ export function UnderstaffedEvidenceDialog({
     const status = getShiftStatus(shift, shiftEvidences);
 
     return (
-      <AccordionItem key={shift.id} value={shift.id} className="border rounded-xl px-4 bg-card overflow-hidden shadow-sm hover:shadow-md transition-all duration-200">
-        <AccordionTrigger className="hover:no-underline py-4">
+      <AccordionItem key={shift.id} value={shift.id} className="border rounded-[1.5rem] bg-card overflow-hidden shadow-soft transition-all duration-200 mb-4 px-0">
+        <AccordionTrigger className="hover:no-underline px-4 sm:px-6 py-4 sm:py-5">
           <div className="flex flex-1 flex-col sm:flex-row sm:items-center justify-between text-left gap-4">
             <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-lg">{shift.label}</span>
+              <div className="flex items-center gap-2.5">
+                <span className="font-bold text-base sm:text-lg tracking-tight">{shift.label}</span>
                 <Badge variant="outline" className={cn("text-[10px] px-2 h-5 font-bold uppercase tracking-wider", getRoleColor(shift.role))}>{shift.role}</Badge>
               </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
+              <div className="flex items-center gap-3 text-[10px] sm:text-xs text-muted-foreground/80 font-medium">
                 <div className="flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 text-primary/70" />
-                  {format(shiftDate, 'eeee, dd/MM', { locale: vi })}
+                  <Clock className="h-3.5 w-3.5 text-primary/60" />
+                  {format(shiftDate, 'EEEE, dd/MM', { locale: vi })}
                 </div>
                 <div className="w-1 h-1 rounded-full bg-muted-foreground/30" />
-                <span>{shift.timeSlot.start} - {shift.timeSlot.end}</span>
+                <span className="text-secondary-foreground font-semibold">{shift.timeSlot.start} - {shift.timeSlot.end}</span>
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2 sm:pr-6">
+            <div className="flex flex-wrap items-center gap-2 sm:pr-8">
               {isActuallyUnderstaffed && (
-                <Badge variant="destructive" className="h-7 px-3 font-bold shadow-sm shadow-destructive/20 ring-2 ring-destructive/10">
+                <Badge variant="destructive" className="h-7 sm:h-8 px-3 sm:px-4 text-[10px] sm:text-xs font-bold rounded-full">
                   {missingDetails.text}
                 </Badge>
               )}
-              <Badge variant="secondary" className={cn("h-7 px-3 border font-semibold", status.color)}>
+              <Badge variant="secondary" className={cn("h-7 sm:h-8 px-3 sm:px-4 text-[10px] sm:text-xs font-bold rounded-full", status.color)}>
                 {status.label}
               </Badge>
             </div>
           </div>
         </AccordionTrigger>
-        <AccordionContent className="pb-4 pt-2">
-          <Separator className="mb-4" />
+        <AccordionContent className="px-4 sm:px-6 pb-6 pt-0">
+          <Separator className="mb-4 sm:mb-6 opacity-30" />
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
             <div className="lg:col-span-2 space-y-6">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="h-4 w-4 text-primary" />
-                <h4 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground text-[10px]">Phản hồi từ nhân viên ({shiftEvidences.length})</h4>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-1.5 bg-primary/10 rounded-lg">
+                  <MessageSquare className="h-4 w-4 text-primary" />
+                </div>
+                <h4 className="font-bold text-[11px] uppercase tracking-widest text-muted-foreground/80">Phản hồi từ nhân viên ({shiftEvidences.length})</h4>
               </div>
 
               {shiftEvidences.length === 0 ? (
-                <div className="flex flex-col items-center justify-center p-8 bg-muted/30 rounded-lg border border-dashed">
-                  <Info className="h-8 w-8 text-muted-foreground/50 mb-2" />
-                  <p className="text-sm text-muted-foreground italic text-center">Chưa có nhân viên nào gửi minh chứng bận cho ca này</p>
+                <div className="flex flex-col items-center justify-center p-8 sm:p-10 bg-muted/20 rounded-[1.5rem] border border-dashed border-muted-foreground/20">
+                  <div className="p-3 bg-muted/30 rounded-full mb-3">
+                    <Info className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground/40" />
+                  </div>
+                  <p className="text-sm text-muted-foreground font-medium text-center">Chưa có nhân viên nào gửi minh chứng bận.</p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {shiftEvidences.map((entry) => {
                     const submittedAt = toDate(entry.submittedAt);
                     const mediaSlides = entry.media ? buildSlides(entry.media) : [];
                     return (
-                      <div key={entry.id} className="relative bg-muted/20 rounded-2xl p-4 border border-border/50 shadow-sm">
-                        <div className="flex items-start justify-between mb-3">
+                      <div key={entry.id} className="relative bg-muted/20 rounded-[1.5rem] p-4 sm:p-5 border border-border/30 group hover:bg-muted/30 transition-colors">
+                        <div className="flex items-center justify-between mb-4">
                           <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-primary font-bold border border-primary/20">
+                            <div className="h-10 sm:h-11 w-10 sm:w-11 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold border border-primary/20 shadow-sm">
                               {entry.submittedBy.userName.charAt(0)}
                             </div>
                             <div>
-                              <p className="font-bold text-sm">{entry.submittedBy.userName}</p>
+                              <p className="font-extrabold text-sm">{entry.submittedBy.userName}</p>
                               {submittedAt && (
-                                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                  <Clock className="h-2 w-2" />
+                                <p className="text-[10px] text-muted-foreground/70 flex items-center gap-1 mt-0.5">
+                                  <Clock className="h-2.5 w-2.5 text-primary/40" />
                                   {formatDistanceToNow(submittedAt, { addSuffix: true, locale: vi })}
                                 </p>
                               )}
@@ -272,19 +277,19 @@ export function UnderstaffedEvidenceDialog({
                           </div>
                         </div>
 
-                        <div className="pl-0 space-y-3">
-                          <div className="bg-background/50 rounded-xl p-2.5 border border-border/30">
-                            <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap italic">
+                        <div className="space-y-4">
+                          <div className="bg-background/80 backdrop-blur-sm rounded-2xl p-3 sm:p-4 border border-border/20 shadow-sm">
+                            <p className="text-sm leading-relaxed text-foreground/80 whitespace-pre-wrap italic font-semibold">
                               "{entry.message}"
                             </p>
                           </div>
 
                           {entry.media && entry.media.length > 0 && (
-                            <div className="flex flex-wrap gap-2.5">
+                            <div className="flex flex-wrap gap-2 sm:gap-3">
                               {entry.media.map((attachment, idx) => (
                                 <button
                                   key={attachment.url}
-                                  className="group relative h-24 w-24 rounded-xl overflow-hidden border-2 border-background shadow-sm hover:scale-105 transition-all duration-300"
+                                  className="group relative h-20 sm:h-24 w-20 sm:w-24 rounded-2xl overflow-hidden border-2 border-background shadow-md hover:scale-105 transition-all duration-300 ring-1 ring-border/50"
                                   onClick={() => openLightbox(mediaSlides, idx)}
                                 >
                                   {attachment.type === 'photo' ? (
@@ -297,9 +302,9 @@ export function UnderstaffedEvidenceDialog({
                                   ) : (
                                     <div className="relative h-full w-full bg-black">
                                       <video src={`${attachment.url}#t=0.1`} className="h-full w-full object-cover opacity-80" muted playsInline />
-                                      <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                                        <div className="bg-white/20 backdrop-blur-sm p-1.5 rounded-full">
-                                          <Video className="h-5 w-5 text-white" />
+                                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/10 transition-colors">
+                                        <div className="bg-white/30 backdrop-blur-md p-2 rounded-full ring-1 ring-white/50">
+                                          <Video className="h-5 w-5 text-white shadow-sm" />
                                         </div>
                                       </div>
                                     </div>
@@ -316,117 +321,131 @@ export function UnderstaffedEvidenceDialog({
               )}
             </div>
 
-            <div className="space-y-6">
-              <div className="bg-muted/30 rounded-2xl p-5 border shadow-sm space-y-5">
-                <div className="space-y-3">
-                  <h4 className="font-semibold text-[10px] uppercase tracking-[0.1em] text-muted-foreground flex items-center gap-2">
-                    <ListFilter className="h-3 w-3" /> Nhân sự yêu cầu
+            <div className="space-y-5 sm:space-y-6">
+              <div className="bg-muted/30 rounded-[1.5rem] p-4 sm:p-6 border shadow-sm space-y-5">
+                <div className="space-y-3 sm:space-y-4">
+                  <h4 className="font-bold text-[11px] uppercase tracking-widest text-muted-foreground/80 flex items-center gap-2">
+                    <ListFilter className="h-3.5 w-3.5" /> Nhân sự yêu cầu
                   </h4>
                   <div className="flex flex-wrap gap-2">
                     {reqs.length > 0 ? (
                       reqs.map(r => (
-                        <div key={r.role} className="flex items-center gap-1.5 bg-background border px-2 py-1 rounded-lg">
-                          <span className="text-xs font-bold text-primary">{r.count}</span>
-                          <span className="text-[10px] text-muted-foreground">{r.role}</span>
+                        <div key={r.role} className="flex items-center gap-2 bg-background border px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl shadow-sm">
+                          <span className="text-xs font-extrabold text-primary">{r.count}</span>
+                          <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground tracking-tight">{r.role}</span>
                         </div>
                       ))
                     ) : (
-                      <div className="flex items-center gap-1.5 bg-background border px-2 py-1 rounded-lg">
-                        <span className="text-xs font-bold text-primary">{shift.minUsers || 0}</span>
-                        <span className="text-[10px] text-muted-foreground">Bất kỳ</span>
+                      <div className="flex items-center gap-2 bg-background border px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl shadow-sm">
+                        <span className="text-xs font-extrabold text-primary">{shift.minUsers || 0}</span>
+                        <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground tracking-tight">Hệ thống</span>
                       </div>
                     )}
                   </div>
                 </div>
 
-                <Separator />
+                <div className="h-px bg-border/40" />
 
                 <div className="space-y-3">
-                  <h4 className="font-semibold text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
+                  <h4 className="font-bold text-[11px] uppercase tracking-widest text-muted-foreground/80">
                     Chưa phản hồi ({displayedPendingUsers.length})
                   </h4>
                   {displayedPendingUsers.length === 0 ? (
-                    <div className="flex items-center gap-2 text-green-600 text-xs font-medium bg-green-50 p-2.5 rounded-xl border border-green-100">
-                      <ClipboardCheck className="h-4 w-4" />
-                      Tất cả đã phản hồi
+                    <div className="flex items-center gap-2 text-green-600 text-[11px] font-bold py-2 bg-green-500/[0.03] px-3 rounded-xl border border-green-500/10">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Tất cả đã gửi bận
                     </div>
                   ) : (
-                    <div className="flex flex-wrap gap-1.5">
-                      {displayedPendingUsers.map((user) => (
-                        <Badge key={user.uid} variant="secondary" className="bg-background text-[10px] py-0 px-2.5 h-7 border-dashed border font-medium">
-                          {user.displayName}
-                        </Badge>
+                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 py-0.5">
+                      {displayedPendingUsers.map((user, idx) => (
+                        <div key={user.uid} className="flex items-center gap-2.5">
+                          <span className="text-[11px] font-bold text-foreground/80 tracking-tight">
+                            {generateShortName(user.displayName)}
+                          </span>
+                          {idx < displayedPendingUsers.length - 1 && (
+                            <div className="h-1 w-1 rounded-full bg-muted-foreground/30" />
+                          )}
+                        </div>
                       ))}
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="bg-background rounded-2xl p-5 border shadow-sm space-y-4">
-                <h4 className="font-semibold text-[10px] uppercase tracking-[0.1em] text-muted-foreground">Yêu cầu báo bận</h4>
-                <div className="text-xs text-muted-foreground">
-                  {busyRequests.find(r => r.shiftId === shift.id && r.active) ? (
-                    <span>Đang yêu cầu: {(() => {
-                      const r = busyRequests.find(x => x.shiftId === shift.id && x.active)!;
-                      if (r.targetMode === 'all') return 'Tất cả nhân viên phù hợp';
-                      if (r.targetMode === 'roles') return `Theo vai trò (${(r.targetRoles || []).join(', ')})`;
-                      if (r.targetMode === 'users') return `Người cụ thể (${(r.targetUserIds || []).length})`;
-                      return '';
-                    })()}</span>
-                  ) : (
-                    <span>Chưa cấu hình. Chọn đối tượng nhận yêu cầu.</span>
+              <div className="bg-background rounded-[1.5rem] p-5 sm:p-6 border shadow-soft space-y-5">
+                <h4 className="font-bold text-[11px] uppercase tracking-widest text-muted-foreground/80">Yêu cầu báo bận</h4>
+                
+                <div className="bg-primary/[0.03] rounded-xl p-3 sm:p-4 border border-primary/10">
+                  <p className="text-[11px] font-semibold text-primary/80 leading-relaxed">
+                    {busyRequests.find(r => r.shiftId === shift.id && r.active) ? (
+                      <span>Đang yêu cầu: {(() => {
+                        const r = busyRequests.find(x => x.shiftId === shift.id && x.active)!;
+                        if (r.targetMode === 'all') return 'Tất cả nhân viên';
+                        if (r.targetMode === 'roles') return `Theo vai trò (${(r.targetRoles || []).join(', ')})`;
+                        if (r.targetMode === 'users') return `Người cụ thể (${(r.targetUserIds || []).length})`;
+                        return '';
+                      })()}</span>
+                    ) : (
+                      <span className="text-muted-foreground/60 italic font-medium">Chưa cấu hình yêu cầu mới.</span>
+                    )}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="flex flex-wrap gap-2">
+                    {(['all', 'roles', 'users'] as const).map(mode => (
+                      <Button
+                        key={mode}
+                        variant={editTargets[shift.id]?.mode === mode ? 'default' : 'outline'}
+                        size="sm"
+                        className="h-8 sm:h-9 px-2 sm:px-3 rounded-xl text-[10px] font-bold flex-1"
+                        onClick={() => handleTargetModeChange(shift.id, mode)}
+                      >
+                        {mode === 'all' ? 'Tất cả' : mode === 'roles' ? 'Vai trò' : 'Chọn người'}
+                      </Button>
+                    ))}
+                  </div>
+                  
+                  {editTargets[shift.id]?.mode === 'roles' && (
+                    <div className="flex flex-wrap gap-2 p-3 bg-muted/20 rounded-xl border border-dashed">
+                      {(['Phục vụ', 'Pha chế', 'Thu ngân', 'Quản lý'] as UserRole[]).map(role => (
+                        <Badge
+                          key={role}
+                          variant="outline"
+                          className={cn('text-[10px] py-1 sm:py-1.5 px-2.5 sm:px-3 border-2 font-bold cursor-pointer transition-all', editTargets[shift.id]?.roles.includes(role) ? 'bg-primary text-primary-foreground border-primary shadow-sm' : 'bg-background hover:bg-muted')}
+                          onClick={() => handleToggleRole(shift.id, role)}
+                        >
+                          {role}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {editTargets[shift.id]?.mode === 'users' && (
+                    <div className="flex flex-wrap gap-2 p-2 sm:p-3 bg-muted/20 rounded-xl border border-dashed max-h-40 overflow-y-auto">
+                      {eligibleUsers.map(u => (
+                        <Badge
+                          key={u.uid}
+                          variant="secondary"
+                          className={cn('text-[10px] py-1 sm:py-1.5 px-2.5 sm:px-3 border font-extrabold cursor-pointer transition-all', editTargets[shift.id]?.userIds.includes(u.uid) ? 'bg-primary/20 border-primary/50 text-primary' : 'bg-background hover:bg-muted-foreground/10')}
+                          onClick={() => handleToggleUser(shift.id, u.uid)}
+                        >
+                          {u.displayName}
+                        </Badge>
+                      ))}
+                    </div>
                   )}
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {(['all', 'roles', 'users'] as const).map(mode => (
-                    <Button
-                      key={mode}
-                      variant={editTargets[shift.id]?.mode === mode ? 'default' : 'outline'}
-                      size="sm"
-                      className="h-8 px-3 rounded-lg text-[11px]"
-                      onClick={() => handleTargetModeChange(shift.id, mode)}
-                    >
-                      {mode === 'all' ? 'Tất cả' : mode === 'roles' ? 'Theo vai trò' : 'Chọn người'}
-                    </Button>
-                  ))}
-                </div>
-                {editTargets[shift.id]?.mode === 'roles' && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {(['Phục vụ', 'Pha chế', 'Thu ngân', 'Quản lý'] as UserRole[]).map(role => (
-                      <Badge
-                        key={role}
-                        variant="outline"
-                        className={cn('text-[10px] py-0 px-2.5 h-7 border font-medium cursor-pointer', editTargets[shift.id]?.roles.includes(role) ? 'bg-primary/10 border-primary/30' : 'bg-background')}
-                        onClick={() => handleToggleRole(shift.id, role)}
-                      >
-                        {role}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-                {editTargets[shift.id]?.mode === 'users' && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {eligibleUsers.map(u => (
-                      <Badge
-                        key={u.uid}
-                        variant="secondary"
-                        className={cn('text-[10px] py-0 px-2.5 h-7 border font-medium cursor-pointer', editTargets[shift.id]?.userIds.includes(u.uid) ? 'bg-primary/10 border-primary/30' : 'bg-background')}
-                        onClick={() => handleToggleUser(shift.id, u.uid)}
-                      >
-                        {u.displayName}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-                <div className="flex justify-end items-center gap-2">
-                  <Button size="sm" className="rounded-lg h-8 px-4 font-bold" onClick={() => handleSaveTargets(shift)}>
-                    Lưu yêu cầu
+
+                <div className="flex flex-col gap-2.5 pt-2">
+                  <Button size="sm" className="rounded-xl h-9 sm:h-10 px-4 font-bold shadow-soft" onClick={() => handleSaveTargets(shift)}>
+                    Lưu cấu hình
                   </Button>
                   {busyRequests.find(r => r.shiftId === shift.id && r.active) && (
                     <Button
                       size="sm"
-                      variant="destructive"
-                      className="rounded-lg h-8 px-3 font-bold"
+                      variant="ghost"
+                      className="rounded-xl h-9 sm:h-10 px-3 font-extrabold text-destructive hover:bg-destructive/10 hover:text-destructive transition-all"
                       onClick={async () => {
                         if (!user || !schedule) return;
                         const r = busyRequests.find(x => x.shiftId === shift.id && x.active)!;
@@ -448,16 +467,18 @@ export function UnderstaffedEvidenceDialog({
                         }
                       }}
                     >
-                      Hủy yêu cầu
+                      Dừng yêu cầu
                     </Button>
                   )}
                 </div>
               </div>
 
-              <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 flex gap-3 text-amber-900 shadow-sm">
-                <Info className="h-4 w-4 shrink-0 mt-0.5" />
-                <p className="text-[11px] leading-relaxed">
-                  Hệ thống đề xuất bạn nên liên hệ trực tiếp những nhân viên chưa phản hồi để hỗ trợ hoặc tìm phương án thay thế kịp thời.
+              <div className="bg-amber-50/50 border border-amber-100 rounded-[1.5rem] p-4 sm:p-5 flex gap-3 text-amber-900 shadow-sm">
+                <div className="h-5 w-5 rounded-full bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
+                  <Info className="h-3 w-3 text-amber-600" />
+                </div>
+                <p className="text-[11px] leading-relaxed font-semibold opacity-80">
+                  Hệ thống đề xuất bạn nên liên hệ trực tiếp những nhân viên chưa phản hồi để hỗ trợ kịp thời.
                 </p>
               </div>
             </div>
@@ -469,168 +490,157 @@ export function UnderstaffedEvidenceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} dialogTag="understaffed-evidence-dialog" parentDialogTag={parentDialogTag}>
-      <DialogContent className="max-w-5xl max-h-[92vh] flex flex-col min-h-0 p-0 overflow-hidden sm:rounded-3xl border-none shadow-2xl">
-        <DialogHeader className="p-8 pb-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-amber-500 rounded-2xl shadow-lg shadow-amber-500/20">
-                <AlertTriangle className="h-7 w-7 text-white" />
-              </div>
-              <div className="space-y-1">
-                <DialogTitle className="text-2xl font-bold tracking-tight">Chi tiết báo bận</DialogTitle>
-                <DialogDescription className="text-amber-800/70 dark:text-amber-200/50">
-                  {understaffedShifts.length} ca đang thiếu nhân sự cần xử lý.
-                </DialogDescription>
-              </div>
-            </div>
-          </div>
+      <DialogContent className="max-w-5xl max-h-[92vh] flex flex-col min-h-0 p-0 overflow-hidden sm:rounded-[2.5rem] border-none shadow-2xl">
+        <DialogHeader iconkey="alert">
+          <DialogTitle>Chi tiết báo bận</DialogTitle>
+          <DialogDescription>
+            {understaffedShifts.length} ca đang thiếu nhân sự cần xử lý.
+          </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="understaffed" className="flex-1 flex flex-col min-h-0">
-          <div className="px-8 border-b bg-card">
-            <TabsList className="h-12 bg-transparent p-0 gap-8">
-              <TabsTrigger
-                value="understaffed"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none h-12 px-0 text-sm font-semibold"
-              >
-                Ca đang thiếu người ({understaffedShifts.length})
-              </TabsTrigger>
-              <TabsTrigger
-                value="all"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none h-12 px-0 text-sm font-semibold"
-              >
-                Tất cả báo bận ({shiftsWithEvidences.length})
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
-          <ScrollArea aria-label="Understaffed evidence list" className="flex-1 min-h-0 max-h-[90vh] overflow-auto">
-            <div className="p-6 pb-24">
-              <TabsContent value="understaffed" className="m-0 focus-visible:outline-none">
-                {understaffedShifts.length > 0 && (
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 bg-amber-50/50 dark:bg-amber-950/10 p-4 rounded-3xl border border-amber-100 dark:border-amber-900/30">
-                    <div className="flex items-center gap-4">
-                      <div className="h-10 w-10 bg-amber-100 dark:bg-amber-900/40 rounded-2xl flex items-center justify-center">
-                        <ListFilter className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                      </div>
-                      <div>
-                        <h3 className="text-base font-bold">Ca đang thiếu nhân sự</h3>
-                        <p className="text-xs text-amber-700/70 dark:text-amber-300/50 font-medium">Tìm thấy {understaffedShifts.length} ca cần điều chỉnh lịch</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="bg-background/50 hover:bg-background h-10 px-4 rounded-xl text-xs font-bold gap-2 border shadow-sm transition-all"
-                        onClick={() => setExpandedUnderstaffed(understaffedShifts.map(s => s.id))}
-                      >
-                        <ChevronsUpDown className="h-4 w-4 text-amber-500" />
-                        Mở rộng tất cả
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="bg-background/50 hover:bg-background h-10 px-4 rounded-xl text-xs font-bold gap-2 border shadow-sm transition-all"
-                        onClick={() => setExpandedUnderstaffed([])}
-                      >
-                        <ChevronsDownUp className="h-4 w-4 text-muted-foreground" />
-                        Thu gọn tất cả
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {understaffedShifts.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-20 text-center animate-in fade-in zoom-in duration-500">
-                    <div className="bg-green-100 dark:bg-green-900/30 p-8 rounded-full mb-6">
-                      <CheckCircle2 className="h-16 w-16 text-green-600 dark:text-green-400" />
-                    </div>
-                    <h3 className="text-2xl font-bold">Lịch làm việc đã ổn định!</h3>
-                    <p className="text-muted-foreground max-w-sm mx-auto mt-3 leading-relaxed">
-                      Hiện tại không còn ca nào đang ở trạng thái thiếu nhân sự. Bạn có thể yên tâm với tiến độ vận hành.
-                    </p>
-                  </div>
-                ) : (
-                  <Accordion
-                    type="multiple"
-                    className="space-y-4"
-                    value={expandedUnderstaffed}
-                    onValueChange={setExpandedUnderstaffed}
-                  >
-                    {understaffedShifts.map(shift => renderShiftItem(shift))}
-                  </Accordion>
-                )}
-              </TabsContent>
-
-              <TabsContent value="all" className="m-0 focus-visible:outline-none">
-                {shiftsWithEvidences.length > 0 && (
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 bg-muted/30 p-4 rounded-3xl border border-dashed">
-                    <div className="flex items-center gap-4">
-                      <div className="h-10 w-10 bg-muted rounded-2xl flex items-center justify-center">
-                        <MessageSquare className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                      <div>
-                        <h3 className="text-base font-bold">Tất cả báo bận</h3>
-                        <p className="text-xs text-muted-foreground font-medium">Tổng số {shiftsWithEvidences.length} ca có phản hồi từ nhân viên</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="bg-background/50 hover:bg-background h-10 px-4 rounded-xl text-xs font-bold gap-2 border shadow-sm transition-all"
-                        onClick={() => setExpandedAll(shiftsWithEvidences.map(s => s.id))}
-                      >
-                        <ChevronsUpDown className="h-4 w-4 text-primary" />
-                        Mở rộng tất cả
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="bg-background/50 hover:bg-background h-10 px-4 rounded-xl text-xs font-bold gap-2 border shadow-sm transition-all"
-                        onClick={() => setExpandedAll([])}
-                      >
-                        <ChevronsDownUp className="h-4 w-4 text-muted-foreground" />
-                        Thu gọn tất cả
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {shiftsWithEvidences.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-20 text-center">
-                    <div className="bg-muted p-8 rounded-full mb-6">
-                      <MessageSquare className="h-16 w-16 text-muted-foreground" />
-                    </div>
-                    <h3 className="text-2xl font-bold font-heading">Chưa có báo cáo nào</h3>
-                    <p className="text-muted-foreground max-w-sm mx-auto mt-3 leading-relaxed">
-                      Nhân viên chưa gửi bất kỳ báo cáo bận nào cho lịch làm việc tuần này.
-                    </p>
-                  </div>
-                ) : (
-                  <Accordion
-                    type="multiple"
-                    className="space-y-4"
-                    value={expandedAll}
-                    onValueChange={setExpandedAll}
-                  >
-                    {shiftsWithEvidences.map(shift => renderShiftItem(shift))}
-                  </Accordion>
-                )}
-              </TabsContent>
+        <DialogBody className="p-0 flex flex-col min-h-0">
+          <Tabs defaultValue="understaffed" className="flex-1 flex flex-col min-h-0">
+            <div className="px-6 border-b bg-muted/20">
+              <TabsList className="h-14 bg-transparent p-0 gap-4 sm:gap-8 overflow-x-auto no-scrollbar justify-start sm:justify-center">
+                <TabsTrigger
+                  value="understaffed"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary h-14 px-1 sm:px-2 text-[11px] sm:text-xs font-bold transition-all uppercase tracking-wider"
+                >
+                  Thiếu nhân sự ({understaffedShifts.length})
+                </TabsTrigger>
+                <TabsTrigger
+                  value="all"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary h-14 px-1 sm:px-2 text-[11px] sm:text-xs font-bold transition-all uppercase tracking-wider"
+                >
+                  Tất cả báo bận ({shiftsWithEvidences.length})
+                </TabsTrigger>
+              </TabsList>
             </div>
-          </ScrollArea>
-        </Tabs>
 
-        <DialogFooter className="p-4 border-t bg-muted/20 flex flex-col sm:flex-row gap-3">
-          <Button variant="ghost" onClick={() => onOpenChange(false)} className="rounded-xl px-8 order-2 sm:order-1">
+            <ScrollArea className="flex-1 min-h-0 overflow-auto">
+              <div className="p-6 pb-24">
+                <TabsContent value="understaffed" className="m-0 focus-visible:outline-none ring-0 outline-none">
+                  {understaffedShifts.length > 0 && (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 bg-amber-500/[0.04] p-5 rounded-[2rem] border border-amber-200/30">
+                      <div className="flex items-center gap-4">
+                        <div className="h-11 w-11 bg-amber-500/10 rounded-2xl flex items-center justify-center border border-amber-500/20">
+                          <ListFilter className="h-5 w-5 text-amber-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-extrabold text-amber-900 tracking-tight">Ca đang thiếu nhân sự</h3>
+                          <p className="text-[11px] text-amber-700/60 font-bold">Cần sớm bổ sung nhân viên cho {understaffedShifts.length} ca</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="bg-background/80 hover:bg-background h-10 px-4 rounded-xl text-[10px] font-extrabold gap-2 border shadow-soft transition-all"
+                          onClick={() => setExpandedUnderstaffed(understaffedShifts.map(s => s.id))}
+                        >
+                          <ChevronsUpDown className="h-3.5 w-3.5 text-amber-500" />
+                          Mở hết
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="bg-background/80 hover:bg-background h-10 px-4 rounded-xl text-[10px] font-extrabold gap-2 border shadow-soft transition-all"
+                          onClick={() => setExpandedUnderstaffed([])}
+                        >
+                          <ChevronsDownUp className="h-3.5 w-3.5 text-muted-foreground" />
+                          Thu hết
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {understaffedShifts.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-24 text-center">
+                      <div className="bg-green-500/10 p-10 rounded-full mb-6 border border-green-500/20 animate-pulse">
+                        <CheckCircle2 className="h-20 w-20 text-green-500" />
+                      </div>
+                      <h3 className="text-2xl font-extrabold tracking-tight">Lịch làm việc đã ổn định!</h3>
+                      <p className="text-muted-foreground/80 max-w-xs mx-auto mt-4 text-sm font-medium leading-relaxed">
+                        Tất cả các ca đều đã đủ nhân sự hoặc có phương án thay thế phù hợp.
+                      </p>
+                    </div>
+                  ) : (
+                    <Accordion
+                      type="multiple"
+                      className="space-y-4"
+                      value={expandedUnderstaffed}
+                      onValueChange={setExpandedUnderstaffed}
+                    >
+                      {understaffedShifts.map(shift => renderShiftItem(shift))}
+                    </Accordion>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="all" className="m-0 focus-visible:outline-none ring-0 outline-none">
+                  {shiftsWithEvidences.length > 0 && (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 bg-primary/[0.03] p-5 rounded-[2rem] border border-primary/10 border-dashed">
+                      <div className="flex items-center gap-4">
+                        <div className="h-11 w-11 bg-primary/10 rounded-2xl flex items-center justify-center border border-primary/20">
+                          <MessageSquare className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-extrabold text-foreground tracking-tight">Tất cả báo bận</h3>
+                          <p className="text-[11px] text-muted-foreground font-bold">{shiftsWithEvidences.length} ca có nhân sự xin nghỉ bận</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="bg-background/80 hover:bg-background h-10 px-4 rounded-xl text-[10px] font-extrabold gap-2 border shadow-soft transition-all"
+                          onClick={() => setExpandedAll(shiftsWithEvidences.map(s => s.id))}
+                        >
+                          <ChevronsUpDown className="h-3.5 w-3.5 text-primary" />
+                          Mở hết
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="bg-background/80 hover:bg-background h-10 px-4 rounded-xl text-[10px] font-extrabold gap-2 border shadow-soft transition-all"
+                          onClick={() => setExpandedAll([])}
+                        >
+                          <ChevronsDownUp className="h-3.5 w-3.5 text-muted-foreground" />
+                          Thu hết
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {shiftsWithEvidences.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-24 text-center">
+                      <div className="bg-muted p-10 rounded-full mb-6 border border-dashed border-muted-foreground/20">
+                        <MessageSquare className="h-16 w-16 text-muted-foreground/30" />
+                      </div>
+                      <h3 className="text-2xl font-extrabold tracking-tight">Chưa có dữ liệu</h3>
+                      <p className="text-muted-foreground/80 max-w-xs mx-auto mt-4 text-sm font-medium leading-relaxed">
+                        Tuần này chưa ghi nhận bất kỳ phản hồi báo bận nào từ nhân viên.
+                      </p>
+                    </div>
+                  ) : (
+                    <Accordion
+                      type="multiple"
+                      className="space-y-4"
+                      value={expandedAll}
+                      onValueChange={setExpandedAll}
+                    >
+                      {shiftsWithEvidences.map(shift => renderShiftItem(shift))}
+                    </Accordion>
+                  )}
+                </TabsContent>
+              </div>
+            </ScrollArea>
+          </Tabs>
+        </DialogBody>
+
+        <DialogFooter variant="muted" className="p-4 sm:p-6">
+          <DialogAction variant="ghost" onClick={() => onOpenChange(false)} className="rounded-xl px-12 font-bold h-11 border-2 w-full sm:w-auto">
             Đóng
-          </Button>
-          {/* <div className="flex-1 order-1 sm:order-2" /> */}
-          {/* <Button className="rounded-xl px-10 gap-3 font-bold shadow-xl shadow-primary/10 order-0 sm:order-3">
-             Gửi thông báo nhắc nhở <ChevronRight className="h-4 w-4" />
-          </Button> */}
+          </DialogAction>
         </DialogFooter>
       </DialogContent>
     </Dialog>

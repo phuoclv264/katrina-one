@@ -5,10 +5,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth, type AuthUser } from '@/hooks/use-auth';
 import { toast } from '@/components/ui/pro-toast';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogBody, DialogAction, DialogCancel } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Camera, Loader2, Upload } from 'lucide-react';
+import { Camera, Loader2, Upload, AlertTriangle, CheckCircle } from 'lucide-react';
 import type { ManagedUser, Violation, ViolationCategory } from '@/lib/types';
 import CameraDialog from '@/components/camera-dialog';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +17,7 @@ import { Combobox } from '@/components/combobox';
 import { Input } from '@/components/ui/input';
 import { photoStore } from '@/lib/photo-store';
 import { v4 as uuidv4 } from 'uuid';
+import { cn } from '@/lib/utils';
 
 export function ViolationDialog({
   parentDialogTag,
@@ -92,8 +93,9 @@ export function ViolationDialog({
       toast.error("Không tìm thấy thông tin người báo cáo.");
       return;
     }
-    if (!content || selectedUsers.length === 0 || !selectedCategoryId) {
-      toast.error('Vui lòng điền đầy đủ nội dung, chọn nhân viên và loại vi phạm.');
+    // Description is optional now — only require selected users and a category
+    if (selectedUsers.length === 0 || !selectedCategoryId) {
+      toast.error('Vui lòng chọn nhân viên và loại vi phạm.');
       return;
     }
 
@@ -163,133 +165,190 @@ export function ViolationDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange} dialogTag="violation-dialog" parentDialogTag={parentDialogTag}>
-        <DialogContent className="bg-white dark:bg-card">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader 
+            variant="premium" 
+            iconkey="alert"
+          >
             <DialogTitle>{dialogTitle}</DialogTitle>
             <DialogDescription>
-              {isSelfConfession ? 'Mô tả lại sai sót của bạn một cách trung thực.' : 'Ghi nhận lại các vấn đề hoặc sai phạm của nhân viên.'}
+              {isSelfConfession ? 'Khuyến khích trung thực trong công việc' : 'Hệ thống ghi nhận và tự động tính toán mức phạt quy định'}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            {!isSelfConfession ? (
-              <div className="grid grid-cols-4 items-start gap-4">
-                <Label htmlFor="user" className="text-right pt-2">
-                  Nhân viên
-                </Label>
-                <Combobox
-                  options={users.map(u => ({ value: u.uid, label: u.displayName }))}
-                  value={selectedUsers.map(u => u.uid)}
-                  onChange={(vals) => {
-                    const selectedIds = vals as string[];
-                    const selected = users.filter(u => selectedIds.includes(u.uid));
-                    setSelectedUsers(selected);
-                  }}
-                  multiple={true}
-                  disabled={isSelfConfession}
-                  placeholder="Chọn nhân viên..."
-                  searchPlaceholder="Tìm nhân viên..."
-                  emptyText="Không tìm thấy nhân viên."
-                  className="col-span-3"
-                />
-              </div>
-            ) : (
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Nhân viên</Label>
-                <div className="col-span-3">
-                  <Badge variant="secondary">{reporter.displayName}</Badge>
-                </div>
-              </div>
-            )}
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="category" className="text-right">
-                Loại vi phạm
-              </Label>
-              <div className="col-span-3">
-                <Combobox
-                  options={categories.map(c => ({ value: c.name, label: c.name }))}
-                  value={selectedCategory?.name || ''}
-                  onChange={(val) => {
-                    const newCat = categories.find(c => c.name === val);
-                    setSelectedCategoryId(newCat ? newCat.id : '');
-                  }}
-                  placeholder="Chọn loại vi phạm..."
-                  searchPlaceholder="Tìm loại vi phạm..."
-                  emptyText="Không tìm thấy loại vi phạm."
-                  onCreate={canManage ? (val) => {
-                    const newCategory: ViolationCategory = {
-                      id: `cat-${Date.now()}`, name: val, severity: 'low', fineAmount: 0,
-                      calculationType: "fixed",
-                      finePerUnit: null,
-                      unitLabel: null
-                    };
-                    const newCategories = [...categories, newCategory].sort((a, b) => a.name.localeCompare(b.name, 'vi'));
-                    onCategoriesChange(newCategories);
-                    setSelectedCategoryId(newCategory.id);
-                  } : undefined}
-                  onDelete={canManage ? (val) => {
-                    const categoryToDelete = categories.find(c => c.name === val);
-                    if (!categoryToDelete) return;
-                    const newCategories = categories.filter(c => c.id !== categoryToDelete.id);
-                    onCategoriesChange(newCategories);
-                    if (selectedCategory?.id === categoryToDelete.id) {
-                      setSelectedCategoryId('');
-                    }
-                  } : undefined}
-                  confirmDelete={true}
-                  deleteMessage="Bạn có chắc chắn muốn xóa loại vi phạm này không?"
-                />
-              </div>
-            </div>
-            {selectedCategory && selectedCategory.calculationType === 'perUnit' && (
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="unit-count" className="text-right">Số {selectedCategory.unitLabel || 'đơn vị'}</Label>
-                <div className="col-span-3 flex items-center gap-2">
-                  <Input
-                    id="unit-count"
-                    type="number"
-                    value={unitCount || ''}
-                    onChange={(e) => setUnitCount(Number(e.target.value))}
-                    className="w-full"
-                    placeholder={`Nhập số ${selectedCategory.unitLabel || 'đơn vị'} ${selectedCategory.name.toLowerCase()}`}
-                  />
-                  <span className="font-semibold text-muted-foreground">{selectedCategory.unitLabel || 'đơn vị'}</span>
-                </div>
-              </div>
-            )}
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label htmlFor="content" className="text-right mt-2">
-                Nội dung
-              </Label>
-              <Textarea
-                id="content"
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                className="col-span-3"
-                placeholder="Mô tả chi tiết về vi phạm..."
-              />
-            </div>
 
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label className="text-right mt-2">Bằng chứng</Label>
-              <div className="col-span-3 space-y-2">
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <Button variant="outline" onClick={() => setIsCameraOpen(true)}>
-                    <Camera className="mr-2 h-4 w-4" /> Chụp ảnh
-                  </Button>
-                  <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-                    <Upload className="mr-2 h-4 w-4" /> Tải ảnh lên
-                  </Button>
+          <DialogBody className="p-0">
+            <div className="p-6 space-y-6">
+              <div className="space-y-5">
+                {/* Employee Selection Section */}
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nhân viên vi phạm</Label>
+                  {!isSelfConfession ? (
+                    <Combobox
+                      options={users.map(u => ({ value: u.uid, label: u.displayName }))}
+                      value={selectedUsers.map(u => u.uid)}
+                      onChange={(vals) => {
+                        const selectedIds = vals as string[];
+                        const selected = users.filter(u => selectedIds.includes(u.uid));
+                        setSelectedUsers(selected);
+                      }}
+                      multiple={true}
+                      placeholder="Chọn nhân viên..."
+                      searchPlaceholder="Tìm nhân viên..."
+                      emptyText="Không tìm thấy nhân viên."
+                    />
+                  ) : (
+                    <div className="flex items-center gap-3 bg-primary/5 p-3.5 rounded-2xl border border-primary/10 transition-colors">
+                      <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-xs font-black text-primary border border-primary/20 shrink-0">
+                        {reporter.displayName?.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-bold text-foreground text-sm truncate">{reporter.displayName}</span>
+                        <span className="text-[10px] font-bold text-primary/70 uppercase tracking-widest">Tự ghi nhận</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                {photoIds.length > 0 && <p className="text-sm text-muted-foreground mt-2">{photoIds.length} ảnh đã được chọn.</p>}
+
+                {/* Violation Category Section */}
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Danh mục sai phạm</Label>
+                  <Combobox
+                    options={categories.map(c => ({ value: c.name, label: c.name }))}
+                    value={selectedCategory?.name || ''}
+                    onChange={(val) => {
+                      const newCat = categories.find(c => c.name === val);
+                      setSelectedCategoryId(newCat ? newCat.id : '');
+                    }}
+                    placeholder="Chọn loại vi phạm..."
+                    searchPlaceholder="Tìm loại vi phạm..."
+                    emptyText="Không tìm thấy loại vi phạm."
+                    className="rounded-xl bg-muted/20 border-muted-foreground/10"
+                    onCreate={canManage ? (val) => {
+                      const newCategory: ViolationCategory = {
+                        id: `cat-${Date.now()}`, name: val, severity: 'low', fineAmount: 0,
+                        calculationType: "fixed",
+                        finePerUnit: null,
+                        unitLabel: null
+                      };
+                      const newCategories = [...categories, newCategory].sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+                      onCategoriesChange(newCategories);
+                      setSelectedCategoryId(newCategory.id);
+                    } : undefined}
+                    onDelete={canManage ? (val) => {
+                      const categoryToDelete = categories.find(c => c.name === val);
+                      if (!categoryToDelete) return;
+                      const newCategories = categories.filter(c => c.id !== categoryToDelete.id);
+                      onCategoriesChange(newCategories);
+                      if (selectedCategory?.id === categoryToDelete.id) {
+                        setSelectedCategoryId('');
+                      }
+                    } : undefined}
+                    confirmDelete={true}
+                    deleteMessage="Bạn có chắc chắn muốn xóa loại vi phạm này không?"
+                  />
+                  
+                  {selectedCategory && (
+                    <div className="flex items-center gap-2 px-1 animate-in fade-in slide-in-from-left-2 duration-300">
+                      <Badge className={cn(
+                        "text-[9px] font-black h-4 px-1.5 rounded border-transparent tracking-wide pointer-events-none whitespace-nowrap",
+                        selectedCategory.severity === 'high' ? 'bg-red-500/10 text-red-600' : 
+                        selectedCategory.severity === 'medium' ? 'bg-amber-500/10 text-amber-600' : 
+                        'bg-emerald-500/10 text-emerald-600'
+                      )}>
+                        {selectedCategory.severity === 'low' ? 'NHẸ' : selectedCategory.severity === 'medium' ? 'TRUNG BÌNH' : 'NGHIÊM TRỌNG'}
+                      </Badge>
+                      <span className="text-[10px] font-bold text-muted-foreground/80">
+                        Phạt: {selectedCategory.calculationType === 'perUnit' 
+                          ? `${(selectedCategory.finePerUnit || 0).toLocaleString('vi-VN')}đ/${selectedCategory.unitLabel || 'đơn vị'}` 
+                          : `${(selectedCategory.fineAmount || 0).toLocaleString('vi-VN')}đ`}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Dynamic Unit Input */}
+                {selectedCategory && selectedCategory.calculationType === 'perUnit' && (
+                  <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
+                      Thời gian / Số lượng ({selectedCategory.unitLabel || 'đơn vị'})
+                    </Label>
+                    <div className="relative group">
+                      <Input
+                        type="number"
+                        inputMode="numeric"
+                        value={unitCount || ''}
+                        onChange={(e) => setUnitCount(Number(e.target.value))}
+                        className="h-12 rounded-xl border-muted-foreground/10 bg-muted/10 px-4 font-bold text-lg focus-visible:ring-primary/20 transition-all shadow-inner"
+                        placeholder="0"
+                      />
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 group-focus-within:text-primary transition-colors">
+                        {selectedCategory.unitLabel || 'ĐƠN VỊ'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Content Section */}
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
+                    Chi tiết sự việc
+                    <span className="text-[10px] font-medium text-muted-foreground/60 ml-2">(không bắt buộc)</span>
+                  </Label>
+                  <Textarea
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    className="min-h-[100px] rounded-xl border-muted-foreground/10 bg-muted/10 p-4 text-sm focus-visible:ring-primary/20 transition-all resize-none shadow-inner leading-relaxed"
+                    placeholder="Mô tả cụ thể sự việc đã xảy ra..."
+                  />
+                </div>
+
+                {/* Media Section */}
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between px-1">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Bằng chứng minh họa</Label>
+                    {photoIds.length > 0 && (
+                      <Badge variant="outline" className="h-4 text-[8px] font-black border-emerald-500/20 bg-emerald-500/5 text-emerald-600 rounded-full px-2">
+                        {photoIds.length} ẢNH
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setIsCameraOpen(true)}
+                      className="group/btn h-16 rounded-2xl border border-muted-foreground/10 bg-muted/5 flex flex-col items-center justify-center gap-1.5 transition-all hover:bg-background hover:border-primary/30 active:scale-95 shadow-sm"
+                    >
+                      <Camera className="h-4 w-4 text-muted-foreground group-hover/btn:text-primary transition-colors" />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 group-hover/btn:text-primary/70">Máy ảnh</span>
+                    </button>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="group/btn h-16 rounded-2xl border border-muted-foreground/10 bg-muted/5 flex flex-col items-center justify-center gap-1.5 transition-all hover:bg-background hover:border-primary/30 active:scale-95 shadow-sm"
+                    >
+                      <Upload className="h-4 w-4 text-muted-foreground group-hover/btn:text-primary transition-colors" />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 group-hover/btn:text-primary/70">Thư viện</span>
+                    </button>
+                  </div>
+                  {photoIds.length > 0 && (
+                    <div className="flex items-center gap-2 bg-emerald-500/5 text-emerald-600 px-4 py-3 rounded-xl border border-emerald-500/10 shadow-inner mt-2 animate-in zoom-in-95 duration-200">
+                      <CheckCircle className="h-4 w-4 shrink-0" />
+                      <span className="text-[10px] font-black uppercase tracking-widest leading-none">Tất cả ảnh đã sẵn sàng</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
-            <Button onClick={handleSave} disabled={isProcessing}>
-              {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Lưu
-            </Button>
+          </DialogBody>
+
+          <DialogFooter variant="muted">
+            <DialogCancel onClick={() => onOpenChange(false)}>Thoát</DialogCancel>
+            <DialogAction
+              onClick={handleSave}
+              isLoading={isProcessing}
+              variant={isSelfConfession ? "pastel-mint" : "default"}
+              className="px-8"
+            >
+              {isSelfConfession ? "Gửi tự thú" : "Lưu báo cáo"}
+            </DialogAction>
           </DialogFooter>
         </DialogContent>
       </Dialog>

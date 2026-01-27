@@ -21,6 +21,7 @@ import OwnerCashierDialogs from './owner-cashier-dialogs';
 import IncidentCategoryDialog from '../../../cashier/_components/incident-category-dialog';
 import OtherCostCategoryDialog from '../../../cashier/_components/other-cost-category-dialog';
 import MonthlySummary from './MonthlySummary';
+import IncidentDetailsDialog from './IncidentDetailsDialog';
 import DailyReportAccordionItem from './DailyReportAccordionItem';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -62,7 +63,7 @@ function AddDocumentDialog({
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange} dialogTag="add-document-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent className="bg-white dark:bg-card">
-        <DialogHeader>
+        <DialogHeader iconkey="layout">
           <DialogTitle>Bổ sung chứng từ</DialogTitle>
           <DialogDescription>Chọn ngày và loại chứng từ bạn muốn thêm vào hệ thống.</DialogDescription>
         </DialogHeader>
@@ -165,6 +166,7 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
   const [isUnpaidSlipsDialogOpen, setIsUnpaidSlipsDialogOpen] = useState(false);
   const [isCashHandoverDialogOpen, setIsCashHandoverDialogOpen] = useState(false);
   const [isAddDocumentDialogOpen, setIsAddDocumentDialogOpen] = useState(false);
+  const [isIncidentDetailsDialogOpen, setIsIncidentDetailsDialogOpen] = useState(false);
 
   // Track which dialog should be treated as the parent when opening child dialogs.
   // This allows opening dialogs either from the root page or from within the AddDocumentDialog.
@@ -691,6 +693,7 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
               expenseSlips={monthlyExpenseSlips}
               incidents={monthlyIncidents}
               onOpenUnpaidDialog={() => setIsUnpaidSlipsDialogOpen(true)}
+              onOpenIncidentDetails={() => setIsIncidentDetailsDialogOpen(true)}
             />
 
             <div className="flex justify-end">
@@ -747,6 +750,14 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
         onMarkAsPaid={handleMarkDebtsAsPaid}
         onUndoPayment={handleUndoDebtPayment}
         parentDialogTag="root"
+      />
+
+      <IncidentDetailsDialog
+        isOpen={isIncidentDetailsDialogOpen}
+        onClose={() => setIsIncidentDetailsDialogOpen(false)}
+        incidents={monthlyIncidents}
+        onOpenLightbox={(photos: string[], index?: number) => openLightbox(photos.map((p: string) => ({ src: p })), index ?? 0)}
+        currentMonth={currentMonth}
       />
 
       <OwnerCashierDialogs

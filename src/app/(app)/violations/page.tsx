@@ -526,7 +526,7 @@ function ViolationsView() {
                 </div>
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
+            <div className="flex flex-wrap items-center gap-2 mt-4">
               <Combobox
                 options={displayUsers.map(u => ({ value: u.uid, label: u.displayName }))}
                 value={filterUsers.map(u => u.uid)}
@@ -539,7 +539,6 @@ function ViolationsView() {
                 placeholder="Chọn nhân viên..."
                 searchPlaceholder="Tìm nhân viên..."
                 emptyText="Không tìm thấy nhân viên."
-                className="w-full"
               />
               <Combobox
                 options={categoryData.list.map(c => ({ value: c.name, label: c.name }))}
@@ -568,7 +567,7 @@ function ViolationsView() {
                         <ChevronLeft className="h-4 w-4" />
                       </Button>
 
-                      <div className="text-sm sm:text-base font-semibold tracking-wide truncate">{formattedCurrentMonth}</div>
+                      <div className="text-sm sm:text-base font-semibold tracking-wide">{formattedCurrentMonth}</div>
 
                       <Button
                         variant="ghost"
@@ -598,7 +597,7 @@ function ViolationsView() {
                       <ShieldX className="h-4 w-4 opacity-90" />
                       <div className="flex-1 flex flex-col">
                         <div className="text-xs opacity-80">Tổng vi phạm</div>
-                        <div className="text-lg sm:text-xl font-semibold truncate">{monthSummary.totalCount}</div>
+                        <div className="text-lg sm:text-xl font-semibold">{monthSummary.totalCount}</div>
                       </div>
                     </div>
 
@@ -606,7 +605,7 @@ function ViolationsView() {
                       <BadgeInfo className="h-4 w-4 opacity-90" />
                       <div className="flex-1 flex flex-col">
                         <div className="text-xs opacity-80">Tổng tiền phạt</div>
-                        <div className="text-base sm:text-lg font-semibold truncate">{monthSummary.totalCost.toLocaleString('vi-VN')}</div>
+                        <div className="text-base sm:text-lg font-semibold">{monthSummary.totalCost.toLocaleString('vi-VN')}</div>
                       </div>
                     </div>
 
@@ -614,7 +613,7 @@ function ViolationsView() {
                       <UserSearch className="h-4 w-4 opacity-90" />
                       <div className="flex-1 flex flex-col">
                         <div className="text-xs opacity-80">Chưa nộp</div>
-                        <div className="text-base sm:text-lg font-semibold text-amber-100 truncate">{perUserSummary.totalUnpaid.toLocaleString('vi-VN')}</div>
+                        <div className="text-base sm:text-lg font-semibold text-amber-100">{perUserSummary.totalUnpaid.toLocaleString('vi-VN')}</div>
                       </div>
                     </div>
                   </div>

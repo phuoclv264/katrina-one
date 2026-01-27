@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { Eye } from 'lucide-react';
 import type { RevenueStats, ExpenseSlip, IncidentReport, ExpenseItem } from '@/lib/types';
 import { isSameMonth, parseISO, format } from 'date-fns';
 
@@ -14,6 +15,7 @@ type MonthlySummaryProps = {
   expenseSlips: ExpenseSlip[];
   incidents: IncidentReport[];
   onOpenUnpaidDialog: () => void;
+  onOpenIncidentDetails: () => void;
 };
 
 const getSlipContentName = (item: ExpenseItem): string => {
@@ -26,7 +28,7 @@ const getSlipContentName = (item: ExpenseItem): string => {
   return item.name;
 }
 
-const MonthlySummary = React.memo(({ currentMonth, revenueStats, expenseSlips, incidents, onOpenUnpaidDialog }: MonthlySummaryProps) => {
+const MonthlySummary = React.memo(({ currentMonth, revenueStats, expenseSlips, incidents, onOpenUnpaidDialog, onOpenIncidentDetails }: MonthlySummaryProps) => {
 
   const monthlyBankTransferSlips = useMemo(() => expenseSlips.filter(slip => isSameMonth(parseISO(slip.date), currentMonth) && slip.paymentMethod === 'bank_transfer'), [expenseSlips, currentMonth]);
   const monthlyIntangibleIncidents = useMemo(() => incidents.filter(i => isSameMonth(parseISO(i.date), currentMonth) && i.paymentMethod === 'intangible_cost' && i.cost > 0), [incidents, currentMonth]);
@@ -118,7 +120,15 @@ const MonthlySummary = React.memo(({ currentMonth, revenueStats, expenseSlips, i
               </div>
               {monthlySummary.intangibleCost > 0 && (
                 <div className="flex justify-between items-center pl-2 border-l-2 border-red-200 dark:border-red-800">
-                  <span className="text-muted-foreground">Vô hình</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-muted-foreground">Vô hình</span>
+                    <button onClick={onOpenIncidentDetails} className="hover:opacity-80 transition-opacity">
+                      <Badge variant="secondary" className="h-4 px-1 text-[10px] bg-red-100 hover:bg-red-200 text-red-600 border-red-200">
+                        <Eye className="h-2.5 w-2.5 mr-0.5" />
+                        Chi tiết
+                      </Badge>
+                    </button>
+                  </div>
                   <span className="font-bold">{(monthlySummary.intangibleCost || 0).toLocaleString('vi-VN')}đ</span>
                 </div>
               )}

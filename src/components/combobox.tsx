@@ -166,7 +166,7 @@ export function Combobox({
             role="combobox"
             aria-expanded={open}
             className={cn(
-              "w-full justify-between bg-background hover:bg-accent/50 transition-colors h-auto min-h-10 py-2",
+              "w-full justify-between bg-background hover:bg-accent/50 transition-colors h-auto min-h-11 py-2 sm:min-w-[220px] whitespace-normal",
               compact && "min-h-8 h-8 py-1 text-xs px-2",
               !selectedValues.length && "text-muted-foreground",
               className
@@ -194,7 +194,7 @@ export function Combobox({
                     })}
                   </div>
                 ) : (
-                  <span className={cn("truncate font-medium text-foreground", compact && "text-xs")}>
+                  <span className={cn("font-medium text-foreground", compact && "text-xs")}>
                     {options.find((o) => o.value === selectedValues[0])?.label ||
                       selectedValues[0]}
                   </span>
@@ -290,7 +290,7 @@ export function Combobox({
                         {option.icon && (
                           <option.icon className="mr-2 h-4 w-4 text-muted-foreground shrink-0" />
                         )}
-                        <span className="truncate">{option.label}</span>
+                        <span>{option.label}</span>
                       </div>
                       {onDelete && (
                         <div onClick={(e) => e.stopPropagation()} className="ml-2 shrink-0">
