@@ -134,9 +134,9 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
     );
 
     return () => {
-      try { unsubTasks && unsubTasks(); } catch {}
-      try { unsubReports && unsubReports(); } catch {}
-      try { unsubAttendance && unsubAttendance(); } catch {}
+      try { unsubTasks && unsubTasks(); } catch { }
+      try { unsubReports && unsubReports(); } catch { }
+      try { unsubAttendance && unsubAttendance(); } catch { }
     };
   }, [user, showWorkStuff]);
 
@@ -289,7 +289,7 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
         <Card className="overflow-hidden border-zinc-200/60 bg-white/70 backdrop-blur-xl shadow-soft dark:border-zinc-800/60 dark:bg-zinc-950/70">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 shadow-md">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-lg shadow-indigo-500/20">
                 <Megaphone className="h-4 w-4" />
               </div>
               <div>
@@ -318,7 +318,7 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
               </div>
             </div>
           </CardHeader>
-          
+
           <CardContent className="p-3 pt-2">
             <div className="flex flex-col gap-2">
               {/* Tile: Monthly Tasks */}
@@ -334,7 +334,7 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
                       <StatusDot />
                     )}
                   </div>
-                  
+
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-0.5">
                       <span className="text-[10px] font-black uppercase tracking-widest text-primary/70">Hàng tháng</span>
@@ -343,7 +343,7 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
                     <h3 className="text-sm font-black leading-none pr-4">Công việc định kỳ</h3>
                     <Progress value={(monthlyStats.done / (monthlyStats.total || 1)) * 100} className="mt-2.5 h-1 bg-primary/10" />
                   </div>
-                  
+
                   <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-primary transition-colors shrink-0" />
                 </button>
               )}
@@ -361,7 +361,7 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
                       <StatusDot />
                     )}
                   </div>
-                  
+
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-0.5">
                       <span className="text-[10px] font-black uppercase tracking-widest text-blue-600/70">Phát sinh</span>
@@ -370,7 +370,7 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
                     <h3 className="text-sm font-black leading-none pr-4">Công việc cần làm</h3>
                     <Progress value={(dailyStats.done / (dailyStats.total || 1)) * 100} className="mt-2.5 h-1 bg-blue-500/10" />
                   </div>
-                  
+
                   <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-blue-600 transition-colors shrink-0" />
                 </button>
               )}
@@ -387,7 +387,7 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
                     <StatusDot />
                   )}
                 </div>
-                
+
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-0.5">
                     <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600/70">Tương tác</span>
@@ -396,7 +396,7 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
                     </span>
                   </div>
                   <h3 className="text-sm font-black leading-none pr-4 mb-2">Sự kiện & Bình chọn</h3>
-                  
+
                   {pendingEventsCount > 0 ? (
                     <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 animate-pulse">
                       <span className="text-[10px] font-black">{pendingEventsCount}</span>
@@ -408,12 +408,12 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
                       <span className="text-[8px] font-black uppercase tracking-tighter">Đã xong</span>
                     </div>
                   )}
-                  <Progress 
-                    value={((relevantEvents.length - pendingEventsCount) / (relevantEvents.length || 1)) * 100} 
-                    className="mt-2.5 h-1 bg-emerald-500/10" 
+                  <Progress
+                    value={((relevantEvents.length - pendingEventsCount) / (relevantEvents.length || 1)) * 100}
+                    className="mt-2.5 h-1 bg-emerald-500/10"
                   />
                 </div>
-                
+
                 <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-emerald-600 transition-colors shrink-0" />
               </button>
             </div>
