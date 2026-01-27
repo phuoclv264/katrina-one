@@ -21,6 +21,27 @@ export function generateShortName(displayName: string) {
   return `${initials}.${lastName}`;
 };
 
+/**
+ * Return initials for a given display name.
+ * Behavior:
+ *  - Single name: return first N chars (maxChars)
+ *  - Multi-part name: take the first letters from the last up-to-N name parts
+ * Examples:
+ *  - "Phan Ngọc Huy" -> "NH" (default max 2)
+ *  - "Nguyen Van A" -> "VA"
+ *  - "Alice" -> "A"
+ */
+export function getInitials(displayName: string | undefined | null, maxChars = 2): string {
+  if (!displayName) return '';
+  const parts = displayName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '';
+  if (parts.length === 1) return parts[0].substring(0, maxChars).toUpperCase();
+  // Use initials from the last `maxChars` name parts (e.g., last + given name)
+  const start = Math.max(0, parts.length - maxChars);
+  const initials = parts.slice(start).map(p => p[0]).join('').toUpperCase();
+  return initials.substring(0, maxChars);
+}
+
 export function getReportLink(date: string, key: string): string {
   // Checklist reports for servers have keys like 'sang', 'trua', 'toi'
   const checklistKeys = ['sang', 'trua', 'toi'];
@@ -96,6 +117,22 @@ export function timestampToString(value?: unknown, formatStr: string = 'dd/MM/yy
     return format(d, formatStr, locale ? { locale } : undefined);
   } catch (e) {
     return 'N/A';
+  }
+}
+
+/**
+ * Return a string formatted for `input[type="datetime-local"]`.
+ * - Produces `yyyy-MM-dd'T'HH:mm` or the empty string when value is invalid.
+ * - Accepts Date | number | ISO string | Firestore Timestamp-like.
+ */
+export function toDatetimeLocalInput(value?: unknown): string {
+  if (!value) return '';
+  const d = toDateSafe(value);
+  if (!d || Number.isNaN(d.getTime())) return '';
+  try {
+    return format(d, "yyyy-MM-dd'T'HH:mm");
+  } catch (e) {
+    return '';
   }
 }
 

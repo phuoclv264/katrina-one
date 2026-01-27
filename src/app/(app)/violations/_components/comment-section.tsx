@@ -4,11 +4,11 @@
 import React, { useState } from 'react';
 import { useAuth, type AuthUser } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, AlertDialogIcon } from '@/components/ui/alert-dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Edit, Trash2, Camera, Loader2 } from 'lucide-react';
 import type { Violation, ViolationComment } from '@/lib/types';
-import Image from 'next/image';
+import Image from '@/components/ui/image';
 import CameraDialog from '@/components/camera-dialog';
 
 export function CommentSection({
@@ -31,7 +31,7 @@ export function CommentSection({
   const [commentText, setCommentText] = useState('');
   const [commentPhotoIds, setCommentPhotoIds] = useState<string[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
-  
+
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
 
@@ -62,12 +62,12 @@ export function CommentSection({
       setEditingText('');
     }
   };
-  
-   const handleOpenCommentLightbox = (photos: string[], index: number) => {
+
+  const handleOpenCommentLightbox = (photos: string[], index: number) => {
     onOpenLightbox(photos, index);
   };
-  
-   const handleDeletePreviewPhoto = (photoId: string) => {
+
+  const handleDeletePreviewPhoto = (photoId: string) => {
     setCommentPhotoIds(prev => prev.filter(id => id !== photoId));
   }
 
@@ -76,7 +76,7 @@ export function CommentSection({
       {/* Existing Comments */}
       <div className="space-y-3 mb-4">
         {(violation.comments || []).length === 0 && !isOwner && (
-             <p className="text-sm text-muted-foreground text-center py-4">Chưa có bình luận nào.</p>
+          <p className="text-sm text-muted-foreground text-center py-4">Chưa có bình luận nào.</p>
         )}
         {(violation.comments || []).map(comment => {
           const isEditingThis = editingCommentId === comment.id;
@@ -87,30 +87,33 @@ export function CommentSection({
                 <span className="font-bold text-foreground">{comment.commenterName}</span>
                 <div className="flex items-center gap-1">
                   <span>{new Date(comment.createdAt as string).toLocaleString('vi-VN')}</span>
-                   {canEditOrDelete && !isEditingThis && (
-                      <div className="flex">
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEditClick(comment)}>
-                          <Edit className="h-3 w-3" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive">
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
+                  {canEditOrDelete && !isEditingThis && (
+                    <div className="flex">
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEditClick(comment)}>
+                        <Edit className="h-3 w-3" />
+                      </Button>
+                      <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive">
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogIcon icon={Trash2} />
+                            <div className="space-y-2 text-center sm:text-left">
                               <AlertDialogTitle>Xóa bình luận?</AlertDialogTitle>
                               <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn bình luận này và các hình ảnh đính kèm. Không thể hoàn tác.</AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Hủy</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => onCommentDelete(violation.id, comment.id)}>Xóa</AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    )}
+                            </div>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Hủy</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => onCommentDelete(violation.id, comment.id)}>Xóa</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  )}
                 </div>
               </div>
               {isEditingThis ? (
@@ -127,8 +130,8 @@ export function CommentSection({
                   {comment.photos && comment.photos.length > 0 && (
                     <div className="mt-2 flex gap-2 flex-wrap">
                       {comment.photos.map((photo, index) => (
-                         <button key={index} onClick={() => handleOpenCommentLightbox(comment.photos!, index)} className="relative w-16 h-16 rounded-md overflow-hidden">
-                            <Image src={photo} alt={`Comment photo ${index + 1}`} fill className="object-cover" />
+                        <button key={index} onClick={() => handleOpenCommentLightbox(comment.photos!, index)} className="relative w-16 h-16 rounded-md overflow-hidden">
+                          <Image src={photo} alt={`Comment photo ${index + 1}`} fill className="object-cover" />
                         </button>
                       ))}
                     </div>
@@ -143,30 +146,31 @@ export function CommentSection({
       {/* New Comment Form for Owner */}
       {isOwner && (
         <div className="space-y-2">
-            <Textarea
+          <Textarea
             placeholder="Nhập bình luận của bạn..."
             value={commentText}
             onChange={(e) => setCommentText(e.target.value)}
             disabled={isProcessing}
-            />
-            {commentPhotoIds.length > 0 && <p className="text-xs text-muted-foreground">{commentPhotoIds.length} ảnh đã được chọn để đính kèm.</p>}
-            <div className="flex justify-between items-center">
-                <Button variant="outline" size="sm" onClick={() => setIsCameraOpen(true)} disabled={isProcessing}>
-                    <Camera className="mr-2 h-4 w-4" /> Đính kèm ảnh
-                </Button>
-                <Button onClick={handleSubmit} disabled={isProcessing || (!commentText.trim() && commentPhotoIds.length === 0)}>
-                    {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                    Gửi
-                </Button>
-            </div>
+          />
+          {commentPhotoIds.length > 0 && <p className="text-xs text-muted-foreground">{commentPhotoIds.length} ảnh đã được chọn để đính kèm.</p>}
+          <div className="flex justify-between items-center">
+            <Button variant="outline" size="sm" onClick={() => setIsCameraOpen(true)} disabled={isProcessing}>
+              <Camera className="mr-2 h-4 w-4" /> Đính kèm ảnh
+            </Button>
+            <Button onClick={handleSubmit} disabled={isProcessing || (!commentText.trim() && commentPhotoIds.length === 0)}>
+              {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Gửi
+            </Button>
+          </div>
         </div>
       )}
-      
+
       <CameraDialog
         isOpen={isCameraOpen}
         onClose={() => setIsCameraOpen(false)}
         onSubmit={handleCapturePhotos}
         captureMode="photo"
+        parentDialogTag="root"
       />
     </div>
   );

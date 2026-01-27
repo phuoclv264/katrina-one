@@ -17,6 +17,7 @@ type SuggestionsDialogProps = {
     initialSuggestions: InventoryOrderSuggestion;
     inventoryList: InventoryItem[];
     onSubmit: (finalSuggestions: InventoryOrderSuggestion) => void;
+    parentDialogTag: string;
 };
 
 type EditedOrderItem = {
@@ -31,6 +32,7 @@ export function SuggestionsDialog({
     initialSuggestions,
     inventoryList,
     onSubmit,
+    parentDialogTag,
 }: SuggestionsDialogProps) {
     const [editedOrders, setEditedOrders] = useState<Record<string, EditedOrderItem[]>>({});
     const [openSuppliers, setOpenSuppliers] = useState<string[]>([]);
@@ -64,8 +66,8 @@ export function SuggestionsDialog({
                         }
                     } else {
                         // If no match (e.g., suggestion is just a number), find the largest unit.
-                        const largestUnit = item.units.reduce((largest, current) => 
-                            (current.conversionRate > largest.conversionRate) ? current : largest, 
+                        const largestUnit = item.units.reduce((largest, current) =>
+                            (current.conversionRate > largest.conversionRate) ? current : largest,
                             { name: item.baseUnit, conversionRate: 1 }
                         );
                         unit = largestUnit.name;
@@ -79,7 +81,7 @@ export function SuggestionsDialog({
         });
     }, []);
 
-    const handleFieldChange = useCallback((supplier: string, itemId:string, field: 'quantity' | 'unit', value: string) => {
+    const handleFieldChange = useCallback((supplier: string, itemId: string, field: 'quantity' | 'unit', value: string) => {
         setEditedOrders(prev => {
             const supplierOrders = prev[supplier] ? [...prev[supplier]] : [];
             const itemIndex = supplierOrders.findIndex(item => item.itemId === itemId);
@@ -103,7 +105,7 @@ export function SuggestionsDialog({
                     .map(item => {
                         const fullItem = inventoryList.find(i => i.id === item.itemId);
                         const unitDef = fullItem?.units.find(u => u.name === item.unit);
-                        
+
                         // If the unit is not the base unit, convert the quantity for the suggestion text
                         if (unitDef && !unitDef.isBaseUnit && unitDef.conversionRate > 1) {
                             const quantityInBase = parseFloat(item.quantity) * unitDef.conversionRate;
@@ -136,9 +138,9 @@ export function SuggestionsDialog({
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()} dialogTag="inventory-suggestions-dialog" parentDialogTag={parentDialogTag}>
             <DialogContent className="max-w-2xl h-full md:h-auto md:max-h-[90vh] flex flex-col">
-                <DialogHeader className="shrink-0">
+                <DialogHeader iconkey="layout" className="shrink-0">
                     <DialogTitle>Xác nhận Đề xuất Đặt hàng</DialogTitle>
                     <DialogDescription>
                         Kiểm tra và chỉnh sửa danh sách các mặt hàng cần đặt. Chỉ những mục được chọn mới được đưa vào báo cáo.

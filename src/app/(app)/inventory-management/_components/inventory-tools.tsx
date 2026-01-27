@@ -13,7 +13,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { callGenerateInventoryList, callUpdateInventoryItems, callSortTasks } from '@/lib/ai-service';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { 
+    AlertDialog, 
+    AlertDialogAction, 
+    AlertDialogCancel, 
+    AlertDialogContent, 
+    AlertDialogDescription, 
+    AlertDialogFooter, 
+    AlertDialogHeader, 
+    AlertDialogTitle,
+    AlertDialogIcon 
+} from '@/components/ui/alert-dialog';
 import { diffChars } from 'diff';
 import { Combobox } from '@/components/combobox';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -38,14 +48,14 @@ export default function InventoryTools({
     const { user } = useAuth();
     const [isGenerating, setIsGenerating] = useState(false);
     const [activeTab, setActiveTab] = useState('add');
-    
+
     // States for "Add with AI"
     const [textInput, setTextInput] = useState('');
     const [imageInput, setImageInput] = useState<string | null>(null);
     const [previewNewItems, setPreviewNewItems] = useState<ParsedInventoryItem[]>([]);
     const [previewExistingItems, setPreviewExistingItems] = useState<ParsedInventoryItem[]>([]);
     const [showAddPreview, setShowAddPreview] = useState(false);
-    
+
     // States for "Bulk Edit"
     const [bulkEditTab, setBulkEditTab] = useState('manual');
     const [bulkEditText, setBulkEditText] = useState(''); // For manual pasting
@@ -59,7 +69,7 @@ export default function InventoryTools({
     const [sortInstruction, setSortInstruction] = useState('');
     const [showSortPreview, setShowSortPreview] = useState(false);
     const [sortPreviewData, setSortPreviewData] = useState<{ oldOrder: string[], newOrder: string[] }>({ oldOrder: [], newOrder: [] });
-    
+
     // State for Supplier Management Dialog
     const [isSupplierDialogOpen, setIsSupplierDialogOpen] = useState(false);
 
@@ -76,7 +86,7 @@ export default function InventoryTools({
         setTextInput('');
         setImageInput(null);
         const fileInput = document.getElementById('image-upload-add') as HTMLInputElement;
-        if(fileInput) fileInput.value = '';
+        if (fileInput) fileInput.value = '';
     };
 
     const handleGenerateAdd = async (source: 'text' | 'image') => {
@@ -97,8 +107,8 @@ export default function InventoryTools({
                     existingItems.push(item);
                 } else {
                     newItems.push({
-                         ...item,
-                        shortName: item.shortName || item.name.split(' ').slice(0,2).join(' '),
+                        ...item,
+                        shortName: item.shortName || item.name.split(' ').slice(0, 2).join(' '),
                         isImportant: item.isImportant ?? false,
                         requiresPhoto: item.requiresPhoto ?? false, dataType: item.dataType || 'number',
                     });
@@ -132,40 +142,40 @@ export default function InventoryTools({
             toast.error("Vui lòng dán dữ liệu vào ô.");
             return;
         }
-    
+
         const lines = bulkEditText.trim().split('\n');
-        
+
         // Check if the first line is a header and skip it if so
         const hasHeader = lines[0].toLowerCase().includes("id") && lines[0].toLowerCase().includes("tên mặt hàng");
         const dataLines = hasHeader ? lines.slice(1) : lines;
-    
+
         let changesCount = 0;
         const updatedList: InventoryItem[] = JSON.parse(JSON.stringify(inventoryList));
-    
+
         dataLines.forEach(line => {
             if (!line.trim()) return;
-    
+
             const parts = line.split('|').map(p => p.trim());
             const [
                 id, name, shortName, category, supplier, baseUnit, unitsStr,
-                 minStockStr, orderSuggestion,
+                minStockStr, orderSuggestion,
                 requiresPhotoStr, isImportantStr
             ] = parts;
-    
+
             if (!id || !name) return;
-    
+
             const itemIndex = updatedList.findIndex(item => item.id === id);
-            
+
             if (itemIndex > -1) {
                 const itemToUpdate = updatedList[itemIndex];
                 const originalItem = JSON.parse(JSON.stringify(itemToUpdate));
-    
+
                 itemToUpdate.name = name || itemToUpdate.name;
                 itemToUpdate.shortName = shortName || itemToUpdate.shortName;
                 itemToUpdate.category = category || itemToUpdate.category;
                 itemToUpdate.supplier = supplier || itemToUpdate.supplier;
                 itemToUpdate.baseUnit = baseUnit || itemToUpdate.baseUnit;
-                
+
                 if (unitsStr) {
                     const parsedUnits = unitsStr.split(';').map(uStr => {
                         const match = uStr.match(/(.+)\((\d*\.?\d+)\)/);
@@ -174,7 +184,7 @@ export default function InventoryTools({
                         }
                         return null;
                     }).filter(Boolean) as { name: string, conversionRate: number, isBaseUnit: boolean }[];
-                    
+
                     if (parsedUnits.length > 0) {
                         const baseUnitInParsed = parsedUnits.find(u => u.name === itemToUpdate.baseUnit);
                         if (baseUnitInParsed) {
@@ -190,13 +200,13 @@ export default function InventoryTools({
                 itemToUpdate.orderSuggestion = orderSuggestion || itemToUpdate.orderSuggestion;
                 itemToUpdate.requiresPhoto = requiresPhotoStr ? requiresPhotoStr.toUpperCase() === 'CÓ' : itemToUpdate.requiresPhoto;
                 itemToUpdate.isImportant = isImportantStr ? isImportantStr.toUpperCase() === 'CÓ' : itemToUpdate.isImportant;
-    
+
                 if (!isEqual(originalItem, itemToUpdate)) {
                     changesCount++;
                 }
             }
         });
-    
+
         if (changesCount > 0) {
             setUpdatePreview({ oldList: inventoryList, newList: updatedList });
             setShowUpdatePreview(true);
@@ -207,10 +217,10 @@ export default function InventoryTools({
 
     const handleSaveManualBulkEdit = () => {
         if (!parsedManualItems) return;
-        
+
         const updatedList: InventoryItem[] = JSON.parse(JSON.stringify(inventoryList));
         let changesCount = 0;
-        
+
         parsedManualItems.forEach(parsedItem => {
             const itemIndex = updatedList.findIndex(item => item.id === parsedItem.id);
             if (itemIndex > -1) {
@@ -223,7 +233,7 @@ export default function InventoryTools({
                 changesCount++;
             }
         });
-        
+
         if (changesCount > 0) {
             onItemsUpdated(updatedList);
             toast.success(`Đã cập nhật ${changesCount} mặt hàng.`);
@@ -260,17 +270,17 @@ export default function InventoryTools({
             toast.dismiss();
         }
     };
-    
+
     const handleConfirmUpdate = () => {
         onItemsUpdated(updatePreview.newList);
         toast.success("Đã cập nhật danh sách hàng tồn kho.");
         setShowUpdatePreview(false);
     };
-    
+
     const handleGenerateSort = async () => {
         if (!sortTargetCategory) { toast.error("Vui lòng chọn một nhóm để sắp xếp."); return; }
         if (!sortInstruction.trim()) { toast.error("Vui lòng nhập yêu cầu sắp xếp."); return; }
-        
+
         const itemsToSort = inventoryList.filter(item => item.category === sortTargetCategory);
         if (itemsToSort.length < 2) { toast.info("Nhóm này có ít hơn 2 mặt hàng.", { icon: 'ℹ️' }); return; }
 
@@ -288,7 +298,7 @@ export default function InventoryTools({
             }
             setSortPreviewData({ oldOrder: currentTasks, newOrder: result.sortedTasks });
             setShowSortPreview(true);
-        } catch(error) {
+        } catch (error) {
             console.error("Failed to sort tasks:", error);
             toast.error("Không thể sắp xếp. Vui lòng thử lại.");
         } finally {
@@ -300,11 +310,11 @@ export default function InventoryTools({
     const handleConfirmSort = () => {
         const categoryToSort = sortTargetCategory;
         const sortedNames = sortPreviewData.newOrder;
-        
+
         // Separate items of the target category from the rest
         const itemsInCategoryMap = new Map<string, InventoryItem>();
         const otherItems: InventoryItem[] = [];
-        
+
         inventoryList.forEach(item => {
             if (item.category === categoryToSort) {
                 itemsInCategoryMap.set(item.name, item);
@@ -312,7 +322,7 @@ export default function InventoryTools({
                 otherItems.push(item);
             }
         });
-        
+
         // Re-order the items of the target category based on AI's result
         const sortedCategoryItems: InventoryItem[] = sortedNames
             .map(name => itemsInCategoryMap.get(name))
@@ -330,13 +340,13 @@ export default function InventoryTools({
         const processedCategories = new Set<string>();
 
         inventoryList.forEach(item => {
-            if(item.category === categoryToSort) {
-                if(!processedCategories.has(categoryToSort)){
+            if (item.category === categoryToSort) {
+                if (!processedCategories.has(categoryToSort)) {
                     finalSortedList.push(...sortedCategoryItems);
                     processedCategories.add(categoryToSort);
                 }
             } else {
-                if(!processedCategories.has(item.category)){
+                if (!processedCategories.has(item.category)) {
                     finalSortedList.push(...inventoryList.filter(i => i.category === item.category));
                     processedCategories.add(item.category);
                 }
@@ -359,7 +369,7 @@ export default function InventoryTools({
             return <span key={index} className={color}>{part.value}</span>;
         });
     };
-    
+
     const renderBooleanDiff = (oldValue: boolean | undefined, newValue: boolean | undefined) => {
         const oldText = oldValue ? 'CÓ' : 'KHÔNG';
         const newText = newValue ? 'CÓ' : 'KHÔNG';
@@ -368,10 +378,10 @@ export default function InventoryTools({
     }
 
     const renderUnitsDiff = (oldUnits: UnitDefinition[], newUnits: UnitDefinition[]) => {
-      if (isEqual(oldUnits, newUnits)) return <>{newUnits.map(u => u.name).join(', ')}</>;
-      return <span className="bg-green-200 dark:bg-green-900/50">{newUnits.map(u => u.name).join(', ')}</span>;
+        if (isEqual(oldUnits, newUnits)) return <>{newUnits.map(u => u.name).join(', ')}</>;
+        return <span className="bg-green-200 dark:bg-green-900/50">{newUnits.map(u => u.name).join(', ')}</span>;
     }
-    
+
     const uniqueCategories = [...new Set(inventoryList.map(item => item.category))].sort();
 
     return (
@@ -382,26 +392,26 @@ export default function InventoryTools({
                 </CardHeader>
                 <CardContent>
                     {user?.role === 'Chủ nhà hàng' && (
-                        <Button 
-                            variant="outline" 
-                            className="w-full mb-4" 
+                        <Button
+                            variant="outline"
+                            className="w-full mb-4"
                             onClick={() => setIsSupplierDialogOpen(true)}
                         >
-                            <Contact className="mr-2 h-4 w-4"/>
+                            <Contact className="mr-2 h-4 w-4" />
                             Quản lý Nhà Cung Cấp
                         </Button>
                     )}
                     <Tabs value={activeTab} onValueChange={setActiveTab}>
                         <TabsList className="grid w-full grid-cols-3">
-                            <TabsTrigger value="add"><Plus className="mr-2 h-4 w-4"/>Thêm bằng AI</TabsTrigger>
-                            <TabsTrigger value="bulk-edit"><FileEdit className="mr-2 h-4 w-4"/>Sửa hàng loạt</TabsTrigger>
-                            <TabsTrigger value="sort"><Sparkles className="mr-2 h-4 w-4"/>Sắp xếp AI</TabsTrigger>
+                            <TabsTrigger value="add"><Plus className="mr-2 h-4 w-4" />Thêm bằng AI</TabsTrigger>
+                            <TabsTrigger value="bulk-edit"><FileEdit className="mr-2 h-4 w-4" />Sửa hàng loạt</TabsTrigger>
+                            <TabsTrigger value="sort"><Sparkles className="mr-2 h-4 w-4" />Sắp xếp AI</TabsTrigger>
                         </TabsList>
-                        
+
                         {/* ADD WITH AI TAB */}
                         <TabsContent value="add" className="mt-4 space-y-4">
                             <Tabs defaultValue="text">
-                                <TabsList className="grid w-full grid-cols-2"><TabsTrigger value="text"><FileText className="mr-2 h-4 w-4"/>Dán văn bản</TabsTrigger><TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4"/>Tải ảnh lên</TabsTrigger></TabsList>
+                                <TabsList className="grid w-full grid-cols-2"><TabsTrigger value="text"><FileText className="mr-2 h-4 w-4" />Dán văn bản</TabsTrigger><TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4" />Tải ảnh lên</TabsTrigger></TabsList>
                                 <TabsContent value="text" className="mt-4 space-y-4">
                                     <Textarea placeholder="Dán dữ liệu từ Excel/Google Sheets hoặc dạng text..." rows={6} value={textInput} onChange={(e) => setTextInput(e.target.value)} disabled={isGenerating} />
                                     <Button onClick={() => handleGenerateAdd('text')} disabled={isGenerating || !textInput.trim()} className="h-10 w-full"><Wand2 className="mr-2 h-4 w-4" />Tạo danh sách</Button>
@@ -447,18 +457,43 @@ export default function InventoryTools({
                     </Tabs>
                 </CardContent>
             </Card>
-            
+
             <SupplierManagementDialog
                 isOpen={isSupplierDialogOpen}
                 onClose={() => setIsSupplierDialogOpen(false)}
                 initialSuppliers={suppliers}
                 onSave={onSuppliersUpdate}
+                parentDialogTag="inventory-tools"
             />
 
             {/* DIALOGS */}
-            <AlertDialog open={showAddPreview} onOpenChange={setShowAddPreview}><AlertDialogContent className="max-w-4xl"><AlertDialogHeader><AlertDialogTitle>Xem trước các mặt hàng sẽ được thêm</AlertDialogTitle><AlertDialogDescription>Kiểm tra lại danh sách trước khi thêm vào kho.</AlertDialogDescription></AlertDialogHeader><div className="space-y-6 max-h-[60vh] overflow-y-auto p-2">{previewNewItems.length > 0 && <div className="space-y-4"><h3 className="text-base font-semibold flex items-center gap-2"><CheckCircle className="text-green-500"/> Mặt hàng mới</h3><div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Tên</TableHead><TableHead>NCC</TableHead><TableHead>ĐV Cơ sở</TableHead></TableRow></TableHeader><TableBody>{previewNewItems.map((item, index) => (<TableRow key={index}><TableCell>{item.name}</TableCell><TableCell>{item.supplier}</TableCell><TableCell>{item.baseUnit}</TableCell></TableRow>))}</TableBody></Table></div></div>}{previewExistingItems.length > 0 && <div className="space-y-4"><h3 className="text-base font-semibold flex items-center gap-2"><AlertTriangle className="text-yellow-500"/> Mặt hàng đã có (sẽ bỏ qua)</h3><Table><TableHeader><TableRow><TableHead>Tên</TableHead><TableHead>NCC</TableHead></TableRow></TableHeader><TableBody>{previewExistingItems.map((item, index) => (<TableRow key={index} className="bg-muted/50"><TableCell>{item.name}</TableCell><TableCell>{item.supplier}</TableCell></TableRow>))}</TableBody></Table></div>}</div><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={handleConfirmAdd} disabled={previewNewItems.length === 0}><Plus className="mr-2 h-4 w-4" />Thêm {previewNewItems.length} mặt hàng mới</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
-            <AlertDialog open={showUpdatePreview} onOpenChange={setShowUpdatePreview}><AlertDialogContent className="max-w-6xl"><AlertDialogHeader><AlertDialogTitle>Xem trước các thay đổi</AlertDialogTitle><AlertDialogDescription>Các thay đổi sẽ được highlight màu xanh. Vui lòng kiểm tra kỹ trước khi áp dụng.</AlertDialogDescription></AlertDialogHeader><div className="max-h-[60vh] overflow-y-auto p-2 border rounded-md"><Table><TableHeader><TableRow><TableHead>Tên</TableHead><TableHead>Tên VT</TableHead><TableHead>Nhóm</TableHead><TableHead>NCC</TableHead><TableHead>ĐV Cơ sở</TableHead><TableHead>Các ĐV</TableHead><TableHead>Tồn min</TableHead><TableHead>Gợi ý</TableHead><TableHead>Bắt buộc?</TableHead><TableHead>Y/c ảnh?</TableHead></TableRow></TableHeader><TableBody>{updatePreview.newList.map((newItem) => { const oldItem = updatePreview.oldList.find(item => item.id === newItem.id); if (!oldItem) return null; const hasChanged = !isEqual(oldItem, newItem); return (<TableRow key={newItem.id} className={hasChanged ? 'bg-blue-100/30 dark:bg-blue-900/30' : ''}><TableCell>{renderDiff(oldItem.name, newItem.name)}</TableCell><TableCell>{renderDiff(oldItem.shortName || '', newItem.shortName || '')}</TableCell><TableCell>{renderDiff(oldItem.category, newItem.category)}</TableCell><TableCell>{renderDiff(oldItem.supplier, newItem.supplier)}</TableCell><TableCell>{renderDiff(oldItem.baseUnit, newItem.baseUnit)}</TableCell><TableCell>{renderUnitsDiff(oldItem.units, newItem.units)}</TableCell><TableCell>{renderDiff(String(oldItem.minStock), String(newItem.minStock))}</TableCell><TableCell>{renderDiff(oldItem.orderSuggestion, newItem.orderSuggestion)}</TableCell><TableCell>{renderBooleanDiff(oldItem.isImportant, newItem.isImportant)}</TableCell><TableCell>{renderBooleanDiff(oldItem.requiresPhoto, newItem.requiresPhoto)}</TableCell></TableRow>)})}</TableBody></Table></div><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={handleConfirmUpdate}>Áp dụng các thay đổi</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
-            <Dialog open={showSortPreview} onOpenChange={setShowSortPreview}><DialogContent className="max-w-4xl"><AlertDialogHeader><AlertDialogTitle>Xem trước thứ tự sắp xếp mới</AlertDialogTitle><AlertDialogDescription>AI đề xuất sắp xếp lại nhóm <span className="font-bold">"{sortTargetCategory}"</span> như sau. Bạn có muốn áp dụng?</AlertDialogDescription></AlertDialogHeader><div className="max-h-[60vh] overflow-y-auto p-2 border rounded-md grid grid-cols-2 gap-4"><div><h4 className="font-semibold mb-2 text-center">Thứ tự hiện tại</h4><ul className="space-y-2 text-sm">{sortPreviewData.oldOrder.map((task, index) => (<li key={index} className="p-2 rounded-md bg-muted/50">{index + 1}. {task}</li>))}</ul></div><div><h4 className="font-semibold mb-2 text-center">Thứ tự mới</h4><ul className="space-y-2 text-sm">{sortPreviewData.newOrder.map((task, index) => (<li key={index} className="p-2 rounded-md bg-green-100/50">{index + 1}. {renderDiff(sortPreviewData.oldOrder[index], task)}</li>))}</ul></div></div><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={handleConfirmSort}>Áp dụng thứ tự mới</AlertDialogAction></AlertDialogFooter></DialogContent></Dialog>
+            <AlertDialog open={showAddPreview} onOpenChange={setShowAddPreview} dialogTag="alert-dialog" parentDialogTag="root" variant="primary">
+                <AlertDialogContent className="max-w-4xl">
+                    <AlertDialogHeader>
+                        <AlertDialogIcon icon={Wand2} />
+                        <div className="space-y-2 text-center sm:text-left">
+                            <AlertDialogTitle>Xem trước các mặt hàng sẽ được thêm</AlertDialogTitle>
+                            <AlertDialogDescription>Kiểm tra lại danh sách trước khi thêm vào kho.</AlertDialogDescription>
+                        </div>
+                    </AlertDialogHeader><div className="space-y-6 max-h-[60vh] overflow-y-auto p-2">{previewNewItems.length > 0 && <div className="space-y-4"><h3 className="text-base font-semibold flex items-center gap-2"><CheckCircle className="text-green-500" /> Mặt hàng mới</h3><div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Tên</TableHead><TableHead>NCC</TableHead><TableHead>ĐV Cơ sở</TableHead></TableRow></TableHeader><TableBody>{previewNewItems.map((item, index) => (<TableRow key={index}><TableCell>{item.name}</TableCell><TableCell>{item.supplier}</TableCell><TableCell>{item.baseUnit}</TableCell></TableRow>))}</TableBody></Table></div></div>}{previewExistingItems.length > 0 && <div className="space-y-4"><h3 className="text-base font-semibold flex items-center gap-2"><AlertTriangle className="text-yellow-500" /> Mặt hàng đã có (sẽ bỏ qua)</h3><Table><TableHeader><TableRow><TableHead>Tên</TableHead><TableHead>NCC</TableHead></TableRow></TableHeader><TableBody>{previewExistingItems.map((item, index) => (<TableRow key={index} className="bg-muted/50"><TableCell>{item.name}</TableCell><TableCell>{item.supplier}</TableCell></TableRow>))}</TableBody></Table></div>}</div><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={handleConfirmAdd} disabled={previewNewItems.length === 0}><Plus className="mr-2 h-4 w-4" />Thêm {previewNewItems.length} mặt hàng mới</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+            <AlertDialog open={showUpdatePreview} onOpenChange={setShowUpdatePreview} dialogTag="alert-dialog" parentDialogTag="root" variant="warning">
+                <AlertDialogContent className="max-w-6xl">
+                    <AlertDialogHeader>
+                        <AlertDialogIcon icon={Sparkles} />
+                        <div className="space-y-2 text-center sm:text-left">
+                            <AlertDialogTitle>Xem trước các thay đổi</AlertDialogTitle>
+                            <AlertDialogDescription>Các thay đổi sẽ được highlight màu xanh. Vui lòng kiểm tra kỹ trước khi áp dụng.</AlertDialogDescription>
+                        </div>
+                    </AlertDialogHeader><div className="max-h-[60vh] overflow-y-auto p-2 border rounded-md"><Table><TableHeader><TableRow><TableHead>Tên</TableHead><TableHead>Tên VT</TableHead><TableHead>Nhóm</TableHead><TableHead>NCC</TableHead><TableHead>ĐV Cơ sở</TableHead><TableHead>Các ĐV</TableHead><TableHead>Tồn min</TableHead><TableHead>Gợi ý</TableHead><TableHead>Bắt buộc?</TableHead><TableHead>Y/c ảnh?</TableHead></TableRow></TableHeader><TableBody>{updatePreview.newList.map((newItem) => { const oldItem = updatePreview.oldList.find(item => item.id === newItem.id); if (!oldItem) return null; const hasChanged = !isEqual(oldItem, newItem); return (<TableRow key={newItem.id} className={hasChanged ? 'bg-blue-100/30 dark:bg-blue-900/30' : ''}><TableCell>{renderDiff(oldItem.name, newItem.name)}</TableCell><TableCell>{renderDiff(oldItem.shortName || '', newItem.shortName || '')}</TableCell><TableCell>{renderDiff(oldItem.category, newItem.category)}</TableCell><TableCell>{renderDiff(oldItem.supplier, newItem.supplier)}</TableCell><TableCell>{renderDiff(oldItem.baseUnit, newItem.baseUnit)}</TableCell><TableCell>{renderUnitsDiff(oldItem.units, newItem.units)}</TableCell><TableCell>{renderDiff(String(oldItem.minStock), String(newItem.minStock))}</TableCell><TableCell>{renderDiff(oldItem.orderSuggestion, newItem.orderSuggestion)}</TableCell><TableCell>{renderBooleanDiff(oldItem.isImportant, newItem.isImportant)}</TableCell><TableCell>{renderBooleanDiff(oldItem.requiresPhoto, newItem.requiresPhoto)}</TableCell></TableRow>) })}</TableBody></Table></div><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={handleConfirmUpdate}>Áp dụng các thay đổi</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+            <Dialog open={showSortPreview} onOpenChange={setShowSortPreview} dialogTag="inventory-sort-preview-dialog" parentDialogTag="inventory-tools">
+                <DialogContent className="max-w-4xl">
+                    <AlertDialogHeader>
+                        <AlertDialogIcon icon={Shuffle} />
+                        <div className="space-y-2 text-center sm:text-left">
+                            <AlertDialogTitle>Xem trước thứ tự sắp xếp mới</AlertDialogTitle>
+                            <AlertDialogDescription>AI đề xuất sắp xếp lại nhóm <span className="font-bold">"{sortTargetCategory}"</span> như sau. Bạn có muốn áp dụng?</AlertDialogDescription>
+                        </div>
+                    </AlertDialogHeader><div className="max-h-[60vh] overflow-y-auto p-2 border rounded-md grid grid-cols-2 gap-4"><div><h4 className="font-semibold mb-2 text-center">Thứ tự hiện tại</h4><ul className="space-y-2 text-sm">{sortPreviewData.oldOrder.map((task, index) => (<li key={index} className="p-2 rounded-md bg-muted/50">{index + 1}. {task}</li>))}</ul></div><div><h4 className="font-semibold mb-2 text-center">Thứ tự mới</h4><ul className="space-y-2 text-sm">{sortPreviewData.newOrder.map((task, index) => (<li key={index} className="p-2 rounded-md bg-green-100/50">{index + 1}. {renderDiff(sortPreviewData.oldOrder[index], task)}</li>))}</ul></div></div><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={handleConfirmSort}>Áp dụng thứ tự mới</AlertDialogAction></AlertDialogFooter></DialogContent></Dialog>
         </>
     )
 }

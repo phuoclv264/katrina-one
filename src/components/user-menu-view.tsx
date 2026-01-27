@@ -1,20 +1,21 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { UserAvatar } from '@/components/user-avatar';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { 
-  LogOut, User, CalendarDays, CheckSquare, Coffee, Banknote, UserCog, 
-  BarChart3, FileText, DollarSign, CalendarClock, Users2, ClipboardList, 
-  UtensilsCrossed, ListChecks, Package, FileSignature, History, ShieldX, 
-  MessageSquare, ChevronRight, Sparkles
+import {
+  LogOut, CalendarDays, ChevronRight, Sparkles, UserCircle,
+  CheckSquare, Coffee, Banknote, UserCog, BarChart3
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, getInitials } from '@/lib/utils';
+import { ProfileDialog } from './profile-dialog';
+import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
+import { getUserAccessLinks } from '@/lib/user-access-links';
 
 interface UserMenuViewProps {
   onNavigateToHome?: () => void;
@@ -22,152 +23,101 @@ interface UserMenuViewProps {
 }
 
 export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuViewProps) {
-  const { user, logout, loading, isOnActiveShift } = useAuth();
+  const { user, logout, loading, isOnActiveShift, activeShifts } = useAuth();
+  const { isCheckedIn } = useCheckInCardPlacement();
   const nav = useAppNavigation();
+  const [profileOpen, setProfileOpen] = useState(false);
 
   if (!user) return null;
 
-  const getMenuItems = () => {
-    const canManageViolations = user.role === 'Quản lý' || user.role === 'Chủ nhà hàng';
-    const violationLabel = canManageViolations ? 'Ghi nhận Vi phạm' : 'Danh sách Vi phạm';
+  // Get all menu items from centralized access utility
+  const access = getUserAccessLinks({ user, isCheckedIn, activeShifts: activeShifts || [], isOnActiveShift });
+  
+  // Convert AccessLink to the format expected by the UI — exclude grouped links so
+  // they are rendered exclusively inside the accordion sections below.
+  const primaryItems = access.primary
+    .filter(l => !l.group)
+    .map(link => ({ href: link.href, label: link.label, icon: link.icon }));
 
-    const commonViolationMenu = { href: '/violations', label: violationLabel, icon: ShieldX };
-    const commonScheduleMenu = { href: '/schedule', label: 'Lịch làm việc', icon: CalendarDays };
-    const commonReportsFeedMenu = { href: '/reports-feed', label: 'Tố cáo', icon: MessageSquare };
+  const secondaryItems = access.secondary
+    .filter(l => !l.group)
+    .map(link => ({ role: link.roleTag || link.subLabel || '', item: { href: link.href, label: link.label, icon: link.icon } }));
 
-    let primaryItems: any[] = [];
-    let secondaryItems: { role: string; item: any }[] = [];
+  // Ensure a per-role "Home" (dashboard/overview) shortcut is available in the USER MENU only.
+  // This keeps the sidebar behavior unchanged and preserves original labels/icons.
+  const roleHomeMap: Record<string, { href: string; label: string; icon: any }> = {
+    'Phục vụ': { href: '/shifts', label: 'Bảng điều khiển', icon: CheckSquare },
+    'Pha chế': { href: '/bartender', label: 'Bảng điều khiển', icon: Coffee },
+    'Thu ngân': { href: '/cashier', label: 'Bảng điều khiển', icon: Banknote },
+    'Quản lý': { href: '/manager', label: 'Bảng điều khiển', icon: UserCog },
+    'Chủ nhà hàng': { href: '/admin', label: 'Tổng quan', icon: BarChart3 },
+  };
 
-    switch(user?.role) {
-      case 'Phục vụ': primaryItems.push(
-        { href: '/shifts', label: 'Bảng điều khiển', icon: CheckSquare },
-        commonScheduleMenu,
-        commonViolationMenu,
-        commonReportsFeedMenu,
-      ); break;
-      case 'Pha chế': primaryItems.push(
-        { href: '/bartender', label: 'Bảng điều khiển', icon: Coffee },
-        commonScheduleMenu,
-        commonViolationMenu,
-        commonReportsFeedMenu,
-      ); break;
-      case 'Thu ngân': primaryItems.push(
-        { href: '/cashier', label: 'Bảng điều khiển', icon: Banknote },
-        commonScheduleMenu,
-        commonViolationMenu,
-        commonReportsFeedMenu,
-      ); break;
-      case 'Quản lý': primaryItems.push(
-        { href: '/manager', label: 'Bảng điều khiển', icon: UserCog },
-        { href: '/reports', label: 'Xem báo cáo', icon: FileText },
-        commonScheduleMenu,
-        commonViolationMenu,
-        commonReportsFeedMenu,
-      ); break;
-      case 'Chủ nhà hàng': primaryItems.push(
-        { href: '/admin', label: 'Tổng quan', icon: BarChart3 },
-        { href: '/reports', label: 'Xem Báo cáo', icon: FileText },
-        { href: '/financial-report', label: 'Báo cáo Tài chính', icon: DollarSign },
-        { href: '/reports/cashier', label: 'Báo cáo Thu ngân', icon: Banknote },
-        { href: '/shift-scheduling', label: 'Xếp lịch & Phê duyệt', icon: CalendarDays },
-        { href: '/attendance', label: 'Quản lý Chấm công', icon: User },
-        { href: '/monthly-tasks', label: 'Công việc Định kỳ', icon: CalendarClock },
-        commonReportsFeedMenu,
-        { href: '/users', label: 'QL Người dùng', icon: Users2 },
-        { href: '/task-lists', label: 'QL Công việc Phục vụ', icon: ClipboardList },
-        { href: '/bartender-tasks', label: 'QL Công việc Pha chế', icon: UtensilsCrossed },
-        { href: '/comprehensive-checklist', label: 'QL Kiểm tra Toàn diện', icon: ListChecks },
-        { href: '/inventory-management', label: 'QL Hàng tồn kho', icon: Package },
-        { href: '/product-management', label: 'QL Mặt hàng & Công thức', icon: FileSignature },
-        { href: '/inventory-history', label: 'Lịch sử Kho', icon: History },
-        commonViolationMenu,
-      ); break;
-    }
-
-    const primaryHrefs = new Set(primaryItems.map(item => item.href));
-
-    if (isOnActiveShift) {
-      if(user?.secondaryRoles?.includes('Phục vụ') && !primaryHrefs.has('/shifts')) {
-        secondaryItems.push({ role: 'Phục vụ', item: { href: '/shifts', label: 'Checklist Công việc', icon: CheckSquare } });
-      }
-      if(user?.secondaryRoles?.includes('Pha chế') && !primaryHrefs.has('/bartender')) {
-         secondaryItems.push({ role: 'Pha chế', item: { href: '/bartender/hygiene-report', label: 'Báo cáo Vệ sinh quầy', icon: ClipboardList } });
-         secondaryItems.push({ role: 'Pha chế', item: { href: '/bartender/inventory', label: 'Kiểm kê Tồn kho', icon: History } });
-      }
-      if(user?.secondaryRoles?.includes('Quản lý') && !primaryHrefs.has('/manager')) {
-          secondaryItems.push({ role: 'Quản lý', item: { href: '/manager/comprehensive-report', label: 'Phiếu kiểm tra toàn diện', icon: FileText } });
-      }
-      if(user?.secondaryRoles?.includes('Thu ngân') && !primaryHrefs.has('/cashier')) {
-          secondaryItems.push({ role: 'Thu ngân', item: { href: '/cashier', label: 'Báo cáo Thu ngân', icon: Banknote } });
-      }
-    }
-
-    return { primaryItems, secondaryItems };
+  const roleHome = roleHomeMap[user.role || ''];
+  if (roleHome && !primaryItems.some((i) => i.href === roleHome.href)) {
+    // always show home shortcut in the user menu (independent of check-in)
+    primaryItems.unshift(roleHome);
   }
 
-  const { primaryItems, secondaryItems } = getMenuItems();
+  // Build grouped links (items with group property) - exclude items already in primary/secondary
+  const existingHrefs = new Set([
+    ...primaryItems.map(i => i.href),
+    ...secondaryItems.map(s => s.item.href),
+  ]);
+  const grouped = [...access.primary, ...access.secondary].reduce((acc, l) => {
+    if (!l.group) return acc;
+    if (existingHrefs.has(l.href)) return acc; // don't duplicate
+    (acc[l.group] ||= []).push(l);
+    return acc;
+  }, {} as Record<string, typeof access.primary>);
 
   const handleNavigate = (href: string) => {
     // Check if this is a "Home" link (Dashboard/Overview)
     const isHomeLink = ['/shifts', '/bartender', '/manager', '/admin'].includes(href);
-    
+
     if (isHomeLink && onNavigateToHome) {
       onNavigateToHome();
-    } else if (onNavigate) {
-      onNavigate(href);
     } else {
       nav.push(href);
     }
   }
-
-  // Helper to get initials
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
 
   return (
     <div className="flex flex-col h-full bg-background/50">
       {/* Header Profile Section */}
       <div className="p-6 pb-2">
         <div className="flex items-start justify-between mb-6">
-           <div className="flex flex-col gap-1">
-              <h2 className="text-2xl font-bold tracking-tight">Xin chào,</h2>
-              <h3 className="text-xl font-semibold text-primary">{user.displayName}</h3>
-           </div>
-           <Avatar className="h-16 w-16 border-2 border-background shadow-lg">
-              <AvatarImage src={user.photoURL || ''} />
-              <AvatarFallback className="bg-primary text-primary-foreground text-lg">
-                {getInitials(user.displayName || 'User')}
-              </AvatarFallback>
-           </Avatar>
+          <div className="flex flex-col gap-1">
+            <h2 className="text-2xl font-bold tracking-tight">Xin chào,</h2>
+            <h3 className="text-xl font-semibold text-primary">{user.displayName}</h3>
+          </div>
+          <UserAvatar user={user} size="h-16 w-16" rounded="full" className="border-2 border-background shadow-lg" />
         </div>
-        
+
         <div className="flex items-center justify-between gap-2 mb-2">
-           <Badge variant="secondary" className="px-3 py-1 text-sm font-medium capitalize shadow-sm">
-              {user.role}
-           </Badge>
-           <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={logout} 
-            disabled={loading}
-            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Đăng xuất
-          </Button>
+          <Badge variant="secondary" className="px-3 py-1 text-sm font-medium capitalize shadow-sm">
+            {user.role}
+          </Badge>
+          <div className="flex gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setProfileOpen(true)}
+              className="text-muted-foreground hover:text-primary hover:bg-primary/10"
+            >
+              <UserCircle className="w-4 h-4 mr-2" />
+              Hồ sơ
+            </Button>
+          </div>
         </div>
       </div>
 
       <Separator className="mb-4" />
 
+      <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} parentDialogTag="root" />
+
       {/* Menu Items */}
-      <ScrollArea className="flex-1 px-4 pb-6">
+      <div className="flex-1 px-4 pb-6">
         <div className="space-y-3">
           {primaryItems.map((item, index) => (
             <button
@@ -187,15 +137,41 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
             </button>
           ))}
 
+          {/* Grouped links from centralized access utility (render inside accordions) */}
+          {Object.entries(grouped).map(([groupLabel, links]) => (
+            <div key={groupLabel} className="pt-4">
+              <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value={groupLabel}>
+                  <AccordionTrigger className="px-1 py-2 text-sm font-semibold flex items-center justify-between">{groupLabel}</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-2 mt-2">
+                      {links.map((l) => (
+                        <button
+                          key={l.href}
+                          onClick={() => handleNavigate(l.href)}
+                          className="group flex items-center w-full p-3 transition-all bg-muted/10 border rounded-lg hover:bg-card"
+                        >
+                          <div className="w-9 h-9 flex items-center justify-center rounded-lg bg-muted text-muted-foreground mr-3"><l.icon className="w-4 h-4" /></div>
+                          <div className="flex-1 text-left"><span className="font-medium">{l.label}</span></div>
+                          <ChevronRight className="w-4 h-4 text-muted-foreground/50" />
+                        </button>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
+          ))}
+
           {secondaryItems.length > 0 && (
             <div className="pt-4 mt-2">
               <div className="flex items-center gap-2 mb-4 px-1">
                 <Sparkles className="w-4 h-4 text-amber-500" />
                 <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                  Vai trò phụ
+                  Tiện ích
                 </span>
               </div>
-              
+
               <div className="space-y-3">
                 {secondaryItems.map(({ role, item }, idx) => (
                   <div key={`${role}-${idx}`} className="relative">
@@ -222,9 +198,25 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
             </div>
           )}
         </div>
-        
+
         <div className="h-6" /> {/* Bottom spacer */}
-      </ScrollArea>
+
+        {/* Make the logout part of the scrollable content so it can be scrolled
+            above the BottomNav when the bottom nav is visible. */}
+        <div className="mt-4 mb-4 p-4 border-t bg-background/50">
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={logout}
+            disabled={loading}
+            className="w-full justify-center"
+            aria-label="Đăng xuất"
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Đăng xuất
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

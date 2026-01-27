@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { dataStore } from '@/lib/data-store';
 import type { TaskCompletion, TasksByShift, CompletionRecord, ShiftReport, Task } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/pro-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { Send, ArrowLeft, Activity, Loader2, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronsDownUp, Sunrise, Sunset, ShieldAlert, Star, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, MessageSquare, Check, LayoutGrid, ListChecks, AlertTriangle } from 'lucide-react';
+import { Send, ArrowLeft, Activity, Loader2, CheckCircle, WifiOff, CloudDownload, UploadCloud, ChevronsDownUp, Sunrise, Sunset, ShieldAlert, Star, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, MessageSquare, Check, LayoutGrid, ListChecks, AlertTriangle, Image as ImageIcon } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { motion, AnimatePresence } from 'framer-motion';
 import CameraDialog from '@/components/camera-dialog';
 import OpinionDialog from '@/components/opinion-dialog';
+import TaskNoteDialog from '@/components/task-note-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { Badge } from '@/components/ui/badge';
@@ -25,18 +26,21 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { format, set } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import SubmissionNotesSection from '../../_components/submission-notes-section';
-import { cn } from '@/lib/utils';
+import { cn, generateShortName, getInitials } from '@/lib/utils';
 import { TaskItem } from '../../../_components/task-item';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useLightbox } from '@/contexts/lightbox-context';
 import { useRouter } from 'nextjs-toploader/app';
+import ChecklistHeader from './checklist-header';
+import ChecklistTabs from './checklist-tabs';
+import SubmitFab from './submit-fab';
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
 const shiftTimeFrames: { [key: string]: { start: string; end: string } } = {
   sang: { start: '05:30', end: '12:00' },
   trua: { start: '12:00', end: '17:00' },
-  toi: { start: '17:00', end: '22:30' },
+  toi: { start: '17:00', end: '22:59' },
 };
 
 interface ChecklistViewProps {
@@ -52,17 +56,19 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
   const notesSectionRef = useRef<HTMLTextAreaElement>(null);
 
   const [report, setReport] = useState<ShiftReport | null>(null);
+  const [otherStaffReports, setOtherStaffReports] = useState<ShiftReport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasUnsubmittedChanges, setHasUnsubmittedChanges] = useState(false);
 
+  const [isBottomNavVisible, setIsBottomNavVisible] = useState<boolean>(false);
+
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('checking');
   const [showSyncDialog, setShowSyncDialog] = useState(false);
-  const [submissionNotes, setSubmissionNotes] = useState('');
-  const [notesError, setNotesError] = useState(false);
 
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isOpinionOpen, setIsOpinionOpen] = useState(false);
+  const [isNoteOpen, setIsNoteOpen] = useState(false);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [activeCompletionIndex, setActiveCompletionIndex] = useState<number | null>(null);
 
@@ -83,10 +89,44 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
 
   const totalTasksCount = checklistTasks.length;
   const completedTasksCount = checklistTasks.filter(t => {
-    return (report?.completedTasks[t.id]?.length || 0) > 0;
+    const minCompletions = t.minCompletions || 1;
+    const isSelfCompleted = (report?.completedTasks[t.id]?.length || 0) >= minCompletions;
+    const isOtherCompleted = otherStaffReports.some(r => (r.completedTasks?.[t.id]?.length || 0) >= minCompletions);
+    return isSelfCompleted || isOtherCompleted;
   }).length;
 
   const progressPercentage = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
+
+  const teamStats = useMemo(() => {
+    if (!shift) return [];
+    const allReports = report ? [report, ...otherStaffReports] : otherStaffReports;
+
+    const checklistTaskIds = new Set(checklistTasks.map(t => t.id));
+
+    return allReports.map(r => {
+      const totalCompletions = Object.entries(r.completedTasks || {})
+        .filter(([id]) => checklistTaskIds.has(id))
+        .reduce((sum, [_, completions]) => sum + (completions?.length || 0), 0);
+
+      const photoCount = Object.values(r.completedTasks || {}).reduce((total, completions) => {
+        return total + completions.reduce((pSum, c) => pSum + (c.photos?.length || 0) + (c.photoIds?.length || 0), 0);
+      }, 0);
+
+      const opinionCount = Object.keys(r.completedTasks || {}).filter(id => {
+        const task = allTasks.find(t => t.id === id);
+        return task?.type === 'opinion' && r.completedTasks[id].length > 0;
+      }).length;
+
+      return {
+        userId: r.userId,
+        name: r.staffName,
+        tasksDone: totalCompletions,
+        photosTaken: photoCount,
+        opinionsGiven: opinionCount,
+        isMe: r.userId === user?.uid
+      };
+    }).sort((a, b) => b.tasksDone - a.tasksDone || b.photosTaken - a.photosTaken);
+  }, [report, otherStaffReports, checklistTasks, allTasks, user?.uid, shift]);
 
   // Auto-set active tab on first load only: prefer the section that contains the newest completion; fallback to first incomplete section
   useEffect(() => {
@@ -165,6 +205,20 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
     return () => unsubscribeTasks();
   }, []);
 
+  // Subscribe to other staff members' reports for the same shift
+  useEffect(() => {
+    if (!user || !shiftKey) return;
+
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const unsubscribe = dataStore.subscribeToReportsForShift(today, shiftKey, (reports) => {
+      // Filter out the current user's report
+      const otherReports = reports.filter(r => r.userId !== user.uid);
+      setOtherStaffReports(otherReports);
+    });
+
+    return () => unsubscribe();
+  }, [user, shiftKey]);
+
   const handleReconnect = useCallback(() => {
     setRefreshTrigger(prev => prev + 1);
   }, []);
@@ -185,7 +239,6 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
           const serverReport = await dataStore.overwriteLocalReport(user.uid, shiftKey);
           if (isMounted) {
             setReport(serverReport);
-            setSubmissionNotes(serverReport.issues || '');
             setSyncStatus('synced');
           }
         } catch (error) {
@@ -212,7 +265,6 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
           const { report: loadedReport, status } = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Nhân viên', shiftKey);
           if (isMounted) {
             setReport(loadedReport);
-            setSubmissionNotes(loadedReport.issues || '');
             setSyncStatus(status);
             if (status === 'local-newer' || status === 'server-newer') {
               setShowSyncDialog(true);
@@ -239,6 +291,35 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
 
   useDataRefresher(handleReconnect);
 
+  // Watch for the global class toggled by BottomNav to position the FAB above it
+  useEffect(() => {
+    const update = () => {
+      try {
+        setIsBottomNavVisible(document.documentElement.classList.contains('bottom-nav-visible'));
+      } catch (e) {
+        setIsBottomNavVisible(false);
+      }
+    };
+
+    update();
+
+    const observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.type === 'attributes' && (m.target as Element) === document.documentElement) {
+          update();
+        }
+      }
+    });
+
+    try {
+      observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    } catch (e) {
+      // ignore in SSR or restricted environments
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
   const updateLocalReport = useCallback((updater: (prevReport: ShiftReport) => ShiftReport) => {
     setReport(prevReport => {
       if (!prevReport) return null;
@@ -259,14 +340,6 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
       return newReport;
     });
   }, []);
-
-  const handleNotesChange = useCallback((notes: string) => {
-    if (notesError) {
-      setNotesError(false);
-    }
-    setSubmissionNotes(notes);
-    updateLocalReport(prevReport => ({ ...prevReport, issues: notes }));
-  }, [updateLocalReport, notesError]);
 
   const handleCameraClose = useCallback(() => {
     setIsCameraOpen(false);
@@ -289,25 +362,28 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
     updateLocalReport(prevReport => {
       const newReport = { ...prevReport };
       const newCompletedTasks = { ...newReport.completedTasks };
+      const taskCompletions = [...(newCompletedTasks[taskId] || [])];
 
-      if (value) {
-        const newCompletion: CompletionRecord = {
-          timestamp: format(new Date(), 'HH:mm'),
-          value: true,
-        };
-        newCompletedTasks[taskId] = [newCompletion];
-      } else {
-        delete newCompletedTasks[taskId];
-      }
-
+      const newCompletion: CompletionRecord = {
+        timestamp: format(new Date(), 'HH:mm'),
+        value: value,
+      };
+      taskCompletions.unshift(newCompletion);
+      newCompletedTasks[taskId] = taskCompletions;
       newReport.completedTasks = newCompletedTasks;
       return newReport;
     });
   };
 
+
   const handleOpinionTaskAction = (task: Task) => {
     setActiveTask(task);
     setIsOpinionOpen(true);
+  }
+
+  const handleNoteTaskAction = (task: Task) => {
+    setActiveTask(task);
+    setIsNoteOpen(true);
   }
 
   const handleSaveOpinion = async (opinionText: string) => {
@@ -327,6 +403,29 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
       return newReport;
     });
     handleOpinionClose();
+  }
+
+  const handleSaveNote = async (noteText: string) => {
+    if (!activeTask) return;
+
+    updateLocalReport(prevReport => {
+      const newReport = { ...prevReport };
+      const newCompletedTasks = { ...newReport.completedTasks };
+      const taskCompletions = [...(newCompletedTasks[activeTask.id] || [])];
+
+      const newCompletion: CompletionRecord = {
+        timestamp: format(new Date(), 'HH:mm'),
+        note: noteText.trim() || undefined,
+      };
+
+      // Always prepend to task complications
+      taskCompletions.unshift(newCompletion);
+      newCompletedTasks[activeTask.id] = taskCompletions;
+      newReport.completedTasks = newCompletedTasks;
+      return newReport;
+    });
+    setIsNoteOpen(false);
+    setActiveTask(null);
   }
 
   const handleCapturePhotos = useCallback(async (media: { id: string; type: 'photo' | 'video' }[]) => {
@@ -446,29 +545,12 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
       return;
     }
 
-    // --- Validation for end-of-shift notes ---
-    const endOfShiftSection = shift.sections.find(s => s.title === 'Cuối ca');
-    if (endOfShiftSection) {
-      const endOfShiftTaskIds = new Set(endOfShiftSection.tasks.map(t => t.id));
-      const hasCompletedEndOfShiftTask = Object.keys(report.completedTasks).some(
-        taskId => endOfShiftTaskIds.has(taskId) && report.completedTasks[taskId].length > 0
-      );
-
-      if (hasCompletedEndOfShiftTask && (!submissionNotes || submissionNotes.trim() === '')) {
-        toast.error("Vui lòng nhập ghi chú cuối ca trước khi gửi báo cáo.");
-        setNotesError(true);
-        notesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return;
-      }
-    }
-    // --- End Validation ---
-
     const startTime = Date.now();
     setIsSubmitting(true);
     setShowSyncDialog(false);
     const toastId = toast.loading("Đang gửi báo cáo...");
 
-    const finalReport = { ...report, issues: submissionNotes || null };
+    const finalReport = { ...report };
 
     try {
       await dataStore.submitReport(finalReport);
@@ -496,7 +578,6 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
     try {
       const serverReport = await dataStore.overwriteLocalReport(user.uid, shiftKey);
       setReport(serverReport);
-      setSubmissionNotes(serverReport.issues || '');
       setSyncStatus('synced');
       setHasUnsubmittedChanges(false);
       toast.success("Tải thành công! Báo cáo đã được cập nhật.", { id: toastId });
@@ -571,215 +652,46 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
 
   return (
     <div className="flex flex-col min-h-screen bg-background pb-24">
-      {/* --- Sticky Header --- */}
-      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b shadow-sm">
-        <div className="px-4 py-3 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-xl">
-                <ListChecks className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-lg font-bold tracking-tight leading-none">
-                  {shift.name}
-                </h1>
-                <p className="text-[11px] text-muted-foreground mt-1 font-medium uppercase tracking-wider">
-                  {format(new Date(), 'EEEE, dd/MM', { locale: vi })}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-col items-end gap-1">
-              <div className="flex items-center gap-2">
-                {syncStatus === 'checking' && (
-                  <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100 animate-pulse">
-                    <div className="w-1 h-1 bg-amber-500 rounded-full animate-ping" />
-                    ĐANG LƯU
-                  </span>
-                )}
-                {isReadonly && isReadonlyChecked && (
-                  <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-100 flex items-center gap-1">
-                    <ShieldAlert className="w-3 h-3" />
-                    CHỈ XEM
-                  </span>
-                )}
-              </div>
-              <div className="text-[10px] font-bold text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full">
-                {completedTasksCount}/{totalTasksCount} HOÀN THÀNH
-              </div>
-            </div>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="space-y-1.5">
-            <div className="flex justify-between items-center px-0.5">
-              <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Tiến độ ca trực</span>
-              <span className="text-[10px] font-black text-primary">{progressPercentage}%</span>
-            </div>
-            <div className="h-2 w-full bg-muted rounded-full overflow-hidden border border-muted shadow-inner">
-              <motion.div
-                className="h-full bg-gradient-to-r from-primary via-primary to-primary/80"
-                initial={{ width: 0 }}
-                animate={{ width: `${progressPercentage}%` }}
-                transition={{ duration: 0.5, ease: "easeOut" }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
+      <ChecklistHeader
+        shift={shift}
+        progressPercentage={progressPercentage}
+        completedTasksCount={completedTasksCount}
+        totalTasksCount={totalTasksCount}
+        teamStats={teamStats}
+        isReadonly={isReadonly}
+        isReadonlyChecked={isReadonlyChecked}
+        syncBadge={getSyncBadge()}
+      />
 
       {/* --- Main Content: Tabs --- */}
       <div className="flex-1 px-3 py-4">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
-          <TabsList className="grid grid-cols-3 w-full h-12 p-1 bg-muted/50 rounded-xl border">
-            {shift.sections.map((section) => (
-              <TabsTrigger
-                key={section.title}
-                value={section.title}
-                className="rounded-lg text-xs font-bold data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all"
-              >
-                {section.title}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
-          {shift.sections.map((section) => {
-            const sectionTasks = section.tasks.filter(t => t.type !== 'opinion');
-            const sectionOpinions = section.tasks.filter(t => t.type === 'opinion');
-
-            return (
-              <TabsContent key={section.title} value={section.title} className="mt-0 focus-visible:outline-none">
-                <div className="space-y-6">
-                  {/* Checklist Grid */}
-                  {sectionTasks.length > 0 && (
-                    <div className="grid grid-cols-2 gap-3">
-                      {sectionTasks.map((task) => {
-                        const isCompleted = (report.completedTasks[task.id]?.length || 0) > 0;
-
-                        return (
-                          <div key={task.id} className="relative">
-                            {isCompleted && (
-                              <div className="absolute top-2 right-2 z-10">
-                                <div className="bg-green-500 rounded-full p-0.5 shadow-sm">
-                                  <CheckCircle className="w-3 h-3 text-white" />
-                                </div>
-                              </div>
-                            )}
-
-                            <TaskItem
-                              task={task}
-                              completions={(report.completedTasks[task.id] || []) as CompletionRecord[]}
-                              onBooleanAction={handleBooleanTaskAction}
-                              onPhotoAction={handlePhotoTaskAction}
-                              onOpinionAction={handleOpinionTaskAction}
-                              onDeletePhoto={handleDeletePhoto}
-                              onDeleteCompletion={handleDeleteCompletion}
-                              onToggleExpand={toggleExpandTask}
-                              isReadonly={isReadonly || isSubmitting}
-                              isExpanded={expandedTaskIds.has(task.id)}
-                              isSingleCompletion={section.title !== 'Trong ca' ? true : false}
-                              onOpenLightbox={openLightbox}
-                              className={cn(
-                                "h-full border-[1.5px] transition-all duration-300 rounded-2xl",
-                                isCompleted
-                                  ? "border-green-500/30 bg-white shadow-[0_4px_12px_rgba(34,197,94,0.08)]"
-                                  : task.isCritical
-                                    ? "border-amber-500/40 bg-white shadow-[0_8px_20px_rgba(245,158,11,0.12)] active:scale-[0.98]"
-                                    : "border-slate-200 bg-white shadow-[0_4px_12px_rgba(0,0,0,0.05)] active:scale-[0.98]"
-                              )}
-                            />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Opinions / Incidents Section */}
-                  {sectionOpinions.length > 0 && (
-                    <div className="space-y-3 pt-2">
-                      <div className="flex items-center gap-2 px-1">
-                        <AlertTriangle className="w-4 h-4 text-amber-500" />
-                        <h3 className="text-sm font-bold text-amber-700 uppercase tracking-tight">Báo cáo & Sự cố</h3>
-                      </div>
-                      <div className="space-y-3">
-                        {sectionOpinions.map((task) => (
-                          <TaskItem
-                            key={task.id}
-                            task={task}
-                            completions={(report.completedTasks[task.id] || []) as CompletionRecord[]}
-                            onPhotoAction={handlePhotoTaskAction}
-                            onBooleanAction={handleBooleanTaskAction}
-                            onOpinionAction={handleOpinionTaskAction}
-                            onDeleteCompletion={handleDeleteCompletion}
-                            onDeletePhoto={handleDeletePhoto}
-                            onToggleExpand={toggleExpandTask}
-                            isReadonly={isReadonly || isSubmitting}
-                            isExpanded={expandedTaskIds.has(task.id)}
-                            isSingleCompletion={false}
-                            onOpenLightbox={openLightbox}
-                            className="bg-white border-amber-200 shadow-[0_4px_12px_rgba(245,158,11,0.08)] rounded-2xl"
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </TabsContent>
-            );
-          })}
-        </Tabs>
-
-        {/* Notes Section - Always at bottom of content */}
-        <div className="mt-8 pt-6 border-t border-dashed">
-          <Card className={cn(
-            "border-2 overflow-hidden transition-all duration-300",
-            notesError ? "border-red-200 bg-red-50/30" : "border-primary/20 bg-primary/5"
-          )}>
-            <div className="p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <MessageSquare className="w-4 h-4 text-primary" />
-                </div>
-                <h3 className="text-sm font-bold text-primary uppercase tracking-tight">Ghi chú bàn giao</h3>
-              </div>
-              <textarea
-                ref={notesSectionRef}
-                className="w-full min-h-[120px] p-3 text-sm bg-background border-2 border-primary/10 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all resize-none placeholder:text-muted-foreground/50"
-                placeholder="Nhập ghi chú bàn giao cho ca sau hoặc nhắn gửi quản lý..."
-                value={submissionNotes}
-                onChange={(e) => handleNotesChange(e.target.value)}
-                disabled={isReadonly || isSubmitting}
-              />
-              {notesError && (
-                <p className="text-[10px] font-bold text-red-600 uppercase tracking-wider animate-pulse">
-                  Vui lòng nhập ghi chú cuối ca trước khi gửi báo cáo.
-                </p>
-              )}
-            </div>
-          </Card>
-        </div>
+        <ChecklistTabs
+          shift={shift}
+          report={report}
+          otherStaffReports={otherStaffReports}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          expandedTaskIds={expandedTaskIds}
+          toggleExpandTask={toggleExpandTask}
+          handleBooleanTaskAction={handleBooleanTaskAction}
+          handlePhotoTaskAction={handlePhotoTaskAction}
+          handleOpinionTaskAction={handleOpinionTaskAction}
+          handleNoteTaskAction={handleNoteTaskAction}
+          handleDeletePhoto={handleDeletePhoto}
+          handleDeleteCompletion={handleDeleteCompletion}
+          onOpenLightbox={openLightbox}
+          isReadonly={isReadonly}
+          isSubmitting={isSubmitting}
+        />
       </div>
 
-      {/* --- Bottom Action Bar --- */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-background/80 backdrop-blur-lg border-t p-4 pb-safe-offset-4">
-        <div className="max-w-md mx-auto flex gap-3">
-          <Button
-            variant="outline"
-            className="flex-1 h-12 rounded-xl font-bold border-2"
-            onClick={() => router.back()}
-          >
-            QUAY LẠI
-          </Button>
-          <Button
-            className="flex-[2] h-12 rounded-xl font-black shadow-lg shadow-primary/20 text-base bg-green-600 hover:bg-green-700 text-white"
-            onClick={handleSubmitReport}
-            disabled={isSubmitting || isReadonly}
-          >
-            {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}
-            GỬI BÁO CÁO
-          </Button>
-        </div>
-      </div>
+      <SubmitFab
+        isReadonly={isReadonly}
+        isBottomNavVisible={isBottomNavVisible}
+        isSubmitting={isSubmitting}
+        hasUnsubmittedChanges={hasUnsubmittedChanges}
+        onSubmit={handleSubmitReport}
+      />
 
       {/* Dialogs */}
       <CameraDialog
@@ -787,6 +699,10 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
         onClose={handleCameraClose}
         onSubmit={handleCapturePhotos}
         captureMode="photo"
+        parentDialogTag="root"
+        contextText={activeTask?.text}
+        allowCaption={true}
+        initialCaption={activeTask ? (report.completedTasks[activeTask.id]?.find(c => c.note)?.note || '') : ''}
       />
 
       <OpinionDialog
@@ -795,9 +711,19 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
         onSubmit={handleSaveOpinion}
         taskText={activeTask?.text || ''}
         initialValue={activeTask ? (report.completedTasks[activeTask.id]?.[0]?.opinion || '') : ''}
+        parentDialogTag="root"
       />
 
-      <AlertDialog open={showSyncDialog && !isSubmitting} onOpenChange={setShowSyncDialog}>
+      <TaskNoteDialog
+        isOpen={isNoteOpen}
+        onClose={() => setIsNoteOpen(false)}
+        onSubmit={handleSaveNote}
+        taskText={activeTask?.text || ''}
+        initialValue={activeTask ? (report.completedTasks[activeTask.id]?.find(c => c.note)?.note || '') : ''}
+        parentDialogTag="root"
+      />
+
+      <AlertDialog open={showSyncDialog && !isSubmitting} onOpenChange={setShowSyncDialog} parentDialogTag="root">
         <AlertDialogContent className="rounded-3xl">
           {syncStatus === 'local-newer' && (
             <>

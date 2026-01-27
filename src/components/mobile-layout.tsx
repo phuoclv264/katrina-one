@@ -1,28 +1,30 @@
 'use client';
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, act } from 'react';
 import dynamic from 'next/dynamic';
 import { useAuth } from '@/hooks/use-auth';
+import { getUserAccessLinks } from '@/lib/user-access-links';
 import { BottomNav, NavTab } from '@/components/bottom-nav';
-import { 
-  Home, 
-  CalendarDays, 
+import {
+  Home,
+  CalendarDays,
   User,
-  ClipboardList, 
-  ShieldCheck, 
-  FileText, 
-  Banknote, 
-  CalendarClock 
+  ClipboardList,
+  ShieldCheck,
+  FileText,
+  Banknote,
+  CalendarClock
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import UserMenuView from '@/components/user-menu-view';
 import usePreserveScroll from '@/hooks/use-preserve-scroll';
 import { cn } from '@/lib/utils';
 import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
-import { MobileNavigationProvider } from '@/contexts/mobile-navigation-context';
-import { AppNavigationProvider } from '@/contexts/app-navigation-context';
+
+import { AppNavigationProvider, useAppNavigation } from '@/contexts/app-navigation-context';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import WorkShiftGuard from '@/components/work-shift-guard';
+import { getActiveShiftKeys, DEFAULT_MAIN_SHIFT_TIMEFRAMES, type ShiftKey } from '@/lib/shift-utils';
 
 // Lazy-load heavy screens to keep initial JS + compile work small.
 // This file acts like an SPA shell (no routing), so we prefer client-only loading.
@@ -84,6 +86,7 @@ const FinancialReportPage = dynamic(() => import('@/app/(app)/financial-report/p
 const ShiftSchedulingPage = dynamic(() => import('@/app/(app)/shift-scheduling/page'), { ssr: false, loading: () => <LoadingPage /> });
 const MonthlyTasksPage = dynamic(() => import('@/app/(app)/monthly-tasks/page'), { ssr: false, loading: () => <LoadingPage /> });
 const MonthlyTaskReportsPage = dynamic(() => import('@/app/(app)/monthly-task-reports/page'), { ssr: false, loading: () => <LoadingPage /> });
+const DailyAssignmentsPage = dynamic(() => import('@/app/(app)/daily-assignments/page'), { ssr: false, loading: () => <LoadingPage /> });
 const UsersPage = dynamic(() => import('@/app/(app)/users/page'), { ssr: false, loading: () => <LoadingPage /> });
 const TaskListsPage = dynamic(() => import('@/app/(app)/task-lists/page'), { ssr: false, loading: () => <LoadingPage /> });
 const BartenderTasksPage = dynamic(() => import('@/app/(app)/bartender-tasks/page'), { ssr: false, loading: () => <LoadingPage /> });
@@ -113,7 +116,7 @@ const ChecklistPageComponent = dynamic(
 // Placeholder components
 const HomeView = () => <div className="p-4">Home View Content</div>;
 
-function buildTabs(user: any, isCheckedIn: boolean): NavTab[] {
+function buildTabs(user: any, isCheckedIn: boolean, assignedRoles: string[] = [], activeShiftKeys: string[] = []): NavTab[] {
   const commonUserTab: NavTab = {
     id: 'menu',
     label: 'Menu',
@@ -124,6 +127,7 @@ function buildTabs(user: any, isCheckedIn: boolean): NavTab[] {
     return [{ id: 'home', label: 'Trang chủ', icon: Home }, commonUserTab];
   }
 
+  // Owners keep the same dedicated navigation
   if (user.role === 'Chủ nhà hàng') {
     return [
       { id: 'home', label: 'Trang chủ', icon: Home },
@@ -133,6 +137,7 @@ function buildTabs(user: any, isCheckedIn: boolean): NavTab[] {
     ];
   }
 
+  // Cashiers have their own tab
   if (user.role === 'Thu ngân') {
     return [
       { id: 'home', label: 'Trang chủ', icon: Home },
@@ -142,17 +147,32 @@ function buildTabs(user: any, isCheckedIn: boolean): NavTab[] {
     ];
   }
 
+  // Determine quick-access based on assigned role(s) for the user's active shift(s).
+  // Assigned roles take precedence over the user's main role when present.
   let quickAccess: NavTab | null = null;
-  switch (user.role) {
-    case 'Phục vụ':
-      if (isCheckedIn) quickAccess = { id: 'checklist', label: 'Checklist', icon: ClipboardList };
-      break;
-    case 'Pha chế':
-      if (isCheckedIn) quickAccess = { id: 'hygiene', label: 'Vệ sinh', icon: ShieldCheck };
-      break;
-    case 'Quản lý':
-      if (isCheckedIn) quickAccess = { id: 'comprehensive-reports', label: 'Báo cáo toàn diện', icon: FileText };
-      break;
+  const hasAssigned = Array.isArray(assignedRoles) && assignedRoles.length > 0;
+
+  if (hasAssigned) {
+    if (assignedRoles.includes('Phục vụ') && isCheckedIn) {
+      quickAccess = { id: 'checklist', label: 'Checklist', icon: ClipboardList };
+    } else if (assignedRoles.includes('Pha chế') && isCheckedIn) {
+      quickAccess = { id: 'hygiene', label: 'Vệ sinh', icon: ShieldCheck };
+    } else if (assignedRoles.includes('Quản lý') && isCheckedIn) {
+      quickAccess = { id: 'comprehensive-reports', label: 'Báo cáo toàn diện', icon: FileText };
+    }
+  } else {
+    // No assigned role for active shift(s) — fall back to main role behaviour
+    switch (user.role) {
+      case 'Phục vụ':
+        if (isCheckedIn) quickAccess = { id: 'checklist', label: 'Checklist', icon: ClipboardList };
+        break;
+      case 'Pha chế':
+        if (isCheckedIn) quickAccess = { id: 'hygiene', label: 'Vệ sinh', icon: ShieldCheck };
+        break;
+      case 'Quản lý':
+        if (isCheckedIn) quickAccess = { id: 'comprehensive-reports', label: 'Báo cáo toàn diện', icon: FileText };
+        break;
+    }
   }
 
   const tabs: NavTab[] = [{ id: 'home', label: 'Trang chủ', icon: Home }];
@@ -162,16 +182,16 @@ function buildTabs(user: any, isCheckedIn: boolean): NavTab[] {
   return tabs;
 }
 
-function getCurrentShift(): string {
-  const now = new Date();
-  const hour = now.getHours();
-  const minute = now.getMinutes();
-  const time = hour * 60 + minute;
+function getCurrentShift(): ShiftKey {
 
-  if (time >= 5 * 60 + 30 && time < 12 * 60) return 'sang';
-  if (time >= 12 * 60 && time < 17 * 60) return 'trua';
-  if (time >= 17 * 60 && time < 22 * 60 + 30) return 'toi';
-  return 'sang'; // Default or closed
+  // Use the shared shift-utils to determine which shifts are active.
+  // - beforeHours=1 includes the 05:30 early-morning boundary used historically
+  // - afterHours=0 keeps end bounds strict to the configured end hour
+  const active = getActiveShiftKeys(DEFAULT_MAIN_SHIFT_TIMEFRAMES);
+
+  if (active.length === 0) return 'sang'; // fallback to legacy default
+
+  return active[active.length - 1];
 }
 
 const HOME_PATHS = ['/shifts', '/bartender', '/manager', '/admin'];
@@ -225,7 +245,7 @@ function setPageHash(href: string, mode: 'push' | 'replace' = 'push') {
 // usePreserveScroll moved to src/hooks/use-preserve-scroll.ts
 
 export function MobileLayout({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, refreshTrigger, activeShifts, isOnActiveShift } = useAuth();
   const { isCheckedIn } = useCheckInCardPlacement();
   const pathname = usePathname();
   const [activeTab, setActiveTab] = useState('home');
@@ -233,7 +253,8 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
   const [virtualHref, setVirtualHref] = useState<string | null>(null);
   const { restore: restoreScroll, persist: persistScroll } = usePreserveScroll();
 
-  const tabs = useMemo(() => buildTabs(user, isCheckedIn), [user, isCheckedIn]);
+  const access = user ? getUserAccessLinks({ user, isCheckedIn, activeShifts, isOnActiveShift }) : undefined;
+  const tabs = useMemo(() => buildTabs(user, isCheckedIn, access?.meta.assignedRoles ?? [], access?.meta.activeShiftKeys ?? []), [user, isCheckedIn, activeShifts, isOnActiveShift, refreshTrigger]);
 
   // Initialize active tab based on pathname.
   // Important: do NOT let this override hash-driven SPA navigation (#tab / #page),
@@ -279,28 +300,10 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
   // When our virtual route changes (or the active tab/pathname changes), attempt to restore
   useEffect(() => {
     // call restore; hook will no-op on server
-    try { restoreScroll(); } catch {}
+    try { restoreScroll(); } catch { }
   }, [virtualHref, activeTab, pathname, restoreScroll]);
 
-  const mobileNavApi = useMemo(
-    () => ({
-      push: (href: string) => {
-        try { persistScroll(); } catch {}
-        setActiveTab((prev) => (prev === 'menu' ? 'home' : prev));
-        setIsTabContent(true);
-        setVirtualHref(href);
-        setPageHash(href, 'push');
-      },
-      replace: (href: string) => {
-        try { persistScroll(); } catch {}
-        setActiveTab((prev) => (prev === 'menu' ? 'home' : prev));
-        setIsTabContent(true);
-        setVirtualHref(href);
-        setPageHash(href, 'replace');
-      },
-    }),
-    [],
-  );
+  const navigation = useAppNavigation();
 
   // Option B: keep tab navigation in-place, but mirror active tab into the URL hash.
   // This makes the device/browser back button switch tabs predictably.
@@ -377,7 +380,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
 
     if (currentIsQuick && !quickTabVisible) {
       // Move back to home and navigate to the role's home path if needed
-      try { persistScroll(); } catch {}
+      try { persistScroll(); } catch { }
       setActiveTab('home');
       setIsTabContent(true);
       setVirtualHref(null);
@@ -389,7 +392,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
   if (!user) return null;
 
   const handleTabChange = (tabId: string) => {
-    try { persistScroll(); } catch {}
+    try { persistScroll(); } catch { }
     if (tabId === 'menu') {
       // Show the user menu page (mobile-friendly) instead of opening the drawer
       setActiveTab('menu');
@@ -427,7 +430,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
 
     switch (path) {
       case '/':
-        return children;
+        return <div key={`children-${refreshTrigger}`}>{children}</div>;
       case '/shifts':
         return <ShiftsPage />;
       case '/bartender':
@@ -466,6 +469,8 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
         return <MonthlyTasksPage />;
       case '/monthly-task-reports':
         return <MonthlyTaskReportsPage />;
+      case '/daily-assignments':
+        return <DailyAssignmentsPage />;
       case '/users':
         return <UsersPage />;
       case '/task-lists':
@@ -489,20 +494,19 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
       case '/manager/comprehensive-report':
         return <ManagerComprehensiveReportPage />;
       default:
-        return children;
+        return <div key={`children-${refreshTrigger}`}>{children}</div>;
     }
   };
 
   const renderContent = () => {
     if (virtualHref) return renderVirtualRoute(virtualHref);
-    if (!isTabContent) return children;
+    if (!isTabContent) return <div key={`children-${refreshTrigger}`}>{children}</div>;
 
     switch (activeTab) {
       case 'menu':
         return (
           <UserMenuView
             onNavigateToHome={() => handleTabChange('home')}
-            onNavigate={(href) => mobileNavApi.push(href)}
           />
         );
       case 'home':
@@ -510,7 +514,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
         if (user.role === 'Chủ nhà hàng') return <OwnerHomeView isStandalone={false} />;
         if (user.role === 'Pha chế') return <BartenderHomeView />;
         if (user.role === 'Quản lý') return <ManagerHomeView />;
-        return <HomeView />; 
+        return <HomeView />;
       case 'schedule':
         return <ScheduleView />;
       case 'checklist':
@@ -532,17 +536,16 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-3.5rem)] md:hidden">
-      <MobileNavigationProvider value={mobileNavApi}>
         <AppNavigationProvider>
-          <div className={cn("flex-1 pb-16", isTabContent && "p-4")}>
+          <div key={`tab-content-${activeTab}-${virtualHref ?? 'null'}-${refreshTrigger}`} className={cn("flex-1 pb-16", isTabContent && "p-4")}>
             {renderContent()}
           </div>
         </AppNavigationProvider>
-      </MobileNavigationProvider>
-      <BottomNav 
-        tabs={tabs} 
-        activeTab={activeTab} 
-        onTabChange={handleTabChange} 
+
+      <BottomNav
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
         watchValue={isCheckedIn}
       />
     </div>

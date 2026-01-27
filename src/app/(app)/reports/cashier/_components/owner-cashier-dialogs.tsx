@@ -44,6 +44,7 @@ const OwnerCashierDialogs = React.memo(({
     finalHandoverToView,
     dateForNewEntry,
     reporter,
+    parentDialogTag,
 }: {
     inventoryList: InventoryItem[],
     isExpenseDialogOpen: boolean,
@@ -77,6 +78,7 @@ const OwnerCashierDialogs = React.memo(({
     finalHandoverToView: (CashHandoverReport & { finalHandoverDetails: FinalHandoverDetails }) | null,
     dateForNewEntry: string | null,
     reporter: any,
+    parentDialogTag: string,
 }) => {
     return (
         <>
@@ -91,6 +93,7 @@ const OwnerCashierDialogs = React.memo(({
                 otherCostCategories={otherCostCategories}
                 isOwnerView={true}
                 dateForNewEntry={dateForNewEntry}
+                parentDialogTag={parentDialogTag}
             />
             <RevenueStatsDialog
                 open={isRevenueDialogOpen}
@@ -101,6 +104,7 @@ const OwnerCashierDialogs = React.memo(({
                 isOwnerView={true}
                 reporter={reporter}
                 dateForNewEntry={dateForNewEntry}
+                parentDialogTag={parentDialogTag}
             />
             {reporter && (
                 <IncidentReportDialog
@@ -113,6 +117,7 @@ const OwnerCashierDialogs = React.memo(({
                     canManageCategories={canManageCategories}
                     reporter={incidentToEdit?.createdBy ? { userId: incidentToEdit?.createdBy.userId, userName: incidentToEdit?.createdBy.userName } : { userId: reporter.uid, userName: reporter.displayName }}
                     incidentToEdit={incidentToEdit as any}
+                    parentDialogTag={parentDialogTag}
                 />
             )}
             <CashHandoverDialog
@@ -126,6 +131,7 @@ const OwnerCashierDialogs = React.memo(({
                 linkedRevenueStats={linkedRevenueForDialog}
                 linkedExpenseSlips={linkedExpensesForDialog}
                 dateForNewEntry={dateForNewEntry}
+                parentDialogTag={parentDialogTag}
             />
             <HandoverDialog
                 open={isFinalHandoverViewOpen}
@@ -136,6 +142,7 @@ const OwnerCashierDialogs = React.memo(({
                 reportToEdit={finalHandoverToView?.finalHandoverDetails}
                 isOwnerView={true}
                 dateForNewEntry={dateForNewEntry}
+                parentDialogTag={parentDialogTag}
             />
         </>
     );

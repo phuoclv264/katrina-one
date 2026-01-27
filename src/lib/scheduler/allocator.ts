@@ -112,98 +112,105 @@ export function allocate(
 
     addAssignment(shift, f.userId, usersByUid.get(f.userId)?.role || 'Bất kỳ');
   }
-  
-  // Allocate demand
+
+  const fillRole = (
+    shift: AssignedShift,
+    needToFillRole: UserRole | 'Bất kỳ',
+    matcher: (u: ManagedUser, r: UserRole | 'Bất kỳ') => boolean
+  ) => {
+    const maxRoleMap = ctx.maxByShiftRole.get(shift.id) || new Map<UserRole | 'Bất kỳ', number>();
+    const baseTarget = needToFillRole === shift.role
+      ? (maxRoleMap.get(needToFillRole) ?? (shift.minUsers ?? 0))
+      : (maxRoleMap.get(needToFillRole) ?? 0);
+    const count = Math.max(0, baseTarget);
+
+    const roleMax = maxRoleMap.get(needToFillRole) ?? Number.POSITIVE_INFINITY;
+    const assignedFromShift = (shift.assignedUsersWithRole || []).filter(u => u.assignedRole === needToFillRole).length;
+
+    const currentAssignedCount = assignedFromShift;
+    let remaining = Math.max(0, Math.min(count, roleMax) - currentAssignedCount);
+    if (remaining <= 0) return 0;
+
+    const duration = calculateTotalHours([shift.timeSlot]);
+    const dailyAvailability = availability.filter(a => a.date === shift.date);
+    const allShiftsOnDay = workingShifts.filter(s => s.date === shift.date);
+    const priorities = ctx.prioritiesByShift.get(shift.id) || new Map<string, number>();
+
+    const candidates = users.filter(u => matcher(u, needToFillRole));
+
+    const candidateScores = candidates.map(u => {
+      const key = `${u.uid}:${shift.id}`;
+      const banned = ctx.bannedPairs.has(key);
+      const alreadyAssignedHere = (shift.assignedUsersWithRole || []).some(existing => existing.userId === u.uid);
+      const avail = isUserAvailable(u.uid, shift.timeSlot, dailyAvailability);
+      const okCaps = canAssign(u.uid, shift.date, duration);
+      const conflict = hasTimeConflict(u.uid, shift, allShiftsOnDay);
+      const pairBlocked = (shift.assignedUsersWithRole || []).some(existing => isPairBlocked(existing.userId, u.uid, shift.id, ctx));
+
+      if (banned || alreadyAssignedHere || !avail || !okCaps || !!conflict || pairBlocked) {
+        return { user: u, score: Number.NEGATIVE_INFINITY, reason: 'ineligible' as const };
+      }
+      const weekCount = counters.weekShifts.get(u.uid) || 0;
+      const fairness = -weekCount; // fewer assigned shifts get higher priority
+      const p = priorities.get(u.uid) || 0;
+      return { user: u, score: p + fairness, reason: 'eligible' as const };
+    });
+
+    candidateScores.sort((a, b) => {
+      return Math.random() < 0.5 ? -1 : 1;
+    }).sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.user.uid.localeCompare(b.user.uid);
+    });
+
+    for (const cs of candidateScores) {
+      if (remaining <= 0) break;
+      if (cs.score === Number.NEGATIVE_INFINITY) continue;
+      const assignedFromShiftForCandidateRole = (shift.assignedUsersWithRole || []).filter(u => u.assignedRole === needToFillRole).length;
+
+      const currentRoleAssigned = assignedFromShiftForCandidateRole;
+      const candidateRoleMax = maxRoleMap.get(needToFillRole) ?? Number.POSITIVE_INFINITY;
+      if (currentRoleAssigned >= candidateRoleMax) {
+        continue;
+      }
+      addAssignment(shift, cs.user.uid, needToFillRole);
+      remaining -= 1;
+    }
+
+    return remaining;
+  };
+
+  // Phase 1: fill using primary roles only
   for (const shift of workingShifts) {
     const maxRoleMap = ctx.maxByShiftRole.get(shift.id) || new Map<UserRole | 'Bất kỳ', number>();
     const rolesToFill = new Set<UserRole | 'Bất kỳ'>([...maxRoleMap.keys() as any]);
     for (const role of rolesToFill) {
-      const baseTarget = role === shift.role
-        ? (maxRoleMap.get(role) ?? (shift.minUsers ?? 0))
-        : (maxRoleMap.get(role) ?? 0);
-      const count = Math.max(0, baseTarget);
+      fillRole(shift, role, mainRoleMatches);
+    }
+  }
 
-      const roleMax = maxRoleMap.get(role) ?? Number.POSITIVE_INFINITY;
+  // Phase 2: attempt to backfill remaining demand with secondary roles
+  for (const shift of workingShifts) {
+    const maxRoleMap = ctx.maxByShiftRole.get(shift.id) || new Map<UserRole | 'Bất kỳ', number>();
+    const rolesToFill = new Set<UserRole | 'Bất kỳ'>([...maxRoleMap.keys() as any]);
+    for (const role of rolesToFill) {
+      const remainingAfterSecondary = fillRole(shift, role, secondaryRoleMatches);
 
-      const fillRole = (
-        matcher: (u: ManagedUser, r: UserRole | 'Bất kỳ') => boolean,
-        phaseLabel: 'primary' | 'secondary'
-      ) => {
-        const assignedFromShift = (shift.assignedUsersWithRole || []).filter(u => u.assignedRole === role).length;
+      if (remainingAfterSecondary > 0) {
+        unfilled.push({ shiftId: shift.id, role, remaining: remainingAfterSecondary });
+        const mandatoryKeys = [
+          `${shift.id}:${role}`,
+          `${shift.id}:primary:${role}`,
+          `${shift.id}:secondary:${role}`,
+        ];
+        const isMandatory = mandatoryKeys.some(k => ctx.mandatoryDemand.has(k));
+        const time = `${shift.timeSlot.start}-${shift.timeSlot.end}`;
+        const [y, m, d] = shift.date.split('-');
+        const formattedDate = `${d}/${m}/${y}`;
 
-        const currentAssignedCount = assignedFromShift;
-        let remaining = Math.max(0, Math.min(count, roleMax) - currentAssignedCount);
-        if (remaining <= 0) return 0;
-
-        const duration = calculateTotalHours([shift.timeSlot]);
-        const dailyAvailability = availability.filter(a => a.date === shift.date);
-        const allShiftsOnDay = workingShifts.filter(s => s.date === shift.date);
-        const priorities = ctx.prioritiesByShift.get(shift.id) || new Map<string, number>();
-
-        const candidates = users.filter(u => matcher(u, role));
-
-        const candidateScores = candidates.map(u => {
-          const key = `${u.uid}:${shift.id}`;
-          const banned = ctx.bannedPairs.has(key);
-          const alreadyAssignedHere = (shift.assignedUsersWithRole || []).some(existing => existing.userId === u.uid);
-          const avail = isUserAvailable(u.uid, shift.timeSlot, dailyAvailability);
-          const okCaps = canAssign(u.uid, shift.date, duration);
-          const conflict = hasTimeConflict(u.uid, shift, allShiftsOnDay);
-          const pairBlocked = (shift.assignedUsersWithRole || []).some(existing => isPairBlocked(existing.userId, u.uid, shift.id, ctx));
-
-          if (banned || alreadyAssignedHere || !avail || !okCaps || !!conflict || pairBlocked) {
-            return { user: u, score: Number.NEGATIVE_INFINITY, reason: 'ineligible' as const };
-          }
-          const weekCount = counters.weekShifts.get(u.uid) || 0;
-          const fairness = -weekCount; // fewer assigned shifts get higher priority
-          const p = priorities.get(u.uid) || 0;
-          return { user: u, score: p + fairness, reason: 'eligible' as const };
-        });
-
-        candidateScores.sort((a, b) => {
-          return Math.random() < 0.5 ? -1 : 1;
-        }).sort((a, b) => {
-          if (b.score !== a.score) return b.score - a.score;
-          return a.user.uid.localeCompare(b.user.uid);
-        });
-
-        for (const cs of candidateScores) {
-          if (remaining <= 0) break;
-          if (cs.score === Number.NEGATIVE_INFINITY) continue;
-          const assignedFromShiftForCandidateRole = (shift.assignedUsersWithRole || []).filter(u => u.assignedRole === cs.user.role).length;
-
-          const currentRoleAssigned = assignedFromShiftForCandidateRole;
-          const candidateRoleMax = maxRoleMap.get(cs.user.role) ?? Number.POSITIVE_INFINITY;
-          if (currentRoleAssigned >= candidateRoleMax) {
-            continue;
-          }
-          addAssignment(shift, cs.user.uid, role);
-          remaining -= 1;
-        }
-
-        return remaining;
-      };
-
-      // Primary pass: match main role
-      const remainingAfterPrimary = fillRole(mainRoleMatches, 'primary');
-
-      // Secondary pass: only if still lacking
-      if (remainingAfterPrimary > 0) {
-        const remainingAfterSecondary = fillRole(secondaryRoleMatches, 'secondary');
-        if (remainingAfterSecondary > 0) {
-          unfilled.push({ shiftId: shift.id, role, remaining: remainingAfterSecondary });
-            const mandatoryKeys = [
-            `${shift.id}:${role}`,
-            `${shift.id}:primary:${role}`,
-            `${shift.id}:secondary:${role}`,
-            ];
-            const isMandatory = mandatoryKeys.some(k => ctx.mandatoryDemand.has(k));
-            if (isMandatory) {
-            const time = `${shift.timeSlot.start}-${shift.timeSlot.end}`;
-            const [y, m, d] = shift.date.split('-');
-            const formattedDate = `${d}/${m}/${y}`;
-            warnings.push(`Thiếu nhân sự bắt buộc cho ca ${shift.label} (${formattedDate} ${time}): còn thiếu ${remainingAfterSecondary} người vai trò ${role}.`);
-            }
+        if (isMandatory) {
+          const msg = `Thiếu nhân sự bắt buộc cho ca ${shift.label} (${formattedDate} ${time}): còn thiếu ${remainingAfterSecondary} người vai trò ${role}.`;
+          warnings.push(msg);
         }
       }
     }

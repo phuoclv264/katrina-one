@@ -18,6 +18,9 @@ export type ManagedUser = {
   secondaryRoles?: UserRole[];
   notes?: string;
   hourlyRate?: number; // Added for payroll
+  photoURL?: string | null;
+  /** Mark internal/dev accounts that should see test-only features/docs */
+  isTestAccount?: boolean;
 };
 
 export type SimpleUser = {
@@ -35,7 +38,7 @@ export type Task = {
   text: string;
   isCritical?: boolean;
   type: 'photo' | 'boolean' | 'opinion';
-  area?: string;
+  minCompletions?: number; // Minimum number of completions required to mark task as done (default: 1)
 };
 
 // Type for AI-parsed server tasks
@@ -80,6 +83,7 @@ export type CompletionRecord = {
   photos?: string[]; // Permanent Firebase Storage URLs
   value?: boolean; // For boolean tasks (Yes/No)
   opinion?: string; // For opinion tasks
+  note?: string; // For general notes/comments on the task
 };
 
 export type TaskCompletion = {
@@ -342,6 +346,7 @@ export type ShiftTemplate = {
   timeSlot: TimeSlot;
   applicableDays: number[]; // 0 for Sun, 1 for Mon, ..., 6 for Sat
   minUsers: number;
+  requiredRoles?: { role: UserRole; count: number }[]; // e.g., [{role: 'Pha chế', count: 2}, ...]
 };
 
 export type AssignedUser = {
@@ -366,6 +371,7 @@ export type AssignedShift = {
   assignedUsers: AssignedUser[];
   assignedUsersWithRole?: AssignedUserWithRole[]; // Optional array of user-role pairs
   minUsers: number;
+  requiredRoles?: { role: UserRole; count: number }[];
   employees?: EmployeeAttendance[]; // Augmented with attendance info on admin page
 };
 
@@ -377,11 +383,13 @@ export type EmployeeAttendance = {
   checkOutTime: Date | null;
   lateMinutes: number | null;
   lateReason: string | null;
+  lateReasonPhotoUrl?: string | null;
+  lateReasonMediaType?: 'photo' | 'video' | null;
   /** If the user requested to be late, this is the estimated late minutes */
   estimatedLateMinutes?: number | null;
 };
 
-export type EmployeeStatus = 'present' | 'late' | 'absent' | 'pending_late';
+export type EmployeeStatus = 'present' | 'late' | 'absent' | 'pending_late' | 'off-shift';
 
 export type Schedule = {
   weekId: string; // e.g., "2024-W28"
@@ -394,6 +402,37 @@ export type Availability = {
   userName: string;
   date: string | Timestamp; // YYYY-MM-DD
   availableSlots: TimeSlot[];
+};
+
+export type ShiftBusyEvidence = {
+  id: string;
+  weekId: string;
+  shiftId: string;
+  shiftDate: string;
+  shiftLabel: string;
+  role: UserRole | 'Bất kỳ';
+  submittedBy: SimpleUser;
+  message: string;
+  media?: MediaAttachment[];
+  submittedAt: string | Timestamp | FieldValue;
+  updatedAt?: string | Timestamp | FieldValue;
+};
+
+export type BusyReportTargetMode = 'users' | 'roles' | 'all';
+
+export type BusyReportRequest = {
+  id: string;
+  weekId: string;
+  shiftId: string;
+  createdBy: SimpleUser;
+  createdAt: string | Timestamp | FieldValue;
+  updatedAt?: string | Timestamp | FieldValue;
+  active: boolean;
+  targetMode: BusyReportTargetMode;
+  /** When targetMode==='users' */
+  targetUserIds?: string[];
+  /** When targetMode==='roles' */
+  targetRoles?: UserRole[];
 };
 
 // --- Auto Scheduling Constraint Types ---
@@ -500,6 +539,7 @@ export type NotificationType =
   | 'schedule_proposal'
   | 'new_schedule'
   | 'schedule_changed'
+  | 'new_daily_task_report'
   | 'new_task_report'
   | 'new_whistleblowing_report'
   | 'new_monthly_task_report'
@@ -535,13 +575,22 @@ export type NewSchedulePayload = {
   notificationType?: 'new_schedule'
 }
 
+export type DailyTaskReportPayload = {
+  notificationType?: 'new_daily_task_report';
+  taskId: string;
+  taskTitle: string;
+  assignedDate: string;
+  reportId: string;
+  url?: string;
+}
+
 export type NewViolationPayload = {
   notificationType?: 'new_violation';
   violationId: string;
   title: string;
 }
 
-export type AnyNotificationPayload = PassRequestPayload | NewSchedulePayload | NewViolationPayload;
+export type AnyNotificationPayload = PassRequestPayload | NewSchedulePayload | NewViolationPayload | DailyTaskReportPayload;
 
 export type Notification = {
   id: string;
@@ -562,6 +611,9 @@ export interface AuthUser extends User {
   role: UserRole;
   secondaryRoles?: UserRole[];
   anonymousName?: string;
+  photoURL: string | null;
+  /** Internal/dev flag: test accounts can see test-only events/features */
+  isTestAccount?: boolean;
 }
 
 // --- Cashier Types ---
@@ -1003,6 +1055,49 @@ export type MonthlySalarySheet = {
   salaryRecords: Record<string, SalaryRecord>; // Keyed by userId
 };
 
+// --- Daily Assignments ---
+
+export type DailyTaskTargetMode = 'roles' | 'users';
+
+export type DailyTaskStatus = 'open' | 'in_review' | 'completed';
+
+export type DailyTask = {
+  id: string;
+  title: string;
+  description: string;
+  assignedDate: string; // YYYY-MM-DD
+  targetMode: DailyTaskTargetMode;
+  targetRoles?: UserRole[];
+  targetUserIds?: string[];
+  createdBy: SimpleUser;
+  createdByRole: UserRole;
+  media?: MediaAttachment[];
+  status: DailyTaskStatus;
+  completedAt?: string | Timestamp;
+  completedBy?: SimpleUser;
+  summaryNote?: string;
+  createdAt: string | Timestamp | FieldValue;
+  updatedAt: string | Timestamp | FieldValue;
+};
+
+export type DailyTaskReportStatus = 'submitted' | 'manager_approved' | 'rejected';
+
+export type DailyTaskReport = {
+  id: string;
+  taskId: string;
+  taskTitle: string;
+  assignedDate: string;
+  reporter: SimpleUser;
+  content?: string;
+  media?: MediaAttachment[];
+  status: DailyTaskReportStatus;
+  managerNote?: string;
+  reviewedBy?: SimpleUser;
+  reviewedAt?: string | Timestamp | FieldValue;
+  createdAt: string | Timestamp | FieldValue;
+  updatedAt: string | Timestamp | FieldValue;
+};
+
 // --- Monthly Tasks ---
 
 export type TaskSchedule =
@@ -1058,6 +1153,8 @@ export type TaskCompletionRecord = {
   completedBy?: SimpleUser;
   assignedDate: string; // YYYY-MM-DD
   completedAt?: Timestamp;
+  /** Exact time when a NOTE was sent (different from completedAt). */
+  noteCreatedAt?: Timestamp;
   media?: MediaAttachment[]; // Array to store photos/videos
   note?: string;
 };
@@ -1067,6 +1164,7 @@ export type MonthlyTaskAssignment = {
   taskName: string;
   description: string;
   assignedDate: string; // YYYY-MM-DD
+  appliesToRole?: UserRole | 'Tất cả';
 
   // New structure for collaborative tasks
   responsibleUsersByShift: {
@@ -1115,6 +1213,8 @@ export type Event = {
     description: string;
     imageUrl?: string;
   };
+  /** Mark event as test-only — only visible to users with `isTestAccount` */
+  isTest?: boolean;
 };
 
 export type EventVote = {

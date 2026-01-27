@@ -1,35 +1,15 @@
 "use client"
-import { useState, useMemo, useCallback } from "react"
+
+import { useState, useMemo, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Camera, Video, CheckCircle, Loader2, User, AlertCircle, Plus, ChevronDown, Eye } from "lucide-react"
-import type { MonthlyTaskAssignment, MediaItem, MediaAttachment, TaskCompletionRecord } from "@/lib/types"
-import { dataStore } from "@/lib/data-store"
-import { toast } from "react-hot-toast"
-import CameraDialog from "@/components/camera-dialog"
-import Image from "next/image"
+import { Badge } from "@/components/ui/badge"
+import { CheckCircle, AlertCircle, ArrowRight } from "lucide-react"
+import type { MonthlyTaskAssignment, MediaItem } from "@/lib/types"
 import { useAuth } from "@/hooks/use-auth"
 import { format } from "date-fns"
-import {
-  Dialog,
-  DialogTrigger,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
-  DialogHeader,
-} from "@/components/ui/dialog"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Textarea } from "@/components/ui/textarea"
-import { useLightbox } from "@/contexts/lightbox-context"
-import { useDataRefresher } from "@/hooks/useDataRefresher"
-import { Badge } from "@/components/ui/badge"
-
-type TaskReportingCardProps = {
-  assignment: MonthlyTaskAssignment
-  shiftTemplates: any[]
-}
+import { TaskReportingDialog } from "./task-reporting-dialog"
+import { dataStore } from "@/lib/data-store"
+import { toast } from "@/components/ui/pro-toast"
 
 function TaskStatus({ assignment }: { assignment: MonthlyTaskAssignment }) {
   const { user } = useAuth();
@@ -44,7 +24,7 @@ function TaskStatus({ assignment }: { assignment: MonthlyTaskAssignment }) {
 
   if (!currentUserCompletion) {
     return (
-      <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 whitespace-nowrap">
+      <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-900/50 dark:text-slate-400 dark:border-slate-800 font-medium px-2.5 py-0.5 rounded-full whitespace-nowrap">
         Chưa làm
       </Badge>
     )
@@ -52,17 +32,22 @@ function TaskStatus({ assignment }: { assignment: MonthlyTaskAssignment }) {
 
   if (currentUserCompletion.completedAt) {
     return (
-      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800 whitespace-nowrap">
-        <CheckCircle className="w-3 h-3 mr-1" />
-        {format(currentUserCompletion.completedAt.toDate(), "HH:mm")}
+      <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/50 font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap shadow-sm shadow-emerald-100/50 dark:shadow-none">
+        <span className="flex items-center gap-1.5">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          {format(currentUserCompletion.completedAt.toDate(), "HH:mm")}
+        </span>
       </Badge>
     )
   }
 
   if (currentUserCompletion.note) {
     return (
-      <Badge variant="secondary" className="bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800 whitespace-nowrap">
-        <AlertCircle className="w-3 h-3 mr-1" />
+      <Badge variant="secondary" className="bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-900/50 font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap shadow-sm shadow-amber-100/50 dark:shadow-none">
+        <AlertCircle className="w-3.5 h-3.5 mr-1.5 fill-amber-50 transition-colors" />
         Đã báo cáo
       </Badge>
     )
@@ -71,485 +56,180 @@ function TaskStatus({ assignment }: { assignment: MonthlyTaskAssignment }) {
   return null
 }
 
-export function IndividualTask({ assignment, shiftTemplates }: TaskReportingCardProps) {
-  const [isCameraOpen, setIsCameraOpen] = useState(false)
-  const { user } = useAuth()
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const { openLightbox } = useLightbox()
-  const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false)
-  const [noteContent, setNoteContent] = useState("")
-  const [expandedCompletions, setExpandedCompletions] = useState(false)
-  const [refreshKey, setRefreshKey] = useState(0)
-
-  const handleDataRefresh = useCallback(() => {
-    setRefreshKey((prev) => prev + 1)
-  }, [])
-
-  useDataRefresher(handleDataRefresh)
-
-  const handleMediaSubmit = async (media: MediaItem[]) => {
-    if (media.length === 0) return
-    setIsSubmitting(true)
-    if (!user) return
-    try {
-      await dataStore.updateMonthlyTaskCompletionStatus(
-        assignment.taskId,
-        assignment.taskName,
-        { userId: user.uid, userName: user.displayName },
-        new Date(assignment.assignedDate),
-        true,
-        media,
-      )
-      toast.success(`Đã báo cáo hoàn thành công việc: "${assignment.taskName}"`)
-    } catch (error) {
-      console.error("Failed to report task completion:", error)
-      toast.error("Không thể báo cáo hoàn thành công việc.")
-    } finally {
-      setIsSubmitting(false)
-      setIsCameraOpen(false)
-    }
-  }
-
-  const handleNoteSubmit = async () => {
-    if (!noteContent.trim() || !user) {
-      toast.error("Vui lòng nhập nội dung báo cáo.")
-      return
-    }
-    setIsSubmitting(true)
-    try {
-      await dataStore.updateMonthlyTaskCompletionStatus(
-        assignment.taskId,
-        assignment.taskName,
-        { userId: user.uid, userName: user.displayName },
-        new Date(assignment.assignedDate),
-        !!currentUserCompletion?.completedAt,
-        [],
-        noteContent,
-      )
-      toast.success("Đã gửi báo cáo.")
-      setIsNoteDialogOpen(false)
-    } catch (error) {
-      toast.error("Không thể gửi báo cáo.")
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  const handleNoteDialogOpenChange = (open: boolean) => {
-    if (!open) {
-      setNoteContent("")
-    }
-    setIsNoteDialogOpen(open)
-  }
-
-  const createLightboxSlides = (media: MediaAttachment[]) =>
-    media.map((att) => {
-      if (att.type === "video") {
-        return {
-          type: "video" as const,
-          sources: [
-            { src: att.url, type: "video/mp4" },
-            { src: att.url, type: "video/webm" },
-          ],
-        }
-      }
-      return { src: att.url }
-    })
-
-  const handleOpenLightbox = (media: MediaAttachment[], index: number) => {
-    openLightbox(createLightboxSlides(media), index)
-  }
-
-  const currentUserCompletion =
-    assignment.completions.find((c) => c.completedBy?.userId === user?.uid) ||
-    assignment.otherCompletions.find((c) => c.completedBy?.userId === user?.uid)
-
-  const parseTime = (timeStr: string) => {
-    const [hours, minutes] = timeStr.split(":").map(Number)
-    return hours + minutes / 60
-  }
-
-  const completionsByShift = useMemo(() => {
-    const assignedCompletions = new Map<string, TaskCompletionRecord>()
-
-    assignment.completions.forEach((completion) => {
-      if (!completion.completedAt || assignedCompletions.has(completion.completedBy!.userId)) {
-        return
-      }
-
-      const completionHour = completion.completedAt.toDate().getHours()
-      let bestShiftId: string | null = null
-      let minDistance = Number.POSITIVE_INFINITY
-
-      assignment.responsibleUsersByShift.forEach((shift) => {
-        if (shift.users.some((u) => u.userId === completion.completedBy?.userId)) {
-          const templateId = shift.shiftId.split("_").slice(2).join("_")
-          const template = shiftTemplates.find((t) => t.id === templateId)
-
-          if (template && template.timeSlot) {
-            const startHour = parseTime(template.timeSlot.start)
-            const endHour = parseTime(template.timeSlot.end)
-
-            if (completionHour >= startHour && completionHour < endHour) {
-              minDistance = 0
-              bestShiftId = shift.shiftId
-            } else {
-              const shiftMidpoint = (startHour + endHour) / 2
-              const distance = Math.abs(completionHour - shiftMidpoint)
-              if (distance < minDistance) {
-                minDistance = distance
-                bestShiftId = shift.shiftId
-              }
-            }
-          }
-        }
-      })
-      if (bestShiftId) {
-        assignedCompletions.set(`${bestShiftId}-${completion.completedBy!.userId}`, completion)
-      }
-    })
-    return assignedCompletions
-  }, [assignment.completions, assignment.responsibleUsersByShift, shiftTemplates, refreshKey])
-
-  return (
-    <>
-      <div className="bg-transparent">
-        {assignment.description && (
-          <div className="px-4 py-3 border-b border-dashed border-gray-200 dark:border-slate-800">
-            <p className="text-sm text-muted-foreground leading-relaxed">{assignment.description}</p>
-          </div>
-        )}
-
-        {currentUserCompletion?.media && currentUserCompletion.media.length > 0 && (
-          <div className="px-4 py-3 border-b border-gray-100 dark:border-slate-800">
-            <p className="text-xs font-semibold text-muted-foreground mb-2">BẰNG CHỨNG ĐÃ GỬI</p>
-            <div className="flex items-center gap-2 overflow-x-auto pb-2">
-              {currentUserCompletion.media.map((att, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleOpenLightbox(currentUserCompletion.media!, index)}
-                  className="relative w-16 h-16 rounded-lg overflow-hidden group flex-shrink-0 ring-1 ring-border hover:ring-primary transition-all"
-                >
-                  {att.type === "photo" ? (
-                    <Image
-                      src={att.url || "/placeholder.svg"}
-                      alt={`Evidence ${index + 1}`}
-                      fill
-                      className="object-cover group-hover:scale-110 transition-transform duration-300"
-                    />
-                  ) : (
-                    <>
-                      <video
-                        src={`${att.url}#t=0.1`}
-                        preload="metadata"
-                        muted
-                        playsInline
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                      />
-                      <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                        <Video className="h-6 w-6 text-white drop-shadow-md" />
-                      </div>
-                    </>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {currentUserCompletion?.note && (
-          <div className="px-4 py-1 border-b border-gray-100 dark:border-slate-800">
-            <div className="flex items-start gap-2">
-              <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-              <p
-                className="text-sm text-amber-600 dark:text-amber-400 italic"
-                title={currentUserCompletion.note}
-              >
-                {currentUserCompletion.note}
-              </p>
-            </div>
-          </div>
-        )}
-
-        <div className="px-4 py-2 flex flex-wrap items-center gap-3">
-          {currentUserCompletion ? (
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => setIsCameraOpen(true)}
-                disabled={isSubmitting}
-                className="h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium transition-all active:scale-95"
-              >
-                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-                Thêm ảnh/video
-              </Button>
-
-              <Dialog open={isNoteDialogOpen} onOpenChange={handleNoteDialogOpenChange}>
-                <DialogTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={isSubmitting}
-                    onClick={() => setNoteContent(currentUserCompletion?.note || "")}
-                    className="h-10 border-amber-200 text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:border-amber-900 dark:text-amber-500 dark:hover:bg-amber-900/20 rounded-xl font-medium transition-all active:scale-95"
-                  >
-                    <AlertCircle className="mr-2 h-4 w-4" />
-                    Báo cáo
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Báo cáo</DialogTitle>
-                    <DialogDescription>Lý do không thực hiện công việc, hoặc vấn đề phát sinh</DialogDescription>
-                  </DialogHeader>
-                  <Textarea
-                    value={noteContent}
-                    onChange={(e) => setNoteContent(e.target.value)}
-                    placeholder="Nhập nội dung báo cáo..."
-                    rows={3}
-                    className="text-sm"
-                  />
-                  <DialogFooter>
-                    <DialogClose asChild>
-                      <Button variant="outline" size="sm">
-                        Hủy
-                      </Button>
-                    </DialogClose>
-                    <Button size="sm" onClick={handleNoteSubmit} disabled={isSubmitting}>
-                      {isSubmitting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-                      Gửi báo cáo
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
-          ) : (
-            <>
-              <Button
-                size="sm"
-                onClick={() => setIsCameraOpen(true)}
-                disabled={isSubmitting}
-                className="h-10 flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-md shadow-emerald-100 dark:shadow-none font-semibold transition-all active:scale-95"
-              >
-                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
-                Bằng chứng
-              </Button>
-
-              <Dialog open={isNoteDialogOpen} onOpenChange={handleNoteDialogOpenChange}>
-                <DialogTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={isSubmitting}
-                    className="h-10 border-amber-200 text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:border-amber-900 dark:text-amber-500 dark:hover:bg-amber-900/20 rounded-xl font-medium transition-all active:scale-95"
-                  >
-                    <AlertCircle className="mr-2 h-4 w-4" />
-                    Báo cáo
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Báo cáo</DialogTitle>
-                    <DialogDescription>Lý do không thực hiện công việc, hoặc vấn đề phát sinh</DialogDescription>
-                  </DialogHeader>
-                  <Textarea
-                    value={noteContent}
-                    onChange={(e) => setNoteContent(e.target.value)}
-                    placeholder="Nhập nội dung báo cáo..."
-                    rows={3}
-                    className="text-sm"
-                  />
-                  <DialogFooter>
-                    <DialogClose asChild>
-                      <Button variant="outline" size="sm">
-                        Hủy
-                      </Button>
-                    </DialogClose>
-                    <Button size="sm" onClick={handleNoteSubmit} disabled={isSubmitting}>
-                      {isSubmitting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-                      Gửi báo cáo
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </>
-          )}
-
-          <div className="ml-auto">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setExpandedCompletions(!expandedCompletions)}
-              className="text-xs text-muted-foreground h-8"
-            >
-              {expandedCompletions ? "Thu gọn" : "Lịch sử"}
-              <ChevronDown className={`ml-1 h-3 w-3 transition-transform ${expandedCompletions ? "rotate-180" : ""}`} />
-            </Button>
-          </div>
-        </div>
-
-        {expandedCompletions && (
-          <div className="border-t border-gray-100 dark:border-slate-800 px-4 py-3 bg-gray-50/50 dark:bg-slate-900/30 space-y-4 text-xs animate-in slide-in-from-top-2 duration-200">
-            {assignment.responsibleUsersByShift.map(({ shiftId, shiftLabel, users }) => (
-              <div key={shiftId}>
-                <p className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider mb-2">{shiftLabel}</p>
-                <div className="space-y-2 pl-2 border-l-2 border-gray-200 dark:border-slate-700">
-                  {users.map((responsibleUser) => {
-                    const completion = completionsByShift.get(`${shiftId}-${responsibleUser.userId}`)
-                    return (
-                      <div key={responsibleUser.userId} className="text-xs">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-slate-700 flex items-center justify-center">
-                              <User className="h-3 w-3 text-muted-foreground" />
-                            </div>
-                            <span className="font-medium">{responsibleUser.userName}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {completion?.media && completion.media.length > 0 && (
-                              <button
-                                onClick={() => handleOpenLightbox(completion.media!, 0)}
-                                className="text-muted-foreground hover:text-primary p-1 hover:bg-muted rounded-full transition-colors"
-                                title="Xem bằng chứng"
-                              >
-                                <Eye className="h-3.5 w-3.5" />
-                              </button>
-                            )}
-                            {completion?.completedAt && (
-                              <Badge variant="outline" className="h-5 px-1.5 text-[10px] border-emerald-200 text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-400">
-                                {format(completion.completedAt.toDate(), "HH:mm")}
-                              </Badge>
-                            )}
-                            {!completion?.completedAt && !completion?.note && (
-                              <span className="text-muted-foreground text-[10px] italic">Chưa làm</span>
-                            )}
-                          </div>
-                        </div>
-                        {completion?.note && (
-                          <div className="mt-1 flex items-start gap-2">
-                            <AlertCircle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-                            <span
-                              className="text-amber-600 dark:text-amber-400 text-[10px] italic"
-                              title={completion.note}
-                            >
-                              {completion.note}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
-
-            {assignment.otherCompletions.length > 0 && (
-              <div>
-                <p className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider mb-2">Khác</p>
-                <div className="space-y-2 pl-2 border-l-2 border-dashed border-gray-200 dark:border-slate-700">
-                  {assignment.otherCompletions.map((completion, idx) => (
-                    <div
-                      key={completion.completionId || `${completion.completedBy?.userId || 'unknown'}-${idx}`}
-                      className="text-xs"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-slate-700 flex items-center justify-center">
-                            <User className="h-3 w-3 text-muted-foreground" />
-                          </div>
-                          <span className="font-medium">{completion.completedBy?.userName || "Unknown"}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {completion.media && completion.media.length > 0 && (
-                            <button onClick={() => handleOpenLightbox(completion.media!, 0)} className="text-muted-foreground hover:text-primary p-1 hover:bg-muted rounded-full transition-colors" title="Xem bằng chứng">
-                              <Eye className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                          {completion.completedAt && (
-                            <Badge variant="outline" className="h-5 px-1.5 text-[10px] border-emerald-200 text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-400">
-                              {format(completion.completedAt.toDate(), "HH:mm")}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-
-                      {completion?.note && (
-                        <div className="mt-1 flex items-start gap-2">
-                          <AlertCircle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-                          <span
-                            className="text-amber-600 dark:text-amber-400 text-[10px] italic"
-                            title={completion.note}
-                          >
-                            {completion.note}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      <CameraDialog isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onSubmit={handleMediaSubmit} captureMode="both" />
-    </>
-  )
-}
-
 type TodaysTasksCardProps = {
-  assignments: MonthlyTaskAssignment[]
-  shiftTemplates: any[]
-}
+  assignments: MonthlyTaskAssignment[];
+};
 
-export default function TodaysTasksCard({ assignments, shiftTemplates }: TodaysTasksCardProps) {
-  const { user } = useAuth();
+export default function TodaysTasksCard({ assignments }: TodaysTasksCardProps) {
+  const { user, todaysShifts, activeShifts, isOnActiveShift } = useAuth();
+  const [selectedAssignment, setSelectedAssignment] = useState<MonthlyTaskAssignment | null>(null);
 
-  if (assignments.length === 0) {
+  // Update selectedAssignment when assignments change to keep dialog data fresh
+  useEffect(() => {
+    if (selectedAssignment) {
+      const updatedAssignment = assignments.find(a => a.taskId === selectedAssignment.taskId);
+      if (updatedAssignment) {
+        setSelectedAssignment(updatedAssignment);
+      }
+    }
+  }, [assignments, selectedAssignment]);
+
+  const visibleAssignments = useMemo(() => {
+    if (!user) return [] as MonthlyTaskAssignment[];
+
+    const userIsOnActiveShift = Boolean(isOnActiveShift) || !!(activeShifts || []).some(s => s.assignedUsers.some(u => u.userId === user.uid));
+
+    if (userIsOnActiveShift) {
+      return assignments.filter(a =>
+        a.responsibleUsersByShift.some(s => s.users.some(u => u.userId === user.uid)) ||
+        a.completions.some(c => c.completedBy?.userId === user.uid) ||
+        a.otherCompletions.some(c => c.completedBy?.userId === user.uid)
+      );
+    }
+
+    const userRoles = [user.role, ...(user.secondaryRoles || [])];
+    return assignments.filter(a =>
+      a.completions.some(c => c.completedBy?.userId === user.uid) ||
+      a.otherCompletions.some(c => c.completedBy?.userId === user.uid) ||
+      (a.appliesToRole === 'Tất cả') ||
+      (!!a.appliesToRole && userRoles.includes(a.appliesToRole as any))
+    );
+  }, [assignments, user, todaysShifts, activeShifts, isOnActiveShift]);
+
+  if (visibleAssignments.length === 0) {
     return null
   }
 
-  const getStatusClasses = (assignment: MonthlyTaskAssignment) => {
-    if (!user) return "border-l-slate-200 dark:border-l-slate-800";
+  const handleSubmitMedia = async (assignment: MonthlyTaskAssignment, media: MediaItem[], note?: string) => {
+    if (!user) throw new Error("Missing user")
+    await dataStore.updateMonthlyTaskCompletionStatus(
+      assignment.taskId,
+      assignment.taskName,
+      { userId: user.uid, userName: user.displayName || user.email || "Ẩn danh" },
+      new Date(assignment.assignedDate),
+      true,
+      media,
+      note,
+    )
+  }
+
+  const handleSubmitNote = async (assignment: MonthlyTaskAssignment, note: string, markCompleted: boolean) => {
+    if (!user) throw new Error("Missing user")
+    await dataStore.updateMonthlyTaskCompletionStatus(
+      assignment.taskId,
+      assignment.taskName,
+      { userId: user.uid, userName: user.displayName || user.email || "Ẩn danh" },
+      new Date(assignment.assignedDate),
+      markCompleted,
+      [],
+      note,
+    )
+  }
+
+  const getStatusItemClasses = (assignment: MonthlyTaskAssignment) => {
+    if (!user) return "border-slate-100 dark:border-slate-800";
 
     const completion =
       assignment.completions.find((c) => c.completedBy?.userId === user.uid) ||
       assignment.otherCompletions.find((c) => c.completedBy?.userId === user.uid);
 
-    if (completion?.completedAt) return "border-l-emerald-500 bg-emerald-50/50 dark:bg-emerald-900/10";
-    if (completion?.note) return "border-l-amber-500 bg-amber-50/50 dark:bg-amber-900/10";
-    return "border-l-slate-300 dark:border-l-slate-700";
+    if (completion?.completedAt) return "border-emerald-200/50 dark:border-emerald-500/20 bg-emerald-50/30 dark:bg-emerald-500/5 shadow-sm shadow-emerald-100/20";
+    if (completion?.note) return "border-amber-200/50 dark:border-amber-500/20 bg-amber-50/30 dark:bg-amber-500/5 shadow-sm shadow-amber-100/20";
+    return "border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900/50";
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Công việc định kỳ hôm nay</CardTitle>
-        <CardDescription>Bạn có {assignments.length} công việc cần hoàn thành.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Accordion type="multiple" className="w-full space-y-3">
-          {assignments.map((assignment) => (
-            <AccordionItem
-              key={assignment.taskId}
-              value={assignment.taskId}
-              className={`border rounded-lg bg-card shadow-sm overflow-hidden border-l-4 ${getStatusClasses(assignment)}`}
-            >
-              <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/50 transition-colors">
-                <div className="flex items-center justify-between w-full gap-3 pr-2">
-                  <span className="font-semibold text-left text-sm flex-1 leading-snug">{assignment.taskName}</span>
-                  <TaskStatus assignment={assignment} />
+    <>
+      <Card className="border-none shadow-none bg-transparent">
+        <CardHeader className="px-0 pb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-3xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-primary shadow-sm">
+                <CheckCircle className="w-6 h-6" strokeWidth={2.5} />
+              </div>
+              <div>
+                <CardTitle className="text-2xl font-black tracking-tight text-slate-900 dark:text-white uppercase">CÔNG VIỆC HÀNG NGÀY</CardTitle>
+                <CardDescription className="font-semibold text-slate-500 flex items-center gap-2 mt-0.5">
+                  <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
+                  Bạn có <span className="text-slate-900 dark:text-slate-200 font-bold">{visibleAssignments.length}</span> đầu việc chờ xử lý
+                </CardDescription>
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="px-4 pb-4">
+          <div className="grid grid-cols-1 gap-3">
+            {visibleAssignments.map((assignment) => (
+              <div
+                key={assignment.taskId}
+                onClick={() => setSelectedAssignment(assignment)}
+                className={`group relative flex flex-col gap-3 p-4 border rounded-[32px] cursor-pointer transition-all duration-300 active:scale-[0.97] hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-1.5 ${getStatusItemClasses(assignment)}`}
+              >
+                {/* Header: Meta & Status Badge */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-1.5 h-6 rounded-full bg-primary/20 group-hover:bg-primary transition-colors duration-300" />
+                    <span className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em]">
+                      Nhiệm vụ
+                    </span>
+                  </div>
+                  <div className="transform group-hover:scale-110 transition-transform duration-300">
+                    <TaskStatus assignment={assignment} />
+                  </div>
                 </div>
-              </AccordionTrigger>
-              <AccordionContent className="border-t bg-white dark:bg-slate-950 p-0">
-                <IndividualTask assignment={assignment} shiftTemplates={shiftTemplates} />
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
-      </CardContent>
-    </Card>
+
+                {/* Body: Full Task Name */}
+                <div className="flex-1 py-1">
+                  <h3 className="text-lg font-extrabold leading-tight text-slate-900 dark:text-white group-hover:text-primary transition-colors duration-300 break-words">
+                    {assignment.taskName}
+                  </h3>
+                </div>
+
+                {/* Footer: Interaction Hint */}
+                <div className="flex items-center justify-between border-t border-slate-100/50 dark:border-slate-800/30">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+                      <ArrowRight className="w-3 h-3 text-slate-400 group-hover:text-primary transition-colors" />
+                    </div>
+                    <p className="text-[12px] text-slate-400 dark:text-slate-500 font-bold italic tracking-tight">
+                      Nhấn để báo cáo kết quả
+                    </p>
+                  </div>
+                </div>
+
+                {/* Subtle outer glow on hover */}
+                <div className="absolute inset-0 rounded-[32px] border-2 border-primary/0 group-hover:border-primary/5 transition-colors pointer-events-none" />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+      
+      {selectedAssignment && (
+        <TaskReportingDialog
+          assignment={selectedAssignment}
+          onSubmitMedia={async (assignment, media, note) => {
+            try {
+              await handleSubmitMedia(assignment, media, note)
+              toast.success("Đã gửi ảnh/video")
+            } catch (error) {
+              console.error("Error submitting media", error)
+              toast.error("Gửi ảnh/video thất bại")
+            }
+          }}
+          onSubmitNote={async (assignment, note, markCompleted) => {
+            try {
+              await handleSubmitNote(assignment, note, markCompleted)
+              toast.success(markCompleted ? "Đã hoàn thành" : "Đã gửi ghi chú")
+            } catch (error) {
+              console.error("Error submitting note", error)
+              toast.error("Gửi ghi chú thất bại")
+            }
+          }}
+          isOpen={!!selectedAssignment}
+          onOpenChange={(open) => !open && setSelectedAssignment(null)}
+        />
+      )}
+    </>
   )
 }

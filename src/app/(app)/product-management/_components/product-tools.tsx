@@ -32,7 +32,7 @@ type ProductToolsProps = {
 
 export default function ProductTools({ inventoryList, existingProducts, onProductsGenerated }: ProductToolsProps) {
     const [isGenerating, setIsGenerating] = useState(false);
-    
+
     const [textInput, setTextInput] = useState('');
     const [imageInput, setImageInput] = useState<string | null>(null);
     const [showPreview, setShowPreview] = useState(false);
@@ -51,7 +51,7 @@ export default function ProductTools({ inventoryList, existingProducts, onProduc
         setTextInput('');
         setImageInput(null);
         const fileInput = document.getElementById('product-image-upload') as HTMLInputElement;
-        if(fileInput) fileInput.value = '';
+        if (fileInput) fileInput.value = '';
     };
 
     const handleGenerate = async (source: 'text' | 'image') => {
@@ -66,7 +66,7 @@ export default function ProductTools({ inventoryList, existingProducts, onProduc
 
         try {
             // Split the text into chunks of 10 products
-             const productChunks = typeof inputToProcess === 'string' 
+            const productChunks = typeof inputToProcess === 'string'
                 ? inputToProcess.split(/\n(?=\d+\.\s)/).reduce((acc: string[][], line) => {
                     if (!acc.length || acc[acc.length - 1].length === 10) {
                         acc.push([]);
@@ -76,7 +76,7 @@ export default function ProductTools({ inventoryList, existingProducts, onProduc
                 }, [])
                 : [[inputToProcess]]; // For image, process as a single chunk
 
-            const processingPromises = productChunks.map(chunk => 
+            const processingPromises = productChunks.map(chunk =>
                 callGenerateProductRecipes({
                     inputText: source === 'text' ? chunk.join('\n') : undefined,
                     imageDataUri: source === 'image' ? chunk[0] : undefined,
@@ -84,7 +84,7 @@ export default function ProductTools({ inventoryList, existingProducts, onProduc
                     allProducts: existingProducts,
                 })
             );
-            
+
             const results = await Promise.allSettled(processingPromises);
 
             let allProducts: ParsedProduct[] = [];
@@ -102,7 +102,7 @@ export default function ProductTools({ inventoryList, existingProducts, onProduc
             if (allProducts.length === 0) {
                 throw new Error("AI không thể nhận diện được công thức nào từ văn bản đã cung cấp.");
             }
-            
+
             if (failedChunks > 0) {
                 toast.error(`AI không thể xử lý ${failedChunks} phần của danh sách. Vui lòng kiểm tra lại định dạng của các phần đó.`);
             }
@@ -113,7 +113,7 @@ export default function ProductTools({ inventoryList, existingProducts, onProduc
             const existingProductsFound: { product: ParsedProduct, action: 'skip' | 'overwrite' }[] = [];
 
             allProducts.forEach(p => {
-                if(existingNames.has(p.name.toLowerCase())) {
+                if (existingNames.has(p.name.toLowerCase())) {
                     existingProductsFound.push({ product: p, action: 'skip' });
                 } else {
                     newProducts.push(p);
@@ -131,18 +131,18 @@ export default function ProductTools({ inventoryList, existingProducts, onProduc
             toast.dismiss();
         }
     };
-    
+
     const handleToggleOverwrite = (productName: string) => {
         setPreviewState(prev => ({
             ...prev,
-            existingProducts: prev.existingProducts.map(p => 
-                p.product.name === productName 
+            existingProducts: prev.existingProducts.map(p =>
+                p.product.name === productName
                     ? { ...p, action: p.action === 'skip' ? 'overwrite' : 'skip' }
                     : p
             )
         }));
     };
-    
+
     const handleToggleAllOverwrite = (overwriteAll: boolean) => {
         setPreviewState(prev => ({
             ...prev,
@@ -155,12 +155,12 @@ export default function ProductTools({ inventoryList, existingProducts, onProduc
         const productsToUpdate = previewState.existingProducts
             .filter(p => p.action === 'overwrite')
             .map(p => p.product);
-            
+
         onProductsGenerated(productsToAdd, productsToUpdate);
-        
+
         let message = '';
-        if(productsToAdd.length > 0) message += `Đã thêm ${productsToAdd.length} mặt hàng mới. `;
-        if(productsToUpdate.length > 0) message += `Đã ghi đè ${productsToUpdate.length} mặt hàng.`;
+        if (productsToAdd.length > 0) message += `Đã thêm ${productsToAdd.length} mặt hàng mới. `;
+        if (productsToUpdate.length > 0) message += `Đã ghi đè ${productsToUpdate.length} mặt hàng.`;
         toast.success(message.trim() || "Không có thay đổi nào được áp dụng.");
 
         resetState();
@@ -177,15 +177,15 @@ export default function ProductTools({ inventoryList, existingProducts, onProduc
                 <CardContent>
                     <Tabs defaultValue="add" className="w-full">
                         <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="add"><Plus className="mr-2 h-4 w-4"/>Thêm bằng AI</TabsTrigger>
-                            <TabsTrigger value="bulk-edit"><FileEdit className="mr-2 h-4 w-4"/>Xử lý hàng loạt</TabsTrigger>
+                            <TabsTrigger value="add"><Plus className="mr-2 h-4 w-4" />Thêm bằng AI</TabsTrigger>
+                            <TabsTrigger value="bulk-edit"><FileEdit className="mr-2 h-4 w-4" />Xử lý hàng loạt</TabsTrigger>
                         </TabsList>
 
                         <TabsContent value="add" className="mt-4 space-y-4">
                             <Tabs defaultValue="text" className="w-full">
                                 <TabsList className="grid w-full grid-cols-2">
-                                    <TabsTrigger value="text"><FileText className="mr-2 h-4 w-4"/>Nhập văn bản</TabsTrigger>
-                                    <TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4"/>Tải ảnh lên</TabsTrigger>
+                                    <TabsTrigger value="text"><FileText className="mr-2 h-4 w-4" />Nhập văn bản</TabsTrigger>
+                                    <TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4" />Tải ảnh lên</TabsTrigger>
                                 </TabsList>
                                 <TabsContent value="text" className="mt-4 space-y-4">
                                     <Textarea placeholder="Dán văn bản hoặc mô tả công thức tự do vào đây..." rows={6} value={textInput} onChange={(e) => setTextInput(e.target.value)} disabled={isGenerating} />
@@ -199,16 +199,16 @@ export default function ProductTools({ inventoryList, existingProducts, onProduc
                         </TabsContent>
 
                         <TabsContent value="bulk-edit" className="mt-4 space-y-4">
-                             <Textarea placeholder="Dán nội dung từ file đã xuất (đã chỉnh sửa) vào đây để cập nhật hoặc thêm mới hàng loạt..." rows={8} value={textInput} onChange={(e) => setTextInput(e.target.value)} disabled={isGenerating} />
+                            <Textarea placeholder="Dán nội dung từ file đã xuất (đã chỉnh sửa) vào đây để cập nhật hoặc thêm mới hàng loạt..." rows={8} value={textInput} onChange={(e) => setTextInput(e.target.value)} disabled={isGenerating} />
                             <Button onClick={() => handleGenerate('text')} disabled={isGenerating || !textInput.trim()} className="h-10 w-full"><Wand2 className="mr-2 h-4 w-4" />Xử lý văn bản</Button>
                         </TabsContent>
                     </Tabs>
                 </CardContent>
             </Card>
 
-            <Dialog open={showPreview} onOpenChange={setShowPreview}>
+            <Dialog open={showPreview} onOpenChange={setShowPreview} dialogTag="product-preview-dialog" parentDialogTag="product-tools">
                 <DialogContent className="max-w-4xl">
-                    <DialogHeader>
+                    <DialogHeader iconkey="layout">
                         <DialogTitle>Xem trước Công thức đã tạo</DialogTitle>
                         <DialogDescription>AI đã phân tích và liên kết các nguyên liệu. Vui lòng kiểm tra và xác nhận.</DialogDescription>
                     </DialogHeader>
@@ -218,24 +218,24 @@ export default function ProductTools({ inventoryList, existingProducts, onProduc
                             {previewState.newProducts.length > 0 && (
                                 <div>
                                     <h3 className="font-semibold text-lg flex items-center gap-2 mb-2">
-                                        <Plus className="h-5 w-5 text-green-500"/>
+                                        <Plus className="h-5 w-5 text-green-500" />
                                         Mặt hàng mới ({previewState.newProducts.length})
                                     </h3>
                                     <Accordion type="multiple" defaultValue={previewState.newProducts.map(p => p.name)} className="w-full space-y-2">
-                                    {previewState.newProducts.map((product, index) => (
-                                        <AccordionItem value={product.name} key={`new-${index}`} className="border rounded-lg shadow-sm bg-green-500/5">
-                                            <AccordionTrigger className="p-4 text-base font-semibold hover:no-underline">
-                                                <div className="flex flex-col items-start text-left"><span>{product.name}</span><Badge variant="secondary" className="mt-1 font-normal">{product.category}</Badge></div>
-                                            </AccordionTrigger>
-                                            <AccordionContent className="p-4 border-t">
-                                                <div className="space-y-2">
-                                                    {product.ingredients.map((ing, i) => (
-                                                        <div key={i} className="flex items-center gap-2 text-sm p-2 rounded-md bg-background"><CheckCircle className="h-4 w-4 text-green-500" /><span className="font-medium">{ing.name}</span><span className="text-muted-foreground ml-auto">{ing.quantity} {ing.unit}</span></div>
-                                                    ))}
-                                                </div>
-                                            </AccordionContent>
-                                        </AccordionItem>
-                                    ))}
+                                        {previewState.newProducts.map((product, index) => (
+                                            <AccordionItem value={product.name} key={`new-${index}`} className="border rounded-lg shadow-sm bg-green-500/5">
+                                                <AccordionTrigger className="p-4 text-base font-semibold hover:no-underline">
+                                                    <div className="flex flex-col items-start text-left"><span>{product.name}</span><Badge variant="secondary" className="mt-1 font-normal">{product.category}</Badge></div>
+                                                </AccordionTrigger>
+                                                <AccordionContent className="p-4 border-t">
+                                                    <div className="space-y-2">
+                                                        {product.ingredients.map((ing, i) => (
+                                                            <div key={i} className="flex items-center gap-2 text-sm p-2 rounded-md bg-background"><CheckCircle className="h-4 w-4 text-green-500" /><span className="font-medium">{ing.name}</span><span className="text-muted-foreground ml-auto">{ing.quantity} {ing.unit}</span></div>
+                                                        ))}
+                                                    </div>
+                                                </AccordionContent>
+                                            </AccordionItem>
+                                        ))}
                                     </Accordion>
                                 </div>
                             )}
@@ -245,7 +245,7 @@ export default function ProductTools({ inventoryList, existingProducts, onProduc
                                 <div>
                                     <div className="flex justify-between items-center mb-2">
                                         <h3 className="font-semibold text-lg flex items-center gap-2">
-                                            <FileUp className="h-5 w-5 text-amber-500"/>
+                                            <FileUp className="h-5 w-5 text-amber-500" />
                                             Mặt hàng đã tồn tại ({previewState.existingProducts.length})
                                         </h3>
                                         <div className="flex items-center space-x-2">
@@ -254,26 +254,26 @@ export default function ProductTools({ inventoryList, existingProducts, onProduc
                                         </div>
                                     </div>
                                     <Accordion type="multiple" className="w-full space-y-2">
-                                    {previewState.existingProducts.map(({ product, action }, index) => (
-                                        <AccordionItem value={product.name} key={`existing-${index}`} className="border rounded-lg shadow-sm bg-amber-500/5">
-                                            <div className="flex items-center w-full p-4">
-                                                <AccordionTrigger className="text-base font-semibold hover:no-underline flex-1">
-                                                    <div className="flex flex-col items-start text-left"><span>{product.name}</span><Badge variant="secondary" className="mt-1 font-normal">{product.category}</Badge></div>
-                                                </AccordionTrigger>
-                                                <div className="flex items-center gap-2 ml-4" onClick={(e) => e.stopPropagation()}>
-                                                    <Label htmlFor={`overwrite-${index}`} className="text-sm font-normal">Ghi đè</Label>
-                                                    <Switch id={`overwrite-${index}`} checked={action === 'overwrite'} onCheckedChange={() => handleToggleOverwrite(product.name)} />
+                                        {previewState.existingProducts.map(({ product, action }, index) => (
+                                            <AccordionItem value={product.name} key={`existing-${index}`} className="border rounded-lg shadow-sm bg-amber-500/5">
+                                                <div className="flex items-center w-full p-4">
+                                                    <AccordionTrigger className="text-base font-semibold hover:no-underline flex-1">
+                                                        <div className="flex flex-col items-start text-left"><span>{product.name}</span><Badge variant="secondary" className="mt-1 font-normal">{product.category}</Badge></div>
+                                                    </AccordionTrigger>
+                                                    <div className="flex items-center gap-2 ml-4" onClick={(e) => e.stopPropagation()}>
+                                                        <Label htmlFor={`overwrite-${index}`} className="text-sm font-normal">Ghi đè</Label>
+                                                        <Switch id={`overwrite-${index}`} checked={action === 'overwrite'} onCheckedChange={() => handleToggleOverwrite(product.name)} />
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <AccordionContent className="p-4 border-t">
-                                                 <div className="space-y-2">
-                                                    {product.ingredients.map((ing, i) => (
-                                                        <div key={i} className="flex items-center gap-2 text-sm p-2 rounded-md bg-background"><CheckCircle className="h-4 w-4 text-green-500" /><span className="font-medium">{ing.name}</span><span className="text-muted-foreground ml-auto">{ing.quantity} {ing.unit}</span></div>
-                                                    ))}
-                                                </div>
-                                            </AccordionContent>
-                                        </AccordionItem>
-                                    ))}
+                                                <AccordionContent className="p-4 border-t">
+                                                    <div className="space-y-2">
+                                                        {product.ingredients.map((ing, i) => (
+                                                            <div key={i} className="flex items-center gap-2 text-sm p-2 rounded-md bg-background"><CheckCircle className="h-4 w-4 text-green-500" /><span className="font-medium">{ing.name}</span><span className="text-muted-foreground ml-auto">{ing.quantity} {ing.unit}</span></div>
+                                                        ))}
+                                                    </div>
+                                                </AccordionContent>
+                                            </AccordionItem>
+                                        ))}
                                     </Accordion>
                                 </div>
                             )}
@@ -283,7 +283,7 @@ export default function ProductTools({ inventoryList, existingProducts, onProduc
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setShowPreview(false)}>Hủy</Button>
                         <Button onClick={handleConfirm} disabled={previewState.newProducts.length === 0 && previewState.existingProducts.every(p => p.action === 'skip')}>
-                            <Replace className="mr-2 h-4 w-4"/>
+                            <Replace className="mr-2 h-4 w-4" />
                             Lưu thay đổi
                         </Button>
                     </DialogFooter>

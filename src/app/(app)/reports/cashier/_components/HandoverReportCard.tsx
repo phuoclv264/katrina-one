@@ -4,26 +4,26 @@ import React from 'react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogIcon, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Edit, Trash2, Loader2, ClipboardCheck, FileSignature } from 'lucide-react';
 import type { CashHandoverReport, RevenueStats, ExpenseSlip } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Timestamp } from 'firebase/firestore';
 
-export type HandoverReportCardProps = { 
-    cashHandovers: CashHandoverReport[], 
+export type HandoverReportCardProps = {
+    cashHandovers: CashHandoverReport[],
     revenueStats: RevenueStats[],
     expenseSlips: ExpenseSlip[],
     onEditCashHandover: (handover: CashHandoverReport) => void,
     onDeleteCashHandover: (id: string) => void,
     onViewFinalHandover: (handover: CashHandoverReport) => void,
-    processingItemId: string | null 
+    processingItemId: string | null
     itemRefs: React.MutableRefObject<Map<string, HTMLDivElement | null>>;
 };
 
-const HandoverReportCard = React.memo(({ 
-    cashHandovers, 
+const HandoverReportCard = React.memo(({
+    cashHandovers,
     revenueStats,
     expenseSlips,
     onEditCashHandover,
@@ -53,14 +53,14 @@ const HandoverReportCard = React.memo(({
 
                         const linkedExpenses = expenseSlips.filter(e => handover.linkedExpenseSlipIds.includes(e.id) && e.paymentMethod === 'cash');
                         const cashExpense = linkedExpenses.reduce((sum, slip) => sum + (slip.actualPaidAmount ?? slip.totalAmount), 0);
-                        
+
                         const startOfDayCash = handover.startOfDayCash;
                         const expectedCash = cashRevenue - cashExpense + startOfDayCash;
                         const discrepancy = handover.actualCashCounted - expectedCash;
 
                         return (
-                            <Card 
-                                key={handover.id} 
+                            <Card
+                                key={handover.id}
                                 ref={el => {
                                     if (el) itemRefs.current.set(highlightKey, el); else itemRefs.current.delete(highlightKey);
                                 }}
@@ -73,7 +73,7 @@ const HandoverReportCard = React.memo(({
                                                 Kiểm kê bởi {handover.createdBy.userName}
                                             </div>
                                             <div className="flex flex-wrap gap-1">
-                                                {handover.finalHandoverDetails && <Badge variant="default" className="bg-primary/100 text-[10px] h-5 px-1.5 font-normal"><FileSignature className="h-3 w-3 mr-1"/>Bàn giao</Badge>}
+                                                {handover.finalHandoverDetails && <Badge variant="default" className="bg-primary/100 text-[10px] h-5 px-1.5 font-normal"><FileSignature className="h-3 w-3 mr-1" />Bàn giao</Badge>}
                                             </div>
                                         </div>
                                         <div className="text-right shrink-0">
@@ -99,19 +99,25 @@ const HandoverReportCard = React.memo(({
                                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10" onClick={() => onViewFinalHandover(handover)}><FileSignature className="h-4 w-4" /></Button>
                                             )}
                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => onEditCashHandover(handover)}><Edit className="h-4 w-4" /></Button>
-                                            <AlertDialog>
+                                            <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                                                 <AlertDialogTrigger asChild>
                                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/70 hover:text-destructive hover:bg-destructive/10" disabled={isProcessing}><Trash2 className="h-4 w-4" /></Button>
                                                 </AlertDialogTrigger>
                                                 <AlertDialogContent>
-                                                    <AlertDialogHeader><AlertDialogTitle>Xóa biên bản này?</AlertDialogTitle></AlertDialogHeader>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogIcon icon={Trash2} />
+                                                        <div className="space-y-2 text-center sm:text-left">
+                                                            <AlertDialogTitle>Xóa biên bản này?</AlertDialogTitle>
+                                                            <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn biên bản bàn giao và không thể hoàn tác.</AlertDialogDescription>
+                                                        </div>
+                                                    </AlertDialogHeader>
                                                     <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => onDeleteCashHandover(handover.id)}>Xóa</AlertDialogAction></AlertDialogFooter>
                                                 </AlertDialogContent>
                                             </AlertDialog>
                                         </div>
                                     </div>
                                 </CardContent>
-                                {isProcessing && (<div className="absolute inset-0 bg-white/80 dark:bg-black/80 flex items-center justify-center z-10"><Loader2 className="h-6 w-6 animate-spin text-destructive"/><span className="ml-2 text-sm font-medium text-destructive">Đang xóa...</span></div>)}
+                                {isProcessing && (<div className="absolute inset-0 bg-white/80 dark:bg-black/80 flex items-center justify-center z-10"><Loader2 className="h-6 w-6 animate-spin text-destructive" /><span className="ml-2 text-sm font-medium text-destructive">Đang xóa...</span></div>)}
                             </Card>
                         )
                     })}

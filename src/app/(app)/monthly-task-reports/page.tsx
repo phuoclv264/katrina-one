@@ -19,7 +19,7 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "lucide-react"
-import { toast } from "react-hot-toast"
+import { toast } from "@/components/ui/pro-toast"
 import { useAuth } from "@/hooks/use-auth"
 import { dataStore } from "@/lib/data-store"
 import type { MediaAttachment, MonthlyTask, TaskCompletionRecord, Schedule, AssignedUser } from "@/lib/types"
@@ -319,7 +319,7 @@ function MonthlyTaskReportsView() {
 
     setPendingScrollKey(anchor)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, completions, viewMode, window.location.hash])
+  }, [searchParams, completions, viewMode])
 
   if (authLoading) {
     return <LoadingPage />
@@ -487,7 +487,7 @@ function MonthlyTaskReportsView() {
                                                         </div>
                                                       )}
                                                       <div className="pt-2 border-t border-primary/10">
-                                                        <AlertDialog>
+                                                        <AlertDialog parentDialogTag="root">
                                                           <AlertDialogTrigger asChild>
                                                             <Button variant="ghost" size="sm" className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 h-8 text-xs" disabled={isDeleting}>{isDeleting ? (<Loader2 className="h-3 w-3 animate-spin mr-2" />) : (<Trash2 className="h-3 w-3 mr-2" />)}Xóa báo cáo</Button>
                                                           </AlertDialogTrigger>
@@ -498,7 +498,7 @@ function MonthlyTaskReportsView() {
                                                             </AlertDialogHeader>
                                                             <AlertDialogFooter>
                                                               <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                              <AlertDialogAction onClick={() => handleDeleteReport(record)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Xóa</AlertDialogAction>
+                                                              <AlertDialogAction onClick={() => handleDeleteReport(record)} isLoading={isDeleting} disabled={isDeleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{isDeleting ? 'Đang xóa...' : 'Xóa'}</AlertDialogAction>
                                                             </AlertDialogFooter>
                                                           </AlertDialogContent>
                                                         </AlertDialog>

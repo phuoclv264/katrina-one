@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
-import { CheckCircle2, Box, DollarSign, History, Calendar, Calculator, Megaphone } from 'lucide-react';
+import { CheckCircle2, Box, DollarSign, History, Calendar, Calculator, Megaphone, ListChecks } from 'lucide-react';
 
 interface QuickAccessToolsSectionProps {
   onNavigate?: (path: string) => void;
@@ -17,6 +17,16 @@ export function QuickAccessToolsSection({ onNavigate }: QuickAccessToolsSectionP
       label: 'Báo cáo công việc định kỳ',
       color: 'blue',
       path: '/monthly-task-reports',
+      bgColor: 'bg-blue-100 dark:bg-blue-900/30',
+      iconColor: 'text-blue-600 dark:text-blue-400',
+      borderColor: 'border-blue-500',
+      hoverColor: 'hover:border-blue-500 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10',
+    },
+    {
+      icon: ListChecks,
+      label: 'Giao việc trong ngày',
+      color: 'blue',
+      path: '/daily-assignments',
       bgColor: 'bg-blue-100 dark:bg-blue-900/30',
       iconColor: 'text-blue-600 dark:text-blue-400',
       borderColor: 'border-blue-500',

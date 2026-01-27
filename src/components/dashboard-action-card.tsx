@@ -68,14 +68,14 @@ export function DashboardActionCard({
         "flex transition-all duration-200 group text-left w-full active:scale-[0.98] rounded-2xl",
         isPrimary 
           ? cn("flex-row items-center p-5 min-h-[100px] shadow-sm hover:shadow-md border col-span-full gap-5", primaryStyles[color])
-          : "flex-col items-start p-4 bg-card border border-border hover:shadow-md min-h-[100px] shadow-sm",
+          : "flex-col items-start p-4 bg-card border border-border hover:shadow-md min-h-[100px] h-full shadow-sm justify-between",
         className
       )}
     >
       <div
         className={cn(
           "rounded-xl transition-colors duration-300 flex items-center justify-center shrink-0",
-          isPrimary ? "p-4 shadow-sm" : "p-2 mb-3",
+          isPrimary ? "p-2 shadow-sm" : "p-2 mb-3 w-10 h-10 flex items-center justify-center",
           isPrimary ? primaryIconStyles[color] : defaultIconStyles[color]
         )}
       >

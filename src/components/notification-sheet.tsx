@@ -38,14 +38,19 @@ export default function NotificationSheet({
 }: NotificationSheetProps) {
     const { user } = useAuth();
     const nav = useAppNavigation();
-    const { registerDialog, unregisterDialog } = useDialogContext();
+    const { registerDialog, unregisterDialog, subscribeToClose } = useDialogContext();
 
     useEffect(() => {
         if (isOpen) {
-            registerDialog();
-            return () => unregisterDialog();
+            const tag = 'notification-sheet';
+            registerDialog({ tag, parentTag: 'root' });
+            const unsubscribe = subscribeToClose(() => onOpenChange(false), tag);
+            return () => {
+                unsubscribe();
+                unregisterDialog(tag);
+            };
         }
-    }, [isOpen, registerDialog, unregisterDialog]);
+    }, [isOpen, registerDialog, unregisterDialog, subscribeToClose, onOpenChange]);
 
     const handleMarkAllAsRead = async () => {
         if (!user) return;

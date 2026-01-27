@@ -1,13 +1,13 @@
 'use client';
 import { useState, useMemo } from 'react';
-import Image from 'next/image';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import Image from '@/components/ui/image';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogAction, DialogBody } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import type { WhistleblowingReport } from '@/lib/types';
-import { ThumbsUp, ThumbsDown, MessageSquare, Eye, EyeOff, ExternalLink } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, MessageSquare, Eye, EyeOff, ExternalLink, Calendar, User, FileText, Paperclip, ChevronLeft, ArrowLeft } from 'lucide-react';
 
 type MySentReportsDialogProps = {
     isOpen: boolean;
@@ -15,99 +15,202 @@ type MySentReportsDialogProps = {
     reports: WhistleblowingReport[];
     userId: string;
     onViewReport: (reportId: string) => void;
+    parentDialogTag: string;
 };
 
-export default function MySentReportsDialog({ isOpen, onClose, reports, userId, onViewReport }: MySentReportsDialogProps) {
+export default function MySentReportsDialog({ isOpen, onClose, reports, userId, onViewReport, parentDialogTag }: MySentReportsDialogProps) {
+    const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
 
     const myReports = useMemo(() => {
         return reports.filter(report => report.reporterId === userId);
     }, [reports, userId]);
 
+    const selectedReport = useMemo(() => {
+        return myReports.find(r => r.id === selectedReportId) || null;
+    }, [myReports, selectedReportId]);
+
+    const handleClose = () => {
+        setSelectedReportId(null);
+        onClose();
+    };
+
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-2xl h-[90vh] flex flex-col p-0">
-                <DialogHeader className="p-6 pb-4 border-b">
-                    <DialogTitle>Các bài tố cáo đã gửi</DialogTitle>
+        <Dialog open={isOpen} onOpenChange={handleClose} dialogTag="my-sent-reports-dialog" parentDialogTag={parentDialogTag}>
+            <DialogContent className="max-w-3xl h-[90vh] sm:h-[85vh]">
+                <DialogHeader iconkey="file">
+                    <div className="flex items-center gap-3">
+                        {selectedReportId && (
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 rounded-full bg-muted/50 hover:bg-muted" 
+                                onClick={() => setSelectedReportId(null)}
+                            >
+                                <ArrowLeft className="h-4 w-4" />
+                            </Button>
+                        )}
+                        <DialogTitle>
+                            {selectedReportId ? "Chi tiết bài tố cáo" : "Bài tố cáo đã gửi"}
+                        </DialogTitle>
+                    </div>
                     <DialogDescription>
-                        Đây là danh sách tất cả các bài tố cáo bạn đã tạo.
+                        {selectedReportId 
+                            ? "Xem toàn bộ nội dung và thông tin chi tiết của bài đăng." 
+                            : "Danh sách các bài tố cáo bạn đã tạo trong hệ thống."}
                     </DialogDescription>
                 </DialogHeader>
-                <ScrollArea className="flex-grow">
-                    <div className="p-6 pt-2 space-y-4">
-                        {myReports.length > 0 ? (
-                            <Accordion type="multiple" className="w-full space-y-3">
-                                {myReports.map(report => (
-                                    <AccordionItem value={report.id} key={report.id} className="border rounded-lg shadow-sm">
-                                        <AccordionTrigger className="p-4 text-base font-semibold hover:no-underline">
-                                            <div className="flex flex-col items-start text-left gap-1">
-                                                <span>{report.title}</span>
-                                                <span className="text-xs text-muted-foreground font-normal">
-                                                    Gửi lúc: {new Date(report.createdAt as any).toLocaleString('vi-VN')}
-                                                </span>
-                                            </div>
-                                        </AccordionTrigger>
-                                        <AccordionContent className="p-4 border-t space-y-4">
-                                            <div>
-                                                <h4 className="font-semibold mb-1">Nội dung:</h4>
-                                                <p className="text-sm whitespace-pre-wrap bg-muted/50 p-3 rounded-md">{report.content}</p>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-4 text-sm">
-                                                <div>
-                                                    <h4 className="font-semibold mb-1">Người bị tố cáo:</h4>
-                                                    <div className="flex flex-wrap gap-1">
-                                                        {report.accusedUsers.map(user => (
-                                                            <Badge key={user.uid} variant="destructive">{user.displayName}</Badge>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <h4 className="font-semibold mb-1">Trạng thái:</h4>
-                                                    <div className="flex flex-wrap gap-2">
-                                                        <Badge variant={report.isAnonymous ? 'secondary' : 'outline'}>{report.isAnonymous ? 'Ẩn danh' : 'Công khai tên'}</Badge>
-                                                        <Badge variant="outline" className="flex items-center gap-1">
-                                                          {report.visibility === 'private' ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                                                          {report.visibility === 'private' ? 'Riêng tư' : 'Công khai'}
-                                                        </Badge>
-                                                    </div>
+
+                <DialogBody className="bg-muted/5 py-4 pb-10">
+                    {!selectedReportId ? (
+                        <div className="space-y-4">
+                            {myReports.length > 0 ? (
+                                myReports.map(report => (
+                                    <div 
+                                        key={report.id} 
+                                        className="border-none shadow-sm rounded-3xl overflow-hidden bg-background group hover:ring-2 hover:ring-primary/20 transition-all cursor-pointer"
+                                        onClick={() => setSelectedReportId(report.id)}
+                                    >
+                                        <div className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                            <div className="space-y-1.5 flex-grow">
+                                                <button 
+                                                    className="text-left text-lg font-black leading-tight tracking-tight uppercase text-foreground/90 group-hover:text-primary transition-colors hover:underline decoration-2 underline-offset-4"
+                                                >
+                                                    {report.title}
+                                                </button>
+                                                <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest">
+                                                    <Calendar className="h-3 w-3" />
+                                                    {new Date(report.createdAt as any).toLocaleString('vi-VN')}
                                                 </div>
                                             </div>
-                                            {report.attachments && report.attachments.length > 0 && (
-                                                <div>
-                                                    <h4 className="font-semibold mb-1">Đính kèm:</h4>
-                                                    <div className="flex flex-wrap gap-2">
-                                                        {report.attachments.map((attachment, index) => (
-                                                            <div key={index} className="relative w-20 h-20 rounded-md overflow-hidden">
-                                                                <Image src={attachment.url} alt={`Attachment ${index + 1}`} fill className="object-cover" />
-                                                            </div>
-                                                        ))}
-                                                    </div>
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex flex-wrap justify-end gap-1.5">
+                                                    <Badge variant={report.isAnonymous ? 'secondary' : 'outline'} className="rounded-xl px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest">
+                                                        {report.isAnonymous ? 'Ẩn danh' : 'Công khai'}
+                                                    </Badge>
+                                                    <Badge variant="outline" className="rounded-xl px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest flex items-center gap-1 bg-muted/20">
+                                                        {report.visibility === 'private' ? 'Riêng tư' : 'Công khai'}
+                                                    </Badge>
                                                 </div>
-                                            )}
-                                            <div className="flex justify-between items-center">
-                                                <div>
-                                                    <h4 className="font-semibold mb-1">Tương tác:</h4>
-                                                    <div className="flex items-center gap-4 text-sm">
-                                                        <span className="flex items-center gap-1"><ThumbsUp className="h-4 w-4 text-green-500" /> {report.upvotes?.length || 0}</span>
-                                                        <span className="flex items-center gap-1"><ThumbsDown className="h-4 w-4 text-red-500" /> {report.downvotes?.length || 0}</span>
-                                                        <span className="flex items-center gap-1"><MessageSquare className="h-4 w-4 text-blue-500" /> {report.commentCount || 0}</span>
-                                                    </div>
-                                                </div>
-                                                <Button variant="outline" onClick={() => onViewReport(report.id)}>
-                                                    <ExternalLink className="mr-2 h-4 w-4" />
-                                                    Xem bài đăng
-                                                </Button>
+                                                <ChevronLeft className="h-5 w-5 text-muted-foreground/30 rotate-180" />
                                             </div>
-                                        </AccordionContent>
-                                    </AccordionItem>
-                                ))}
-                            </Accordion>
-                        ) : (
-                            <p className="text-center text-muted-foreground py-10">Bạn chưa gửi bài tố cáo nào.</p>
-                        )}
-                    </div>
-                </ScrollArea>
-                <DialogFooter className="p-6 pt-4 border-t">
-                    <Button variant="outline" onClick={onClose}>Đóng</Button>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-24 text-center space-y-4 opacity-40">
+                                    <FileText className="h-12 w-12 text-muted-foreground/50 stroke-[1]" />
+                                    <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest leading-relaxed">
+                                        Bạn chưa gửi bài tố cáo nào.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    ) : selectedReport && (
+                        <div className="space-y-6">
+                            <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-background">
+                                <CardContent className="p-0">
+                                    <div className="p-5 sm:p-6 space-y-6">
+                                        {/* Full Info Section */}
+                                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                                            <div className="space-y-1">
+                                                <h3 className="text-xl font-black leading-tight tracking-tight uppercase text-foreground/90">
+                                                    {selectedReport.title}
+                                                </h3>
+                                                <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest">
+                                                    <Calendar className="h-3 w-3" />
+                                                    {new Date(selectedReport.createdAt as any).toLocaleString('vi-VN')}
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                <Badge variant={selectedReport.isAnonymous ? 'secondary' : 'outline'} className="rounded-xl px-3 py-1 text-[10px] font-black uppercase tracking-widest">
+                                                    {selectedReport.isAnonymous ? 'Ẩn danh' : 'Công khai tên'}
+                                                </Badge>
+                                                <Badge variant="outline" className="rounded-xl px-3 py-1 text-[10px] font-black uppercase tracking-widest flex items-center gap-1 bg-muted/20">
+                                                    {selectedReport.visibility === 'private' ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                                    {selectedReport.visibility === 'private' ? 'Riêng tư' : 'Công khai'}
+                                                </Badge>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                                            <span className="font-bold text-muted-foreground/70">Người bị tố cáo:</span>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {selectedReport.accusedUsers.map(user => (
+                                                    <Badge key={user.uid} variant="destructive" className="rounded-lg px-2.5 py-0.5 font-black text-[9px] uppercase tracking-tighter">
+                                                        {user.displayName}
+                                                    </Badge>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-3 pt-2">
+                                            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">
+                                                <FileText className="h-3 w-3" />
+                                                Nội dung bài đăng
+                                            </div>
+                                            <p className="text-base leading-relaxed whitespace-pre-wrap bg-muted/30 p-5 rounded-3xl border border-muted/50 text-foreground/80 font-medium italic">
+                                                "{selectedReport.content}"
+                                            </p>
+                                        </div>
+
+                                        {selectedReport.attachments && selectedReport.attachments.length > 0 && (
+                                            <div className="space-y-3">
+                                                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">
+                                                    <Paperclip className="h-3 w-3" />
+                                                    Đính kèm ({selectedReport.attachments.length})
+                                                </div>
+                                                <div className="flex flex-wrap gap-4">
+                                                    {selectedReport.attachments.map((attachment, index) => (
+                                                        <div key={index} className="relative w-28 h-28 rounded-3xl overflow-hidden shadow-sm border bg-muted/20 group hover:shadow-md transition-all">
+                                                            <Image src={attachment.url} alt={`Attachment ${index + 1}`} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="pt-6 border-t border-dashed flex flex-col sm:flex-row items-center justify-between gap-6">
+                                            <div className="flex items-center gap-6">
+                                                <div className="flex items-center gap-2.5 px-4 py-2 bg-green-50 text-green-600 rounded-2xl border border-green-100 shadow-sm">
+                                                    <ThumbsUp className="h-4 w-4" /> 
+                                                    <span className="font-black text-sm">{selectedReport.upvotes?.length || 0}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2.5 px-4 py-2 bg-red-50 text-red-600 rounded-2xl border border-red-100 shadow-sm">
+                                                    <ThumbsDown className="h-4 w-4" /> 
+                                                    <span className="font-black text-sm">{selectedReport.downvotes?.length || 0}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2.5 px-4 py-2 bg-blue-50 text-blue-600 rounded-2xl border border-blue-100 shadow-sm">
+                                                    <MessageSquare className="h-4 w-4" /> 
+                                                    <span className="font-black text-sm">{selectedReport.commentCount || 0}</span>
+                                                </div>
+                                            </div>
+                                            
+                                            <Button 
+                                                variant="secondary" 
+                                                className="w-full sm:w-auto rounded-2xl font-black text-xs uppercase tracking-widest h-12 px-8 shadow-sm hover:translate-y-[-2px] transition-all" 
+                                                onClick={() => {
+                                                    onViewReport(selectedReport.id);
+                                                    setSelectedReportId(null);
+                                                }}
+                                            >
+                                                <ExternalLink className="mr-2 h-4 w-4" />
+                                                Đi tới bài đăng
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
+                </DialogBody>
+
+                <DialogFooter className="bg-background border-t p-6">
+                    <DialogAction 
+                        onClick={selectedReportId ? () => setSelectedReportId(null) : onClose} 
+                        className="w-full h-14 rounded-2xl text-base tracking-tight font-black"
+                    >
+                        {selectedReportId ? "Quay lại danh sách" : "Hoàn tất xem danh sách"}
+                    </DialogAction>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

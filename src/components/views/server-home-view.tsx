@@ -10,13 +10,12 @@ import { useEffect, useMemo, useCallback } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
-import TodaysTasksCard from '@/app/(app)/monthly-tasks/_components/task-reporting-card';
+import StaffBulletinBoard from '@/components/staff-bulletin-board';
 import DashboardLayout from '@/components/dashboard-layout';
 import type { MonthlyTaskAssignment, ShiftTemplate } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { DashboardActionCard } from '@/components/dashboard-action-card';
 import { LoadingPage } from '../loading/LoadingPage';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
 
@@ -26,18 +25,15 @@ const mainShiftInfo: { [key: string]: { name: string, icon: React.ElementType, h
     toi: { name: "Báo cáo ca tối", icon: Moon, href: "/checklist/toi" },
 };
 
-const mainShiftTimeFrames: { [key in "sang" | "trua" | "toi"]: { start: number; end: number } } = {
-  sang: { start: 6, end: 12 },   // 6:00 AM - 12:00 PM
-  trua: { start: 12, end: 17 },  // 12:00 PM - 5:00 PM
-  toi: { start: 17, end: 23 },   // 5:00 PM - 11:00 PM
-};
+// Use a shared canonical time-frame (keeps behavior consistent across views/menus)
+import { DEFAULT_MAIN_SHIFT_TIMEFRAMES, getActiveShiftKeys } from '@/lib/shift-utils';
+const mainShiftTimeFrames = DEFAULT_MAIN_SHIFT_TIMEFRAMES;
 
 export function ServerHomeView() {
   const { user, loading: authLoading, activeShifts, todaysShifts } = useAuth();
   const nav = useAppNavigation();
   const { showCheckInCardOnTop, isCheckedIn } = useCheckInCardPlacement();
   const [todaysMonthlyAssignments, setTodaysMonthlyAssignments] = useState<MonthlyTaskAssignment[]>([]);
-  const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const handleDataRefresh = useCallback(() => {
@@ -52,43 +48,16 @@ export function ServerHomeView() {
 
   useEffect(() => {
     if (user) {
-      const unsubTasks = dataStore.subscribeToMonthlyTasksForDate(new Date(), setTodaysMonthlyAssignments);
-      const unsubTemplates = dataStore.subscribeToShiftTemplates(setShiftTemplates);
+      const unsubTasks = dataStore.subscribeToMonthlyTasksForDateForStaff(new Date(), user.uid, setTodaysMonthlyAssignments);
       return () => {
         unsubTasks();
-        unsubTemplates();
       };
     }
   }, [user, refreshTrigger]);
 
   useDataRefresher(handleDataRefresh);
   
-  const hasBartenderSecondaryRole = user?.secondaryRoles?.includes('Pha chế');
-  const hasManagerSecondaryRole = user?.secondaryRoles?.includes('Quản lý');
-  const hasCashierSecondaryRole = user?.secondaryRoles?.includes('Thu ngân');
-  const isPrimaryServer = user?.role === 'Phục vụ';
-
-  const activeMainShiftKeys = useMemo(() => {
-    const now = new Date();
-    const currentHour = now.getHours();
-    const keys = new Set<"sang" | "trua" | "toi">();
-    
-    // We check a window from 1 hour before the shift starts to 1 hour after it ends.
-    for (const key in mainShiftTimeFrames) {
-      const shiftKey = key as "sang" | "trua" | "toi";
-      const frame = mainShiftTimeFrames[shiftKey];
-      
-      const validStartTime = frame.start - 1;
-      const validEndTime = frame.end + 1;
-      
-      // Check if the current hour is within the valid window for the shift
-      if (currentHour >= validStartTime && currentHour < validEndTime) {
-        keys.add(shiftKey);
-      }
-    }
-
-    return Array.from(keys);
-  }, []);
+  const activeMainShiftKeys = useMemo(() => getActiveShiftKeys(mainShiftTimeFrames), [/* intentionally stable */]);
 
   if (authLoading) {
     return <LoadingPage />;
@@ -107,27 +76,10 @@ export function ServerHomeView() {
     <DashboardLayout
       title="Checklist Công việc"
       description={todaysShifts.length > 0 ? `Hôm nay bạn có ca: ${shiftsText}. Chọn ca để báo cáo.` : 'Bạn không có ca làm việc nào hôm nay, liên hệ chủ quán để thay đổi lịch làm.'}
-      top={isCheckedIn && todaysMonthlyAssignments.length > 0 ? <TodaysTasksCard assignments={todaysMonthlyAssignments} shiftTemplates={shiftTemplates} /> : undefined}
+      top={<StaffBulletinBoard assignments={todaysMonthlyAssignments} />}
     >
-      {isCheckedIn && activeMainShiftKeys.length > 0 ? (
-        <div className="grid grid-cols-2 gap-3">
-          {activeMainShiftKeys.map((key) => {
-            const info = mainShiftInfo[key];
-            if (!info) return null;
-            return (
-              <DashboardActionCard
-                key={key}
-                label={info.name}
-                subLabel="Báo cáo ca"
-                icon={info.icon}
-                onClick={() => handleNavigate(info.href)}
-                color="blue"
-                variant="primary"
-              />
-            );
-          })}
-        </div>
-      ) : (
+      {/* Primary action cards are rendered by DashboardLayout now. Keep the alert/fallback here. */}
+      {! (isCheckedIn && activeMainShiftKeys.length > 0) && (
         <Alert variant="default" className="border-amber-500/30 bg-amber-500/10">
           <Info className="h-4 w-4 text-amber-600" />
           <AlertTitle className="text-amber-800 dark:text-amber-300">Không trong ca làm việc</AlertTitle>
@@ -138,7 +90,7 @@ export function ServerHomeView() {
           }
           </AlertDescription>
         </Alert>
-      )}
+      )} 
 
     </DashboardLayout>
   );

@@ -50,7 +50,7 @@ export function UncheckedItemsDialog({ isOpen, onOpenChange, uncheckedItems, onC
     const areAllUncheckedOpen = categorizedUncheckedItems.length > 0 && openUncheckedCategories.length === categorizedUncheckedItems.length;
 
     return (
-        <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
+        <AlertDialog open={isOpen} onOpenChange={onOpenChange} parentDialogTag="root">
             <AlertDialogContent className="max-w-lg rounded-2xl border shadow-2xl bg-background">
                 <AlertDialogHeader className="flex flex-row items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">

@@ -45,13 +45,13 @@ import {
 } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, SimpleUser } from '@/lib/types';
+import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, SimpleUser, ShiftBusyEvidence } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { toast } from '@/components/ui/pro-toast';
 import ShiftAssignmentDialog from './shift-assignment-popover'; // Renaming this import for clarity, but it's the right file
 import ShiftTemplatesDialog from './shift-templates-dialog';
 import TotalHoursTracker from './total-hours-tracker';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, AlertDialogIcon } from '@/components/ui/alert-dialog';
 import HistoryAndReportsDialog from './history-reports-dialog';
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -62,11 +62,13 @@ import { Badge } from '@/components/ui/badge';
 import PassRequestsDialog from '../../schedule/_components/pass-requests-dialog';
 import UserDetailsDialog from './user-details-dialog';
 import { isUserAvailable, hasTimeConflict } from '@/lib/schedule-utils';
+import { getRelevantUnderstaffedShifts } from './understaffed-evidence-utils';
 import { useSearchParams } from 'next/navigation';
 import { getQueryParamWithMobileHashFallback } from '@/lib/url-params';
 import { useRouter } from 'nextjs-toploader/app';
 import { Label } from '@/components/ui/label';
 import AutoScheduleDialog from './auto-schedule-dialog';
+import { UnderstaffedEvidenceDialog } from './understaffed-evidence-dialog';
 
 
 // Helper function to abbreviate names
@@ -99,24 +101,24 @@ const generateSmartAbbreviations = (users: ManagedUser[]): Map<string, string> =
                 // Iterate backwards from the second to last part of the name
                 for (let i = nameParts.length - 2; i >= 0; i--) {
                     const candidateAbbr = `${nameParts[i].charAt(0).toUpperCase()}.${currentAbbr}`;
-                    
+
                     // Check if this new abbreviation already exists for another user in the group
                     const isDuplicate = userGroup.some(otherUser => {
-                         if (otherUser.uid === user.uid) return false; // Don't compare with self
-                         const otherParts = otherUser.displayName.trim().split(/\s+/);
-                         let otherAbbr = otherParts[otherParts.length - 1];
-                         for(let j = otherParts.length - 2; j >= i; j--) {
+                        if (otherUser.uid === user.uid) return false; // Don't compare with self
+                        const otherParts = otherUser.displayName.trim().split(/\s+/);
+                        let otherAbbr = otherParts[otherParts.length - 1];
+                        for (let j = otherParts.length - 2; j >= i; j--) {
                             otherAbbr = `${otherParts[j].charAt(0).toUpperCase()}.${otherAbbr}`;
-                         }
-                         return otherAbbr === candidateAbbr;
+                        }
+                        return otherAbbr === candidateAbbr;
                     });
-                    
+
                     currentAbbr = candidateAbbr;
                     if (!isDuplicate) {
                         break; // This abbreviation is unique within the group, we can stop
                     }
                 }
-                 abbreviations.set(user.uid, currentAbbr);
+                abbreviations.set(user.uid, currentAbbr);
             });
         }
     }
@@ -126,11 +128,11 @@ const generateSmartAbbreviations = (users: ManagedUser[]): Map<string, string> =
 
 
 const roleOrder: Record<UserRole, number> = {
-  'Phục vụ': 1,
-  'Pha chế': 2,
-  'Thu ngân': 3,
-  'Quản lý': 4,
-  'Chủ nhà hàng': 5,
+    'Phục vụ': 1,
+    'Pha chế': 2,
+    'Thu ngân': 3,
+    'Quản lý': 4,
+    'Chủ nhà hàng': 5,
 };
 
 
@@ -140,7 +142,7 @@ export default function ScheduleView() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const routerRef = useRef(router);
-    
+
     const getInitialDate = () => {
         const today = new Date();
         const dayOfWeek = getDay(today); // Sunday = 0, Saturday = 6
@@ -151,7 +153,7 @@ export default function ScheduleView() {
     };
 
     const [currentDate, setCurrentDate] = useState(getInitialDate());
-    
+
     const [serverSchedule, setServerSchedule] = useState<Schedule | null>(null);
     const [localSchedule, setLocalSchedule] = useState<Schedule | null>(null);
     const [incomingSchedule, setIncomingSchedule] = useState<Schedule | null>(null);
@@ -161,6 +163,8 @@ export default function ScheduleView() {
     const [allUsers, setAllUsers] = useState<ManagedUser[]>([]);
     const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
     const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [busyEvidences, setBusyEvidences] = useState<ShiftBusyEvidence[]>([]);
+    const [isUnderstaffedDialogOpen, setIsUnderstaffedDialogOpen] = useState(false);
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -175,12 +179,12 @@ export default function ScheduleView() {
     const [isTemplatesDialogOpen, setIsTemplatesDialogOpen] = useState(false);
     const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
     const [isPassRequestsDialogOpen, setIsPassRequestsDialogOpen] = useState(false);
-    
+
     const [isUserDetailsDialogOpen, setIsUserDetailsDialogOpen] = useState(false);
     const [selectedUserForDetails, setSelectedUserForDetails] = useState<ManagedUser | null>(null);
-    
+
     const [isHandlingConflict, setIsHandlingConflict] = useState(false);
-    const [conflictDialog, setConflictDialog] = useState<{ isOpen: boolean; oldRequest: Notification | null; newRequestFn: () => void }>({ isOpen: false, oldRequest: null, newRequestFn: () => {} });
+    const [conflictDialog, setConflictDialog] = useState<{ isOpen: boolean; oldRequest: Notification | null; newRequestFn: () => void }>({ isOpen: false, oldRequest: null, newRequestFn: () => { } });
 
     const [structuredConstraints, setStructuredConstraints] = useState<any[]>([]);
     const [isAutoDialogOpen, setIsAutoDialogOpen] = useState(false);
@@ -206,14 +210,14 @@ export default function ScheduleView() {
     const weekId = useMemo(() => `${getISOWeekYear(currentDate)}-W${getISOWeek(currentDate)}`, [currentDate]);
 
     const canManage = useMemo(() => user?.role === 'Chủ nhà hàng', [user]);
-    
+
     const [showPublishConfirm, setShowPublishConfirm] = useState(false);
     const [showRevertConfirm, setShowRevertConfirm] = useState(false);
     const [showAdminActionConfirm, setShowAdminActionConfirm] = useState(false);
 
     useEffect(() => {
         routerRef.current = router;
-    }, [router]); 
+    }, [router]);
 
     useEffect(() => {
         if (!user || !canManage) return;
@@ -236,7 +240,7 @@ export default function ScheduleView() {
         });
 
         const unsubNotifications = dataStore.subscribeToAllPassRequestNotifications(setNotifications);
-
+        const unsubBusyEvidences = dataStore.subscribeToShiftBusyEvidencesForWeek(weekId, setBusyEvidences);
 
         return () => {
             unsubSchedule();
@@ -244,6 +248,7 @@ export default function ScheduleView() {
             unsubUsers();
             unsubTemplates();
             unsubNotifications();
+            unsubBusyEvidences();
         };
 
     }, [user, weekId, canManage]);
@@ -288,7 +293,7 @@ export default function ScheduleView() {
         setLocalSchedule(normalizedSchedule);
         setHasUnsavedChanges(false);
     }, [incomingSchedule, allUsers]);
-    
+
     // Check for unsaved changes before leaving the page
     useEffect(() => {
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -307,7 +312,7 @@ export default function ScheduleView() {
         setLocalSchedule(prev => {
             const baseSchedule = prev ?? {
                 weekId,
-                status: 'draft',                
+                status: 'draft',
                 shifts: [],
             };
             const newSchedule = { ...baseSchedule, ...data };
@@ -320,21 +325,21 @@ export default function ScheduleView() {
     // Auto-populate shifts from templates, refreshing them from the latest templates.
     useEffect(() => {
         if (!shiftTemplates.length || localSchedule?.status === 'published') return;
-    
+
         const baseSchedule = localSchedule ?? { weekId, status: 'draft', shifts: [] };
-        
-        const daysInWeek = eachDayOfInterval({start: startOfWeek(currentDate, {weekStartsOn: 1}), end: endOfWeek(currentDate, {weekStartsOn: 1})})
-        
+
+        const daysInWeek = eachDayOfInterval({ start: startOfWeek(currentDate, { weekStartsOn: 1 }), end: endOfWeek(currentDate, { weekStartsOn: 1 }) })
+
         const newShiftsFromTemplates: AssignedShift[] = [];
         daysInWeek.forEach(day => {
             const dayOfWeek = getDay(day);
             const dateKey = format(day, 'yyyy-MM-dd');
-    
+
             shiftTemplates.forEach(template => {
                 if ((template.applicableDays || []).includes(dayOfWeek)) {
                     // Try to find an existing shift in the current local schedule
                     const existingShift = baseSchedule.shifts.find(s => s.date === dateKey && s.templateId === template.id);
-                    
+
                     newShiftsFromTemplates.push({
                         id: `shift_${dateKey}_${template.id}`,
                         templateId: template.id,
@@ -343,23 +348,24 @@ export default function ScheduleView() {
                         role: template.role,
                         timeSlot: template.timeSlot,
                         minUsers: template.minUsers ?? 0,
+                        requiredRoles: template.requiredRoles ?? [],
                         assignedUsers: existingShift ? existingShift.assignedUsers : [],
                     });
                 }
             });
         });
-    
-        const sortedNewShifts = [...newShiftsFromTemplates].sort((a,b) => a.id.localeCompare(b.id));
-        const sortedLocalShifts = [...baseSchedule.shifts].sort((a,b) => a.id.localeCompare(b.id));
+
+        const sortedNewShifts = [...newShiftsFromTemplates].sort((a, b) => a.id.localeCompare(b.id));
+        const sortedLocalShifts = [...baseSchedule.shifts].sort((a, b) => a.id.localeCompare(b.id));
 
         if (!isEqual(sortedNewShifts, sortedLocalShifts)) {
-             const newFullSchedule = { ...baseSchedule, shifts: newShiftsFromTemplates };
-             // This syncs up both local and "server" state after auto-population, preventing false "unsaved changes" flags.
-             setLocalSchedule(newFullSchedule);
-             setServerSchedule(newFullSchedule);
-             setHasUnsavedChanges(false);
+            const newFullSchedule = { ...baseSchedule, shifts: newShiftsFromTemplates };
+            // This syncs up both local and "server" state after auto-population, preventing false "unsaved changes" flags.
+            setLocalSchedule(newFullSchedule);
+            setServerSchedule(newFullSchedule);
+            setHasUnsavedChanges(false);
         }
-    
+
     }, [localSchedule, shiftTemplates, weekId, currentDate]);
 
 
@@ -371,8 +377,8 @@ export default function ScheduleView() {
         }
         setCurrentDate(current => addDays(current, direction === 'next' ? 7 : -7));
     };
-    
-    const handleUpdateShiftAssignment = useCallback(async (shiftId: string, newAssignedUsers: {userId: string, userName: string, assignedRole: UserRole}[]) => {
+
+    const handleUpdateShiftAssignment = useCallback(async (shiftId: string, newAssignedUsers: { userId: string, userName: string, assignedRole: UserRole }[]) => {
         if (!user) return;
         const baseSchedule = localSchedule ?? {
             weekId,
@@ -394,21 +400,21 @@ export default function ScheduleView() {
                     setProcessingNotificationId(null);
                     setActiveNotification(null);
                 }
-                return; 
+                return;
             }
             setActiveNotification(null);
         }
-        
+
         let updatedShifts;
         const shiftExists = baseSchedule.shifts.some(s => s.id === shiftId);
 
         if (shiftExists) {
-            updatedShifts = baseSchedule.shifts.map(shift => 
+            updatedShifts = baseSchedule.shifts.map(shift =>
                 shift.id === shiftId ? { ...shift, assignedUsers: newAssignedUsers } : shift
             );
         } else {
-             const newShift = createShiftFromId(shiftId);
-             if (newShift) {
+            const newShift = createShiftFromId(shiftId);
+            if (newShift) {
                 newShift.assignedUsers = newAssignedUsers;
                 updatedShifts = [...baseSchedule.shifts, newShift];
             } else {
@@ -433,7 +439,7 @@ export default function ScheduleView() {
             setIsSubmitting(false);
         }
     };
-    
+
     const handleCreateDraft = async () => {
         if (!user) return;
         setIsSubmitting(true);
@@ -459,7 +465,7 @@ export default function ScheduleView() {
         if (parts.length < 3) return null;
         const [_, dateKey, ...templateIdParts] = parts;
         const templateId = templateIdParts.join('_');
-        
+
         const template = shiftTemplates.find(t => t.id === templateId);
         if (!template) return null;
 
@@ -472,9 +478,10 @@ export default function ScheduleView() {
             timeSlot: template.timeSlot,
             assignedUsers: [],
             minUsers: template.minUsers,
+            requiredRoles: template.requiredRoles ?? [],
         };
     };
-    
+
     const handleOpenAssignmentDialog = (shift: AssignedShift, notification: Notification | null = null) => {
         setActiveShift(shift);
         setActiveNotification(notification);
@@ -483,30 +490,30 @@ export default function ScheduleView() {
 
     const handleUpdateStatus = async (newStatus: Schedule['status']) => {
         if (!localSchedule || !user) return;
-    
+
         if (newStatus === 'published' && hasUnsavedChanges) {
             if (!window.confirm("Bạn có thay đổi chưa lưu. Công bố sẽ lưu các thay đổi này và phát hành lịch. Bạn có muốn tiếp tục?")) {
                 return;
             }
         }
-    
+
         setShowPublishConfirm(false);
         setShowRevertConfirm(false);
         setShowAdminActionConfirm(false);
         setIsSubmitting(true);
-    
+
         try {
             const dataToUpdate = { ...localSchedule, status: newStatus };
             await dataStore.updateSchedule(weekId, dataToUpdate);
             toast.success(`Đã cập nhật trạng thái lịch thành: ${newStatus}`);
             setHasUnsavedChanges(false);
-    
+
             if (newStatus === 'published' && user.role === 'Chủ nhà hàng') {
                 const nextWeekDate = addDays(currentDate, 7);
                 await dataStore.createDraftScheduleForNextWeek(nextWeekDate, shiftTemplates);
                 toast.success('Lịch cho tuần kế tiếp đã được tự động tạo.');
             }
-    
+
         } catch (error) {
             console.error("Failed to update schedule status:", error);
             toast.error('Không thể cập nhật trạng thái lịch.');
@@ -514,10 +521,10 @@ export default function ScheduleView() {
             setIsSubmitting(false);
         }
     }
-    
+
     const availabilityByDay = useMemo(() => {
         const grouped: { [key: string]: Availability[] } = {};
-         if (availability) {
+        if (availability) {
             for (const avail of availability) {
                 if (!grouped[format(new Date(avail.date as string), 'yyyy-MM-dd')]) {
                     grouped[format(new Date(avail.date as string), 'yyyy-MM-dd')] = [];
@@ -535,24 +542,24 @@ export default function ScheduleView() {
             setOpenMobileDays(daysOfWeek.map(day => format(day, 'yyyy-MM-dd')));
         }
     };
-    
+
     const handleCancelPassRequest = async (notificationId: string) => {
         if (!user) return;
         setProcessingNotificationId(notificationId);
         try {
             await dataStore.updatePassRequestNotificationStatus(notificationId, 'cancelled', user);
-             toast.success('Đã hủy yêu cầu pass ca của bạn.');
+            toast.success('Đã hủy yêu cầu pass ca của bạn.');
         } catch (error: any) {
-             toast.error('Không thể hủy yêu cầu.');
+            toast.error('Không thể hủy yêu cầu.');
         } finally {
             setProcessingNotificationId(null);
         }
     }
-    
-     const handleRevertRequest = async (notification: Notification) => {
+
+    const handleRevertRequest = async (notification: Notification) => {
         if (!user) return;
         setProcessingNotificationId(notification.id);
-         try {
+        try {
             await dataStore.revertPassRequest(notification, user);
             toast.success('Đã hoàn tác yêu cầu pass ca thành công.');
         } catch (error) {
@@ -565,12 +572,12 @@ export default function ScheduleView() {
 
     const handleTakeShift = async (notification: Notification) => {
         if (!user || !localSchedule) return;
-        
+
         setProcessingNotificationId(notification.id);
-        
+
         try {
             const acceptingUser: SimpleUser = { userId: user.uid, userName: user.displayName || 'N/A' };
-            
+
             await dataStore.acceptPassShift(notification.id, notification.payload, acceptingUser, allUsers, localSchedule);
 
             // Optimistic update UI
@@ -596,7 +603,7 @@ export default function ScheduleView() {
             setProcessingNotificationId(null);
         }
     }
-    
+
     const handleDeclineShift = async (notification: Notification) => {
         if (!user) return;
         setProcessingNotificationId(notification.id);
@@ -616,8 +623,7 @@ export default function ScheduleView() {
         try {
             await dataStore.approvePassRequest(notification, user);
             toast.success('Đã phê duyệt yêu cầu đổi ca.');
-        } catch (error: any)
-{
+        } catch (error: any) {
             console.error(error);
             let errorMessage = 'Không thể phê duyệt yêu cầu.';
             if (error instanceof Error) {
@@ -634,7 +640,7 @@ export default function ScheduleView() {
             setProcessingNotificationId(null);
         }
     }
-    
+
     const handleRejectApproval = async (notificationId: string) => {
         if (!user) return;
         setProcessingNotificationId(notificationId);
@@ -655,7 +661,7 @@ export default function ScheduleView() {
         if (shiftToAssign) {
             handleOpenAssignmentDialog(shiftToAssign, notification);
         } else {
-             toast.error('Không tìm thấy ca làm việc để chỉ định.');
+            toast.error('Không tìm thấy ca làm việc để chỉ định.');
         }
     }
 
@@ -682,7 +688,7 @@ export default function ScheduleView() {
             default: return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600';
         }
     };
-    
+
     const dailyShiftCounts = useMemo(() => {
         if (!localSchedule) return new Map<string, Map<string, number>>();
         const counts = new Map<string, Map<string, number>>();
@@ -694,7 +700,7 @@ export default function ScheduleView() {
                 shift.assignedUsers.forEach(assignedUser => {
                     const userDetails = allUsers.find(u => u.uid === assignedUser.userId);
                     if (userDetails && userDetails.role !== 'Quản lý' && userDetails.role !== 'Chủ nhà hàng') {
-                       dailyCounts.set(assignedUser.userId, (dailyCounts.get(assignedUser.userId) || 0) + 1);
+                        dailyCounts.set(assignedUser.userId, (dailyCounts.get(assignedUser.userId) || 0) + 1);
                     }
                 });
             });
@@ -708,7 +714,7 @@ export default function ScheduleView() {
     if (isLoading) {
         return <LoadingPage />;
     }
-    
+
     const canEditSchedule = localSchedule?.status === 'draft' || user?.role === 'Chủ nhà hàng';
     const isCurrentWeek = isSameWeek(currentDate, new Date(), { weekStartsOn: 1 });
     const areAllMobileDaysOpen = openMobileDays.length === daysOfWeek.length;
@@ -747,7 +753,7 @@ export default function ScheduleView() {
                 return null;
             }
         }
-        
+
         const displayedRole = assignedUser.assignedRole ?? userDetails.role;
         const userAvailability = availabilityByDay[dateKey];
         const isBusy = userAvailability ? !isUserAvailable(assignedUser.userId, shiftObject.timeSlot, userAvailability) : false;
@@ -757,7 +763,7 @@ export default function ScheduleView() {
 
         const badgeContent = (
             <Badge className={cn("h-auto py-0.5 text-xs flex items-center", getRoleColor(displayedRole))}>
-                {isBusy && <AlertTriangle className="h-3 w-3 mr-1 text-destructive-foreground"/>}
+                {isBusy && <AlertTriangle className="h-3 w-3 mr-1 text-destructive-foreground" />}
                 {hasMultipleShifts && (
                     <span className={cn("font-bold mr-1", shiftCount > 2 ? 'text-red-500' : 'text-yellow-500')}>{shiftCount}</span>
                 )}
@@ -773,7 +779,7 @@ export default function ScheduleView() {
             hasMultipleShifts && `Nhân viên này được xếp ${shiftCount} ca hôm nay.`,
             assignedUser.assignedRole && `Vai trò được phân công: ${assignedUser.assignedRole}`
         ].filter(Boolean).join(' ');
-        
+
         if (tooltipContent) {
             return (
                 <Tooltip delayDuration={100}>
@@ -791,13 +797,44 @@ export default function ScheduleView() {
             <div className="flex flex-col xl:flex-row gap-8">
                 {/* Main Schedule View */}
                 <div className="flex-1">
+                    {/* Professional summary card that opens a dialog with full details */}
+                    <Card className="mb-8 overflow-hidden border-amber-200 dark:border-amber-900/50 bg-gradient-to-br from-white to-amber-50/30 dark:from-background dark:to-amber-950/10 shadow-md">
+                        <div className="flex flex-col sm:flex-row items-center p-4 sm:p-6 gap-6">
+                            <div className="size-16 rounded-2xl bg-amber-500 shadow-lg shadow-amber-500/20 flex items-center justify-center shrink-0">
+                                <AlertTriangle className="h-9 w-9 text-white" />
+                            </div>
+                            <div className="flex-1 text-center sm:text-left space-y-1">
+                                <h3 className="text-xl font-bold tracking-tight">Tình trạng nhân sự</h3>
+                                <p className="text-muted-foreground text-sm leading-relaxed">
+                                    Có <span className="font-bold text-amber-600 dark:text-amber-400">{getRelevantUnderstaffedShifts(localSchedule ?? serverSchedule, allUsers, { currentUser: null, roleAware: false }).length} ca</span> chưa đủ người theo định mức. Vui lòng kiểm tra báo bận của nhân viên.
+                                </p>
+                            </div>
+                            <div className="shrink-0 w-full sm:w-auto">
+                                <Button
+                                    onClick={() => setIsUnderstaffedDialogOpen(true)}
+                                    className="w-full sm:w-auto rounded-xl px-8 font-bold shadow-lg h-12"
+                                >
+                                    Xem báo cáo bận
+                                </Button>
+                            </div>
+                        </div>
+                    </Card>
+
+                    <UnderstaffedEvidenceDialog
+                        open={isUnderstaffedDialogOpen}
+                        onOpenChange={setIsUnderstaffedDialogOpen}
+                        schedule={localSchedule ?? serverSchedule}
+                        allUsers={allUsers}
+                        evidences={busyEvidences}
+                        parentDialogTag='root'
+                    />
                     <Card>
                         <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                             <div>
+                            <div>
                                 <CardTitle>Lịch tuần: {format(weekInterval.start, 'dd/MM')} - {format(weekInterval.end, 'dd/MM/yyyy')}</CardTitle>
                                 <CardDescription>Trạng thái: <span className="font-semibold">{localSchedule?.status || 'Chưa có lịch'}</span></CardDescription>
                             </div>
-                             <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2">
                                 <Button variant="outline" size="icon" onClick={() => handleDateChange('prev')}>
                                     <ChevronLeft className="h-4 w-4" />
                                 </Button>
@@ -808,18 +845,19 @@ export default function ScheduleView() {
                             </div>
                         </CardHeader>
                         <CardContent>
-                             <div className="mb-4 p-4 border rounded-md bg-muted/30">
-                                <div className="flex items-center justify-between gap-3">
-                                    <div>
-                                        <Label className="font-semibold">Xếp lịch tự động</Label>
-                                        <p className="text-xs text-muted-foreground">Dựa vào đăng ký rảnh, vai trò, định mức và ràng buộc trong ứng dụng.</p>
+                            <div className="mb-4 p-4 border rounded-md bg-muted/30">
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                                    <div className="w-full sm:w-auto">
+                                        <Label className="font-semibold block">Xếp lịch tự động</Label>
+                                        <p className="text-xs text-muted-foreground mt-1">Dựa vào đăng ký rảnh, vai trò, định mức và ràng buộc trong ứng dụng.</p>
                                     </div>
-                                    <Button variant="secondary" onClick={() => setIsAutoDialogOpen(true)} disabled={!canEditSchedule} aria-label="Xếp lịch tự động">
-                                        <Settings className="mr-2 h-4 w-4" /> Xếp lịch tự động
+                                    <Button variant="secondary" onClick={() => setIsAutoDialogOpen(true)} disabled={!canEditSchedule} aria-label="Xếp lịch tự động" className="w-full sm:w-auto">
+                                        <Settings className="mr-2 h-4 w-4" />
+                                        <span className="whitespace-nowrap">Xếp lịch tự động</span>
                                     </Button>
                                 </div>
                             </div>
-                             {/* Desktop View */}
+                            {/* Desktop View */}
                             <div className="overflow-x-auto hidden md:block">
                                 <Table className="table-fixed w-full border">
                                     <TableHeader>
@@ -839,69 +877,70 @@ export default function ScheduleView() {
                                             const isToday = isSameDay(day, new Date());
                                             const isPast = !isToday && isAfter(new Date(), day);
                                             return (
-                                            <TableRow key={dateKey} className={cn("border-t", isToday && "bg-yellow-50 dark:bg-yellow-900/30", isPast && "opacity-70")}>
-                                                <TableCell className="font-semibold align-top text-center">
-                                                    <p className={cn(isPast && 'text-muted-foreground', isToday && 'font-semibold')}>{format(day, 'eee, dd/MM', { locale: vi })}{isToday && <Badge className="ml-2 text-xs">Hôm nay</Badge>}</p>
-                                                </TableCell>
-                                                {shiftTemplates.map(template => {
-                                                    const dayOfWeek = getDay(day);
+                                                <TableRow key={dateKey} className={cn("border-t", isToday && "bg-yellow-50 dark:bg-yellow-900/30", isPast && "opacity-70")}>
+                                                    <TableCell className="font-semibold align-top text-center">
+                                                        <p className={cn(isPast && 'text-muted-foreground', isToday && 'font-semibold')}>{format(day, 'eee, dd/MM', { locale: vi })}{isToday && <Badge className="ml-2 text-xs">Hôm nay</Badge>}</p>
+                                                    </TableCell>
+                                                    {shiftTemplates.map(template => {
+                                                        const dayOfWeek = getDay(day);
 
-                                                    if (!(template.applicableDays || []).includes(dayOfWeek)) {
-                                                        return <TableCell key={template.id} className="bg-muted/30 border-l" />;
-                                                    }
-                                                    
-                                                    const schedule = localSchedule ?? { weekId, status: 'draft', shifts: [] };
-                                                    const shiftForCell = schedule.shifts.find(s => s.date === dateKey && s.templateId === template.id);
-                                                    const shiftObject = shiftForCell ?? createShiftFromId(`shift_${dateKey}_${template.id}`);
+                                                        if (!(template.applicableDays || []).includes(dayOfWeek)) {
+                                                            return <TableCell key={template.id} className="bg-muted/30 border-l" />;
+                                                        }
 
-                                                    if (!shiftObject) return <TableCell key={template.id} className="bg-muted/30 border-l" />;
-                                                    
-                                                    const minUsers = shiftObject.minUsers ?? 0;
-                                                    const isUnderstaffed = minUsers > 0 && shiftObject.assignedUsers.length < minUsers;
+                                                        const schedule = localSchedule ?? { weekId, status: 'draft', shifts: [] };
+                                                        const shiftForCell = schedule.shifts.find(s => s.date === dateKey && s.templateId === template.id);
+                                                        const shiftObject = shiftForCell ?? createShiftFromId(`shift_${dateKey}_${template.id}`);
 
-                                                    const sortedAssignedUsers = [...shiftObject.assignedUsers].sort((a, b) => {
-                                                        const userA = allUsers.find(u => u.uid === a.userId);
-                                                        const userB = allUsers.find(u => u.uid === b.userId);
-                                                        if (!userA || !userB) return 0;
-                                                        const roleA = a.assignedRole ?? userA.role;
-                                                        const roleB = b.assignedRole ?? userB.role;
-                                                        return (roleOrder[roleA] || 99) - (roleOrder[roleB] || 99);
-                                                    });
+                                                        if (!shiftObject) return <TableCell key={template.id} className="bg-muted/30 border-l" />;
 
-                                                    return (
-                                                        <TableCell key={template.id} className={cn("p-1 align-top h-28 text-center border-l", isUnderstaffed && "bg-destructive/10", isPast && "opacity-60", isToday && "ring-1 ring-yellow-200") }>
-                                                            <Button 
-                                                                variant="ghost" 
-                                                                className="h-full w-full flex flex-col items-center justify-center p-1 group"
-                                                                onClick={() => handleOpenAssignmentDialog(shiftObject)}
-                                                                disabled={!canEditSchedule}
-                                                            >
-                                                                 {isUnderstaffed && <AlertTriangle className="w-4 h-4 text-destructive absolute top-1.5 right-1.5" />}
-                                                                {shiftObject.assignedUsers.length === 0 ? (
-                                                                    <div className="text-muted-foreground group-hover:text-primary">
-                                                                        <UserPlus className="h-6 w-6 mx-auto" />
-                                                                        <span className="text-xs mt-1">Thêm</span>
-                                                                    </div>
-                                                                ) : (
-                                                                     <div className="flex-grow w-full flex flex-row flex-wrap items-center justify-center content-center gap-1 py-1">
-                                                                        {sortedAssignedUsers.map(assignedUser => (
-                                                                            <React.Fragment key={assignedUser.userId}>
-                                                                                {renderUserBadge(assignedUser, dateKey, shiftObject)}
-                                                                            </React.Fragment>
-                                                                        ))}
-                                                                    </div>
-                                                                )}
-                                                            </Button>
-                                                        </TableCell>
-                                                    )
-                                                })}
-                                            </TableRow>
-                                        )})}
+                                                        const minUsers = shiftObject.minUsers ?? 0;
+                                                        const isUnderstaffed = minUsers > 0 && shiftObject.assignedUsers.length < minUsers;
+
+                                                        const sortedAssignedUsers = [...shiftObject.assignedUsers].sort((a, b) => {
+                                                            const userA = allUsers.find(u => u.uid === a.userId);
+                                                            const userB = allUsers.find(u => u.uid === b.userId);
+                                                            if (!userA || !userB) return 0;
+                                                            const roleA = a.assignedRole ?? userA.role;
+                                                            const roleB = b.assignedRole ?? userB.role;
+                                                            return (roleOrder[roleA] || 99) - (roleOrder[roleB] || 99);
+                                                        });
+
+                                                        return (
+                                                            <TableCell key={template.id} className={cn("p-1 align-top h-28 text-center border-l", isUnderstaffed && "bg-destructive/10", isPast && "opacity-60", isToday && "ring-1 ring-yellow-200")}>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    className="h-full w-full flex flex-col items-center justify-center p-1 group"
+                                                                    onClick={() => handleOpenAssignmentDialog(shiftObject)}
+                                                                    disabled={!canEditSchedule}
+                                                                >
+                                                                    {isUnderstaffed && <AlertTriangle className="w-4 h-4 text-destructive absolute top-1.5 right-1.5" />}
+                                                                    {shiftObject.assignedUsers.length === 0 ? (
+                                                                        <div className="text-muted-foreground group-hover:text-primary">
+                                                                            <UserPlus className="h-6 w-6 mx-auto" />
+                                                                            <span className="text-xs mt-1">Thêm</span>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="flex-grow w-full flex flex-row flex-wrap items-center justify-center content-center gap-1 py-1">
+                                                                            {sortedAssignedUsers.map(assignedUser => (
+                                                                                <React.Fragment key={assignedUser.userId}>
+                                                                                    {renderUserBadge(assignedUser, dateKey, shiftObject)}
+                                                                                </React.Fragment>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                </Button>
+                                                            </TableCell>
+                                                        )
+                                                    })}
+                                                </TableRow>
+                                            )
+                                        })}
                                     </TableBody>
                                 </Table>
                             </div>
-                             {/* Mobile View */}
-                             <div className="block md:hidden space-y-2">
+                            {/* Mobile View */}
+                            <div className="block md:hidden space-y-2">
                                 <div className="flex justify-end">
                                     <Button variant="outline" size="sm" onClick={handleToggleAllMobileDays}>
                                         <ChevronsDownUp className="mr-2 h-4 w-4" />
@@ -916,10 +955,10 @@ export default function ScheduleView() {
                                         const shiftsForDay = applicableTemplates.map(template => {
                                             return schedule.shifts.find(s => s.date === dateKey && s.templateId === template.id) ?? createShiftFromId(`shift_${dateKey}_${template.id}`);
                                         }).filter(Boolean) as AssignedShift[];
-                                        
+
                                         const isToday = isSameDay(day, new Date());
-                                            const isPast = !isToday && isAfter(new Date(), day);
-                                            return (
+                                        const isPast = !isToday && isAfter(new Date(), day);
+                                        return (
                                             <AccordionItem value={dateKey} key={dateKey} className={cn("border-b group", isToday && "bg-yellow-50 dark:bg-yellow-900/30", isPast && "opacity-70")}>
                                                 <div className="p-4 bg-muted/30 rounded-t-md">
                                                     <AccordionTrigger className="font-semibold text-base hover:no-underline p-0">
@@ -941,9 +980,9 @@ export default function ScheduleView() {
                                                                     <span className="font-semibold">{shiftObject.role && shiftObject.role !== 'Bất kỳ' ? `${shiftObject.label} (${shiftObject.role})` : shiftObject.label}:</span>
                                                                     <div className="flex flex-wrap gap-1">
                                                                         {sortedAssignedUsers.map(assignedUser => (
-                                                                           <React.Fragment key={assignedUser.userId}>
-                                                                            {renderUserBadge(assignedUser, dateKey, shiftObject)}
-                                                                          </React.Fragment>
+                                                                            <React.Fragment key={assignedUser.userId}>
+                                                                                {renderUserBadge(assignedUser, dateKey, shiftObject)}
+                                                                            </React.Fragment>
                                                                         ))}
                                                                     </div>
                                                                 </div>
@@ -959,8 +998,8 @@ export default function ScheduleView() {
 
                                                             const minUsers = shiftObject.minUsers ?? 0;
                                                             const isUnderstaffed = minUsers > 0 && shiftObject.assignedUsers.length < minUsers;
-                                                            
-                                                             const sortedAssignedUsers = [...shiftObject.assignedUsers].sort((a, b) => {
+
+                                                            const sortedAssignedUsers = [...shiftObject.assignedUsers].sort((a, b) => {
                                                                 const userA = allUsers.find(u => u.uid === a.userId);
                                                                 const userB = allUsers.find(u => u.uid === b.userId);
                                                                 if (!userA || !userB) return 0;
@@ -970,14 +1009,14 @@ export default function ScheduleView() {
                                                             });
 
                                                             return (
-                                                                <div key={template.id} className={cn("p-3 border rounded-md bg-card", isUnderstaffed && "border-destructive bg-destructive/10", isPast && "opacity-60", isToday && "ring-1 ring-yellow-200") }>
+                                                                <div key={template.id} className={cn("p-3 border rounded-md bg-card", isUnderstaffed && "border-destructive bg-destructive/10", isPast && "opacity-60", isToday && "ring-1 ring-yellow-200")}>
                                                                     <div className="flex items-center justify-between gap-2">
                                                                         <div className="flex-1">
                                                                             <p className="font-semibold">{template.label}</p>
                                                                             <p className="text-sm text-muted-foreground">{template.timeSlot.start} - {template.timeSlot.end}</p>
                                                                             <p className="text-xs text-muted-foreground">({template.role} | Min: {minUsers})</p>
                                                                         </div>
-                                                                        <Button 
+                                                                        <Button
                                                                             variant="secondary"
                                                                             onClick={() => handleOpenAssignmentDialog(shiftObject)}
                                                                             disabled={!canEditSchedule}
@@ -987,11 +1026,11 @@ export default function ScheduleView() {
                                                                             <span className="sr-only sm:not-sr-only">Phân công</span>
                                                                         </Button>
                                                                     </div>
-                                                                     <div className="flex flex-wrap gap-1 mt-2">
+                                                                    <div className="flex flex-wrap gap-1 mt-2">
                                                                         {sortedAssignedUsers.map(assignedUser => (
-                                                                           <React.Fragment key={assignedUser.userId}>
-                                                                            {renderUserBadge(assignedUser, dateKey, shiftObject)}
-                                                                          </React.Fragment>
+                                                                            <React.Fragment key={assignedUser.userId}>
+                                                                                {renderUserBadge(assignedUser, dateKey, shiftObject)}
+                                                                            </React.Fragment>
                                                                         ))}
                                                                     </div>
                                                                 </div>
@@ -1004,23 +1043,23 @@ export default function ScheduleView() {
                                             </AccordionItem>
                                         )
                                     })}
-                                 </Accordion>
-                             </div>
+                                </Accordion>
+                            </div>
                         </CardContent>
-                         <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t">
+                        <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t">
                             <div className="w-full sm:w-auto flex items-center gap-2">
                                 {user?.role === 'Chủ nhà hàng' && (
                                     <Button variant="outline" onClick={() => setIsTemplatesDialogOpen(true)} className="flex-1 sm:flex-none">
-                                        <Settings className="mr-2 h-4 w-4"/> Mẫu ca
+                                        <Settings className="mr-2 h-4 w-4" /> Mẫu ca
                                     </Button>
                                 )}
                                 <Button variant="outline" onClick={() => setIsHistoryDialogOpen(true)} className="flex-1 sm:flex-none">
-                                    <History className="mr-2 h-4 w-4"/> Lịch sử
+                                    <History className="mr-2 h-4 w-4" /> Lịch sử
                                 </Button>
                             </div>
-                             <div className="w-full sm:w-auto relative">
+                            <div className="w-full sm:w-auto relative">
                                 <Button variant="secondary" onClick={() => setIsPassRequestsDialogOpen(true)} className="w-full">
-                                    <MailQuestion className="mr-2 h-4 w-4"/>
+                                    <MailQuestion className="mr-2 h-4 w-4" />
                                     Yêu cầu Pass ca
                                     {pendingRequestCount > 0 && (
                                         <Badge variant="destructive" className="ml-2">
@@ -1030,55 +1069,61 @@ export default function ScheduleView() {
                                 </Button>
                             </div>
                             <div className="flex-1" />
-                             <div className="flex items-center justify-end gap-4 flex-wrap">
-                                 {user?.role === 'Chủ nhà hàng' && (!localSchedule || !localSchedule.status || localSchedule.status === 'proposed') && !hasUnsavedChanges && (
-                                     <AlertDialog open={showAdminActionConfirm} onOpenChange={setShowAdminActionConfirm}>
-                                         <AlertDialogTrigger asChild>
-                                             <Button variant="destructive" disabled={isSubmitting}>
-                                                 <FileX2 className="mr-2 h-4 w-4"/>
-                                                 {localSchedule?.status === 'proposed' ? 'Trả về bản nháp' : 'Tạo bản nháp'}
-                                             </Button>
-                                         </AlertDialogTrigger>
-                                         <AlertDialogContent>
-                                             <AlertDialogHeader>
-                                                 <AlertDialogTitle>
-                                                     {localSchedule?.status === 'proposed' ? 'Từ chối lịch đề xuất?' : 'Tạo lịch nháp mới?'}
-                                                 </AlertDialogTitle>
-                                                 <AlertDialogDescription>
-                                                     {localSchedule?.status === 'proposed' 
-                                                         ? "Hành động này sẽ chuyển lịch trở lại trạng thái 'Bản nháp', cho phép Quản lý tiếp tục chỉnh sửa."
-                                                         : "Tuần này chưa có lịch. Hành động này sẽ tạo một lịch nháp mới dựa trên các mẫu ca hiện có."
-                                                     }
-                                                 </AlertDialogDescription>
-                                             </AlertDialogHeader>
-                                             <AlertDialogFooter>
-                                                 <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                 <AlertDialogAction onClick={() => {
-                                                     if (localSchedule?.status === 'proposed') {
-                                                         handleUpdateStatus('draft');
-                                                     } else {
-                                                         handleCreateDraft();
-                                                     }
-                                                 }}>
-                                                     Xác nhận
-                                                 </AlertDialogAction>
-                                             </AlertDialogFooter>
-                                         </AlertDialogContent>
-                                     </AlertDialog>
-                                 )}
-                                 {user?.role === 'Chủ nhà hàng' && localSchedule?.status === 'published' && !hasUnsavedChanges && (
-                                    <AlertDialog open={showRevertConfirm} onOpenChange={setShowRevertConfirm}>
+                            <div className="flex items-center justify-end gap-4 flex-wrap">
+                                {user?.role === 'Chủ nhà hàng' && (!localSchedule || !localSchedule.status || localSchedule.status === 'proposed') && !hasUnsavedChanges && (
+                                    <AlertDialog open={showAdminActionConfirm} onOpenChange={setShowAdminActionConfirm} dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                                         <AlertDialogTrigger asChild>
-                                            <Button variant="secondary" disabled={isSubmitting}>
-                                                <FileSignature className="mr-2 h-4 w-4"/> Thu hồi lịch
+                                            <Button variant="destructive" disabled={isSubmitting}>
+                                                <FileX2 className="mr-2 h-4 w-4" />
+                                                {localSchedule?.status === 'proposed' ? 'Trả về bản nháp' : 'Tạo bản nháp'}
                                             </Button>
                                         </AlertDialogTrigger>
                                         <AlertDialogContent>
                                             <AlertDialogHeader>
-                                                <AlertDialogTitle>Thu hồi lịch đã công bố?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    Hành động này sẽ thu hồi lịch, ẩn nó khỏi trang của nhân viên và chuyển về trạng thái 'Bản nháp' để bạn có thể tiếp tục chỉnh sửa.
-                                                </AlertDialogDescription>
+                                                <AlertDialogIcon icon={FileX2} />
+                                                <div className="space-y-2 text-center sm:text-left">
+                                                    <AlertDialogTitle>
+                                                        {localSchedule?.status === 'proposed' ? 'Từ chối lịch đề xuất?' : 'Tạo lịch nháp mới?'}
+                                                    </AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        {localSchedule?.status === 'proposed'
+                                                            ? "Hành động này sẽ chuyển lịch trở lại trạng thái 'Bản nháp', cho phép Quản lý tiếp tục chỉnh sửa."
+                                                            : "Tuần này chưa có lịch. Hành động này sẽ tạo một lịch nháp mới dựa trên các mẫu ca hiện có."
+                                                        }
+                                                    </AlertDialogDescription>
+                                                </div>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => {
+                                                    if (localSchedule?.status === 'proposed') {
+                                                        handleUpdateStatus('draft');
+                                                    } else {
+                                                        handleCreateDraft();
+                                                    }
+                                                }}>
+                                                    Xác nhận
+                                                </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                )}
+                                {user?.role === 'Chủ nhà hàng' && localSchedule?.status === 'published' && !hasUnsavedChanges && (
+                                    <AlertDialog open={showRevertConfirm} onOpenChange={setShowRevertConfirm} dialogTag="alert-dialog" parentDialogTag="root" variant="warning">
+                                        <AlertDialogTrigger asChild>
+                                            <Button variant="secondary" disabled={isSubmitting}>
+                                                <FileSignature className="mr-2 h-4 w-4" /> Thu hồi lịch
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogIcon icon={History} />
+                                                <div className="space-y-2 text-center sm:text-left">
+                                                    <AlertDialogTitle>Thu hồi lịch đã công bố?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        Hành động này sẽ thu hồi lịch, ẩn nó khỏi trang của nhân viên và chuyển về trạng thái 'Bản nháp' để bạn có thể tiếp tục chỉnh sửa.
+                                                    </AlertDialogDescription>
+                                                </div>
                                             </AlertDialogHeader>
                                             <AlertDialogFooter>
                                                 <AlertDialogCancel>Hủy</AlertDialogCancel>
@@ -1093,7 +1138,7 @@ export default function ScheduleView() {
                 </div>
                 {/* Side Panel */}
                 <div className="w-full xl:w-80 xl:sticky xl:top-4">
-                   <TotalHoursTracker 
+                    <TotalHoursTracker
                         schedule={localSchedule}
                         availability={availability}
                         allUsers={allUsers}
@@ -1103,11 +1148,11 @@ export default function ScheduleView() {
                 </div>
             </div>
 
-             {isFabVisible && (
+            {isFabVisible && (
                 <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6">
                     <div className="relative">
                         {isPublishAction ? (
-                             <AlertDialog open={showPublishConfirm} onOpenChange={setShowPublishConfirm}>
+                            <AlertDialog open={showPublishConfirm} onOpenChange={setShowPublishConfirm} dialogTag="alert-dialog" parentDialogTag="root" variant="primary">
                                 <AlertDialogTrigger asChild>
                                     <Button
                                         size="lg"
@@ -1120,7 +1165,13 @@ export default function ScheduleView() {
                                     </Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
-                                    <AlertDialogHeader><AlertDialogTitle>Công bố lịch làm việc?</AlertDialogTitle><AlertDialogDescription>Hành động này sẽ công bố lịch cho tất cả nhân viên. Nếu có thay đổi chưa lưu, chúng cũng sẽ được lưu lại.</AlertDialogDescription></AlertDialogHeader>
+                                    <AlertDialogHeader>
+                                        <AlertDialogIcon icon={CheckCircle} />
+                                        <div className="space-y-2 text-center sm:text-left">
+                                            <AlertDialogTitle>Công bố lịch làm việc?</AlertDialogTitle>
+                                            <AlertDialogDescription>Hành động này sẽ công bố lịch cho tất cả nhân viên. Nếu có thay đổi chưa lưu, chúng cũng sẽ được lưu lại.</AlertDialogDescription>
+                                        </div>
+                                    </AlertDialogHeader>
                                     <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => handleUpdateStatus('published')}>Xác nhận Công bố</AlertDialogAction></AlertDialogFooter>
                                 </AlertDialogContent>
                             </AlertDialog>
@@ -1136,7 +1187,7 @@ export default function ScheduleView() {
                                 <span className="ml-2 text-base">{fabLabel}</span>
                             </Button>
                         )}
-                        
+
                         {hasUnsavedChanges && (
                             <div className="absolute -top-1 -right-1 flex h-4 w-4">
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -1146,7 +1197,7 @@ export default function ScheduleView() {
                     </div>
                 </div>
             )}
-           
+
 
             {activeShift && user && (
                 <ShiftAssignmentDialog
@@ -1163,7 +1214,10 @@ export default function ScheduleView() {
                     availability={availability}
                     onSave={handleUpdateShiftAssignment}
                     allShiftsOnDay={localSchedule?.shifts.filter(s => s.date === activeShift.date) || []}
+                    weekInterval={weekInterval}
+                    weekShifts={localSchedule?.shifts ?? []}
                     passRequestingUser={activeNotification?.payload.requestingUser}
+                    parentDialogTag="root"
                 />
             )}
 
@@ -1173,23 +1227,25 @@ export default function ScheduleView() {
                 notifications={notifications}
                 allUsers={allUsers}
                 weekInterval={weekInterval}
-                onAccept={handleTakeShift} 
+                onAccept={handleTakeShift}
                 onDecline={handleDeclineShift}
                 onCancel={handleCancelPassRequest}
                 onRevert={handleRevertRequest}
                 onAssign={handleAssignShift}
                 onApprove={handleApproveRequest}
+                parentDialogTag="root"
                 onRejectApproval={handleRejectApproval}
                 processingNotificationId={processingNotificationId}
                 schedule={localSchedule}
             />
-            
+
             {selectedUserForDetails && (
                 <UserDetailsDialog
                     isOpen={isUserDetailsDialogOpen}
                     onClose={() => setSelectedUserForDetails(null)}
                     user={selectedUserForDetails}
                     weekAvailability={availability.filter(a => a.userId === selectedUserForDetails.uid)}
+                    parentDialogTag="root"
                 />
             )}
 
@@ -1198,11 +1254,13 @@ export default function ScheduleView() {
                     <ShiftTemplatesDialog
                         isOpen={isTemplatesDialogOpen}
                         onClose={() => setIsTemplatesDialogOpen(false)}
+                        parentDialogTag='root'
                     />
                     <HistoryAndReportsDialog
                         isOpen={isHistoryDialogOpen}
                         onClose={() => setIsHistoryDialogOpen(false)}
                         allUsers={allUsers}
+                        parentDialogTag='root'
                     />
                 </>
             )}
@@ -1230,7 +1288,7 @@ export default function ScheduleView() {
                                 assignedRole: a.assignedRole ?? allUsers.find(u => u.uid === a.userId)?.role ?? 'Bất kỳ',
                             }));
 
-                            return { ...s, assignedUsers: newAssignedUsers};
+                            return { ...s, assignedUsers: newAssignedUsers };
                         });
                         const newSchedule = { ...base, shifts: updatedShifts };
                         setHasUnsavedChanges(!isEqual(newSchedule.shifts, serverSchedule?.shifts || []));
@@ -1238,6 +1296,7 @@ export default function ScheduleView() {
                     });
                     toast.success('Đã áp dụng phân công từ xem trước. Hãy lưu hoặc công bố.');
                 }}
+                parentDialogTag='root'
             />
         </TooltipProvider>
     )

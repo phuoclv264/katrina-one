@@ -11,7 +11,7 @@ import { Timestamp } from 'firebase/firestore';
 import { Card, CardContent } from '@/components/ui/card';
 import { vi } from 'date-fns/locale';
 import { Clock, Users } from 'lucide-react';
-import Image from 'next/image';
+import Image from '@/components/ui/image';
 import { ScrollAreaViewport } from '@radix-ui/react-scroll-area';
 
 const SHIFT_BG_COLORS = [

@@ -14,13 +14,14 @@ import { Accordion } from '@/components/ui/accordion';
 import { ArrowLeft, Banknote, Settings, ChevronLeft, ChevronRight, PlusCircle, Calendar as CalendarIcon, FilePlus, ChevronsUpDown } from 'lucide-react';
 import { format, isSameMonth, parseISO, addMonths, subMonths, eachDayOfInterval, startOfMonth, endOfMonth, isBefore } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { toast } from '@/components/ui/pro-toast'; 
+import { toast } from '@/components/ui/pro-toast';
 
 import UnpaidSlipsDialog from './unpaid-slips-dialog';
 import OwnerCashierDialogs from './owner-cashier-dialogs';
 import IncidentCategoryDialog from '../../../cashier/_components/incident-category-dialog';
 import OtherCostCategoryDialog from '../../../cashier/_components/other-cost-category-dialog';
 import MonthlySummary from './MonthlySummary';
+import IncidentDetailsDialog from './IncidentDetailsDialog';
 import DailyReportAccordionItem from './DailyReportAccordionItem';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -34,96 +35,100 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 
 function AddDocumentDialog({
-    isOpen,
-    onOpenChange,
-    onConfirm
+  isOpen,
+  onOpenChange,
+  onConfirm,
+  parentDialogTag
 }: {
-    isOpen: boolean;
-    onOpenChange: (open: boolean) => void;
-    onConfirm: (date: Date, action: 'revenue' | 'expense' | 'incident' | 'handover') => void;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: (date: Date, action: 'revenue' | 'expense' | 'incident' | 'handover') => void;
+  parentDialogTag: string;
 }) {
-    const [date, setDate] = useState<Date | undefined>(new Date());
-    const [action, setAction] = useState<'revenue' | 'expense' | 'incident' | 'handover'>('revenue');
-    const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [date, setDate] = useState<Date | undefined>(new Date());
+  const [action, setAction] = useState<'revenue' | 'expense' | 'incident' | 'handover'>('revenue');
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
-    const handleConfirm = () => {
-        if (date) {
-            onConfirm(date, action);
-            onOpenChange(false);
-        } else {
-            toast.error("Vui lòng chọn một ngày.");
-        }
-    };
-    
-    return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="bg-white dark:bg-card">
-                <DialogHeader>
-                    <DialogTitle>Bổ sung chứng từ</DialogTitle>
-                    <DialogDescription>Chọn ngày và loại chứng từ bạn muốn thêm vào hệ thống.</DialogDescription>
-                </DialogHeader>
-                <div className="grid grid-cols-1 gap-4 py-4">
-                    <div className="space-y-2">
-                         <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Ngày chứng từ</Label>
-                        <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant={"outline"}
-                                    className={cn(
-                                        "w-full justify-start text-left font-normal h-11",
-                                        !date && "text-muted-foreground"
-                                    )}
-                                >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {date ? format(date, "PPP", { locale: vi }) : <span>Chọn ngày</span>}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar
-                                    mode="single"
-                                    selected={date}
-                                    onSelect={(selectedDate) => {
-                                        setDate(selectedDate);
-                                        setIsCalendarOpen(false);
-                                    }}
-                                    initialFocus
-                                />
-                            </PopoverContent>
-                        </Popover>
-                    </div>
-                    <div className="space-y-2">
-                        <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Loại chứng từ</Label>
-                        <RadioGroup value={action} onValueChange={(value) => setAction(value as any)} className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <Label htmlFor="action-revenue" className="flex items-center justify-between rounded-lg border p-3 cursor-pointer [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5 transition-colors">
-                                <span className="font-medium text-sm">Doanh thu</span>
-                                <RadioGroupItem value="revenue" id="action-revenue" />
-                            </Label>
-                            <Label htmlFor="action-expense" className="flex items-center justify-between rounded-lg border p-3 cursor-pointer [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5 transition-colors">
-                                <span className="font-medium text-sm">Phiếu chi</span>
-                                <RadioGroupItem value="expense" id="action-expense" />
-                            </Label>
-                            <Label htmlFor="action-incident" className="flex items-center justify-between rounded-lg border p-3 cursor-pointer [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5 transition-colors">
-                                <span className="font-medium text-sm">Sự cố</span>
-                                <RadioGroupItem value="incident" id="action-incident" />
-                            </Label> 
-                            <Label htmlFor="action-handover" className="flex items-center justify-between rounded-lg border p-3 cursor-pointer [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5 transition-colors">
-                                <span className="font-medium text-sm">Bàn giao</span>
-                                <RadioGroupItem value="handover" id="action-handover" />
-                            </Label>
-                        </RadioGroup>
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
-                    <Button onClick={handleConfirm} disabled={!date}>Xác nhận</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
+  const handleConfirm = () => {
+    if (date) {
+      onConfirm(date, action);
+      // Keep the AddDocumentDialog open so the child dialog opens with
+      // parentDialogTag="add-document-dialog" (caller will set activeParentDialogTag).
+      // Do NOT close here.
+    } else {
+      toast.error("Vui lòng chọn một ngày.");
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange} dialogTag="add-document-dialog" parentDialogTag={parentDialogTag}>
+      <DialogContent className="bg-white dark:bg-card">
+        <DialogHeader iconkey="layout">
+          <DialogTitle>Bổ sung chứng từ</DialogTitle>
+          <DialogDescription>Chọn ngày và loại chứng từ bạn muốn thêm vào hệ thống.</DialogDescription>
+        </DialogHeader>
+        <div className="grid grid-cols-1 gap-4 py-4">
+          <div className="space-y-2">
+            <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Ngày chứng từ</Label>
+            <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className={cn(
+                    "w-full justify-start text-left font-normal h-11",
+                    !date && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {date ? format(date, "PPP", { locale: vi }) : <span>Chọn ngày</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={date}
+                  onSelect={(selectedDate) => {
+                    setDate(selectedDate);
+                    setIsCalendarOpen(false);
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Loại chứng từ</Label>
+            <RadioGroup value={action} onValueChange={(value) => setAction(value as any)} className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <Label htmlFor="action-revenue" className="flex items-center justify-between rounded-lg border p-3 cursor-pointer [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5 transition-colors">
+                <span className="font-medium text-sm">Doanh thu</span>
+                <RadioGroupItem value="revenue" id="action-revenue" />
+              </Label>
+              <Label htmlFor="action-expense" className="flex items-center justify-between rounded-lg border p-3 cursor-pointer [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5 transition-colors">
+                <span className="font-medium text-sm">Phiếu chi</span>
+                <RadioGroupItem value="expense" id="action-expense" />
+              </Label>
+              <Label htmlFor="action-incident" className="flex items-center justify-between rounded-lg border p-3 cursor-pointer [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5 transition-colors">
+                <span className="font-medium text-sm">Sự cố</span>
+                <RadioGroupItem value="incident" id="action-incident" />
+              </Label>
+              <Label htmlFor="action-handover" className="flex items-center justify-between rounded-lg border p-3 cursor-pointer [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5 transition-colors">
+                <span className="font-medium text-sm">Bàn giao</span>
+                <RadioGroupItem value="handover" id="action-handover" />
+              </Label>
+            </RadioGroup>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
+          <Button onClick={handleConfirm} disabled={!date}>Xác nhận</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 interface CashierReportsViewProps {
-    isStandalone?: boolean;
+  isStandalone?: boolean;
 }
 
 export default function CashierReportsView({ isStandalone = true }: CashierReportsViewProps) {
@@ -148,7 +153,7 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
   const [incidentCategories, setIncidentCategories] = useState<IncidentCategory[]>([]);
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [cashHandoverReports, setCashHandoverReports] = useState<CashHandoverReport[]>([]);
-  
+
   const [isLoading, setIsLoading] = useState(true);
   const [processingItemId, setProcessingItemId] = useState<string | null>(null);
 
@@ -161,15 +166,20 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
   const [isUnpaidSlipsDialogOpen, setIsUnpaidSlipsDialogOpen] = useState(false);
   const [isCashHandoverDialogOpen, setIsCashHandoverDialogOpen] = useState(false);
   const [isAddDocumentDialogOpen, setIsAddDocumentDialogOpen] = useState(false);
-  
+  const [isIncidentDetailsDialogOpen, setIsIncidentDetailsDialogOpen] = useState(false);
+
+  // Track which dialog should be treated as the parent when opening child dialogs.
+  // This allows opening dialogs either from the root page or from within the AddDocumentDialog.
+  const [activeParentDialogTag, setActiveParentDialogTag] = useState<string>('root');
+
   const [slipToEdit, setSlipToEdit] = useState<ExpenseSlip | null>(null);
   const [revenueStatsToEdit, setRevenueStatsToEdit] = useState<RevenueStats | null>(null);
   const [cashHandoverToEdit, setCashHandoverToEdit] = useState<CashHandoverReport | null>(null);
   const [incidentToEdit, setIncidentToEdit] = useState<IncidentReport | null>(null);
   const [dateForNewEntry, setDateForNewEntry] = useState<string | null>(null);
-  
+
   const itemRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
-  
+
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const sortedDatesInMonth = useMemo(() => {
@@ -179,14 +189,14 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
     const effectiveEndDate = isSameMonth(currentMonth, today) && isBefore(today, monthEnd) ? today : monthEnd;
 
     const allDays = eachDayOfInterval({ start: monthStart, end: effectiveEndDate });
-    
+
     return allDays.map(day => format(day, 'yyyy-MM-dd')).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
   }, [currentMonth]);
 
   const [openDays, setOpenDays] = useState<string[]>([]);
 
   const reportsByDay = useMemo(() => {
-    const reports: { [date: string]: { revenue: RevenueStats[], expenses: ExpenseSlip[], incidents: IncidentReport[], cashHandovers: CashHandoverReport[] }} = {};
+    const reports: { [date: string]: { revenue: RevenueStats[], expenses: ExpenseSlip[], incidents: IncidentReport[], cashHandovers: CashHandoverReport[] } } = {};
     const processItems = (items: (RevenueStats | ExpenseSlip | IncidentReport | CashHandoverReport)[]) => {
       items.forEach(item => {
         if (isSameMonth(parseISO(item.date), currentMonth)) {
@@ -211,57 +221,57 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
     }
     return reports;
   }, [currentMonth, revenueStats, expenseSlips, incidents, cashHandoverReports]);
-  
+
   // State for CashHandoverDialog
   const [linkedRevenueForDialog, setLinkedRevenueForDialog] = useState<RevenueStats | null>(null);
   const [linkedExpensesForDialog, setLinkedExpensesForDialog] = useState<ExpenseSlip[]>([]);
   const [expectedCashForDialog, setExpectedCashForDialog] = useState(0);
-  
+
   const [finalHandoverToView, setFinalHandoverToView] = useState<CashHandoverReport | null>(null);
 
   useEffect(() => {
     routerRef.current = router;
-  }, [router]); 
+  }, [router]);
 
   useEffect(() => {
-      if (isCashHandoverDialogOpen) {
-          const relevantDate = dateForNewEntry || cashHandoverToEdit?.date;
+    if (isCashHandoverDialogOpen) {
+      const relevantDate = dateForNewEntry || cashHandoverToEdit?.date;
 
-          if (cashHandoverToEdit) {
-              // Case 1: Editing an existing report.
-              // Reconstruct the historical state from the report's linked data.
-              const revenue = revenueStats.find(stat => stat.id === cashHandoverToEdit.linkedRevenueStatsId) || null;
-              const expenses = expenseSlips.filter(slip => cashHandoverToEdit.linkedExpenseSlipIds?.includes(slip.id));
-              
-              setLinkedRevenueForDialog(revenue);
-              setLinkedExpensesForDialog(expenses);
-  
-              const historicalCashRevenue = revenue?.revenueByPaymentMethod.cash || 0;
-              const historicalTotalCashExpense = expenses
-                  .filter(slip => slip.paymentMethod === 'cash')
-                  .reduce((sum, slip) => sum + (slip.actualPaidAmount ?? slip.totalAmount), 0);
-              const historicalStartOfDayCash = cashHandoverToEdit.startOfDayCash;
-              
-              const historicalExpectedCash = historicalCashRevenue - historicalTotalCashExpense + historicalStartOfDayCash;
-              setExpectedCashForDialog(historicalExpectedCash);
-          } else if (relevantDate) {
-              // Case 2: Creating a new report for a specific (past) date.
-              // Find the latest revenue and all expenses for that date.
-              const reportsForDate = reportsByDay[relevantDate] || { revenue: [], expenses: [], incidents: [], cashHandovers: [] };
-              const latestRevenue = reportsForDate.revenue[0] || null;
-              const expensesForDate = reportsForDate.expenses;
-  
-              setLinkedRevenueForDialog(latestRevenue);
-              setLinkedExpensesForDialog(expensesForDate);
-  
-              const cashRevenue = latestRevenue?.revenueByPaymentMethod.cash || 0;
-              const totalCashExpense = expensesForDate
-                  .filter(slip => slip.paymentMethod === 'cash')
-                  .reduce((sum, slip) => sum + (slip.actualPaidAmount ?? slip.totalAmount), 0);
-              
-              setExpectedCashForDialog(cashRevenue - totalCashExpense + 1_500_000); // Assume default start of day cash
-          }
+      if (cashHandoverToEdit) {
+        // Case 1: Editing an existing report.
+        // Reconstruct the historical state from the report's linked data.
+        const revenue = revenueStats.find(stat => stat.id === cashHandoverToEdit.linkedRevenueStatsId) || null;
+        const expenses = expenseSlips.filter(slip => cashHandoverToEdit.linkedExpenseSlipIds?.includes(slip.id));
+
+        setLinkedRevenueForDialog(revenue);
+        setLinkedExpensesForDialog(expenses);
+
+        const historicalCashRevenue = revenue?.revenueByPaymentMethod.cash || 0;
+        const historicalTotalCashExpense = expenses
+          .filter(slip => slip.paymentMethod === 'cash')
+          .reduce((sum, slip) => sum + (slip.actualPaidAmount ?? slip.totalAmount), 0);
+        const historicalStartOfDayCash = cashHandoverToEdit.startOfDayCash;
+
+        const historicalExpectedCash = historicalCashRevenue - historicalTotalCashExpense + historicalStartOfDayCash;
+        setExpectedCashForDialog(historicalExpectedCash);
+      } else if (relevantDate) {
+        // Case 2: Creating a new report for a specific (past) date.
+        // Find the latest revenue and all expenses for that date.
+        const reportsForDate = reportsByDay[relevantDate] || { revenue: [], expenses: [], incidents: [], cashHandovers: [] };
+        const latestRevenue = reportsForDate.revenue[0] || null;
+        const expensesForDate = reportsForDate.expenses;
+
+        setLinkedRevenueForDialog(latestRevenue);
+        setLinkedExpensesForDialog(expensesForDate);
+
+        const cashRevenue = latestRevenue?.revenueByPaymentMethod.cash || 0;
+        const totalCashExpense = expensesForDate
+          .filter(slip => slip.paymentMethod === 'cash')
+          .reduce((sum, slip) => sum + (slip.actualPaidAmount ?? slip.totalAmount), 0);
+
+        setExpectedCashForDialog(cashRevenue - totalCashExpense + 1_500_000); // Assume default start of day cash
       }
+    }
   }, [isCashHandoverDialogOpen, cashHandoverToEdit, dateForNewEntry, revenueStats, expenseSlips, reportsByDay]);
 
 
@@ -292,15 +302,15 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
   useDataRefresher(handleDataRefresh);
 
   useEffect(() => {
-      if (isLoading && (revenueStats.length > 0 || expenseSlips.length > 0 || incidents.length > 0 || inventoryList.length > 0 || otherCostCategories.length > 0 || incidentCategories.length > 0 || users.length > 0 || cashHandoverReports.length > 0)) {
-          setIsLoading(false);
-      }
+    if (isLoading && (revenueStats.length > 0 || expenseSlips.length > 0 || incidents.length > 0 || inventoryList.length > 0 || otherCostCategories.length > 0 || incidentCategories.length > 0 || users.length > 0 || cashHandoverReports.length > 0)) {
+      setIsLoading(false);
+    }
   }, [revenueStats, expenseSlips, incidents, inventoryList, otherCostCategories, incidentCategories, users, cashHandoverReports]);
-    
+
   const allMonthsWithData = useMemo(() => {
     const monthSet = new Set<string>();
     [...revenueStats, ...expenseSlips, ...incidents, ...cashHandoverReports].forEach(item => {
-        monthSet.add(format(parseISO(item.date), 'yyyy-MM'));
+      monthSet.add(format(parseISO(item.date), 'yyyy-MM'));
     });
     return Array.from(monthSet).sort().reverse();
   }, [revenueStats, expenseSlips, incidents, cashHandoverReports]);
@@ -365,7 +375,12 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
       setOpenDays([]);
     }
   }, [sortedDatesInMonth]);
-  
+
+  useEffect(() => {
+    if (!isAddDocumentDialogOpen) setActiveParentDialogTag('root');
+    else setActiveParentDialogTag('add-document-dialog');
+  }, [isAddDocumentDialogOpen]);
+
   const monthlyRevenueStats = useMemo(() => revenueStats.filter(stat => isSameMonth(parseISO(stat.date), currentMonth)), [revenueStats, currentMonth]);
   const monthlyExpenseSlips = useMemo(() => expenseSlips.filter(slip => isSameMonth(parseISO(slip.date), currentMonth)), [expenseSlips, currentMonth]);
   const monthlyIncidents = useMemo(() => incidents.filter(i => isSameMonth(parseISO(i.date), currentMonth)), [incidents, currentMonth]);
@@ -388,45 +403,56 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
   const handleEditIncident = useCallback((incident: IncidentReport) => { setDateForNewEntry(null); setIncidentToEdit(incident); setIsIncidentDialogOpen(true); }, []);
   const handleEditCashHandover = useCallback((handover: CashHandoverReport) => { setDateForNewEntry(null); setCashHandoverToEdit(handover); setIsCashHandoverDialogOpen(true); }, []);
 
+  // Ensure top-level opens use root as parent
+  const handleEditExpenseWithRoot = useCallback((slip: ExpenseSlip) => { setActiveParentDialogTag('root'); handleEditExpense(slip); }, [handleEditExpense]);
+  const handleEditRevenueWithRoot = useCallback((stats: RevenueStats) => { setActiveParentDialogTag('root'); handleEditRevenue(stats); }, [handleEditRevenue]);
+  const handleEditIncidentWithRoot = useCallback((incident: IncidentReport) => { setActiveParentDialogTag('root'); handleEditIncident(incident); }, [handleEditIncident]);
+  const handleEditCashHandoverWithRoot = useCallback((handover: CashHandoverReport) => { setActiveParentDialogTag('root'); handleEditCashHandover(handover); }, [handleEditCashHandover]);
+
   const handleViewFinalHandover = useCallback((handover: CashHandoverReport) => {
     setFinalHandoverToView(handover);
     setIsFinalHandoverViewOpen(true);
   }, []);
 
-   const handleAddDocumentConfirm = (date: Date, action: 'revenue' | 'expense' | 'incident' | 'handover') => {
-        setDateForNewEntry(format(date, 'yyyy-MM-dd'));
-        switch(action) {
-            case 'revenue':
-                setRevenueStatsToEdit(null);
-                setIsRevenueDialogOpen(true);
-                break;
-            case 'expense':
-                setSlipToEdit(null);
-                setIsExpenseDialogOpen(true);
-                break;
-            case 'incident':
-                setIncidentToEdit(null);
-                setIsIncidentDialogOpen(true);
-                break;
-            case 'handover': // Mở dialog bàn giao cuối ca
-                setFinalHandoverToView(null);
-                setIsFinalHandoverViewOpen(true);
-                break;
-        }
-   };
+  const handleAddDocumentConfirm = (date: Date, action: 'revenue' | 'expense' | 'incident' | 'handover') => {
+    setDateForNewEntry(format(date, 'yyyy-MM-dd'));
+    switch (action) {
+      case 'revenue':
+        // When opened via the Add Document dialog, set parent tag accordingly so nested dialogs use it
+        setActiveParentDialogTag('add-document-dialog');
+        setRevenueStatsToEdit(null);
+        setIsRevenueDialogOpen(true);
+        break;
+      case 'expense':
+        setActiveParentDialogTag('add-document-dialog');
+        setSlipToEdit(null);
+        setIsExpenseDialogOpen(true);
+        break;
+      case 'incident':
+        setActiveParentDialogTag('add-document-dialog');
+        setIncidentToEdit(null);
+        setIsIncidentDialogOpen(true);
+        break;
+      case 'handover': // Mở dialog bàn giao cuối ca
+        setActiveParentDialogTag('add-document-dialog');
+        setFinalHandoverToView(null);
+        setIsFinalHandoverViewOpen(true);
+        break;
+    }
+  };
 
   const handleSaveSlip = useCallback(async (data: any, id?: string) => {
     if (!user) return;
     setProcessingItemId(id || 'new');
     try {
-        const slipDate = dateForNewEntry || slipToEdit?.date;
-        if (!slipDate) throw new Error("Date for slip is not defined.");
-        
-        const createdBy = id ? slipToEdit?.createdBy : { userId: user.uid, userName: user.displayName };
+      const slipDate = dateForNewEntry || slipToEdit?.date;
+      if (!slipDate) throw new Error("Date for slip is not defined.");
 
-        await dataStore.addOrUpdateExpenseSlip({ ...data, date: slipDate, createdBy }, id);
-        toast.success(`Đã ${id ? 'cập nhật' : 'tạo'} phiếu chi.`);
-        setIsExpenseDialogOpen(false);
+      const createdBy = id ? slipToEdit?.createdBy : { userId: user.uid, userName: user.displayName };
+
+      await dataStore.addOrUpdateExpenseSlip({ ...data, date: slipDate, createdBy }, id);
+      toast.success(`Đã ${id ? 'cập nhật' : 'tạo'} phiếu chi.`);
+      setIsExpenseDialogOpen(false);
     } catch (error) { toast.error("Không thể lưu phiếu chi."); console.error(error) }
     finally { setProcessingItemId(null); }
   }, [user, slipToEdit, dateForNewEntry]);
@@ -436,30 +462,30 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
     const docId = id || revenueStatsToEdit?.id;
     setProcessingItemId(docId || 'new-revenue');
     try {
-        const revenueDate = dateForNewEntry || revenueStatsToEdit?.date;
-        if (!revenueDate) throw new Error("Date for revenue is not defined.");
+      const revenueDate = dateForNewEntry || revenueStatsToEdit?.date;
+      if (!revenueDate) throw new Error("Date for revenue is not defined.");
 
-        const revenueData = {
-            ...data,
-            date: revenueDate,
-        };
+      const revenueData = {
+        ...data,
+        date: revenueDate,
+      };
 
-        const newDocId = await dataStore.addOrUpdateRevenueStats(revenueData, user, isEdited, docId);
-        toast.success(`Đã ${docId ? 'cập nhật' : 'tạo'} doanh thu.`);
-        setIsRevenueDialogOpen(false);
-        
-        // Always open the CashHandoverDialog after saving a revenue stat.
-        // This applies to both creating a new stat and editing an existing one.
-        const relevantDate = revenueDate;
+      const newDocId = await dataStore.addOrUpdateRevenueStats(revenueData, user, isEdited, docId);
+      toast.success(`Đã ${docId ? 'cập nhật' : 'tạo'} doanh thu.`);
+      setIsRevenueDialogOpen(false);
 
-        // Find if a cash handover already exists for this revenue stat.
-        const reportsForDate = reportsByDay[relevantDate] || { revenue: [], expenses: [], incidents: [], cashHandovers: [] };
-        const handoverToEdit = reportsForDate.cashHandovers.find(report => report.linkedRevenueStatsId === (docId || newDocId));
+      // Always open the CashHandoverDialog after saving a revenue stat.
+      // This applies to both creating a new stat and editing an existing one.
+      const relevantDate = revenueDate;
 
-        // Set the state needed for the CashHandoverDialog and open it.
-        setCashHandoverToEdit(handoverToEdit || null);
-        setDateForNewEntry(format(relevantDate, 'yyyy-MM-dd')); // Pass the date context
-        setIsCashHandoverDialogOpen(true);
+      // Find if a cash handover already exists for this revenue stat.
+      const reportsForDate = reportsByDay[relevantDate] || { revenue: [], expenses: [], incidents: [], cashHandovers: [] };
+      const handoverToEdit = reportsForDate.cashHandovers.find(report => report.linkedRevenueStatsId === (docId || newDocId));
+
+      // Set the state needed for the CashHandoverDialog and open it.
+      setCashHandoverToEdit(handoverToEdit || null);
+      setDateForNewEntry(format(relevantDate, 'yyyy-MM-dd')); // Pass the date context
+      setIsCashHandoverDialogOpen(true);
 
     } catch (error) { toast.error("Không thể lưu doanh thu."); console.error(error); }
     finally { setProcessingItemId(null); }
@@ -469,15 +495,15 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
     if (!user) return;
     setProcessingItemId(id || 'new');
     try {
-        const incidentDate = dateForNewEntry || incidentToEdit?.date;
-        if (!incidentDate) throw new Error("Date for incident is not defined.");
+      const incidentDate = dateForNewEntry || incidentToEdit?.date;
+      if (!incidentDate) throw new Error("Date for incident is not defined.");
 
-        await dataStore.addOrUpdateIncident({ ...data, date: incidentDate }, id, user);
-        toast.success(id ? "Đã cập nhật sự cố." : "Đã ghi nhận sự cố.");
-        if (data.cost > 0 && data.paymentMethod !== 'intangible_cost') {
-          toast.info("Một phiếu chi tương ứng đã được tạo/cập nhật tự động.", { icon: 'ℹ️' });
-        }
-        setIsIncidentDialogOpen(false);
+      await dataStore.addOrUpdateIncident({ ...data, date: incidentDate }, id, user);
+      toast.success(id ? "Đã cập nhật sự cố." : "Đã ghi nhận sự cố.");
+      if (data.cost > 0 && data.paymentMethod !== 'intangible_cost') {
+        toast.info("Một phiếu chi tương ứng đã được tạo/cập nhật tự động.", { icon: 'ℹ️' });
+      }
+      setIsIncidentDialogOpen(false);
     } catch (error) { toast.error('Không thể lưu báo cáo sự cố.'); }
     finally { setProcessingItemId(null); }
   }, [user, incidentToEdit, dateForNewEntry]);
@@ -486,30 +512,30 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
     if (!user) return;
     setProcessingItemId(id || 'new-cash-handover');
     try {
-        if (id) {
-            await dataStore.updateCashHandoverReport(id, data, user);
-            toast.success('Đã cập nhật biên bản kiểm kê.');
-        } else {
-            // Creating a new report for a specific date (past or present)
-            const relevantDate = dateForNewEntry || cashHandoverToEdit?.date;
-            if (!relevantDate) {
-                toast.error("Không xác định được ngày để tạo biên bản.");
-                return;
-            }
-            const reportsForDate = reportsByDay[relevantDate] || { revenue: [], expenses: [], incidents: [], cashHandovers: [] };
-            const latestRevenueForDate = reportsForDate.revenue[0] || null;
-
-            await dataStore.addCashHandoverReport({
-                ...data,
-                date: relevantDate,
-                startOfDayCash: 1_500_000, // Default for past entries, can be adjusted
-                linkedExpenseSlipIds: reportsForDate.expenses.map(s => s.id),
-                linkedRevenueStatsId: latestRevenueForDate?.id || null,
-            }, user);
-            toast.success(`Đã tạo biên bản kiểm kê cho ngày ${format(parseISO(relevantDate), 'dd/MM/yyyy')}.`);
+      if (id) {
+        await dataStore.updateCashHandoverReport(id, data, user);
+        toast.success('Đã cập nhật biên bản kiểm kê.');
+      } else {
+        // Creating a new report for a specific date (past or present)
+        const relevantDate = dateForNewEntry || cashHandoverToEdit?.date;
+        if (!relevantDate) {
+          toast.error("Không xác định được ngày để tạo biên bản.");
+          return;
         }
-        setDateForNewEntry(null);
-        setIsCashHandoverDialogOpen(false);
+        const reportsForDate = reportsByDay[relevantDate] || { revenue: [], expenses: [], incidents: [], cashHandovers: [] };
+        const latestRevenueForDate = reportsForDate.revenue[0] || null;
+
+        await dataStore.addCashHandoverReport({
+          ...data,
+          date: relevantDate,
+          startOfDayCash: 1_500_000, // Default for past entries, can be adjusted
+          linkedExpenseSlipIds: reportsForDate.expenses.map(s => s.id),
+          linkedRevenueStatsId: latestRevenueForDate?.id || null,
+        }, user);
+        toast.success(`Đã tạo biên bản kiểm kê cho ngày ${format(parseISO(relevantDate), 'dd/MM/yyyy')}.`);
+      }
+      setDateForNewEntry(null);
+      setIsCashHandoverDialogOpen(false);
     } catch (error) { toast.error('Không thể lưu biên bản kiểm kê.'); console.error(error); }
     finally { setProcessingItemId(null); }
   }, [user, dateForNewEntry, cashHandoverToEdit, reportsByDay]);
@@ -518,52 +544,52 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
     if (!user) return;
     setProcessingItemId(id || 'new-final-handover');
     try {
-        await dataStore.saveFinalHandoverDetails(data, user, id, dateForNewEntry ?? undefined);
-        toast.success(id ? 'Đã cập nhật biên bản bàn giao.' : 'Đã bổ sung biên bản bàn giao.');
-        setIsFinalHandoverViewOpen(false);
-        setFinalHandoverToView(null);
-        setDateForNewEntry(null);
+      await dataStore.saveFinalHandoverDetails(data, user, id, dateForNewEntry ?? undefined);
+      toast.success(id ? 'Đã cập nhật biên bản bàn giao.' : 'Đã bổ sung biên bản bàn giao.');
+      setIsFinalHandoverViewOpen(false);
+      setFinalHandoverToView(null);
+      setDateForNewEntry(null);
     } catch (error) {
-        toast.error(`Lỗi: Không thể lưu biên bản. ${(error as Error).message}`);
-        console.error("Failed to save final handover:", error);
+      toast.error(`Lỗi: Không thể lưu biên bản. ${(error as Error).message}`);
+      console.error("Failed to save final handover:", error);
     } finally {
-        setProcessingItemId(null);
+      setProcessingItemId(null);
     }
   }, [user, dateForNewEntry]);
 
   const handleDeleteExpense = useCallback((id: string) => {
     const expense = expenseSlips.find(e => e.id === id);
     if (expense && user) {
-        setProcessingItemId(id);
-        dataStore.deleteExpenseSlip(expense).then(() => toast.success(`Đã xóa phiếu chi.`))
+      setProcessingItemId(id);
+      dataStore.deleteExpenseSlip(expense).then(() => toast.success(`Đã xóa phiếu chi.`))
         .catch((e) => toast.error(`Lỗi: Không thể xóa phiếu chi.`))
         .finally(() => setProcessingItemId(null));
     }
   }, [expenseSlips, user]);
 
   const handleDeleteRevenue = useCallback((id: string) => {
-      if (!user) return;
-      setProcessingItemId(id);
-      dataStore.deleteRevenueStats(id, user).then(() => toast.success(`Đã xóa phiếu thống kê.`))
+    if (!user) return;
+    setProcessingItemId(id);
+    dataStore.deleteRevenueStats(id, user).then(() => toast.success(`Đã xóa phiếu thống kê.`))
       .catch((e) => toast.error(`Lỗi: Không thể xóa phiếu thống kê.`))
       .finally(() => setProcessingItemId(null));
   }, [user]);
-  
+
   const handleDeleteIncident = useCallback((id: string) => {
     const incidentToDelete = incidents.find(i => i.id === id);
     if (!incidentToDelete || !user) return;
     setProcessingItemId(id);
     dataStore.deleteIncident(incidentToDelete).then(() => toast.success('Đã xóa báo cáo sự cố.'))
-    .catch(() => toast.error('Không thể xóa báo cáo sự cố.'))
-    .finally(() => setProcessingItemId(null));
+      .catch(() => toast.error('Không thể xóa báo cáo sự cố.'))
+      .finally(() => setProcessingItemId(null));
   }, [incidents, user]);
 
   const handleDeleteCashHandover = useCallback((id: string) => {
     if (!user) return;
     setProcessingItemId(id);
     dataStore.deleteCashHandoverReport(id, user).then(() => toast.success(`Đã xóa biên bản kiểm kê.`))
-    .catch(() => toast.error(`Lỗi: Không thể xóa biên bản.`))
-    .finally(() => setProcessingItemId(null));
+      .catch(() => toast.error(`Lỗi: Không thể xóa biên bản.`))
+      .finally(() => setProcessingItemId(null));
   }, [user]);
 
   const handleCategoriesChange = useCallback(async (newCategories: IncidentCategory[]) => {
@@ -599,77 +625,75 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
     <>
       <div className={cn("container mx-auto p-1 sm:p-6 md:p-8", !isStandalone && "p-0 sm:p-0 md:p-0")}>
         {isStandalone && (
-            <header className="mb-4 sm:mb-6">
-            <Button variant="ghost" size="sm" className="-ml-2 mb-2 sm:mb-4" onClick={() => router.back()}>
-                <ArrowLeft className="mr-2 h-4 w-4" />Quay lại
-            </Button>
+          <header className="mb-4 sm:mb-6">
             <div className="flex flex-col lg:flex-row justify-between lg:items-start gap-4 sm:gap-6">
-                <div className="flex-1">
+              <div className="flex-1">
                 <h1 className="text-2xl sm:text-3xl font-bold font-headline flex items-center gap-3"><Banknote className="h-8 w-8 text-primary" /> Báo cáo Thu ngân</h1>
                 <p className="text-muted-foreground mt-1 text-sm sm:text-base">Tổng hợp báo cáo doanh thu, phiếu chi và sự cố do thu ngân gửi.</p>
-                </div>
-                
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-                    <div className="flex items-center justify-between sm:justify-center gap-2 bg-muted/50 p-1 rounded-lg">
-                        <Button variant="ghost" size="icon" onClick={() => handleMonthChange('prev')}><ChevronLeft className="h-4 w-4" /></Button>
-                        <span className="text-base font-semibold w-24 text-center">{format(currentMonth, 'MM/yyyy')}</span>
-                        <Button variant="ghost" size="icon" onClick={() => handleMonthChange('next')} disabled={isNextMonthButtonDisabled}><ChevronRight className="h-4 w-4" /></Button>
-                    </div>
+              </div>
 
-                    <Card className="shadow-sm border-primary/20">
-                        <CardHeader className="p-2 px-3 pb-1">
-                            <CardTitle className="text-[10px] font-bold flex items-center gap-2 uppercase tracking-widest text-muted-foreground">
-                                <Settings className="h-3 w-3"/> Công cụ quản lý
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-2 px-3 pt-0 flex flex-row sm:flex-col gap-2 overflow-x-auto no-scrollbar">
-                            <Button variant="outline" size="sm" onClick={() => setIsAddDocumentDialogOpen(true)} className="whitespace-nowrap h-8 text-xs flex-1 sm:flex-none"><FilePlus className="mr-2 h-3.5 w-3.5"/>Bổ sung</Button>
-                            <Button variant="outline" size="sm" onClick={() => setIsOtherCostCategoryDialogOpen(true)} className="whitespace-nowrap h-8 text-xs flex-1 sm:flex-none">Chi phí khác</Button>
-                            <Button variant="outline" size="sm" onClick={() => setIsIncidentCategoryDialogOpen(true)} className="whitespace-nowrap h-8 text-xs flex-1 sm:flex-none">Loại sự cố</Button>
-                        </CardContent>
-                    </Card>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+                <div className="flex items-center justify-between sm:justify-center gap-2 bg-muted/50 p-1 rounded-lg">
+                  <Button variant="ghost" size="icon" onClick={() => handleMonthChange('prev')}><ChevronLeft className="h-4 w-4" /></Button>
+                  <span className="text-base font-semibold w-24 text-center">{format(currentMonth, 'MM/yyyy')}</span>
+                  <Button variant="ghost" size="icon" onClick={() => handleMonthChange('next')} disabled={isNextMonthButtonDisabled}><ChevronRight className="h-4 w-4" /></Button>
                 </div>
+
+                <Card className="shadow-sm border-primary/20">
+                  <CardHeader className="p-2 px-3 pb-1">
+                    <CardTitle className="text-[10px] font-bold flex items-center gap-2 uppercase tracking-widest text-muted-foreground">
+                      <Settings className="h-3 w-3" /> Công cụ quản lý
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-2 px-3 pt-0 flex flex-row sm:flex-col gap-2 overflow-x-auto no-scrollbar">
+                    <Button variant="outline" size="sm" onClick={() => setIsAddDocumentDialogOpen(true)} className="whitespace-nowrap h-8 text-xs flex-1 sm:flex-none"><FilePlus className="mr-2 h-3.5 w-3.5" />Bổ sung</Button>
+                    <Button variant="outline" size="sm" onClick={() => setIsOtherCostCategoryDialogOpen(true)} className="whitespace-nowrap h-8 text-xs flex-1 sm:flex-none">Chi phí khác</Button>
+                    <Button variant="outline" size="sm" onClick={() => setIsIncidentCategoryDialogOpen(true)} className="whitespace-nowrap h-8 text-xs flex-1 sm:flex-none">Loại sự cố</Button>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
-            </header>
+          </header>
         )}
 
         {!isStandalone && (
-            <div className="flex flex-col gap-4 mb-4">
-                <div className="flex items-center justify-between">
-                    <h1 className="text-2xl font-bold font-headline flex items-center gap-2"><Banknote className="h-6 w-6" /> Thu ngân</h1>
-                    <div className="flex items-center gap-2">
-                        <Button variant="tile" size="icon" onClick={() => handleMonthChange('prev')}><ChevronLeft className="h-4 w-4" /></Button>
-                        <span className="text-sm font-medium w-20 text-center">{format(currentMonth, 'MM/yyyy')}</span>
-                        <Button variant="tile" size="icon" onClick={() => handleMonthChange('next')} disabled={isNextMonthButtonDisabled}><ChevronRight className="h-4 w-4" /></Button>
-                    </div>
-                </div>
-                <div className="grid grid-cols-3 gap-2 pb-2">
-                    <Button variant="tile" size="sm" onClick={() => setIsAddDocumentDialogOpen(true)} className="h-auto py-2 px-1 text-xs flex flex-col gap-1 items-center justify-center whitespace-normal text-center">
-                        <FilePlus className="h-4 w-4"/>
-                        <span>Bổ sung</span>
-                    </Button>
-                    <Button variant="tile" size="sm" onClick={() => setIsOtherCostCategoryDialogOpen(true)} className="h-auto py-2 px-1 text-xs flex flex-col gap-1 items-center justify-center whitespace-normal text-center">
-                        <Settings className="h-4 w-4"/>
-                        <span>Chi phí khác</span>
-                    </Button>
-                    <Button variant="tile" size="sm" onClick={() => setIsIncidentCategoryDialogOpen(true)} className="h-auto py-2 px-1 text-xs flex flex-col gap-1 items-center justify-center whitespace-normal text-center">
-                        <Settings className="h-4 w-4"/>
-                        <span>Loại sự cố</span>
-                    </Button>
-                </div>
+          <div className="flex flex-col gap-4 mb-4">
+            <div className="flex items-center justify-between">
+              <h1 className="text-2xl font-bold font-headline flex items-center gap-2"><Banknote className="h-6 w-6" /> Thu ngân</h1>
+              <div className="flex items-center gap-2">
+                <Button variant="tile" size="icon" onClick={() => handleMonthChange('prev')}><ChevronLeft className="h-4 w-4" /></Button>
+                <span className="text-sm font-medium w-20 text-center">{format(currentMonth, 'MM/yyyy')}</span>
+                <Button variant="tile" size="icon" onClick={() => handleMonthChange('next')} disabled={isNextMonthButtonDisabled}><ChevronRight className="h-4 w-4" /></Button>
+              </div>
             </div>
+            <div className="grid grid-cols-3 gap-2 pb-2">
+              <Button variant="tile" size="sm" onClick={() => setIsAddDocumentDialogOpen(true)} className="h-auto py-2 px-1 text-xs flex flex-col gap-1 items-center justify-center whitespace-normal text-center">
+                <FilePlus className="h-4 w-4" />
+                <span>Bổ sung</span>
+              </Button>
+              <Button variant="tile" size="sm" onClick={() => setIsOtherCostCategoryDialogOpen(true)} className="h-auto py-2 px-1 text-xs flex flex-col gap-1 items-center justify-center whitespace-normal text-center">
+                <Settings className="h-4 w-4" />
+                <span>Chi phí khác</span>
+              </Button>
+              <Button variant="tile" size="sm" onClick={() => setIsIncidentCategoryDialogOpen(true)} className="h-auto py-2 px-1 text-xs flex flex-col gap-1 items-center justify-center whitespace-normal text-center">
+                <Settings className="h-4 w-4" />
+                <span>Loại sự cố</span>
+              </Button>
+            </div>
+          </div>
         )}
 
         {sortedDatesInMonth.length === 0 ? (
           <Card><CardContent className="py-16 text-center text-muted-foreground">Chưa có báo cáo nào trong tháng {format(currentMonth, 'MM/yyyy')}.</CardContent></Card>
         ) : (
           <div className="space-y-4 sm:space-y-6">
-            <MonthlySummary 
+            <MonthlySummary
               currentMonth={currentMonth}
               revenueStats={monthlyRevenueStats}
               expenseSlips={monthlyExpenseSlips}
               incidents={monthlyIncidents}
               onOpenUnpaidDialog={() => setIsUnpaidSlipsDialogOpen(true)}
+              onOpenIncidentDetails={() => setIsIncidentDetailsDialogOpen(true)}
             />
 
             <div className="flex justify-end">
@@ -684,49 +708,59 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
                 const dayReports = reportsByDay[date] || { revenue: [], expenses: [], incidents: [], cashHandovers: [] };
 
                 return (
-                 <DailyReportAccordionItem
+                  <DailyReportAccordionItem
                     key={date}
                     date={date}
                     dayReports={dayReports}
-                    onEditRevenue={handleEditRevenue}
+                    onEditRevenue={handleEditRevenueWithRoot}
                     onDeleteRevenue={handleDeleteRevenue}
-                    onEditExpense={handleEditExpense}
+                    onEditExpense={handleEditExpenseWithRoot}
                     onDeleteExpense={handleDeleteExpense}
-                    onEditIncident={handleEditIncident}
+                    onEditIncident={handleEditIncidentWithRoot}
                     onDeleteIncident={handleDeleteIncident}
-                    onOpenLightbox={(photos: string[], index?: number) => openLightbox(photos.map((p: string) => ({src: p})), index ?? 0)}
+                    onOpenLightbox={(photos: string[], index?: number) => openLightbox(photos.map((p: string) => ({ src: p })), index ?? 0)}
                     onEditCashHandover={handleEditCashHandover}
                     onViewFinalHandover={handleViewFinalHandover}
                     onDeleteCashHandover={handleDeleteCashHandover}
                     processingItemId={processingItemId}
                     inventoryList={inventoryList}
                     itemRefs={itemRefs}
-                 />
+                  />
                 );
               })}
             </Accordion>
           </div>
         )}
       </div>
-      
-      <OtherCostCategoryDialog open={isOtherCostCategoryDialogOpen} onOpenChange={setIsOtherCostCategoryDialogOpen} />
-      <IncidentCategoryDialog open={isIncidentCategoryDialogOpen} onOpenChange={setIsIncidentCategoryDialogOpen} />
-      <AddDocumentDialog 
+
+      <OtherCostCategoryDialog open={isOtherCostCategoryDialogOpen} onOpenChange={setIsOtherCostCategoryDialogOpen} parentDialogTag="root" />
+      <IncidentCategoryDialog open={isIncidentCategoryDialogOpen} onOpenChange={setIsIncidentCategoryDialogOpen} parentDialogTag="root" />
+      <AddDocumentDialog
         isOpen={isAddDocumentDialogOpen}
         onOpenChange={setIsAddDocumentDialogOpen}
         onConfirm={handleAddDocumentConfirm}
+        parentDialogTag='root'
       />
-      
-      <UnpaidSlipsDialog 
+
+      <UnpaidSlipsDialog
         isOpen={isUnpaidSlipsDialogOpen}
         onClose={() => setIsUnpaidSlipsDialogOpen(false)}
         bankTransferSlips={expenseSlips.filter(s => s.paymentMethod === 'bank_transfer')}
         inventoryList={inventoryList}
         onMarkAsPaid={handleMarkDebtsAsPaid}
         onUndoPayment={handleUndoDebtPayment}
+        parentDialogTag="root"
       />
-      
-      <OwnerCashierDialogs 
+
+      <IncidentDetailsDialog
+        isOpen={isIncidentDetailsDialogOpen}
+        onClose={() => setIsIncidentDetailsDialogOpen(false)}
+        incidents={monthlyIncidents}
+        onOpenLightbox={(photos: string[], index?: number) => openLightbox(photos.map((p: string) => ({ src: p })), index ?? 0)}
+        currentMonth={currentMonth}
+      />
+
+      <OwnerCashierDialogs
         inventoryList={inventoryList}
         isExpenseDialogOpen={isExpenseDialogOpen}
         setIsExpenseDialogOpen={setIsExpenseDialogOpen}
@@ -759,6 +793,7 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
         canManageCategories={user?.role === 'Chủ nhà hàng'}
         dateForNewEntry={dateForNewEntry}
         reporter={user}
+        parentDialogTag={activeParentDialogTag}
       />
 
     </>

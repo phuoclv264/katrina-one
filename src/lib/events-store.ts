@@ -26,6 +26,50 @@ import type { Event, EventVote, PrizeDrawResult, AuthUser } from './types';
 /**
  * Subscribes to all events, regardless of status. For admin use.
  */
+function normalizeEventDoc(id: string, raw: any): Event {
+    // Ensure UI-code never receives undefined for commonly accessed fields.
+    // Keep timestamps as-is (Firestore Timestamp-like) so existing helpers (toDateSafe) work.
+    const type: Event['type'] = raw?.type || 'vote';
+
+    const base: Event = {
+        id,
+        title: raw?.title || '',
+        description: raw?.description || '',
+        type,
+        status: raw?.status || 'draft',
+        startAt: raw?.startAt ?? Timestamp.now(),
+        endAt: raw?.endAt ?? Timestamp.now(),
+        createdAt: raw?.createdAt ?? Timestamp.now(),
+        updatedAt: raw?.updatedAt ?? Timestamp.now(),
+        ownerId: raw?.ownerId || raw?.createdBy || '',
+        eligibleRoles: raw?.eligibleRoles ?? [],
+        candidates: raw?.candidates ?? [],
+        options: raw?.options ?? [],
+        allowComments: raw?.allowComments ?? true,
+        anonymousResults: raw?.anonymousResults ?? false,
+        // Test-only flag
+        isTest: Boolean(raw?.isTest),
+        // keep other optional fields from raw when present
+        // type-specific defaults applied below
+    } as any;
+
+    // Type-specific defaults
+    if (type === 'multi-vote') {
+        base.maxVotesPerUser = typeof raw?.maxVotesPerUser === 'number' ? raw.maxVotesPerUser : (raw?.maxVotesPerUser ? Number(raw.maxVotesPerUser) : 1);
+    } else {
+        // explicitly undefined for non-multi-vote to avoid accidental usage
+        delete (base as any).maxVotesPerUser;
+    }
+
+    if (type === 'ballot') {
+        base.prize = raw?.prize ?? raw?.reward ?? undefined;
+    } else {
+        delete (base as any).prize;
+    }
+
+    return base;
+}
+
 export function subscribeToAllEvents(callback: (events: Event[]) => void): () => void {
     const q = query(
         collection(db, 'events'),
@@ -33,10 +77,7 @@ export function subscribeToAllEvents(callback: (events: Event[]) => void): () =>
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-        const events = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-        } as Event));
+        const events = snapshot.docs.map(doc => normalizeEventDoc(doc.id, doc.data()));
         callback(events);
     }, (error) => {
         console.error("Error subscribing to all events:", error);
@@ -53,15 +94,72 @@ export function subscribeToAllEvents(callback: (events: Event[]) => void): () =>
 export async function addOrUpdateEvent(event: Omit<Event, 'id'>, id?: string): Promise<string> {
     const docRef = id ? doc(db, 'events', id) : doc(collection(db, 'events'));
     
-    const dataToSave = {
-        ...event,
-        updatedAt: serverTimestamp()
+    // Apply safe defaults before persisting to avoid undefined fields in Firestore.
+    // Build a fully-specified document and deeply sanitize nested objects so
+    // nothing `undefined` is written to Firestore (Firestore rejects `undefined`).
+    const sanitizeCandidate = (c: any) => ({
+        id: String(c?.id ?? ''),
+        name: String(c?.name ?? ''),
+        avatarUrl: c?.avatarUrl ?? null,
+        meta: c?.meta ? Object.fromEntries(Object.entries(c.meta).map(([k, v]) => [k, v === undefined ? null : v])) : null,
+    });
+
+    const sanitizeOption = (o: any) => ({
+        id: String(o?.id ?? ''),
+        name: String(o?.name ?? ''),
+    });
+
+    const dataToSaveRaw: Record<string, any> = {
+        // core
+        title: String(event.title || ''),
+        description: String(event.description || ''),
+        type: event.type || 'vote',
+        status: event.status ?? 'draft',
+        ownerId: String(event.ownerId || ''),
+
+        // timestamps
+        startAt: event.startAt ?? serverTimestamp(),
+        endAt: event.endAt ?? serverTimestamp(),
+
+        // eligibility & content
+        eligibleRoles: (event.eligibleRoles || []).filter(Boolean),
+        candidates: (event.candidates || []).map(sanitizeCandidate),
+        options: (event.options || []).map(sanitizeOption),
+
+        // interaction flags
+        allowComments: Boolean(event.allowComments ?? true),
+        anonymousResults: Boolean(event.anonymousResults ?? false),
+
+        // bookkeeping
+        updatedAt: serverTimestamp(),
     };
+
+    // Type-specific persisted shape (explicit null for non-applicable fields)
+    dataToSaveRaw.maxVotesPerUser = event.type === 'multi-vote'
+        ? (typeof event.maxVotesPerUser === 'number' ? event.maxVotesPerUser : 1)
+        : null;
+
+    dataToSaveRaw.prize = event.type === 'ballot'
+        ? {
+            name: String(event.prize?.name ?? ''),
+            description: String(event.prize?.description ?? ''),
+            imageUrl: event.prize?.imageUrl ?? null,
+        }
+        : null;
+
+    // Test-only marker
+    dataToSaveRaw.isTest = Boolean(event.isTest);
+
     if (!id) {
-        (dataToSave as any).createdAt = serverTimestamp();
+        (dataToSaveRaw as any).createdAt = serverTimestamp();
     }
-    
-    await setDoc(docRef, dataToSave, { merge: true });
+
+    // Defensive final pass: convert any remaining `undefined` (shallow) to null
+    for (const [k, v] of Object.entries(dataToSaveRaw)) {
+        if (v === undefined) dataToSaveRaw[k] = null;
+    }
+
+    await setDoc(docRef, dataToSaveRaw, { merge: true });
     return docRef.id;
 }
 
@@ -91,7 +189,7 @@ export async function deleteEvent(eventId: string): Promise<void> {
 /**
  * Subscribes to active events that are relevant to the current user's role.
  */
-export function subscribeToActiveEvents(userRole: string, callback: (events: Event[]) => void): () => void {
+export function subscribeToActiveEvents(userRole: string, isTestUser: boolean = false, callback?: (events: Event[]) => void): () => void {
     const q = query(
         collection(db, 'events'),
         where('status', '==', 'active'),
@@ -99,15 +197,20 @@ export function subscribeToActiveEvents(userRole: string, callback: (events: Eve
         where('endAt', '>', Timestamp.now())
     );
 
+    const cb = callback || (() => {});
     const unsubscribe = onSnapshot(q, (snapshot) => {
-        const events = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-        } as Event)).filter(event => event.eligibleRoles.length === 0 || event.eligibleRoles.includes(userRole as any));
-        callback(events);
+        const events = snapshot.docs
+            .map(doc => normalizeEventDoc(doc.id, doc.data()))
+            .filter(event => (event.eligibleRoles || []).length === 0 || (event.eligibleRoles || []).includes(userRole as any))
+            .filter(event => {
+                // hide test events from non-test users
+                if (event.isTest) return Boolean(isTestUser);
+                return true;
+            });
+        cb(events);
     }, (error) => {
         console.error("Error subscribing to active events:", error);
-        callback([]);
+        cb([]);
     });
 
     return unsubscribe;

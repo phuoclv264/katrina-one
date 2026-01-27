@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { format } from 'date-fns';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogAction, DialogCancel } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,7 +25,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle as AlertDialogTitleComponent, AlertDialogFooter, AlertDialogDescription as AlertDialogDescriptionComponent } from '@/components/ui/alert-dialog';
-import Image from 'next/image';
+import Image from '@/components/ui/image';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Camera } from 'lucide-react';
 import isEqual from 'lodash.isequal';
@@ -61,37 +61,37 @@ function EditItemPopover({ item, onSave, children, inventoryItem, dialogRef }: {
         <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>{children}</PopoverTrigger>
             <PopoverContent className="w-80" container={dialogRef?.current}>
-                    <div className="grid gap-4">
-                        <div className="space-y-2">
-                            <h4 className="font-medium leading-none">{item.name}</h4>
-                            <p className="text-sm text-muted-foreground">Nhập số lượng, đơn vị và đơn giá.</p>
-                        </div>
-                        <div className="grid gap-2">
-                            {canSelectUnit && (
-                                <div className="grid grid-cols-3 items-center gap-4">
-                                    <Label htmlFor="unit">Đơn vị</Label>
-                                    <Combobox
-                                        value={selectedUnit}
-                                        onChange={(v) => setSelectedUnit(v)}
-                                        options={availableUnits.map(unitName => ({ value: unitName, label: unitName }))}
-                                        className="col-span-2 h-8"
-                                        compact
-                                        searchable={false}
-                                    />
-                                </div>
-                            )}
-                            <div className="grid grid-cols-3 items-center gap-4">
-                                <Label htmlFor="quantity">Số lượng</Label>
-                                <Input id="quantity" type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="col-span-2 h-8" onFocus={(e) => e.target.select()} />
-                            </div>
-                            <div className="grid grid-cols-3 items-center gap-4">
-                                <Label htmlFor="unitPrice">Đơn giá</Label>
-                                <Input id="unitPrice" type="number" value={unitPrice} onChange={(e) => setUnitPrice(Number(e.target.value))} className="col-span-2 h-8" onFocus={(e) => e.target.select()} />
-                            </div>
-                        </div>
-                        <Button onClick={handleSave}>Lưu</Button>
+                <div className="grid gap-4">
+                    <div className="space-y-2">
+                        <h4 className="font-medium leading-none">{item.name}</h4>
+                        <p className="text-sm text-muted-foreground">Nhập số lượng, đơn vị và đơn giá.</p>
                     </div>
-                </PopoverContent>
+                    <div className="grid gap-2">
+                        {canSelectUnit && (
+                            <div className="grid grid-cols-3 items-center gap-4">
+                                <Label htmlFor="unit">Đơn vị</Label>
+                                <Combobox
+                                    value={selectedUnit}
+                                    onChange={(v) => setSelectedUnit(v)}
+                                    options={availableUnits.map(unitName => ({ value: unitName, label: unitName }))}
+                                    className="col-span-2 h-8"
+                                    compact
+                                    searchable={false}
+                                />
+                            </div>
+                        )}
+                        <div className="grid grid-cols-3 items-center gap-4">
+                            <Label htmlFor="quantity">Số lượng</Label>
+                            <Input id="quantity" type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="col-span-2 h-8" onFocus={(e) => e.target.select()} />
+                        </div>
+                        <div className="grid grid-cols-3 items-center gap-4">
+                            <Label htmlFor="unitPrice">Đơn giá</Label>
+                            <Input id="unitPrice" type="number" value={unitPrice} onChange={(e) => setUnitPrice(Number(e.target.value))} className="col-span-2 h-8" onFocus={(e) => e.target.select()} />
+                        </div>
+                    </div>
+                    <Button onClick={handleSave}>Lưu</Button>
+                </div>
+            </PopoverContent>
         </Popover>
     );
 }
@@ -102,7 +102,8 @@ function AiPreviewDialog({
     extractionResult,
     inventoryList,
     onConfirm,
-    allAttachmentPhotos
+    allAttachmentPhotos,
+    parentDialogTag,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -110,6 +111,7 @@ function AiPreviewDialog({
     inventoryList: InventoryItem[];
     onConfirm: (items: ExpenseItem[], totalDiscount: number) => void;
     allAttachmentPhotos: { id: string, url: string }[];
+    parentDialogTag: string;
 }) {
 
     const handleConfirm = () => {
@@ -192,7 +194,7 @@ function AiPreviewDialog({
 
     return (
         <>
-            <Dialog open={open} onOpenChange={onOpenChange}>
+            <Dialog open={open} onOpenChange={onOpenChange} dialogTag="expense-slip-ai-preview-dialog" parentDialogTag={parentDialogTag}>
                 <DialogContent className="max-w-4xl">
                     <DialogHeader>
                         <DialogTitle>Kết quả quét hóa đơn</DialogTitle>
@@ -264,6 +266,7 @@ type ExpenseSlipDialogProps = {
     otherCostCategories: OtherCostCategory[];
     isOwnerView?: boolean; // Optional prop to control view
     dateForNewEntry?: string | null;
+    parentDialogTag: string;
 };
 
 export default function ExpenseSlipDialog({
@@ -277,6 +280,7 @@ export default function ExpenseSlipDialog({
     otherCostCategories,
     isOwnerView = false,
     dateForNewEntry = null,
+    parentDialogTag,
 }: ExpenseSlipDialogProps) {
     const isMobile = useIsMobile();
     const dialogRef = useRef<HTMLDivElement>(null);
@@ -649,12 +653,12 @@ export default function ExpenseSlipDialog({
 
     return (
         <>
-            <Dialog open={open} onOpenChange={onOpenChange}>
+            <Dialog open={open} onOpenChange={onOpenChange} dialogTag="expense-slip-dialog" parentDialogTag={parentDialogTag}>
                 <DialogContent
                     ref={dialogRef}
                     className="max-w-4xl p-0 h-[90vh] flex flex-col"
                 >
-                    <DialogHeader className="p-6 pb-4 border-b bg-muted/30">
+                    <DialogHeader variant="premium" iconkey="calculator">
                         <DialogTitle>{slipToEdit ? (isOwnerView ? 'Chi tiết Phiếu chi' : 'Chỉnh sửa Phiếu chi') : 'Tạo Phiếu chi'}</DialogTitle>
                         <DialogDescription>
                             {isOwnerView && slipToEdit ? (
@@ -700,51 +704,56 @@ export default function ExpenseSlipDialog({
 
                             {/* --- Attachment Section --- */}
                             <Card
-                                className={cn('transition-all', showMissingAttachmentAlert && 'border-destructive ring-2 ring-destructive/50 bg-destructive/5')}
+                                className={cn('transition-all shadow-sm rounded-[2rem] overflow-hidden border-2', showMissingAttachmentAlert ? 'border-destructive ring-2 ring-destructive/50 bg-destructive/5' : 'border-slate-100 dark:border-slate-800')}
                                 ref={attachmentCardRef}
                             >
                                 <CardHeader className="pb-4">
-                                    <CardTitle className="text-base text-primary">Ảnh đính kèm (bắt buộc)</CardTitle>
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-8 w-1 bg-primary rounded-full" />
+                                        <CardTitle className="text-base text-primary uppercase tracking-wider font-bold">Ảnh đính kèm (bắt buộc)</CardTitle>
+                                    </div>
                                     <CardDescription>Tải lên ảnh hóa đơn, hàng hóa làm bằng chứng.</CardDescription>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="flex flex-col sm:flex-row gap-2 mb-4">
-                                        <Button variant="outline" className="w-full" onClick={() => { setShowMissingAttachmentAlert(false); attachmentFileInputRef.current?.click() }}>
-                                            <Upload className="mr-2 h-4 w-4" /> Tải ảnh lên
+                                    <div className="flex flex-col sm:flex-row gap-3 mb-6">
+                                        <Button variant="outline" className="w-full h-12 rounded-xl group" onClick={() => { setShowMissingAttachmentAlert(false); attachmentFileInputRef.current?.click() }}>
+                                            <Upload className="mr-2 h-4 w-4 group-hover:scale-110 transition-transform" /> Tải ảnh lên
                                         </Button>
                                         <input type="file" ref={attachmentFileInputRef} onChange={handleAttachmentPhotoUpload} className="hidden" accept="image/*" multiple />
-                                        <Button variant="outline" className="w-full" onClick={() => { setShowMissingAttachmentAlert(false); setIsAttachmentCameraOpen(true) }}>
-                                            <Camera className="mr-2 h-4 w-4" /> Chụp ảnh mới
+                                        <Button variant="outline" className="w-full h-12 rounded-xl group" onClick={() => { setShowMissingAttachmentAlert(false); setIsAttachmentCameraOpen(true) }}>
+                                            <Camera className="mr-2 h-4 w-4 group-hover:scale-110 transition-transform" /> Chụp ảnh mới
                                         </Button>
                                     </div>
                                     {aiError && (
-                                        <Alert variant="destructive" className="mb-4">
-
+                                        <Alert variant="destructive" className="mb-4 rounded-xl border-destructive/20 bg-destructive/5">
                                             <AlertCircle className="h-4 w-4" />
-                                            <AlertTitle>Lỗi AI</AlertTitle>
+                                            <AlertTitle className="font-bold">Lỗi AI</AlertTitle>
                                             <AlertDescription>{aiError}</AlertDescription>
                                         </Alert>
                                     )}
-                                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
                                         {existingPhotos.map(photo => (
-                                            <div key={photo.id} className="relative aspect-square rounded-md overflow-hidden group">
+                                            <div key={photo.id} className="relative aspect-square rounded-2xl overflow-hidden group/photo ring-2 ring-slate-100 dark:ring-slate-800 shadow-sm hover:ring-primary/30 transition-all">
                                                 <button onClick={() => onOpenLightbox(photo.url)} className="w-full h-full">
-                                                    <Image src={photo.url} alt="Bằng chứng đã lưu" fill className="object-cover" />
+                                                    <Image src={photo.url} alt="Bằng chứng đã lưu" fill className="object-cover transition-transform group-hover/photo:scale-110" />
                                                 </button>
-                                                <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-5 w-5 rounded-full z-10 opacity-0 group-hover:opacity-100" onClick={() => handleDeleteExistingPhoto(photo.url)}><X className="h-3 w-3" /></Button>
+                                                <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 rounded-full z-10 opacity-0 group-hover/photo:opacity-100 transition-opacity shadow-lg" onClick={() => handleDeleteExistingPhoto(photo.url)}><X className="h-3 w-3" /></Button>
                                             </div>
                                         ))}
                                         {localPhotos.map(photo => (
-                                            <div key={photo.id} className="relative aspect-square rounded-md overflow-hidden group">
+                                            <div key={photo.id} className="relative aspect-square rounded-2xl overflow-hidden group/photo ring-2 ring-primary/20 shadow-sm hover:ring-primary/40 transition-all">
                                                 <button onClick={() => onOpenLightbox(photo.url)} className="w-full h-full">
-                                                    <Image src={photo.url} alt="Bằng chứng mới" fill className="object-cover" />
+                                                    <Image src={photo.url} alt="Bằng chứng mới" fill className="object-cover transition-transform group-hover/photo:scale-110" />
                                                 </button>
-                                                <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-5 w-5 rounded-full z-10" onClick={() => handleDeleteLocalPhoto(photo.id)}><X className="h-3 w-3" /></Button>
+                                                <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 rounded-full z-10 shadow-lg" onClick={() => handleDeleteLocalPhoto(photo.id)}><X className="h-3 w-3" /></Button>
                                             </div>
                                         ))}
                                     </div>
                                     {(existingPhotos.length + localPhotos.length) === 0 && (
-                                        <p className="text-center text-sm text-muted-foreground py-4">Chưa có ảnh nào được đính kèm.</p>
+                                        <div className="flex flex-col items-center justify-center py-8 text-muted-foreground bg-slate-50/50 dark:bg-slate-900/20 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800">
+                                            <Camera className="h-8 w-8 mb-2 opacity-20" />
+                                            <p className="text-sm font-medium italic">Chưa có ảnh nào được đính kèm</p>
+                                        </div>
                                     )}
                                 </CardContent>
                             </Card>
@@ -752,14 +761,20 @@ export default function ExpenseSlipDialog({
                             {expenseType === 'goods_import' ? (
                                 <div className="space-y-4">
                                     <div className="space-y-2">
-                                        <Button onClick={handleAiScan} disabled={isAiLoading} className="w-full">
-                                            {isAiLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                                            Dùng AI quét hóa đơn
+                                        <Button 
+                                            onClick={handleAiScan} 
+                                            disabled={isAiLoading} 
+                                            variant="secondary"
+                                            className="w-full h-14 rounded-2xl border-2 border-primary/20 bg-primary/5 hover:bg-primary/10 transition-all group relative overflow-hidden shadow-sm"
+                                        >
+                                            <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-primary/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                            {isAiLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin text-primary" /> : <Wand2 className="mr-2 h-5 w-5 text-primary group-hover:scale-110 transition-transform" />}
+                                            <span className="font-bold text-primary tracking-wide">Dùng AI quét hóa đơn</span>
                                         </Button>
                                     </div>
-                                    <div className="relative text-center my-4">
-                                        <Separator />
-                                        <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-2 text-sm text-muted-foreground">Hoặc</span>
+                                    <div className="relative flex items-center justify-center my-6">
+                                        <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-slate-200 dark:border-slate-800" /></div>
+                                        <span className="relative bg-background px-4 text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Hoặc chọn thủ công</span>
                                     </div>
                                     <div className="space-y-2">
                                         <Combobox
@@ -773,10 +788,10 @@ export default function ExpenseSlipDialog({
                                                     }
                                                 }
                                             }}
-                                            placeholder="Thêm mặt hàng..."
+                                            placeholder="Gõ để tìm mặt hàng..."
                                             searchPlaceholder="Tìm mặt hàng..."
                                             emptyText="Không tìm thấy mặt hàng."
-                                            className="w-full mt-1"
+                                            className="w-full h-12 rounded-xl"
                                         />
                                     </div>
                                 </div>
@@ -808,34 +823,49 @@ export default function ExpenseSlipDialog({
 
 
                             {expenseType === 'goods_import' && items.length > 0 && (
-                                <div className="space-y-2">
-                                    <Label>Chi tiết các mặt hàng</Label>
+                                <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-2 w-2 rounded-full bg-primary" />
+                                            <Label className="text-base font-bold tracking-tight">Chi tiết các mặt hàng ({items.length})</Label>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground italic">Nhấn vào từng dòng để sửa số lượng/đơn giá</p>
+                                    </div>
                                     <>
                                         {/* Mobile view */}
-                                        <div className="md:hidden space-y-3 p-3 rounded-md bg-card">
+                                        <div className="md:hidden space-y-4">
                                             {items.map((item, index) => {
                                                 const inventoryItem = inventoryList.find(i => i.id === item.itemId);
                                                 return (
                                                     <EditItemPopover key={`mobile-${item.itemId}-${index}`} item={item} onSave={(updated) => handleUpdateItem(index, updated)} inventoryItem={inventoryItem} dialogRef={dialogRef}>
-                                                        <Card className="cursor-pointer bg-muted/50">
+                                                        <Card className="cursor-pointer bg-slate-50/50 dark:bg-slate-900/50 border-2 border-slate-100 dark:border-slate-800 hover:border-primary/20 hover:bg-white dark:hover:bg-slate-900 transition-all rounded-2xl overflow-hidden shadow-sm shadow-slate-200/50 dark:shadow-none">
                                                             <CardContent className="p-4">
-                                                                <div className="flex justify-between items-start">
-                                                                    <div>
-                                                                        <p className="font-semibold text-sm">{item.name}</p>
-                                                                        <p className="text-xs text-muted-foreground">{item.supplier}</p>
+                                                                <div className="flex justify-between items-start mb-3">
+                                                                    <div className="space-y-1">
+                                                                        <p className="font-bold text-sm leading-tight">{item.name}</p>
+                                                                        {item.supplier && (
+                                                                            <Badge variant="outline" className="text-[10px] uppercase font-bold tracking-wider py-0 px-1.5 h-4 bg-background/50">
+                                                                                {item.supplier}
+                                                                            </Badge>
+                                                                        )}
                                                                     </div>
-                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 -mt-2 shrink-0" onClick={(e) => { e.stopPropagation(); handleRemoveItem(index) }}>
-                                                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 -mt-2 shrink-0 rounded-full hover:bg-destructive/10 hover:text-destructive group/trash" onClick={(e) => { e.stopPropagation(); handleRemoveItem(index) }}>
+                                                                        <Trash2 className="h-4 w-4 group-hover/trash:scale-110 transition-transform" />
                                                                     </Button>
                                                                 </div>
-                                                                <div className="mt-2 grid grid-cols-3 gap-2 text-sm border-t pt-2">
-                                                                    <p className="text-muted-foreground">Số lượng</p>
-                                                                    <p className="text-muted-foreground">Đơn giá</p>
-                                                                    <p className="text-muted-foreground">Thành tiền</p>
-
-                                                                    <p className="font-medium text-base">{item.quantity} <span className="text-xs text-muted-foreground">({item.unit})</span></p>
-                                                                    <p className="font-medium text-base">{item.unitPrice.toLocaleString('vi-VN')}</p>
-                                                                    <p className="font-bold text-base text-primary">{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}</p>
+                                                                <div className="grid grid-cols-3 gap-2 p-3 bg-white dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
+                                                                    <div className="space-y-0.5">
+                                                                        <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Số lượng</p>
+                                                                        <p className="font-black text-sm">{item.quantity} <span className="text-[10px] font-bold text-slate-400">{item.unit}</span></p>
+                                                                    </div>
+                                                                    <div className="space-y-0.5">
+                                                                        <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Đơn giá</p>
+                                                                        <p className="font-bold text-sm tracking-tight">{item.unitPrice.toLocaleString('vi-VN')}</p>
+                                                                    </div>
+                                                                    <div className="space-y-0.5 text-right">
+                                                                        <p className="text-[10px] uppercase font-bold text-primary/40 tracking-wider">Thành tiền</p>
+                                                                        <p className="font-black text-sm text-primary">{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}</p>
+                                                                    </div>
                                                                 </div>
                                                             </CardContent>
                                                         </Card>
@@ -846,16 +876,16 @@ export default function ExpenseSlipDialog({
                                         </div>
 
                                         {/* Desktop view */}
-                                        <div className="hidden md:block border rounded-md bg-card">
+                                        <div className="hidden md:block border-2 border-slate-100 dark:border-slate-800 rounded-3xl overflow-hidden bg-white dark:bg-slate-900/50 shadow-sm">
                                             <Table>
-                                                <TableHeader>
-                                                    <TableRow>
-                                                        <TableHead>Tên mặt hàng</TableHead>
-                                                        <TableHead>Số lượng</TableHead>
-                                                        <TableHead>Đơn vị</TableHead>
-                                                        <TableHead>Đơn giá</TableHead>
-                                                        <TableHead>Thành tiền</TableHead>
-                                                        <TableHead className="text-right">Xóa</TableHead>
+                                                <TableHeader className="bg-slate-50/50 dark:bg-slate-800/50">
+                                                    <TableRow className="hover:bg-transparent border-b-2 border-slate-100 dark:border-slate-800">
+                                                        <TableHead className="py-4 font-bold text-slate-500 uppercase text-xs tracking-wider pl-6">Mặt hàng</TableHead>
+                                                        <TableHead className="py-4 font-bold text-slate-500 uppercase text-xs tracking-wider">Số lượng</TableHead>
+                                                        <TableHead className="py-4 font-bold text-slate-500 uppercase text-xs tracking-wider">Đơn vị</TableHead>
+                                                        <TableHead className="py-4 font-bold text-slate-500 uppercase text-xs tracking-wider">Đơn giá</TableHead>
+                                                        <TableHead className="py-4 font-bold text-slate-500 uppercase text-xs tracking-wider">Thành tiền</TableHead>
+                                                        <TableHead className="py-4 font-bold text-slate-500 uppercase text-xs tracking-wider text-right pr-6">Thao tác</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
@@ -863,18 +893,20 @@ export default function ExpenseSlipDialog({
                                                         const inventoryItem = inventoryList.find(i => i.id === item.itemId);
                                                         return (
                                                             <EditItemPopover key={`desktop-${item.itemId}-${index}`} item={item} onSave={(updated) => handleUpdateItem(index, updated)} inventoryItem={inventoryItem} dialogRef={dialogRef}>
-                                                                <TableRow className="cursor-pointer">
-                                                                    <TableCell>
-                                                                        <p className="font-medium">{item.name}</p>
-                                                                        <p className="text-xs text-muted-foreground">{item.supplier}</p>
+                                                                <TableRow className="cursor-pointer group hover:bg-primary/[0.02] border-b border-slate-50 dark:border-slate-800/50 last:border-0 transition-colors">
+                                                                    <TableCell className="py-4 pl-6">
+                                                                        <div className="flex flex-col">
+                                                                            <span className="font-bold text-sm tracking-tight">{item.name}</span>
+                                                                            {item.supplier && <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{item.supplier}</span>}
+                                                                        </div>
                                                                     </TableCell>
-                                                                    <TableCell>{item.quantity}</TableCell>
-                                                                    <TableCell>{item.unit}</TableCell>
-                                                                    <TableCell>{item.unitPrice.toLocaleString('vi-VN')}</TableCell>
-                                                                    <TableCell>{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}</TableCell>
-                                                                    <TableCell className="text-right">
-                                                                        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleRemoveItem(index) }}>
-                                                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                                                    <TableCell className="font-medium">{item.quantity}</TableCell>
+                                                                    <TableCell className="text-slate-500 font-medium">{item.unit}</TableCell>
+                                                                    <TableCell className="font-bold font-mono tracking-tighter">{item.unitPrice.toLocaleString('vi-VN')}đ</TableCell>
+                                                                    <TableCell className="font-black text-primary font-mono tracking-tighter">{(item.quantity * item.unitPrice).toLocaleString('vi-VN')}đ</TableCell>
+                                                                    <TableCell className="text-right pr-6">
+                                                                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-destructive/10 hover:text-destructive group/trash" onClick={(e) => { e.stopPropagation(); handleRemoveItem(index) }}>
+                                                                            <Trash2 className="h-4 w-4 group-hover/trash:scale-110 transition-transform" />
                                                                         </Button>
                                                                     </TableCell>
                                                                 </TableRow>
@@ -889,49 +921,75 @@ export default function ExpenseSlipDialog({
                                 </div>
                             )}
 
-                            <div className="space-y-2">
-                                <Label>Chiết khấu (nếu có)</Label>
-                                <Input type="number" value={discount} onChange={(e) => setDiscount(Number(e.target.value) || 0)} placeholder="0" className="text-right bg-card/95" onFocus={(e) => e.target.select()} />
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label>Tổng cộng</Label>
-                                <Input value={totalAmount.toLocaleString('vi-VN') + 'đ'} disabled className="font-bold text-lg h-12 text-right bg-card/95" />
-                            </div>
-
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label>Hình thức thanh toán</Label>
-                                    <RadioGroup value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)} className="flex gap-4">
-                                        <div className="flex items-center space-x-2">
-                                            <RadioGroupItem value="cash" id="pm1" />
-                                            <Label htmlFor="pm1">Tiền mặt</Label>
+                                <div className="space-y-3 p-4 bg-slate-50/50 dark:bg-slate-900/50 rounded-2xl border-2 border-slate-100 dark:border-slate-800">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <div className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                                        <Label className="uppercase text-[10px] font-bold tracking-widest text-slate-500">Chiết khấu & Tổng</Label>
+                                    </div>
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <Label className="text-sm font-medium">Chiết khấu</Label>
+                                            <div className="relative w-32">
+                                                <Input type="number" value={discount} onChange={(e) => setDiscount(Number(e.target.value) || 0)} placeholder="0" className="text-right h-8 rounded-lg pr-6 font-bold" onFocus={(e) => e.target.select()} />
+                                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">đ</span>
+                                            </div>
                                         </div>
-                                        <div className="flex items-center space-x-2">
+                                        <div className="flex items-center justify-between pt-2 border-t border-slate-200/50 dark:border-slate-800/50">
+                                            <Label className="text-sm font-bold">Tổng cộng</Label>
+                                            <span className="font-black text-xl text-primary font-mono tracking-tighter">{totalAmount.toLocaleString('vi-VN')}đ</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3 p-4 bg-slate-50/50 dark:bg-slate-900/50 rounded-2xl border-2 border-slate-100 dark:border-slate-800">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <div className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                                        <Label className="uppercase text-[10px] font-bold tracking-widest text-slate-500">Thanh toán</Label>
+                                    </div>
+                                    <RadioGroup value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)} className="flex gap-4">
+                                        <div className="flex items-center space-x-2 bg-white dark:bg-slate-800 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm cursor-pointer hover:border-primary/30 transition-colors">
+                                            <RadioGroupItem value="cash" id="pm1" />
+                                            <Label htmlFor="pm1" className="text-sm font-bold cursor-pointer">Tiền mặt</Label>
+                                        </div>
+                                        <div className="flex items-center space-x-2 bg-white dark:bg-slate-800 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm cursor-pointer hover:border-primary/30 transition-colors">
                                             <RadioGroupItem value="bank_transfer" id="pm2" />
-                                            <Label htmlFor="pm2">Chuyển khoản</Label>
+                                            <Label htmlFor="pm2" className="text-sm font-bold cursor-pointer">Chuyển khoản</Label>
                                         </div>
                                     </RadioGroup>
+                                    {paymentMethod === 'cash' && (
+                                        <div className="flex items-center justify-between pt-1">
+                                            <Label className="text-sm font-medium">Thực trả</Label>
+                                            <div className="relative w-32">
+                                                <Input 
+                                                    ref={actualPaidAmountInputRef}
+                                                    type="number" 
+                                                    value={actualPaidAmount} 
+                                                    onChange={(e) => setActualPaidAmount(Number(e.target.value) || 0)} 
+                                                    placeholder="0" 
+                                                    className="text-right h-8 rounded-lg pr-6 font-bold bg-white dark:bg-slate-800 shadow-sm" 
+                                                    onFocus={(e) => e.target.select()} 
+                                                />
+                                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">đ</span>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                                {paymentMethod === 'cash' && (
-                                    <div className="space-y-2">
-                                        <Label htmlFor="actualPaidAmount">Số tiền thực trả</Label>
-                                        <Input id="actualPaidAmount" ref={actualPaidAmountInputRef} type="number" value={actualPaidAmount} onChange={(e) => setActualPaidAmount(Number(e.target.value) || 0)} placeholder="0" className="text-right bg-card" onFocus={(e) => e.target.select()} />
-                                    </div>
-                                )}
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="notes">Ghi chú</Label>
-                                <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Thêm ghi chú nếu cần..." onFocus={(e) => e.target.select()} />
+
+                            <div className="space-y-3 p-4 bg-slate-50/50 dark:bg-slate-900/50 rounded-2xl border-2 border-slate-100 dark:border-slate-800">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <Label className="uppercase text-[10px] font-bold tracking-widest text-slate-500">Ghi chú</Label>
+                                </div>
+                                <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Thêm ghi chú nếu cần..." onFocus={(e) => e.target.select()} className="bg-white dark:bg-slate-800/50 rounded-xl border-slate-100 dark:border-slate-800/50 shadow-sm min-h-[80px]" />
                             </div>
                         </div>
                     </ScrollArea>
-                    <DialogFooter className="p-6 pt-4 border-t bg-muted/30">
-                        <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
-                        <Button onClick={handleSave} disabled={isProcessing}>
-                            {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    <DialogFooter variant="muted" className="shrink-0 p-6">
+                        <DialogCancel onClick={() => onOpenChange(false)}>Hủy</DialogCancel>
+                        <DialogAction onClick={handleSave} isLoading={isProcessing}>
                             Lưu Phiếu chi
-                        </Button>
+                        </DialogAction>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -942,6 +1000,7 @@ export default function ExpenseSlipDialog({
                 onSubmit={handleAttachmentPhotoCapture}
                 captureMode="photo"
                 isHD={true}
+                parentDialogTag="expense-slip-dialog"
             />
             {extractionResult && (
                 <AiPreviewDialog
@@ -951,6 +1010,7 @@ export default function ExpenseSlipDialog({
                     inventoryList={inventoryList}
                     onConfirm={handleAiConfirm}
                     allAttachmentPhotos={allAttachmentPhotos}
+                    parentDialogTag='expense-slip-dialog'
                 />
             )}
         </>

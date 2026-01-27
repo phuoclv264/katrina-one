@@ -7,13 +7,14 @@ import { useAuth } from '@/hooks/use-auth';
 
 export function BackButtonHandler() {
   const { isLightboxOpen, closeLightbox } = useLightbox();
-  const { isAnyDialogOpen, closeDialog } = useDialogContext();
+  const { isAnyDialogOpen, closeDialog, openDialogCount } = useDialogContext();
   const {user} = useAuth();
 
   useBackButton(
     {
       isAnyDialogOpen,
       closeDialog,
+      openDialogCount,
     },
     {
       isLightboxOpen,

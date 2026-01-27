@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useDebouncedCallback } from 'use-debounce';
 import { Camera, X, AlertTriangle } from 'lucide-react';
-import Image from 'next/image';
+import Image from '@/components/ui/image';
 import { Combobox } from "@/components/combobox";
 
 

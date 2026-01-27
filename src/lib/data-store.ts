@@ -43,6 +43,7 @@ import * as scheduleStore from './schedule-store';
 import * as attendanceStore from './attendance-store';
 import * as idbKeyvalStore from './idb-keyval-store';
 import * as cashierStore from './cashier-store';
+import * as dailyTaskStore from './daily-task-store';
 import { deleteFileByUrl, uploadFile } from './data-store-helpers';
 import { error } from 'console';
 import { InventoryItemRow } from '@/app/(app)/bartender/inventory/_components/inventory-item-row';
@@ -82,8 +83,11 @@ if (typeof window !== 'undefined') {
 }
 
 // Also clean up old photos from IndexedDB
-// This will run when the app first loads the dataStore file.
-photoStore.cleanupOldPhotos();
+// Make sure this runs only in the browser (avoid calling IndexedDB during SSR/module init).
+if (typeof window !== 'undefined') {
+  // Defer and swallow errors so boot is not blocked by cleanup.
+  void photoStore.cleanupOldPhotos().catch((err) => console.error('Photo cleanup failed:', err));
+}
 
 const severityOrder: Record<ViolationCategory['severity'], number> = {
   low: 1,
@@ -96,6 +100,7 @@ export const dataStore = {
   ...scheduleStore, // Spread all functions from schedule-store
   ...attendanceStore, // Spread all functions from attendance-store
   ...cashierStore, // Spread all functions from cashier-store
+  ...dailyTaskStore,
 
   // --- Firebase Push Notifications ---
   async saveFcmToken(userId: string, deviceId: string, token: string): Promise<void> {
@@ -585,7 +590,13 @@ export const dataStore = {
 
   async updateUserData(uid: string, data: Partial<ManagedUser>): Promise<void> {
     const userRef = doc(db, 'users', uid);
-    await updateDoc(userRef, data);
+    // Remove undefined fields to avoid Firestore errors (updateDoc does not accept undefined)
+    const payload: any = {};
+    Object.entries(data).forEach(([k, v]) => {
+      if (v !== undefined) payload[k] = v;
+    });
+    if (Object.keys(payload).length === 0) return; // nothing to update
+    await updateDoc(userRef, payload);
   },
 
   async bulkUpdateUserRates(rates: { [userId: string]: number }): Promise<void> {

@@ -91,6 +91,24 @@ body {
   .safe-top {
     padding-top: env(safe-area-inset-top);
   }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* When the bottom nav is visible, avoid changing document.scrollHeight
+     (that can trigger BottomNav's canScroll detection and cause a show/hide
+     loop). Instead add extra padding to the menu's scroll container so the
+     last item (logout) can be scrolled above the bottom nav. */
+  html.bottom-nav-visible .user-menu-scroll {
+    /* bottom nav height (h-16) + handset safe-area inset */
+    padding-bottom: calc(8rem + env(safe-area-inset-bottom, 0));
+    /* ensure keyboard / focus brings the logout above the nav */
+    scroll-padding-bottom: calc(8rem + env(safe-area-inset-bottom, 0));
+  }
 }
 
 @keyframes fadeIn {

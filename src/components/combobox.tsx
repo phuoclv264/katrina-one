@@ -15,6 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
+  AlertDialogIcon,
 } from "@/components/ui/alert-dialog"
 import {
   Command,
@@ -165,7 +166,7 @@ export function Combobox({
             role="combobox"
             aria-expanded={open}
             className={cn(
-              "w-full justify-between bg-background hover:bg-accent/50 transition-colors h-auto min-h-10 py-2",
+              "w-full justify-between bg-background hover:bg-accent/50 transition-colors h-auto min-h-11 py-2 sm:min-w-[220px] whitespace-normal",
               compact && "min-h-8 h-8 py-1 text-xs px-2",
               !selectedValues.length && "text-muted-foreground",
               className
@@ -179,9 +180,9 @@ export function Combobox({
                     {selectedValues.map((val) => {
                       const option = options.find((o) => o.value === val)
                       return (
-                        <Badge 
-                          key={val} 
-                          variant="secondary" 
+                        <Badge
+                          key={val}
+                          variant="secondary"
                           className={cn(
                             "rounded-sm px-1.5 py-0.5 text-xs font-medium border border-border/50 bg-secondary/50 text-secondary-foreground hover:bg-secondary/70",
                             compact && "px-1 py-0 text-[10px] h-5 leading-none"
@@ -193,7 +194,7 @@ export function Combobox({
                     })}
                   </div>
                 ) : (
-                  <span className={cn("truncate font-medium text-foreground", compact && "text-xs")}>
+                  <span className={cn("font-medium text-foreground", compact && "text-xs")}>
                     {options.find((o) => o.value === selectedValues[0])?.label ||
                       selectedValues[0]}
                   </span>
@@ -289,12 +290,12 @@ export function Combobox({
                         {option.icon && (
                           <option.icon className="mr-2 h-4 w-4 text-muted-foreground shrink-0" />
                         )}
-                        <span className="truncate">{option.label}</span>
+                        <span>{option.label}</span>
                       </div>
                       {onDelete && (
                         <div onClick={(e) => e.stopPropagation()} className="ml-2 shrink-0">
-                           {confirmDelete ? (
-                            <AlertDialog>
+                          {confirmDelete ? (
+                            <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                               <AlertDialogTrigger asChild>
                                 <Button
                                   variant="ghost"
@@ -306,15 +307,17 @@ export function Combobox({
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete "{option.label}"?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    {deleteMessage}
-                                  </AlertDialogDescription>
+                                  <AlertDialogIcon icon={Trash2} />
+                                  <div className="space-y-2 text-center sm:text-left">
+                                    <AlertDialogTitle>Delete "{option.label}"?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      {deleteMessage}
+                                    </AlertDialogDescription>
+                                  </div>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                                   <AlertDialogAction
-                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                     onClick={() => onDelete(option.value)}
                                   >
                                     Delete

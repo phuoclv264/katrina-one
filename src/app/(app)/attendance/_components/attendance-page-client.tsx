@@ -67,7 +67,7 @@ export default function AttendancePageComponent() {
     const [viewMode, setViewMode] = useState<'table' | 'timeline'>('table');
     const [selectedUsers, setSelectedUsers] = useState<ManagedUser[]>([]);
     const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: startOfMonth(currentMonth), to: endOfMonth(currentMonth) });
-    
+
     const [isDatePopoverOpen, setIsDatePopoverOpen] = useState(false);
     const [tempDateRange, setTempDateRange] = useState<DateRange | undefined>(dateRange);
 
@@ -82,14 +82,14 @@ export default function AttendancePageComponent() {
     const handleReconnect = useCallback(() => {
         setRefreshTrigger(prev => prev + 1);
     }, []);
-    
+
     // This useEffect will now handle all data subscriptions based on the dateRange.
     useEffect(() => {
         if (!user || !dateRange?.from || !dateRange?.to) return;
         setIsLoading(true);
 
         const unsubUsers = dataStore.subscribeToUsers(setAllUsers);
-        
+
         const unsubSchedules = dataStore.subscribeToSchedulesForDateRange(dateRange, (schedules) => {
             const scheduleMap = schedules.reduce((acc, s) => {
                 acc[s.weekId] = s;
@@ -97,7 +97,7 @@ export default function AttendancePageComponent() {
             }, {} as Record<string, Schedule>);
             setSchedules(scheduleMap);
         });
-        
+
         const unsubRecords = dataStore.subscribeToAttendanceRecordsForDateRange(dateRange, setAttendanceRecords);
         const unsubSpecialPeriods = dataStore.subscribeToSpecialPeriods(setSpecialPeriods);
 
@@ -116,7 +116,7 @@ export default function AttendancePageComponent() {
             setIsLoading(false);
         }
     }, [schedules, attendanceRecords, allUsers]);
-    
+
     useEffect(() => {
         setDateRange({ from: startOfMonth(currentMonth), to: endOfMonth(currentMonth) });
         setSelectedUsers([]); // Reset employee filter on month change
@@ -183,7 +183,7 @@ export default function AttendancePageComponent() {
         observer.observe(el);
         return () => observer.disconnect();
     }, [filteredRecords.length, visibleCount]);
-    
+
     const todaysSummary = useMemo(() => {
         const today = new Date();
         const todayStart = startOfToday();
@@ -226,7 +226,7 @@ export default function AttendancePageComponent() {
                 const user = allUsers.find(u => u.uid === assignedUser.userId);
                 if (user) {
                     const recordsForUser = userRecords.get(user.uid) || [];
-                    
+
                     // Use the utility function to find the nearest record
                     const bestMatch = findNearestAttendanceRecord(recordsForUser, shiftStartTime);
 
@@ -239,7 +239,7 @@ export default function AttendancePageComponent() {
                     } : {
                         id: `scheduled-${shift.id}-${user.uid}`
                     };
-                    
+
                     group.staff.push({ user, ...attendanceData });
 
                     if (bestMatch) processedRecordIds.add(bestMatch.id);
@@ -258,11 +258,11 @@ export default function AttendancePageComponent() {
             offShiftRecords.forEach(record => {
                 const user = allUsers.find(u => u.uid === record.userId);
                 if (user) {
-                    offShiftGroup.staff.push({ 
-                        user, 
+                    offShiftGroup.staff.push({
+                        user,
                         id: record.id,
-                        status: record.status, 
-                        checkInTime: (record.checkInTime as Timestamp)?.toDate(), 
+                        status: record.status,
+                        checkInTime: (record.checkInTime as Timestamp)?.toDate(),
                         checkOutTime: (record.checkOutTime as Timestamp)?.toDate(),
                         salary: record.salary
                     });
@@ -346,33 +346,29 @@ export default function AttendancePageComponent() {
     // if (isLoading || authLoading) {
     //     return <LoadingPage />;
     // }
-    
+
     return (
         <>
             <div className="container mx-auto p-4 sm:p-6 md:p-8">
-                <Button variant="ghost" className="-ml-4 mb-4" onClick={() => router.back()}>
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Quay lại
-                </Button>
                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                     <div>
                         <h1 className="text-3xl font-bold font-headline flex items-center gap-3"><UserCheck /> Quản lý Chấm công</h1>
                         <p className="text-muted-foreground mt-2">Xem lại lịch sử chấm công và chi phí lương của nhân viên.</p>
                     </div>
-                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                         <Button variant="outline" onClick={() => setIsSpecialPeriodsDialogOpen(true)}>
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                        <Button variant="outline" onClick={() => setIsSpecialPeriodsDialogOpen(true)}>
                             <CalendarIcon className="mr-2 h-4 w-4" />
                             Giai đoạn đặc biệt
-                         </Button>
-                         <Button variant="outline" onClick={() => setIsBulkSalaryDialogOpen(true)}>
+                        </Button>
+                        <Button variant="outline" onClick={() => setIsBulkSalaryDialogOpen(true)}>
                             <DollarSign className="mr-2 h-4 w-4" />
                             Quản lý Lương
-                         </Button>
-                         <Button variant="default" onClick={() => setIsSalaryManagementDialogOpen(true)}>
+                        </Button>
+                        <Button variant="default" onClick={() => setIsSalaryManagementDialogOpen(true)}>
                             <Calculator className="mr-2 h-4 w-4" />
                             Bảng lương tháng
-                         </Button>
-                        <AlertDialog>
+                        </Button>
+                        <AlertDialog parentDialogTag="root">
                             <Button variant="secondary" onClick={() => setIsManualAttendanceDialogOpen(true)}>
                                 <UserCheck className="mr-2 h-4 w-4" />
                                 Chấm công thủ công
@@ -414,7 +410,7 @@ export default function AttendancePageComponent() {
 
                             {/* Date Range Filter */}
                             <Popover open={isDatePopoverOpen} onOpenChange={setIsDatePopoverOpen}>
-                                <PopoverTrigger asChild> 
+                                <PopoverTrigger asChild>
                                     <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dateRange && "text-muted-foreground")}>
                                         <CalendarIcon className="mr-2 h-4 w-4" />
                                         {dateRange?.from ? (
@@ -430,7 +426,7 @@ export default function AttendancePageComponent() {
                                         )}
                                     </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start"> 
+                                <PopoverContent className="w-auto p-0" align="start">
                                     <Calendar
                                         initialFocus
                                         mode="range"
@@ -474,24 +470,24 @@ export default function AttendancePageComponent() {
                                             <p className="text-2xl font-bold text-primary">{todaysSummary.totalSalaryToday.toLocaleString('vi-VN')}đ</p>
                                         </div>
                                         {!isMobile &&
-                                        (<div className="flex items-center gap-2">
-                                            <Button variant="outline" onClick={() => setViewMode(prev => prev === 'table' ? 'timeline' : 'table')}>
-                                                {viewMode === 'table' ? (
-                                                    <><GanttChartSquare className="mr-2 h-4 w-4" /> Timeline View</>
-                                                ) : (
-                                                    <><LayoutGrid className="mr-2 h-4 w-4" /> Xem Bảng</>
-                                                )}
-                                            </Button>
-                                        </div>)}
+                                            (<div className="flex items-center gap-2">
+                                                <Button variant="outline" onClick={() => setViewMode(prev => prev === 'table' ? 'timeline' : 'table')}>
+                                                    {viewMode === 'table' ? (
+                                                        <><GanttChartSquare className="mr-2 h-4 w-4" /> Timeline View</>
+                                                    ) : (
+                                                        <><LayoutGrid className="mr-2 h-4 w-4" /> Xem Bảng</>
+                                                    )}
+                                                </Button>
+                                            </div>)}
                                     </div>
                                     <div className="mt-4 space-y-2">
-                                        {todaysSummary.staffByShift.sort((a,b) => a.timeSlot.localeCompare(b.timeSlot)).map(({ shiftLabel, timeSlot, staff }) => (
+                                        {todaysSummary.staffByShift.sort((a, b) => a.timeSlot.localeCompare(b.timeSlot)).map(({ shiftLabel, timeSlot, staff }) => (
                                             <div key={`${shiftLabel}-${timeSlot}`} className="p-2 rounded-md border bg-muted/30">
                                                 <p className="font-semibold text-sm">{shiftLabel} <span className="text-xs text-muted-foreground font-normal">{timeSlot}</span></p>
                                                 <div className="mt-1 space-y-1 pl-2">
-                                                    {staff.sort((a,b) => (roleOrder[a.user.role as UserRole] || 99) - (roleOrder[b.user.role as UserRole] || 99)).map(({ user, id, salary, status, checkInTime, checkOutTime }) => (
+                                                    {staff.sort((a, b) => (roleOrder[a.user.role as UserRole] || 99) - (roleOrder[b.user.role as UserRole] || 99)).map(({ user, id, salary, status, checkInTime, checkOutTime }) => (
                                                         <div key={id} className="flex justify-between items-center text-sm gap-2">
-                                                    <div className="flex items-center gap-1.5 min-w-0">
+                                                            <div className="flex items-center gap-1.5 min-w-0">
                                                                 <span className={cn("h-2 w-2 rounded-full", status === 'in-progress' ? 'bg-green-500 animate-pulse' : (status ? 'bg-gray-400' : 'bg-red-500'))} title={status ? (status === 'in-progress' ? 'Đang làm việc' : 'Đã làm') : 'Vắng mặt'}></span>
                                                                 <p className="truncate">{isMobile ? generateShortName(user.displayName) : user.displayName} <span className="text-xs text-muted-foreground">({user.role})</span></p>
                                                             </div>
@@ -519,19 +515,19 @@ export default function AttendancePageComponent() {
                         onOpenLightbox={openLightbox}
                     />
                 ) : isMobile ? (
-                    <AttendanceCards 
-                        records={visibleRecords} 
-                        users={allUsers} 
-                        schedules={schedules} 
+                    <AttendanceCards
+                        records={visibleRecords}
+                        users={allUsers}
+                        schedules={schedules}
                         onEdit={handleEditRecord}
                         onDelete={handleDeleteRecord}
                         onOpenLightbox={openLightbox}
                     />
                 ) : (
-                    <AttendanceTable 
-                        records={visibleRecords} 
-                        users={allUsers} 
-                        schedules={schedules} 
+                    <AttendanceTable
+                        records={visibleRecords}
+                        users={allUsers}
+                        schedules={schedules}
                         onEdit={handleEditRecord}
                         onDelete={handleDeleteRecord}
                         onOpenLightbox={openLightbox}
@@ -549,6 +545,7 @@ export default function AttendancePageComponent() {
                 onClose={() => setIsEditDialogOpen(false)}
                 record={recordToEdit}
                 onSave={handleSaveRecord}
+                parentDialogTag="root"
             />
 
             <BulkSalaryDialog
@@ -557,19 +554,22 @@ export default function AttendancePageComponent() {
                 users={allUsers}
                 onSave={handleSaveBulkRates}
                 isSaving={isSavingSalaries}
+                parentDialogTag="root"
             />
-            
+
             <ManualAttendanceDialog
                 isOpen={isManualAttendanceDialogOpen}
                 onClose={() => setIsManualAttendanceDialogOpen(false)}
                 users={sortedUsers}
                 onSave={handleSaveManualAttendance}
+                parentDialogTag="root"
             />
 
             <SalaryManagementDialog
                 isOpen={isSalaryManagementDialogOpen}
                 onClose={() => setIsSalaryManagementDialogOpen(false)}
                 allUsers={allUsers}
+                parentDialogTag='root'
             />
 
             <SpecialPeriodsDialog
@@ -579,6 +579,7 @@ export default function AttendancePageComponent() {
                 users={allUsers}
                 onCreateSpecialPeriod={handleCreateSpecialPeriod}
                 onDeleteSpecialPeriod={handleDeleteSpecialPeriod}
+                parentDialogTag="root"
             />
         </>
     )

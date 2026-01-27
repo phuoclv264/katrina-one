@@ -72,22 +72,22 @@ export default function ReportsFeedPage() {
 
   const filteredAndSortedReports = useMemo(() => {
     if (!user) return [];
-    
+
     let reportsToDisplay = reports;
     if (user.role !== 'Chủ nhà hàng') {
-        reportsToDisplay = reports.filter(report =>
-            report.visibility === 'public' || report.reporterId === user.uid
-        );
+      reportsToDisplay = reports.filter(report =>
+        report.visibility === 'public' || report.reporterId === user.uid
+      );
     }
-    
+
     // Sort so pinned items are always on top, then by date
     return reportsToDisplay.sort((a, b) => {
-        if (a.isPinned && !b.isPinned) return -1;
-        if (!a.isPinned && b.isPinned) return 1;
-        return new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime();
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      return new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime();
     });
   }, [reports, user]);
-  
+
   const handleEditReport = (report: WhistleblowingReport) => {
     setReportToEdit(report);
     setIsReportDialogOpen(true);
@@ -95,23 +95,23 @@ export default function ReportsFeedPage() {
 
   const handleSaveReport = async (data: any, id?: string) => {
     if (!user) return;
-    
+
     try {
-        if (id) {
-            // Update existing report
-            await reportsStore.updateReport(id, data);
-            toast.success('Đã cập nhật bài đăng.');
-        } else {
-            // Create new report
-             const reportData = {
-                ...data,
-                reporterId: user.uid,
-            };
-            await reportsStore.createReport(reportData);
-            toast.success('Đã gửi bài tố cáo thành công.');
-        }
-        setIsReportDialogOpen(false);
-        setReportToEdit(null);
+      if (id) {
+        // Update existing report
+        await reportsStore.updateReport(id, data);
+        toast.success('Đã cập nhật bài đăng.');
+      } else {
+        // Create new report
+        const reportData = {
+          ...data,
+          reporterId: user.uid,
+        };
+        await reportsStore.createReport(reportData);
+        toast.success('Đã gửi bài tố cáo thành công.');
+      }
+      setIsReportDialogOpen(false);
+      setReportToEdit(null);
     } catch (error) {
       console.error("Failed to save report:", error);
       toast.error('Không thể lưu bài đăng.');
@@ -119,69 +119,69 @@ export default function ReportsFeedPage() {
   };
 
   const handleVote = async (reportId: string, voteType: 'up' | 'down') => {
-      if (!user) return;
-      try {
-        await reportsStore.vote(reportId, user.uid, voteType);
-      } catch (error) {
-        console.error("Vote failed:", error);
-        toast.error("Thao tác thất bại.");
-      }
+    if (!user) return;
+    try {
+      await reportsStore.vote(reportId, user.uid, voteType);
+    } catch (error) {
+      console.error("Vote failed:", error);
+      toast.error("Thao tác thất bại.");
+    }
   };
-  
+
   const handleDelete = async (reportId: string) => {
-      if (!user) return;
-      if (user.role !== 'Chủ nhà hàng' && reports.find(r => r.id === reportId)?.reporterId !== user.uid) {
-          toast.error("Bạn không có quyền xóa bài đăng này.");
-          return;
-      }
-      try {
-        await reportsStore.deleteReport(reportId);
-        toast.success("Đã xóa bài tố cáo.");
-      } catch (error) {
-        console.error("Delete failed:", error);
-        toast.error("Không thể xóa bài tố cáo.");
-      }
+    if (!user) return;
+    if (user.role !== 'Chủ nhà hàng' && reports.find(r => r.id === reportId)?.reporterId !== user.uid) {
+      toast.error("Bạn không có quyền xóa bài đăng này.");
+      return;
+    }
+    try {
+      await reportsStore.deleteReport(reportId);
+      toast.success("Đã xóa bài tố cáo.");
+    } catch (error) {
+      console.error("Delete failed:", error);
+      toast.error("Không thể xóa bài tố cáo.");
+    }
   };
 
   const handleTogglePin = async (reportId: string, currentPinStatus: boolean) => {
     if (user?.role !== 'Chủ nhà hàng') return;
     try {
-        await reportsStore.togglePin(reportId, currentPinStatus);
-        toast.success(currentPinStatus ? 'Đã bỏ ghim bài đăng.' : 'Đã ghim bài đăng.');
+      await reportsStore.togglePin(reportId, currentPinStatus);
+      toast.success(currentPinStatus ? 'Đã bỏ ghim bài đăng.' : 'Đã ghim bài đăng.');
     } catch (error) {
-        console.error("Failed to toggle pin status:", error);
-        toast.error('Thao tác thất bại.');
+      console.error("Failed to toggle pin status:", error);
+      toast.error('Thao tác thất bại.');
     }
   };
 
   const handleCommentSubmit = async (reportId: string, commentText: string, medias: CommentMedia[], isAnonymous: boolean) => {
     if (!user) return;
-    
+
     const commentData = {
-        authorId: user.uid,
-        isAnonymous: isAnonymous,
-        content: commentText,
+      authorId: user.uid,
+      isAnonymous: isAnonymous,
+      content: commentText,
     };
     await reportsStore.addComment(reportId, commentData, medias);
   };
-  
+
   const handleCommentEdit = async (violationId: string, commentId: string, newText: string) => {
-      await reportsStore.editComment(violationId, commentId, newText);
+    await reportsStore.editComment(violationId, commentId, newText);
   };
 
   const handleCommentDelete = async (violationId: string, commentId: string) => {
-      await reportsStore.deleteComment(violationId, commentId);
+    await reportsStore.deleteComment(violationId, commentId);
   };
-  
+
   const handleViewReport = (reportId: string) => {
     setIsMyReportsDialogOpen(false);
     setTimeout(() => {
       const element = reportRefs.current.get(reportId);
       element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       if (element) {
-        element.classList.add('ring-2', 'ring-primary', 'transition-all', 'duration-1000');
+        element.classList.add('ring-2', 'ring-primary', 'rounded-xl', 'transition-all', 'duration-1000');
         setTimeout(() => {
-          element.classList.remove('ring-2', 'ring-primary');
+          element.classList.remove('ring-2', 'ring-primary', 'rounded-xl');
         }, 2000);
       }
     }, 100);
@@ -196,50 +196,50 @@ export default function ReportsFeedPage() {
     <>
       <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
         <header className="mb-8 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-            <div>
-                <h1 className="text-3xl font-bold font-headline">Kênh Tố Cáo</h1>
-                <p className="text-muted-foreground mt-2">
-                    Nơi để chia sẻ các vấn đề một cách an toàn và bảo mật.
-                </p>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-              <Button onClick={() => setIsMyReportsDialogOpen(true)} variant="outline" className="w-full sm:w-auto">
-                  <FileSignature className="mr-2 h-4 w-4" /> Bài đăng của tôi
-              </Button>
-              <Button onClick={() => { setReportToEdit(null); setIsReportDialogOpen(true); }} className="w-full sm:w-auto">
-                  <Plus className="mr-2 h-4 w-4" /> Tạo bài tố cáo mới
-              </Button>
-            </div>
+          <div>
+            <h1 className="text-3xl font-bold font-headline">Kênh Tố Cáo</h1>
+            <p className="text-muted-foreground mt-2">
+              Nơi để chia sẻ các vấn đề một cách an toàn và bảo mật.
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <Button onClick={() => setIsMyReportsDialogOpen(true)} variant="outline" className="w-full sm:w-auto">
+              <FileSignature className="mr-2 h-4 w-4" /> Bài đăng của tôi
+            </Button>
+            <Button onClick={() => { setReportToEdit(null); setIsReportDialogOpen(true); }} className="w-full sm:w-auto">
+              <Plus className="mr-2 h-4 w-4" /> Tạo bài tố cáo mới
+            </Button>
+          </div>
         </header>
 
         {filteredAndSortedReports.length > 0 ? (
-            <div className="space-y-6">
+          <div className="space-y-6">
             {filteredAndSortedReports.map(report => {
-                const setReportRef = (el: HTMLDivElement | null) => {
-                    if (el) {
-                        reportRefs.current.set(report.id, el);
-                    } else {
-                        reportRefs.current.delete(report.id);
-                    }
-                };
-                return (
-                    <div key={report.id} ref={setReportRef}>
-                        <ReportCard report={report} currentUser={user} allUsers={allUsers} onVote={handleVote} onDelete={handleDelete} onTogglePin={handleTogglePin} onCommentSubmit={handleCommentSubmit} onCommentEdit={handleCommentEdit} onCommentDelete={handleCommentDelete} onEdit={handleEditReport} />
-                    </div>
-                );
+              const setReportRef = (el: HTMLDivElement | null) => {
+                if (el) {
+                  reportRefs.current.set(report.id, el);
+                } else {
+                  reportRefs.current.delete(report.id);
+                }
+              };
+              return (
+                <div key={report.id} ref={setReportRef}>
+                  <ReportCard report={report} currentUser={user} allUsers={allUsers} onVote={handleVote} onDelete={handleDelete} onTogglePin={handleTogglePin} onCommentSubmit={handleCommentSubmit} onCommentEdit={handleCommentEdit} onCommentDelete={handleCommentDelete} onEdit={handleEditReport} />
+                </div>
+              );
             })}
-            </div>
+          </div>
         ) : (
-             <div className="text-center py-24 px-4 border-2 border-dashed rounded-xl flex flex-col items-center justify-center">
-                <FileWarning className="h-12 w-12 text-muted-foreground/50 mb-4" />
-                <h3 className="text-xl font-semibold">Chưa có bài đăng nào</h3>
-                <p className="mt-2 max-w-xs text-center text-muted-foreground">
-                    Hãy là người đầu tiên tạo một bài đăng để chia sẻ vấn đề của bạn.
-                </p>
-                <Button onClick={() => { setReportToEdit(null); setIsReportDialogOpen(true); }} className="mt-6">
-                  <Plus className="mr-2 h-4 w-4" /> Tạo bài tố cáo mới
-              </Button>
-             </div>
+          <div className="text-center py-24 px-4 border-2 border-dashed rounded-xl flex flex-col items-center justify-center">
+            <FileWarning className="h-12 w-12 text-muted-foreground/50 mb-4" />
+            <h3 className="text-xl font-semibold">Chưa có bài đăng nào</h3>
+            <p className="mt-2 max-w-xs text-center text-muted-foreground">
+              Hãy là người đầu tiên tạo một bài đăng để chia sẻ vấn đề của bạn.
+            </p>
+            <Button onClick={() => { setReportToEdit(null); setIsReportDialogOpen(true); }} className="mt-6">
+              <Plus className="mr-2 h-4 w-4" /> Tạo bài tố cáo mới
+            </Button>
+          </div>
         )}
       </div>
 
@@ -250,6 +250,7 @@ export default function ReportsFeedPage() {
         allUsers={allUsers}
         reportToEdit={reportToEdit}
         currentUserName={user.displayName}
+        parentDialogTag="root"
         currentUserRole={user.role}
       />
       <MySentReportsDialog
@@ -258,6 +259,7 @@ export default function ReportsFeedPage() {
         reports={reports}
         userId={user.uid}
         onViewReport={handleViewReport}
+        parentDialogTag="root"
       />
     </>
   );

@@ -1,24 +1,32 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { 
+    Dialog, 
+    DialogContent, 
+    DialogHeader, 
+    DialogTitle, 
+    DialogDescription, 
+    DialogFooter,
+    DialogBody,
+    DialogAction,
+    DialogCancel
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import type { ManagedUser, SpecialPeriod } from '@/lib/types';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { toast } from '@/components/ui/pro-toast';
-import { Loader2, Plus, Trash2, Calendar as CalendarIcon, Clock, Sparkles, CalendarDays, Search } from 'lucide-react';
+import { Loader2, Plus, Trash2, Calendar as CalendarIcon, Clock, Sparkles, CalendarDays, Search, User } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn, normalizeSearchString } from '@/lib/utils';
 import { Timestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Checkbox } from '@/components/ui/checkbox';
 
@@ -29,6 +37,7 @@ type SpecialPeriodsDialogProps = {
     users: ManagedUser[];
     onCreateSpecialPeriod: (payload: Omit<SpecialPeriod, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
     onDeleteSpecialPeriod: (id: string) => Promise<void>;
+    parentDialogTag: string;
 };
 
 export default function SpecialPeriodsDialog({
@@ -38,10 +47,11 @@ export default function SpecialPeriodsDialog({
     users,
     onCreateSpecialPeriod,
     onDeleteSpecialPeriod,
+    parentDialogTag,
 }: SpecialPeriodsDialogProps) {
     const isMobile = useIsMobile();
     const [isAdding, setIsAdding] = useState(false);
-    
+
     // Form state
     const [newName, setNewName] = useState('');
     const [newMultiplier, setNewMultiplier] = useState('2');
@@ -58,15 +68,15 @@ export default function SpecialPeriodsDialog({
     const filteredUsers = useMemo(() => {
         if (!userSearch) return users;
         const normalizedSearch = normalizeSearchString(userSearch);
-        return users.filter(u => 
-            normalizeSearchString(u.displayName || '').includes(normalizedSearch) || 
+        return users.filter(u =>
+            normalizeSearchString(u.displayName || '').includes(normalizedSearch) ||
             normalizeSearchString(u.email || '').includes(normalizedSearch)
         );
     }, [users, userSearch]);
 
     const toggleUser = (uid: string) => {
-        setSelectedUserIds(prev => 
-            prev.includes(uid) 
+        setSelectedUserIds(prev =>
+            prev.includes(uid)
                 ? prev.filter(id => id !== uid)
                 : [...prev, uid]
         );
@@ -102,8 +112,8 @@ export default function SpecialPeriodsDialog({
         endDateTime.setHours(endHours, endMinutes);
 
         if (endDateTime <= startDateTime) {
-             toast.error('Thời gian kết thúc phải sau thời gian bắt đầu');
-             return;
+            toast.error('Thời gian kết thúc phải sau thời gian bắt đầu');
+            return;
         }
 
         if (targetMode === 'specific' && selectedUserIds.length === 0) {
@@ -120,7 +130,7 @@ export default function SpecialPeriodsDialog({
                 multiplier: multiplier,
                 ...(targetMode === 'specific' ? { targetUserIds: selectedUserIds } : {}),
             });
-            
+
             toast.success('Đã thêm giai đoạn tính lương đặc biệt');
             setNewName('');
             setNewMultiplier('2');
@@ -141,7 +151,7 @@ export default function SpecialPeriodsDialog({
 
     const handleDelete = async (id: string) => {
         if (!confirm('Bạn có chắc chắn muốn xóa giai đoạn này?')) return;
-        
+
         try {
             await onDeleteSpecialPeriod(id);
             toast.success('Đã xóa giai đoạn');
@@ -154,9 +164,9 @@ export default function SpecialPeriodsDialog({
     const renderPeriodList = () => {
         if (sortedPeriods.length === 0) {
             return (
-                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground text-center">
-                    <CalendarDays className="h-12 w-12 mb-2 opacity-20" />
-                    <p>Chưa có giai đoạn đặc biệt nào</p>
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground text-center bg-white rounded-2xl border border-dashed border-zinc-200">
+                    <CalendarDays className="h-10 w-10 mb-3 opacity-10 text-zinc-900" />
+                    <p className="text-sm font-medium text-zinc-400">Chưa có giai đoạn đặc biệt nào</p>
                 </div>
             );
         }
@@ -168,41 +178,49 @@ export default function SpecialPeriodsDialog({
                         const start = (period.startDate as any).toDate?.() || new Date(period.startDate as any);
                         const end = (period.endDate as any).toDate?.() || new Date(period.endDate as any);
                         const targetLabel = Array.isArray(period.targetUserIds) && period.targetUserIds.length > 0
-                            ? `Chỉ định ${period.targetUserIds.length} user`
-                            : 'Tất cả user';
-                        
+                            ? `Chỉ định ${period.targetUserIds.length} nhân viên`
+                            : 'Tất cả nhân viên';
+
                         return (
-                            <Card key={period.id} className="overflow-hidden">
-                                <CardContent className="p-3">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <div className="font-medium">{period.name}</div>
+                            <Card key={period.id} className="overflow-hidden border-none shadow-sm ring-1 ring-zinc-200 rounded-2xl">
+                                <CardContent className="p-4 bg-white">
+                                    <div className="flex justify-between items-start mb-3">
+                                        <div className="font-bold text-zinc-900 tracking-tight">{period.name}</div>
                                         <Badge variant="secondary" className={cn(
-                                            period.multiplier >= 3 ? "bg-red-100 text-red-800" : 
-                                            period.multiplier >= 2 ? "bg-orange-100 text-orange-800" : ""
+                                            "rounded-lg px-2 py-0.5 font-black text-[11px]",
+                                            period.multiplier >= 3 ? "bg-red-50 text-red-600 border border-red-100" :
+                                                period.multiplier >= 2 ? "bg-orange-50 text-orange-600 border border-orange-100" : 
+                                                "bg-zinc-50 text-zinc-600 border border-zinc-100"
                                         )}>
                                             x{period.multiplier}
                                         </Badge>
                                     </div>
-                                    <div className="text-sm text-muted-foreground space-y-1">
-                                        <div className="flex items-center gap-2">
-                                            <CalendarIcon className="h-3 w-3" />
-                                            <span>{format(start, 'dd/MM/yyyy HH:mm')}</span>
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2.5 text-zinc-500">
+                                            <div className="w-5 h-5 rounded-full bg-zinc-50 flex items-center justify-center shrink-0">
+                                                <CalendarIcon className="h-3 w-3" />
+                                            </div>
+                                            <span className="text-[11px] font-semibold">{format(start, 'dd/MM/yyyy HH:mm')}</span>
+                                            <span className="text-zinc-300">→</span>
+                                            <span className="text-[11px] font-semibold">{format(end, 'dd/MM/yyyy HH:mm')}</span>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <Clock className="h-3 w-3" />
-                                            <span>{format(end, 'dd/MM/yyyy HH:mm')}</span>
+                                        <div className="flex items-center gap-2.5 text-zinc-400">
+                                            <div className="w-5 h-5 rounded-full bg-zinc-50 flex items-center justify-center shrink-0">
+                                                <User className="h-3 w-3" />
+                                            </div>
+                                            <span className="text-[10px] font-bold uppercase tracking-wider">{targetLabel}</span>
                                         </div>
-                                        <div className="text-xs">{targetLabel}</div>
                                     </div>
-                                    <Separator className="my-2" />
-                                    <Button 
-                                        variant="ghost" 
-                                        size="sm" 
-                                        className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 h-8"
-                                        onClick={() => handleDelete(period.id)}
-                                    >
-                                        <Trash2 className="h-3 w-3 mr-2" /> Xóa
-                                    </Button>
+                                    <div className="mt-4 pt-3 border-t border-zinc-50 flex justify-end">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="text-red-500 hover:text-red-600 hover:bg-red-50 h-8 rounded-lg px-3 font-bold text-[11px] uppercase tracking-wider"
+                                            onClick={() => handleDelete(period.id)}
+                                        >
+                                            <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Xóa giai đoạn
+                                        </Button>
+                                    </div>
                                 </CardContent>
                             </Card>
                         );
@@ -212,150 +230,170 @@ export default function SpecialPeriodsDialog({
         }
 
         return (
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Tên dịp</TableHead>
-                        <TableHead>Bắt đầu</TableHead>
-                        <TableHead>Kết thúc</TableHead>
-                        <TableHead>Áp dụng</TableHead>
-                        <TableHead className="text-center">Hệ số</TableHead>
-                        <TableHead className="text-right">Thao tác</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {sortedPeriods.map((period) => {
-                        const start = (period.startDate as any).toDate?.() || new Date(period.startDate as any);
-                        const end = (period.endDate as any).toDate?.() || new Date(period.endDate as any);
-                        const targetLabel = Array.isArray(period.targetUserIds) && period.targetUserIds.length > 0
-                            ? `Chỉ định ${period.targetUserIds.length} user`
-                            : 'Tất cả user';
-                        
-                        return (
-                            <TableRow key={period.id}>
-                                <TableCell className="font-medium">{period.name}</TableCell>
-                                <TableCell>{format(start, 'dd/MM/yyyy HH:mm')}</TableCell>
-                                <TableCell>{format(end, 'dd/MM/yyyy HH:mm')}</TableCell>
-                                <TableCell className="text-xs text-muted-foreground">{targetLabel}</TableCell>
-                                <TableCell className="text-center">
-                                    <Badge variant="secondary" className={cn(
-                                        period.multiplier >= 3 ? "bg-red-100 text-red-800" : 
-                                        period.multiplier >= 2 ? "bg-orange-100 text-orange-800" : ""
-                                    )}>
-                                        x{period.multiplier}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                    <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
-                                        onClick={() => handleDelete(period.id)}
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </TableCell>
-                            </TableRow>
-                        );
-                    })}
-                </TableBody>
-            </Table>
+            <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-sm">
+                <Table>
+                    <TableHeader className="bg-zinc-50/50">
+                        <TableRow className="hover:bg-transparent border-zinc-200">
+                            <TableHead className="text-[10px] font-black uppercase tracking-widest text-zinc-400 h-11">Tên dịp</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase tracking-widest text-zinc-400 h-11">Bắt đầu</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase tracking-widest text-zinc-400 h-11">Kết thúc</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase tracking-widest text-zinc-400 h-11">Áp dụng</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase tracking-widest text-zinc-400 h-11 text-center">Hệ số</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase tracking-widest text-zinc-400 h-11 text-right pr-6">Thao tác</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {sortedPeriods.map((period) => {
+                            const start = (period.startDate as any).toDate?.() || new Date(period.startDate as any);
+                            const end = (period.endDate as any).toDate?.() || new Date(period.endDate as any);
+                            const targetLabel = Array.isArray(period.targetUserIds) && period.targetUserIds.length > 0
+                                ? `${period.targetUserIds.length} user`
+                                : 'Tất cả';
+
+                            return (
+                                <TableRow key={period.id} className="hover:bg-zinc-50/50 border-zinc-100 transition-colors">
+                                    <TableCell className="font-bold text-zinc-900 text-sm py-4">{period.name}</TableCell>
+                                    <TableCell className="text-zinc-600 font-medium text-xs">
+                                        {format(start, 'dd/MM/yyyy')}
+                                        <div className="text-[10px] text-zinc-400 font-bold uppercase">{format(start, 'HH:mm')}</div>
+                                    </TableCell>
+                                    <TableCell className="text-zinc-600 font-medium text-xs">
+                                        {format(end, 'dd/MM/yyyy')}
+                                        <div className="text-[10px] text-zinc-400 font-bold uppercase">{format(end, 'HH:mm')}</div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Badge variant="outline" className="rounded-md border-zinc-200 bg-zinc-50/50 text-[10px] font-bold text-zinc-500 px-2 py-0 border-none uppercase tracking-tight">
+                                            {targetLabel}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                        <Badge variant="secondary" className={cn(
+                                            "rounded-lg px-2 py-0.5 font-black text-[11px]",
+                                            period.multiplier >= 3 ? "bg-red-50 text-red-600 border border-red-100" :
+                                                period.multiplier >= 2 ? "bg-orange-50 text-orange-600 border border-orange-100" : 
+                                                "bg-zinc-50 text-zinc-600 border border-zinc-100"
+                                        )}>
+                                            x{period.multiplier}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right pr-6">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-all rounded-lg"
+                                            onClick={() => handleDelete(period.id)}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })}
+                    </TableBody>
+                </Table>
+            </div>
         );
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
-                <DialogHeader className="p-6 pb-4 border-b bg-muted/10">
-                    <div className="flex items-center gap-2">
-                        <div className="p-2 bg-primary/10 rounded-full">
-                            <Sparkles className="h-5 w-5 text-primary" />
-                        </div>
-                        <div>
-                            <DialogTitle>Giai đoạn lương đặc biệt</DialogTitle>
-                            <DialogDescription>
-                                Quản lý các dịp Lễ, Tết nhân hệ số lương
-                            </DialogDescription>
-                        </div>
-                    </div>
+        <Dialog open={isOpen} onOpenChange={onClose} dialogTag="special-periods-dialog" parentDialogTag={parentDialogTag}>
+            <DialogContent className="max-w-2xl">
+                <DialogHeader variant="premium" iconkey="calendar">
+                    <DialogTitle>Giai đoạn lương đặc biệt</DialogTitle>
+                    <DialogDescription>
+                        Quản lý các dịp Lễ, Tết hoặc sự kiện cần nhân hệ số lương
+                    </DialogDescription>
                 </DialogHeader>
 
-                <ScrollArea className="flex-1 overflow-y-auto p-6">
-                    <div className="flex flex-col gap-6">
+                <DialogBody className="bg-zinc-50/50">
+                    <div className="flex flex-col gap-6 py-2">
                         {/* Form Section */}
-                        <Card className="border-dashed shadow-sm">
-                            <CardHeader className="pb-3">
-                                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                                    <Plus className="h-4 w-4" /> Thêm giai đoạn mới
+                        <Card className="border-none shadow-sm ring-1 ring-zinc-200 overflow-hidden">
+                            <CardHeader className="bg-zinc-100/50 py-3 px-4 border-b border-zinc-200">
+                                <CardTitle className="text-[11px] font-black uppercase tracking-[0.1em] flex items-center gap-2 text-zinc-500">
+                                    <Plus className="h-3 w-3" /> Thêm giai đoạn mới
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="grid gap-4">
+                            <CardContent className="p-4 space-y-4 bg-white">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label>Tên dịp</Label>
-                                        <Input 
-                                            placeholder="VD: Tết Nguyên Đán" 
-                                            value={newName} 
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 ml-1">Tên dịp</Label>
+                                        <Input
+                                            placeholder="VD: Tết Nguyên Đán"
+                                            className="h-10 rounded-xl border-zinc-200 focus-visible:ring-primary"
+                                            value={newName}
                                             onChange={(e) => setNewName(e.target.value)}
                                         />
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label>Hệ số lương (x)</Label>
-                                        <Input 
-                                            type="number" 
-                                            step="0.5" 
-                                            value={newMultiplier} 
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 ml-1">Hệ số lương (x)</Label>
+                                        <Input
+                                            type="number"
+                                            step="0.5"
+                                            className="h-10 rounded-xl border-zinc-200 focus-visible:ring-primary"
+                                            value={newMultiplier}
                                             onChange={(e) => setNewMultiplier(e.target.value)}
                                         />
                                     </div>
                                 </div>
 
-                                <div className="space-y-2">
-                                    <Label>Áp dụng cho</Label>
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 ml-1">Áp dụng cho</Label>
                                     <div className="grid grid-cols-2 gap-2">
-                                        <Button
+                                        <button
                                             type="button"
-                                            variant={targetMode === 'all' ? 'default' : 'outline'}
                                             onClick={() => setTargetMode('all')}
+                                            className={cn(
+                                                "h-10 rounded-xl text-sm font-bold transition-all border-2",
+                                                targetMode === 'all' 
+                                                    ? "bg-zinc-900 border-zinc-900 text-white shadow-sm"
+                                                    : "bg-background border-zinc-100 hover:border-zinc-200 text-zinc-500"
+                                            )}
                                         >
                                             Tất cả
-                                        </Button>
-                                        <Button
+                                        </button>
+                                        <button
                                             type="button"
-                                            variant={targetMode === 'specific' ? 'default' : 'outline'}
                                             onClick={() => setTargetMode('specific')}
+                                            className={cn(
+                                                "h-10 rounded-xl text-sm font-bold transition-all border-2",
+                                                targetMode === 'specific'
+                                                    ? "bg-zinc-900 border-zinc-900 text-white shadow-sm"
+                                                    : "bg-background border-zinc-100 hover:border-zinc-200 text-zinc-500"
+                                            )}
                                         >
-                                            Chỉ định User ID
-                                        </Button>
+                                            Chỉ định User
+                                        </button>
                                     </div>
 
                                     {targetMode === 'specific' && (
-                                        <div className="space-y-2 border rounded-md p-3 bg-muted/20">
+                                        <div className="space-y-2 border border-zinc-100 rounded-xl p-3 bg-zinc-50/50 mt-2">
                                             <div className="relative">
-                                                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                                                <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
                                                 <Input
                                                     placeholder="Tìm kiếm nhân viên..."
                                                     value={userSearch}
                                                     onChange={(e) => setUserSearch(e.target.value)}
-                                                    className="pl-8 h-9"
+                                                    className="pl-9 h-9 border-zinc-200 rounded-lg text-sm bg-white"
                                                 />
                                             </div>
-                                            <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2">
+                                            <div className="space-y-1 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
                                                 {filteredUsers.length === 0 ? (
-                                                    <div className="text-sm text-muted-foreground text-center py-4">
+                                                    <div className="text-xs text-muted-foreground text-center py-4 italic">
                                                         Không tìm thấy nhân viên
                                                     </div>
                                                 ) : (
                                                     filteredUsers.map((user) => (
-                                                        <div key={user.uid} className="flex items-center space-x-2">
-                                                            <Checkbox 
-                                                                id={`user-${user.uid}`} 
+                                                        <div key={user.uid} className="flex items-center space-x-2 p-1.5 hover:bg-white rounded-lg transition-colors">
+                                                            <Checkbox
+                                                                id={`user-${user.uid}`}
                                                                 checked={selectedUserIds.includes(user.uid)}
                                                                 onCheckedChange={() => toggleUser(user.uid)}
+                                                                className="rounded-md border-zinc-300"
                                                             />
-                                                            <Label 
+                                                            <Label
                                                                 htmlFor={`user-${user.uid}`}
-                                                                className="text-sm font-normal cursor-pointer flex-1"
+                                                                className="text-xs font-semibold text-zinc-700 cursor-pointer flex-1"
                                                             >
                                                                 {user.displayName || user.email || 'Unnamed User'}
                                                             </Label>
@@ -363,31 +401,31 @@ export default function SpecialPeriodsDialog({
                                                     ))
                                                 )}
                                             </div>
-                                            <div className="text-xs text-muted-foreground text-right pt-2 border-t mt-2">
-                                                Đã chọn: {selectedUserIds.length} nhân viên
+                                            <div className="text-[10px] font-bold text-zinc-400 text-right pt-2 border-t border-zinc-100">
+                                                ĐÃ CHỌN: <span className="text-primary">{selectedUserIds.length}</span> NHÂN VIÊN
                                             </div>
                                         </div>
                                     )}
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label>Bắt đầu</Label>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 ml-1">Bắt đầu</Label>
                                         <div className="flex gap-2">
                                             <Popover modal={true}>
                                                 <PopoverTrigger asChild>
                                                     <Button
                                                         variant={"outline"}
                                                         className={cn(
-                                                            "w-full justify-start text-left font-normal px-2",
+                                                            "w-full justify-start text-left font-semibold px-3 h-10 rounded-xl border-zinc-200",
                                                             !startDate && "text-muted-foreground"
                                                         )}
                                                     >
-                                                        <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
-                                                        {startDate ? format(startDate, "dd/MM") : <span>Ngày</span>}
+                                                        <CalendarIcon className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                                                        {startDate ? format(startDate, "dd/MM/yyyy") : <span>Chọn ngày</span>}
                                                     </Button>
                                                 </PopoverTrigger>
-                                                <PopoverContent className="w-auto p-0">
+                                                <PopoverContent className="w-auto p-0 rounded-2xl overflow-hidden shadow-xl border-zinc-200" align="start">
                                                     <Calendar
                                                         mode="single"
                                                         selected={startDate}
@@ -396,34 +434,34 @@ export default function SpecialPeriodsDialog({
                                                     />
                                                 </PopoverContent>
                                             </Popover>
-                                            <div className="relative w-24 shrink-0">
-                                                <Clock className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                                                <Input 
-                                                    type="time" 
-                                                    className="pl-8"
+                                            <div className="relative w-28 shrink-0">
+                                                <Clock className="absolute left-3 top-3 h-4 w-4 text-zinc-400" />
+                                                <Input
+                                                    type="time"
+                                                    className="pl-9 h-10 rounded-xl border-zinc-200 font-semibold"
                                                     value={startTime}
                                                     onChange={(e) => setStartTime(e.target.value)}
                                                 />
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label>Kết thúc</Label>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 ml-1">Kết thúc</Label>
                                         <div className="flex gap-2">
                                             <Popover modal={true}>
                                                 <PopoverTrigger asChild>
                                                     <Button
                                                         variant={"outline"}
                                                         className={cn(
-                                                            "w-full justify-start text-left font-normal px-2",
+                                                            "w-full justify-start text-left font-semibold px-3 h-10 rounded-xl border-zinc-200",
                                                             !endDate && "text-muted-foreground"
                                                         )}
                                                     >
-                                                        <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
-                                                        {endDate ? format(endDate, "dd/MM") : <span>Ngày</span>}
+                                                        <CalendarIcon className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                                                        {endDate ? format(endDate, "dd/MM/yyyy") : <span>Chọn ngày</span>}
                                                     </Button>
                                                 </PopoverTrigger>
-                                                <PopoverContent className="w-auto p-0">
+                                                <PopoverContent className="w-auto p-0 rounded-2xl overflow-hidden shadow-xl border-zinc-200" align="start">
                                                     <Calendar
                                                         mode="single"
                                                         selected={endDate}
@@ -432,11 +470,11 @@ export default function SpecialPeriodsDialog({
                                                     />
                                                 </PopoverContent>
                                             </Popover>
-                                            <div className="relative w-24 shrink-0">
-                                                <Clock className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                                                <Input 
-                                                    type="time" 
-                                                    className="pl-8"
+                                            <div className="relative w-28 shrink-0">
+                                                <Clock className="absolute left-3 top-3 h-4 w-4 text-zinc-400" />
+                                                <Input
+                                                    type="time"
+                                                    className="pl-9 h-10 rounded-xl border-zinc-200 font-semibold"
                                                     value={endTime}
                                                     onChange={(e) => setEndTime(e.target.value)}
                                                 />
@@ -445,27 +483,31 @@ export default function SpecialPeriodsDialog({
                                     </div>
                                 </div>
 
-                                <Button onClick={handleAdd} disabled={isAdding} className="w-full">
-                                    {isAdding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-                                    Thêm giai đoạn
-                                </Button>
+                                <DialogAction 
+                                    onClick={handleAdd} 
+                                    isLoading={isAdding} 
+                                    className="w-full h-12 bg-zinc-900 text-white hover:bg-zinc-800 rounded-xl mt-2"
+                                >
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    Lưu giai đoạn
+                                </DialogAction>
                             </CardContent>
                         </Card>
 
-                        <Separator />
-
-                        {/* List Section */}
-                        <div className="space-y-3">
-                            <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">
-                                Danh sách ({sortedPeriods.length})
-                            </h3>
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between px-1">
+                                <h3 className="text-[11px] font-black uppercase tracking-[0.15em] text-zinc-400 flex items-center gap-2">
+                                    <Sparkles className="h-3.5 w-3.5 text-orange-400" /> 
+                                    Danh sách ({sortedPeriods.length})
+                                </h3>
+                            </div>
                             {renderPeriodList()}
                         </div>
                     </div>
-                </ScrollArea>
+                </DialogBody>
 
-                <DialogFooter className="p-4 border-t bg-muted/10">
-                    <Button variant="outline" onClick={onClose} className="w-full md:w-auto">Đóng</Button>
+                <DialogFooter className="bg-white border-t border-zinc-100 p-4">
+                    <DialogCancel onClick={onClose} className="w-full sm:w-32">Đóng</DialogCancel>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

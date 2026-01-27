@@ -7,7 +7,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogBody,
   DialogFooter,
+  DialogCancel,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -29,9 +31,10 @@ type WorkHistoryDialogProps = {
   isOpen: boolean;
   onClose: () => void;
   user: AuthUser;
+  parentDialogTag: string;
 };
 
-export default function WorkHistoryDialog({ isOpen, onClose, user }: WorkHistoryDialogProps) {
+export default function WorkHistoryDialog({ isOpen, onClose, user, parentDialogTag }: WorkHistoryDialogProps) {
   const isMobile = useIsMobile();
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: startOfMonth(new Date()),
@@ -108,94 +111,100 @@ export default function WorkHistoryDialog({ isOpen, onClose, user }: WorkHistory
   }, [records]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Lịch sử làm việc của bạn</DialogTitle>
-          <DialogDescription>
-            Xem lại giờ làm và lương dự tính của bạn.
+    <Dialog open={isOpen} onOpenChange={onClose} dialogTag="work-history-dialog" parentDialogTag={parentDialogTag}>
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 gap-0">
+        <DialogHeader variant="premium" iconkey="history">
+          <DialogTitle className="text-lg">Lịch sử làm việc</DialogTitle>
+          <DialogDescription className="text-xs">
+            Xem lại giờ làm và lương dự tính
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 py-4 border-y px-6 -mx-6">
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setCurrentMonth(addMonths(currentMonth, -1))}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              className={cn('w-full sm:w-[200px] justify-center font-medium')}
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {format(currentMonth, 'MM/yyyy')}
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setCurrentMonth(startOfMonth(new Date()))}
-            >
-              Tháng hiện tại
-            </Button>
-          </div>
-          <div className="w-full sm:w-auto">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full">
-              {/* Total Estimated Salary */}
-              <div className="rounded-xl border bg-white shadow-sm p-2 flex flex-col">
-                <p className="text-xs font-medium text-muted-foreground">Tổng lương dự tính</p>
-                <p className="text-sm font-bold mt-1 text-primary">
-                  {summary.totalSalary.toLocaleString('vi-VN')}đ
-                </p>
-              </div>
-
-              {/* Total Hours */}
-              <div className="rounded-xl border bg-white shadow-sm p-2 flex flex-col">
-                <p className="text-xs font-medium text-muted-foreground">Tổng giờ làm</p>
-                <p className="text-sm font-semibold mt-1">
-                  {summary.totalHours.toFixed(2)}
-                  <span className="text-sm text-muted-foreground ml-1">giờ</span>
-                </p>
-              </div>
-
-              {/* Hourly Rate */}
-              <div className="rounded-xl border bg-white shadow-sm p-2 flex flex-col">
-                <p className="text-xs font-medium text-muted-foreground">Mức lương hiện tại</p>
-                <p className="text-sm font-semibold mt-1">
-                  {hourlyRate !== null ? `${hourlyRate.toLocaleString('vi-VN')}đ/giờ` : 'N/A'}
-                </p>
-              </div>
-
-              {/* This Month Payout */}
-              <div className="rounded-xl border bg-white shadow-sm p-2 flex flex-col">
-                <p className="text-xs font-medium text-muted-foreground">Thanh toán tháng này</p>
-
-                {monthlyPayInfo?.status === 'paid' ? (
-                  <p className="text-sm font-semibold text-green-600 mt-1">
-                    {(monthlyPayInfo.actualPaidAmount || 0).toLocaleString('vi-VN')}đ
+        <DialogBody className="p-0">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 py-2 border-y px-4 bg-muted/20">
+            <div className="flex items-center gap-1.5 w-full sm:w-auto">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setCurrentMonth(addMonths(currentMonth, -1))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn('w-full sm:w-[140px] justify-center font-medium h-8')}
+              >
+                <CalendarIcon className="mr-1.5 h-3.5 w-3.5" />
+                {format(currentMonth, 'MM/yyyy')}
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs px-2"
+                onClick={() => setCurrentMonth(startOfMonth(new Date()))}
+              >
+                Hiện tại
+              </Button>
+            </div>
+            <div className="w-full sm:w-auto">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
+                {/* Total Estimated Salary */}
+                <div className="rounded-lg border bg-white shadow-sm p-1.5 flex flex-col min-w-[80px]">
+                  <p className="text-[10px] font-medium text-muted-foreground leading-tight truncate">Lương dự tính</p>
+                  <p className="text-xs font-bold text-primary truncate">
+                    {summary.totalSalary.toLocaleString('vi-VN')}đ
                   </p>
-                ) : (
-                  <p className="text-sm font-semibold text-muted-foreground mt-1">Chưa trả</p>
-                )}
+                </div>
+
+                {/* Total Hours */}
+                <div className="rounded-lg border bg-white shadow-sm p-1.5 flex flex-col min-w-[80px]">
+                  <p className="text-[10px] font-medium text-muted-foreground leading-tight truncate">Giờ làm</p>
+                  <p className="text-xs font-semibold truncate">
+                    {summary.totalHours.toFixed(2)}
+                    <span className="text-[10px] text-muted-foreground ml-0.5">h</span>
+                  </p>
+                </div>
+
+                {/* Hourly Rate */}
+                <div className="rounded-lg border bg-white shadow-sm p-1.5 flex flex-col min-w-[80px]">
+                  <p className="text-[10px] font-medium text-muted-foreground leading-tight truncate">Mức lương</p>
+                  <p className="text-xs font-semibold truncate">
+                    {hourlyRate !== null ? `${hourlyRate.toLocaleString('vi-VN')}đ` : 'N/A'}
+                  </p>
+                </div>
+
+                {/* This Month Payout */}
+                <div className="rounded-lg border bg-white shadow-sm p-1.5 flex flex-col min-w-[80px]">
+                  <p className="text-[10px] font-medium text-muted-foreground leading-tight truncate">Đã trả</p>
+
+                  {monthlyPayInfo?.status === 'paid' ? (
+                    <p className="text-xs font-semibold text-green-600 truncate">
+                      {(monthlyPayInfo.actualPaidAmount || 0).toLocaleString('vi-VN')}đ
+                    </p>
+                  ) : (
+                    <p className="text-xs font-semibold text-muted-foreground truncate">Chưa</p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <ScrollArea className="flex-grow pr-2">
-          {isLoading ? (
-            <div className="flex items-center justify-center h-full">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : isMobile ? (
+          <ScrollArea className="flex-grow px-4 py-2 overflow-auto">
+            {isLoading ? (
+              <div className="flex items-center justify-center h-full py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : isMobile ? (
             <div className="space-y-2">
               {records.length > 0 ? records.map((record) => {
                 const recordDate = (record.checkInTime as Timestamp).toDate();
@@ -205,28 +214,28 @@ export default function WorkHistoryDialog({ isOpen, onClose, user }: WorkHistory
                   (record.specialPeriodAppliedId ?? null) !== null ||
                   (typeof record.salaryMultiplierApplied === 'number' && record.salaryMultiplierApplied !== 1);
                 return (
-                  <Card 
+                  <Card
                     key={record.id}
                     className={cn(
-                      "transition-colors",
+                      "transition-colors shadow-none",
                       isWithinSpecialPeriod && "border-amber-400 bg-amber-50/40 dark:border-amber-500/50 dark:bg-amber-950/20"
                     )}
                   >
-                    <CardHeader className="pb-2">
+                    <CardHeader className="p-3 pb-1.5 space-y-0.5">
                       <div className="flex justify-between items-start">
                         <div>
-                          <CardTitle className={cn("text-base", isWithinSpecialPeriod && "text-amber-700 dark:text-amber-400")}>
+                          <CardTitle className={cn("text-sm font-semibold", isWithinSpecialPeriod && "text-amber-700 dark:text-amber-400")}>
                             {format(recordDate, 'eeee, dd/MM/yyyy', { locale: vi })}
                           </CardTitle>
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-[11px] text-muted-foreground">
                             {shifts.length > 0 ? shifts.map(s => s.label).join(', ') : (record.isOffShift ? 'Ngoài giờ' : 'N/A')}
                           </div>
                           {isWithinSpecialPeriod && typeof record.hourlyRate === 'number' && (
-                            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                              <Badge 
-                                variant="secondary" 
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
+                              <Badge
+                                variant="secondary"
                                 className={cn(
-                                  "text-xs",
+                                  "text-[10px] h-4 px-1.5",
                                   isWithinSpecialPeriod && "bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/50 dark:text-amber-200"
                                 )}
                               >
@@ -234,26 +243,26 @@ export default function WorkHistoryDialog({ isOpen, onClose, user }: WorkHistory
                                   ? `x${record.salaryMultiplierApplied}`
                                   : 'Đặc biệt'}
                               </Badge>
-                              <span>Lương giờ: {record.hourlyRate.toLocaleString('vi-VN')}đ/giờ</span>
+                              <span>{record.hourlyRate.toLocaleString('vi-VN')}đ/h</span>
                               {record.specialPeriodAppliedName ? (
-                                <span className="truncate">({record.specialPeriodAppliedName})</span>
+                                <span className="truncate opacity-70">({record.specialPeriodAppliedName})</span>
                               ) : null}
                             </div>
                           )}
                         </div>
-                        <Badge variant="outline" className={cn("border-none text-xs", statusInfo.color)}>{statusInfo.text}</Badge>
+                        <Badge variant="outline" className={cn("border-none text-[10px] h-5 px-1.5", statusInfo.color)}>{statusInfo.text}</Badge>
                       </div>
                     </CardHeader>
-                    <CardContent className="text-sm space-y-2">
+                    <CardContent className="p-3 pt-0 text-xs space-y-1.5">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Giờ vào/ra</span>
-                        <span>
-                          {format(recordDate, 'HH:mm')} - {record.checkOutTime ? format((record.checkOutTime as Timestamp).toDate(), 'HH:mm') : 'N/A'} ({record.totalHours != null ? `${record.totalHours.toFixed(2)} giờ` : 'N/A'})
+                        <span className="font-medium">
+                          {format(recordDate, 'HH:mm')} - {record.checkOutTime ? format((record.checkOutTime as Timestamp).toDate(), 'HH:mm') : 'N/A'} ({record.totalHours?.toFixed(1)}h)
                         </span>
                       </div>
-                      <div className="flex justify-between items-center border-t pt-2 mt-2">
-                        <span className="text-muted-foreground font-semibold">Lương</span>
-                        <span className="font-bold text-base text-primary">{record.salary?.toLocaleString('vi-VN')}đ</span>
+                      <div className="flex justify-between items-center border-t border-dashed pt-1.5 mt-1.5">
+                        <span className="text-muted-foreground font-medium">Lương dự tính</span>
+                        <span className="font-bold text-sm text-primary">{record.salary?.toLocaleString('vi-VN')}đ</span>
                       </div>
                     </CardContent>
                   </Card>
@@ -268,14 +277,14 @@ export default function WorkHistoryDialog({ isOpen, onClose, user }: WorkHistory
             <div className="relative w-full overflow-auto rounded border shadow-sm bg-white">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Ngày</TableHead>
-                    <TableHead>Ca làm việc</TableHead>
-                    <TableHead>Giờ vào</TableHead>
-                    <TableHead>Giờ ra</TableHead>
-                    <TableHead className="text-center">Trạng thái</TableHead>
-                    <TableHead className="text-center">Tổng giờ</TableHead>
-                    <TableHead className="text-right">Lương</TableHead>
+                  <TableRow className="h-10 hover:bg-transparent">
+                    <TableHead className="h-10 py-0">Ngày</TableHead>
+                    <TableHead className="h-10 py-0">Ca làm việc</TableHead>
+                    <TableHead className="h-10 py-0">Giờ vào</TableHead>
+                    <TableHead className="h-10 py-0">Giờ ra</TableHead>
+                    <TableHead className="h-10 py-0 text-center">Trạng thái</TableHead>
+                    <TableHead className="h-10 py-0 text-center">Tổng giờ</TableHead>
+                    <TableHead className="h-10 py-0 text-right">Lương</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -287,26 +296,27 @@ export default function WorkHistoryDialog({ isOpen, onClose, user }: WorkHistory
                       (record.specialPeriodAppliedId ?? null) !== null ||
                       (typeof record.salaryMultiplierApplied === 'number' && record.salaryMultiplierApplied !== 1);
                     return (
-                      <TableRow 
+                      <TableRow
                         key={record.id}
                         className={cn(
+                          "h-12",
                           isWithinSpecialPeriod && "bg-amber-50/50 hover:bg-amber-100/50 dark:bg-amber-950/20 dark:hover:bg-amber-900/30"
                         )}
                       >
-                        <TableCell>{format(recordDate, 'dd/MM/yyyy')}</TableCell>
-                        <TableCell>{shifts.length > 0 ? shifts.map(s => s.label).join(', ') : (record.isOffShift ? 'Ngoài giờ' : 'N/A')}</TableCell>
-                        <TableCell>{format(recordDate, 'HH:mm')}</TableCell>
-                        <TableCell>{record.checkOutTime ? format((record.checkOutTime as Timestamp).toDate(), 'HH:mm') : 'N/A'}</TableCell>
-                        <TableCell className="text-center"><Badge variant="outline" className={cn("border-none", statusInfo.color)}>{statusInfo.text}</Badge></TableCell>
-                        <TableCell className="text-center">{record.totalHours?.toFixed(2) ?? 'N/A'}</TableCell>
-                        <TableCell className="text-right font-medium">
-                          <div>{record.salary?.toLocaleString('vi-VN')}đ</div>
+                        <TableCell className="py-2">{format(recordDate, 'dd/MM/yyyy')}</TableCell>
+                        <TableCell className="py-2">{shifts.length > 0 ? shifts.map(s => s.label).join(', ') : (record.isOffShift ? 'Ngoài giờ' : 'N/A')}</TableCell>
+                        <TableCell className="py-2">{format(recordDate, 'HH:mm')}</TableCell>
+                        <TableCell className="py-2">{record.checkOutTime ? format((record.checkOutTime as Timestamp).toDate(), 'HH:mm') : 'N/A'}</TableCell>
+                        <TableCell className="py-2 text-center"><Badge variant="outline" className={cn("border-none text-[10px] h-5", statusInfo.color)}>{statusInfo.text}</Badge></TableCell>
+                        <TableCell className="py-2 text-center">{record.totalHours?.toFixed(1) ?? 'N/A'}</TableCell>
+                        <TableCell className="py-2 text-right font-medium">
+                          <div className="text-sm">{record.salary?.toLocaleString('vi-VN')}đ</div>
                           {isWithinSpecialPeriod && typeof record.hourlyRate === 'number' && (
-                            <div className="text-xs text-muted-foreground">
+                            <div className="text-[10px] text-muted-foreground leading-tight">
                               {typeof record.salaryMultiplierApplied === 'number' && record.salaryMultiplierApplied !== 1
                                 ? `x${record.salaryMultiplierApplied} · `
                                 : ''}
-                              {record.hourlyRate.toLocaleString('vi-VN')}đ/giờ
+                              {record.hourlyRate.toLocaleString('vi-VN')}đ/h
                               {record.specialPeriodAppliedName ? ` · ${record.specialPeriodAppliedName}` : ''}
                             </div>
                           )}
@@ -325,9 +335,10 @@ export default function WorkHistoryDialog({ isOpen, onClose, user }: WorkHistory
             </div>
           )}
         </ScrollArea>
+      </DialogBody>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Đóng</Button>
+        <DialogFooter className="p-2 sm:p-3 border-t">
+          <DialogCancel className="w-full">Đóng</DialogCancel>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -1,4 +1,3 @@
-
 rules_version = '2';
 
 // By default, deny all reads and writes
@@ -160,6 +159,12 @@ service cloud.firestore {
         allow read: if isSignedIn();
         allow create, update, delete: if isOwner();
       }
+    }
+
+    // `shift_busy_evidences` collection
+    match /shift_busy_evidences/{evidenceId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn();
     }
   }
 }

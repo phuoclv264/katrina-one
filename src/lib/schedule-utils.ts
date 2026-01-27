@@ -1,4 +1,4 @@
-import type { AssignedShift, TimeSlot, MonthlyTask, Schedule, ManagedUser, TaskCompletionRecord, AssignedUser, Availability } from './types';
+import type { AssignedShift, TimeSlot, MonthlyTask, Schedule, ManagedUser, TaskCompletionRecord, AssignedUser, Availability, UserRole } from './types';
 import { set, eachDayOfInterval, startOfMonth, endOfMonth, getDay, getDate, getWeekOfMonth, parseISO, format, isWithinInterval } from 'date-fns';
 
 /**
@@ -170,6 +170,40 @@ function isTaskScheduledForDate(task: MonthlyTask, date: Date): boolean {
     }
 }
 
+/* Local helper type used by getAssignmentsForMonth */
+type DailyAssignment = {
+  date: string;
+  assignedUsers: AssignedUser[];
+  assignedUsersByShift: { shiftId: string; shiftLabel: string; timeSlot: TimeSlot; users: AssignedUser[] }[];
+  completions: TaskCompletionRecord[];
+  appliesToRole?: UserRole | 'Tất cả';
+};
+
+/**
+ * Build per-task, per-day assignment summaries for a month (up to today).
+ *
+ * Inputs:
+ *  - month: the month to report on (any Date within that month)
+ *  - tasks: list of MonthlyTask definitions (scheduling rules live here)
+ *  - schedules: array of Schedule objects (each contains shifts[] for weeks in the month)
+ *  - allUsers: user profiles used for role-resolution
+ *  - completions: flattened completion records (may contain results for many users/dates)
+ *
+ * Output: a map keyed by task.name -> array of DailyAssignment (one entry per date with activity)
+ *
+ * Notes / important behaviour:
+ *  - The function only returns days <= today (it intentionally excludes future dates).
+ *  - Completions are indexed by `taskName + assignedDate` (legacy behaviour) —
+ *    if two tasks share the same name their completions will be merged. Prefer using
+ *    `task.id` for indexing in future refactors.
+ *  - Role-matching order of precedence:
+ *      1) `AssignedUser.assignedRole` (slot-level role) if present — this is authoritative;
+ *      2) fallback to `ManagedUser.role` + `secondaryRoles`.
+ *  - WARNING: `isTaskScheduledForDate` mutates the Date argument (it calls setHours). Callers
+ *    should pass cloned Date objects if they need the original value preserved.
+ *  - Complexity: roughly O(days × shifts × assignedUsers) — acceptable for typical store sizes
+ *    but may be slow for extremely large schedules.
+ */
 export function getAssignmentsForMonth(
     month: Date,
     tasks: MonthlyTask[],
@@ -178,8 +212,10 @@ export function getAssignmentsForMonth(
     completions: TaskCompletionRecord[]
 ): { [taskName: string]: DailyAssignment[] } {
     const assignmentsByTask: { [taskName: string]: DailyAssignment[] } = {};
+    // Defensive early return when required datasets are missing
     if (!tasks.length || !schedules.length || !allUsers.length) return assignmentsByTask;
 
+    // Build list of days in the month but only consider days up to today (no future days)
     const monthStart = startOfMonth(month);
     const monthEnd = endOfMonth(month);
     const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
@@ -187,6 +223,8 @@ export function getAssignmentsForMonth(
     today.setHours(0, 0, 0, 0);
     const daysToIterate = daysInMonth.filter(d => d.getTime() <= today.getTime());
 
+    // Index completions for O(1) lookup by (taskName, date)
+    // NOTE: legacy behaviour uses taskName — this can collide if names are duplicated.
     const completionsByTaskAndDate: { [key: string]: TaskCompletionRecord[] } = {};
     completions.forEach(c => {
         const key = `${c.taskName}__${c.assignedDate}`;
@@ -196,15 +234,26 @@ export function getAssignmentsForMonth(
         completionsByTaskAndDate[key].push(c);
     });
 
+    // Main loop: for each defined task, inspect every past date in the month and
+    // gather assigned users (by shift) + any completions for that date.
     tasks.forEach(task => {
         assignmentsByTask[task.name] = [];
         daysToIterate.forEach(day => {
+            // isTaskScheduledForDate determines whether the task should run on this day
+            // (it encapsulates weekly/interval/monthly/random scheduling rules).
             if (isTaskScheduledForDate(task, day)) {
                 const dateKey = format(day, 'yyyy-MM-dd');
+
+                // Collect all shifts that occur on this date across the supplied schedules
                 const shiftsToday = schedules.flatMap(s => s.shifts).filter(s => s.date === dateKey);
+
+                // responsibleUsers: unique set of AssignedUser for the entire date
                 const responsibleUsers = new Map<string, AssignedUser>();
+
+                // responsibleUsersByShift: preserves grouping so the UI can show per-shift groups
                 const responsibleUsersByShift = new Map<string, { shiftId: string; shiftLabel: string; timeSlot: TimeSlot; users: AssignedUser[] }>();
 
+                // Inspect each shift and find which assigned users match the task's role requirement
                 shiftsToday.forEach(shift => {
                     const taskAppliesToShift = !task.timeOfDay || isWithinInterval(parseISO(`${dateKey}T${task.timeOfDay}`), {
                         start: parseISO(`${shift.date}T${shift.timeSlot.start}`),
@@ -213,11 +262,20 @@ export function getAssignmentsForMonth(
 
                     if (taskAppliesToShift) {
                         let usersInShiftForTask: AssignedUser[] = [];
+
+                        // For each assigned user on the shift, resolve role and check match
                         shift.assignedUsers.forEach(assignedUser => {
                             const fullUser = allUsers.find(u => u.uid === assignedUser.userId);
                             if (fullUser) {
-                                const userRoles = [fullUser.role, ...(fullUser.secondaryRoles || [])];
-                                if (task.appliesToRole === 'Tất cả' || userRoles.includes(task.appliesToRole)) {
+                                // slot-level assignedRole (if present) is authoritative
+                                const assignedRole = (assignedUser as any).assignedRole as string | undefined;
+
+                                const roleMatches = assignedRole
+                                    ? (assignedRole === 'Bất kỳ' || task.appliesToRole === 'Tất cả' || assignedRole === task.appliesToRole)
+                                    : (task.appliesToRole === 'Tất cả' || [fullUser.role, ...(fullUser.secondaryRoles || [])].includes(task.appliesToRole));
+
+                                if (roleMatches) {
+                                    // Keep a deduplicated list of responsible users for the date
                                     if (!responsibleUsers.has(assignedUser.userId)) {
                                         responsibleUsers.set(assignedUser.userId, assignedUser);
                                     }
@@ -236,13 +294,18 @@ export function getAssignmentsForMonth(
                         }
                     }
                 });
+
+                // Attach completions for this task/date (legacy keying by task.name)
                 const dailyCompletions = completionsByTaskAndDate[`${task.name}__${dateKey}`] || [];
+
+                // Only emit a DailyAssignment when there is at least one responsible user or a completion
                 if (responsibleUsers.size > 0 || dailyCompletions.length > 0) {
                     assignmentsByTask[task.name].push({
                         date: dateKey,
                         assignedUsers: Array.from(responsibleUsers.values()),
                         assignedUsersByShift: Array.from(responsibleUsersByShift.values()),
-                        completions: dailyCompletions
+                        completions: dailyCompletions,
+                        appliesToRole: task.appliesToRole
                     });
                 }
             }
@@ -251,14 +314,6 @@ export function getAssignmentsForMonth(
 
     return assignmentsByTask;
 }
-
-type DailyAssignment = {
-  date: string;
-  assignedUsers: AssignedUser[];
-  assignedUsersByShift: { shiftId: string; shiftLabel: string; timeSlot: TimeSlot; users: AssignedUser[] }[];
-  completions: TaskCompletionRecord[];
-};
-
 
 /**
  * Calculates the total duration in hours from an array of time slots.

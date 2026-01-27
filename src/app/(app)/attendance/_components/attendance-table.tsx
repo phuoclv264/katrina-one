@@ -1,14 +1,13 @@
-
 'use client';
 import { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { AttendanceRecord, ManagedUser, Schedule, AssignedShift } from '@/lib/types';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
+import { cn, getInitials } from '@/lib/utils';
 import { getStatusInfo, findShiftForRecord } from '@/lib/attendance-utils';
-import { Edit2, Trash2, MoreVertical } from 'lucide-react';
-import Image from 'next/image';
+import { Edit2, Trash2, MoreVertical, AlertCircle } from 'lucide-react';
+import Image from '@/components/ui/image';
 import HourlyRateDialog from './hourly-rate-dialog';
 import { dataStore } from '@/lib/data-store';
 import { toast } from '@/components/ui/pro-toast';
@@ -20,8 +19,20 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle, 
+  AlertDialogTrigger,
+  AlertDialogIcon 
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import React from 'react';
 
 export default function AttendanceTable({
@@ -85,78 +96,73 @@ export default function AttendanceTable({
               const statusInfo = getStatusInfo(record, shifts);
 
               const allRecordPhotos = [
-                ...(record.photoInUrl
-                  ? [{
-                    src: record.photoInUrl,
-                    description: `Ảnh vào ca của ${user?.displayName} lúc ${format((record.checkInTime as Timestamp).toDate(), 'HH:mm dd/MM/yy')}`,
-                  }]
-                  : []),
+                ...(record.photoInUrl ? [{
+                  src: record.photoInUrl,
+                  description: `Ảnh vào ca của ${user?.displayName} lúc ${format((record.checkInTime as Timestamp).toDate(), 'HH:mm dd/MM/yy')}`
+                }] : []),
                 ...(record.breaks?.flatMap(b => [
-                  ...(b.breakStartPhotoUrl
-                    ? [{
-                      src: b.breakStartPhotoUrl,
-                      description: `Ảnh bắt đầu nghỉ của ${user?.displayName} lúc ${format((b.breakStartTime as Timestamp).toDate(), 'HH:mm dd/MM/yy')}`,
-                    }]
-                    : []),
-                  ...(b.breakEndPhotoUrl
-                    ? [{
-                      src: b.breakEndPhotoUrl,
-                      description: `Ảnh kết thúc nghỉ của ${user?.displayName} lúc ${format((b.breakEndTime as Timestamp).toDate(), 'HH:mm dd/MM/yy')}`,
-                    }]
-                    : []),
+                  ...(b.breakStartPhotoUrl ? [{ src: b.breakStartPhotoUrl, description: `Ảnh bắt đầu nghỉ của ${user?.displayName} lúc ${format((b.breakStartTime as Timestamp).toDate(), 'HH:mm dd/MM/yy')}` }] : []),
+                  ...(b.breakEndPhotoUrl ? [{ src: b.breakEndPhotoUrl, description: `Ảnh kết thúc nghỉ của ${user?.displayName} lúc ${format((b.breakEndTime as Timestamp).toDate(), 'HH:mm dd/MM/yy')}` }] : [])
                 ]) || []),
-                ...(record.photoOutUrl
-                  ? [{
-                    src: record.photoOutUrl,
-                    description: `Ảnh ra ca của ${user?.displayName} lúc ${format((record.checkOutTime as Timestamp).toDate(), 'HH:mm dd/MM/yy')}`,
-                  }]
-                  : []),
+                ...(record.photoOutUrl ? [{
+                  src: record.photoOutUrl,
+                  description: `Ảnh ra ca của ${user?.displayName} lúc ${format((record.checkOutTime as Timestamp).toDate(), 'HH:mm dd/MM/yy')}`
+                }] : [])
               ];
 
               const openLightboxForRecord = (photoSrc: string) => {
-                const index = allRecordPhotos.findIndex(p => p.src === photoSrc);
-                onOpenLightbox(allRecordPhotos, index >= 0 ? index : 0);
+                const photoIndex = allRecordPhotos.findIndex(p => p.src === photoSrc);
+                onOpenLightbox(allRecordPhotos, photoIndex >= 0 ? photoIndex : 0);
               };
 
               return (
                 <TableRow key={record.id} className="hover:bg-gray-50">
                   {/* Nhân viên */}
                   <TableCell className="align-top">
-                    <div className="space-y-1">
-                      <div className="font-semibold text-gray-900">{user?.displayName || 'Không rõ'}</div>
-                      <div className="text-xs text-gray-500 flex items-center">
-                        {record.hourlyRate?.toLocaleString('vi-VN')}đ/giờ
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="ml-1 h-6 w-6"
-                          onClick={() => handleEditRate(record)}
-                        >
-                          <Edit2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                      {record.isOffShift && (
-                        <Badge variant="outline" className="text-amber-700 border-amber-500">
-                          Ngoài giờ
-                        </Badge>
-                      )}
-                      {record.offShiftReason && (
-                        <p className="text-xs text-gray-500 italic">Lý do: {record.offShiftReason}</p>
-                      )}
-                      {record.lateReason && (
-                        <div className="text-xs text-red-500 italic space-y-0.5">
-                          <p>Xin trễ: {record.estimatedLateMinutes} phút</p>
-                          <p>Lý do: {record.lateReason}</p>
-                          {record.lateReasonPhotoUrl && (
-                            <button
-                              onClick={() => onOpenLightbox([{ src: record.lateReasonPhotoUrl! }], 0)}
-                              className="text-blue-500 hover:underline"
-                            >
-                              Xem ảnh
-                            </button>
-                          )}
+                    <div className="flex items-start gap-3">
+                      <Avatar className="h-10 w-10 border border-border flex-shrink-0">
+                        <AvatarImage src={user?.photoURL || ''} />
+                        <AvatarFallback className="text-sm bg-primary/10 text-primary">
+                          {getInitials(user?.displayName)}
+                        </AvatarFallback>
+                      </Avatar>
+
+                      <div className="space-y-1">
+                        <div className="font-semibold text-gray-900">{user?.displayName || 'Không rõ'}</div>
+                        <div className="text-xs text-gray-500 flex items-center">
+                          {record.hourlyRate?.toLocaleString('vi-VN')}đ/giờ
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="ml-1 h-6 w-6"
+                            onClick={() => handleEditRate(record)}
+                          >
+                            <Edit2 className="h-3 w-3" />
+                          </Button>
                         </div>
-                      )}
+                        {record.isOffShift && (
+                          <Badge variant="outline" className="text-amber-700 border-amber-500">
+                            Ngoài giờ
+                          </Badge>
+                        )}
+                        {record.offShiftReason && (
+                          <p className="text-xs text-gray-500 italic">Lý do: {record.offShiftReason}</p>
+                        )}
+                        {record.lateReason && (
+                          <div className="text-xs text-red-500 italic space-y-0.5">
+                            <p>Xin trễ: {record.estimatedLateMinutes} phút</p>
+                            <p>Lý do: {record.lateReason}</p>
+                            {record.lateReasonPhotoUrl && (
+                              <button
+                                onClick={() => onOpenLightbox([{ src: record.lateReasonPhotoUrl! }], 0)}
+                                className="text-blue-500 hover:underline"
+                              >
+                                Xem ảnh
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </TableCell>
 
@@ -248,7 +254,7 @@ export default function AttendanceTable({
 
                   {/* Hành động */}
                   <TableCell className="align-top text-right">
-                    <AlertDialog>
+                    <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
                       <DropdownMenu modal={false}>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon">
@@ -269,10 +275,13 @@ export default function AttendanceTable({
 
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Xác nhận xóa?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Hành động này không thể hoàn tác. Bạn có chắc chắn muốn xóa bản ghi chấm công này không?
-                          </AlertDialogDescription>
+                          <AlertDialogIcon icon={Trash2} />
+                          <div className="space-y-2 text-center sm:text-left">
+                            <AlertDialogTitle>Xác nhận xóa?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Hành động này không thể hoàn tác. Bạn có chắc chắn muốn xóa bản ghi chấm công này không?
+                            </AlertDialogDescription>
+                          </div>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Hủy</AlertDialogCancel>
@@ -298,6 +307,7 @@ export default function AttendanceTable({
           onClose={() => setIsRateDialogOpen(false)}
           record={recordToEditRate}
           onSave={handleSaveRate}
+          parentDialogTag="root"
         />
       )}
     </>
