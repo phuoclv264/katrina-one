@@ -70,6 +70,9 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
   const [activeEvents, setActiveEvents] = useState<Event[]>([]);
   const [joinedEventIds, setJoinedEventIds] = useState<Set<string>>(new Set());
 
+  // Determine whether work-related items should be shown/subscribed to
+  const showWorkStuff = isCheckedIn || user?.role === "Chủ nhà hàng";
+
   const userRoles = useMemo(() => {
     if (!user) return [] as UserRole[];
     return [user.role as UserRole, ...((user.secondaryRoles as UserRole[]) || [])];
@@ -104,9 +107,23 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
     checkParticipation();
   }, [activeEvents, user]);
 
-  // Keep tasks/reports for today
+  // Keep tasks/reports for today — only subscribe when user should see work items (checked in or owner)
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setDailyTasks([]);
+      setDailyReports([]);
+      setLateRecords([]);
+      return;
+    }
+
+    if (!showWorkStuff) {
+      // Clear state and avoid attaching listeners until user checks in (or is owner)
+      setDailyTasks([]);
+      setDailyReports([]);
+      setLateRecords([]);
+      return;
+    }
+
     const unsubTasks = dataStore.subscribeToDailyTasksForDate(new Date(), setDailyTasks);
     const unsubReports = dataStore.subscribeToDailyTaskReportsForDate(new Date(), setDailyReports);
 
@@ -117,11 +134,11 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
     );
 
     return () => {
-      unsubTasks();
-      unsubReports();
-      unsubAttendance();
+      try { unsubTasks && unsubTasks(); } catch {}
+      try { unsubReports && unsubReports(); } catch {}
+      try { unsubAttendance && unsubAttendance(); } catch {}
     };
-  }, [user]);
+  }, [user, showWorkStuff]);
 
   // Keep active events relevant to the user
   useEffect(() => {
@@ -265,8 +282,6 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
   const handleDailyNavigate = useCallback(() => {
     nav.push("/daily-assignments");
   }, [nav]);
-
-  const showWorkStuff = isCheckedIn || user?.role === "Chủ nhà hàng";
 
   return (
     <>

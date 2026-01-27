@@ -411,7 +411,7 @@ export default function ReportCard({
                     >
                         <div className="flex items-center gap-2">
                             <MessageSquare className="h-4.5 w-4.5 opacity-50 group-hover/comm:opacity-100 transition-opacity" />
-                            <span className="font-black text-[10px] uppercase tracking-[0.15em] pt-0.5">Thảo luận</span>
+                            <span className="hidden min-[360px]:inline font-black text-[8px] min-[400px]:text-[9px] sm:text-[10px] uppercase tracking-[0.15em] pt-0.5">Thảo luận</span>
                         </div>
                         {(report.commentCount || 0) > 0 && (
                             <div className="bg-white/40 px-2 py-0.5 rounded-full text-[10px] font-black opacity-80 min-w-[22px] flex items-center justify-center">
