@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "@/components/ui/pro-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useCheckInCardPlacement } from "@/hooks/useCheckInCardPlacement";
 import { useAppNavigation } from "@/contexts/app-navigation-context";
 import { dataStore } from "@/lib/data-store";
 import { subscribeToActiveEvents } from "@/lib/events-store";
@@ -58,6 +59,7 @@ export type StaffBulletinBoardProps = {
 export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardProps) {
   const { user, users, isOnActiveShift, activeShifts } = useAuth();
   const nav = useAppNavigation();
+  const { isCheckedIn } = useCheckInCardPlacement();
 
   const [dailyTasks, setDailyTasks] = useState<DailyTask[]>([]);
   const [dailyReports, setDailyReports] = useState<DailyTaskReport[]>([]);
@@ -264,41 +266,11 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
     nav.push("/daily-assignments");
   }, [nav]);
 
+  const showWorkStuff = isCheckedIn || user?.role === "Chủ nhà hàng";
+
   return (
     <>
       <div className="space-y-3">
-        {/* Late Notifications Banner - Only shows if there are pending requests */}
-        {pendingLateRequests.length > 0 && (
-          <div className="relative overflow-hidden rounded-2xl border border-amber-500/20 bg-amber-50/50 p-3 dark:bg-amber-500/5 transition-all active:scale-[0.99]">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 shadow-sm">
-                  <AlertCircle className="h-4 w-4 animate-pulse" />
-                </div>
-                <div className="min-w-0">
-                  <h4 className="text-[13px] font-black text-amber-700 dark:text-amber-400 leading-none">Xin đi trễ ({pendingLateRequests.length})</h4>
-                  <p className="mt-1 text-[10px] font-bold text-amber-600/70 dark:text-amber-400/60 uppercase tracking-widest">
-                    {pendingLateRequests.map(req => req.name).join(", ")}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex -space-x-1.5 shrink-0">
-                 {pendingLateRequests.slice(0, 3).map((req, i) => (
-                    <div key={i} className="h-7 w-7 rounded-full border-2 border-white bg-amber-100 dark:border-zinc-950 flex items-center justify-center text-[9px] font-black text-amber-700 shadow-sm">
-                      {req.name.charAt(0)}
-                    </div>
-                 ))}
-                 {pendingLateRequests.length > 3 && (
-                    <div className="h-7 w-7 rounded-full border-2 border-white bg-amber-50 dark:border-zinc-950 flex items-center justify-center text-[8px] font-black text-amber-600 shadow-sm">
-                      +{pendingLateRequests.length - 3}
-                    </div>
-                 )}
-              </div>
-            </div>
-          </div>
-        )}
-
         <Card className="overflow-hidden border-zinc-200/60 bg-white/70 backdrop-blur-xl shadow-soft dark:border-zinc-800/60 dark:bg-zinc-950/70">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
             <div className="flex items-center gap-2.5">
@@ -310,6 +282,24 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
                 <CardDescription className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mt-1 opacity-70">
                   {format(new Date(), "dd/MM", { locale: vi })}
                 </CardDescription>
+
+                {showWorkStuff && pendingLateRequests.length > 0 && (
+                  <div className="mt-2.5 space-y-1.5">
+                    {pendingLateRequests.map((req) => (
+                      <div
+                        key={req.id}
+                        className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-50/50 px-2.5 py-1.5 dark:bg-amber-500/10"
+                      >
+                        <AlertCircle className="h-3 w-3 shrink-0 text-amber-600 dark:text-amber-400 animate-pulse" />
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-[11px] font-black text-amber-700 dark:text-amber-400">
+                            {req.name} • xin đi trễ {req.minutes} phút
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </CardHeader>
@@ -317,54 +307,58 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
           <CardContent className="p-3 pt-2">
             <div className="flex flex-col gap-2">
               {/* Tile: Monthly Tasks */}
-              <button
-                onClick={() => setMonthlyListOpen(true)}
-                disabled={visibleMonthlyAssignments.length === 0}
-                className="group relative flex items-center gap-3 p-3 rounded-2xl border border-primary/10 bg-primary/5 text-left transition-all hover:bg-primary/10 active:scale-[0.98] disabled:opacity-40 disabled:grayscale"
-              >
-                <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-sm shadow-primary/20">
-                  <ClipboardList className="h-5 w-5" />
-                  {monthlyStats.total > 0 && monthlyStats.done < monthlyStats.total && (
-                    <StatusDot />
-                  )}
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-primary/70">Hàng tháng</span>
-                    <span className="text-[10px] font-black text-muted-foreground">{monthlyStats.done}/{monthlyStats.total}</span>
+              {showWorkStuff && (
+                <button
+                  onClick={() => setMonthlyListOpen(true)}
+                  disabled={visibleMonthlyAssignments.length === 0}
+                  className="group relative flex items-center gap-3 p-3 rounded-2xl border border-primary/10 bg-primary/5 text-left transition-all hover:bg-primary/10 active:scale-[0.98] disabled:opacity-40 disabled:grayscale"
+                >
+                  <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-sm shadow-primary/20">
+                    <ClipboardList className="h-5 w-5" />
+                    {monthlyStats.total > 0 && monthlyStats.done < monthlyStats.total && (
+                      <StatusDot />
+                    )}
                   </div>
-                  <h3 className="text-sm font-black leading-none pr-4">Công việc định kỳ</h3>
-                  <Progress value={(monthlyStats.done / (monthlyStats.total || 1)) * 100} className="mt-2.5 h-1 bg-primary/10" />
-                </div>
-                
-                <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-primary transition-colors shrink-0" />
-              </button>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-primary/70">Hàng tháng</span>
+                      <span className="text-[10px] font-black text-muted-foreground">{monthlyStats.done}/{monthlyStats.total}</span>
+                    </div>
+                    <h3 className="text-sm font-black leading-none pr-4">Công việc định kỳ</h3>
+                    <Progress value={(monthlyStats.done / (monthlyStats.total || 1)) * 100} className="mt-2.5 h-1 bg-primary/10" />
+                  </div>
+                  
+                  <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-primary transition-colors shrink-0" />
+                </button>
+              )}
 
               {/* Tile: Daily Tasks */}
-              <button
-                onClick={() => setDailyListOpen(true)}
-                disabled={targetedDailyTasks.length === 0}
-                className="group relative flex items-center gap-3 p-3 rounded-2xl border border-blue-500/10 bg-blue-500/5 text-left transition-all hover:bg-blue-500/10 active:scale-[0.98] disabled:opacity-40 disabled:grayscale"
-              >
-                <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm shadow-blue-500/20">
-                  <ListChecks className="h-5 w-5" />
-                  {dailyStats.total > 0 && dailyStats.done < dailyStats.total && (
-                    <StatusDot />
-                  )}
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-blue-600/70">Phát sinh</span>
-                    <span className="text-[10px] font-black text-muted-foreground">{dailyStats.done}/{dailyStats.total}</span>
+              {showWorkStuff && (
+                <button
+                  onClick={() => setDailyListOpen(true)}
+                  disabled={targetedDailyTasks.length === 0}
+                  className="group relative flex items-center gap-3 p-3 rounded-2xl border border-blue-500/10 bg-blue-500/5 text-left transition-all hover:bg-blue-500/10 active:scale-[0.98] disabled:opacity-40 disabled:grayscale"
+                >
+                  <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm shadow-blue-500/20">
+                    <ListChecks className="h-5 w-5" />
+                    {dailyStats.total > 0 && dailyStats.done < dailyStats.total && (
+                      <StatusDot />
+                    )}
                   </div>
-                  <h3 className="text-sm font-black leading-none pr-4">Công việc cần làm</h3>
-                  <Progress value={(dailyStats.done / (dailyStats.total || 1)) * 100} className="mt-2.5 h-1 bg-blue-500/10" />
-                </div>
-                
-                <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-blue-600 transition-colors shrink-0" />
-              </button>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-blue-600/70">Phát sinh</span>
+                      <span className="text-[10px] font-black text-muted-foreground">{dailyStats.done}/{dailyStats.total}</span>
+                    </div>
+                    <h3 className="text-sm font-black leading-none pr-4">Công việc cần làm</h3>
+                    <Progress value={(dailyStats.done / (dailyStats.total || 1)) * 100} className="mt-2.5 h-1 bg-blue-500/10" />
+                  </div>
+                  
+                  <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-blue-600 transition-colors shrink-0" />
+                </button>
+              )}
 
               {/* Tile: Events */}
               <button
