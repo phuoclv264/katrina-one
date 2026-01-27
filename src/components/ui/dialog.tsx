@@ -254,7 +254,7 @@ const DialogBody = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex-1 overflow-y-auto px-6 py-4",
+      "flex-1 overflow-y-auto px-6 py-4 min-h-0",
       className
     )}
     {...props}

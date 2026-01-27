@@ -6,7 +6,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
-import TodaysTasksCard from '@/app/(app)/monthly-tasks/_components/task-reporting-card';
+import StaffBulletinBoard from '@/components/staff-bulletin-board';
 import DashboardLayout from '@/components/dashboard-layout';
 import type { MonthlyTaskAssignment } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
@@ -51,7 +51,7 @@ export function BartenderHomeView() {
     <DashboardLayout
       title="Báo cáo Pha chế"
       description={todaysShifts.length > 0 ? `Hôm nay bạn có ca: ${shiftsText}. Chọn báo cáo để thực hiện.` : 'Bạn không có ca làm việc nào hôm nay.'}
-      top={isCheckedIn && todaysMonthlyAssignments.length > 0 ? <TodaysTasksCard assignments={todaysMonthlyAssignments} /> : undefined}
+      top={<StaffBulletinBoard assignments={todaysMonthlyAssignments} />}
     >
       {/* Primary action cards are rendered by DashboardLayout now. Keep the alert here. */}
       {!isCheckedIn && (

@@ -108,20 +108,20 @@ const ACCESS_RULES: AccessRule[] = [
   { key: 'manager-reports', href: '/reports', label: 'Xem báo cáo', icon: FileText, roles: ['Quản lý', 'Chủ nhà hàng'], requiresCheckIn: true, color: 'indigo', subLabel: 'Quản lý', allowSecondary: false, needMainRole: true, order: 43 },
 
   // Chu nha hang
-  { key: 'owner-daily-assignments', href: '/daily-assignments', label: 'Giao việc trong ngày', icon: ListChecks, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'amber', subLabel: 'Chủ nhà hàng', order: 51 },
+  { key: 'owner-daily-assignments', href: '/daily-assignments', label: 'Giao việc trong ngày', icon: ListChecks, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'amber', subLabel: 'Chủ nhà hàng', group: 'Quản lý công việc', order: 51 },
   { key: 'owner-reports', href: '/reports', label: 'Xem Báo cáo', icon: FileText, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'indigo', subLabel: 'Chủ nhà hàng', order: 52 },
-  { key: 'owner-financial', href: '/financial-report', label: 'Báo cáo Tài chính', icon: DollarSign, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'blue', subLabel: 'Chủ nhà hàng', order: 53 },
-  { key: 'owner-cashier-reports', href: '/reports/cashier', label: 'Báo cáo Thu ngân', icon: Banknote, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'blue', subLabel: 'Chủ nhà hàng', order: 54 },
-  { key: 'owner-shift-scheduling', href: '/shift-scheduling', label: 'Xếp lịch & Phê duyệt', icon: CalendarDays, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'blue', subLabel: 'Chủ nhà hàng', order: 55 },
+  { key: 'owner-financial', href: '/financial-report', label: 'Báo cáo Tài chính', icon: DollarSign, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'blue', subLabel: 'Chủ nhà hàng', group: 'Quản lý công việc', order: 53 },
+  { key: 'owner-cashier-reports', href: '/reports/cashier', label: 'Báo cáo Thu ngân', icon: Banknote, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'blue', subLabel: 'Chủ nhà hàng', group: 'Quản lý công việc', order: 54 },
+  { key: 'owner-shift-scheduling', href: '/shift-scheduling', label: 'Xếp lịch & Phê duyệt', icon: CalendarDays, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'blue', subLabel: 'Chủ nhà hàng', group: 'Quản lý công việc', order: 55 },
   { key: 'owner-attendance', href: '/attendance', label: 'Quản lý Chấm công', icon: User, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'blue', subLabel: 'Chủ nhà hàng', order: 56 },
   { key: 'owner-monthly-tasks', href: '/monthly-tasks', label: 'Công việc Định kỳ', icon: CalendarClock, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'blue', subLabel: 'Chủ nhà hàng', group: 'Quản lý công việc', order: 57 },
-  { key: 'owner-users', href: '/users', label: 'QL Người dùng', icon: Users2, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'blue', subLabel: 'Chủ nhà hàng', order: 58 },
+  { key: 'owner-users', href: '/users', label: 'QL Người dùng', icon: Users2, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'blue', subLabel: 'Chủ nhà hàng', group: 'Quản lý công việc', order: 58 },
   { key: 'owner-task-lists', href: '/task-lists', label: 'QL Công việc Phục vụ', icon: ClipboardList, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'blue', subLabel: 'Chủ nhà hàng', group: 'Quản lý công việc', order: 59 },
   { key: 'owner-bartender-tasks', href: '/bartender-tasks', label: 'QL Công việc Pha chế', icon: UtensilsCrossed, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'blue', subLabel: 'Chủ nhà hàng', group: 'Quản lý công việc', order: 60 },
   { key: 'owner-comprehensive-checklist', href: '/comprehensive-checklist', label: 'QL Kiểm tra Toàn diện', icon: ListChecks, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'blue', subLabel: 'Chủ nhà hàng', group: 'Quản lý công việc', order: 61 },
-  { key: 'owner-inventory-management', href: '/inventory-management', label: 'QL Hàng tồn kho', icon: Package, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'blue', subLabel: 'Chủ nhà hàng', order: 62 },
-  { key: 'owner-product-management', href: '/product-management', label: 'QL Mặt hàng & Công thức', icon: FileSignature, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'blue', subLabel: 'Chủ nhà hàng', order: 63 },
-  { key: 'owner-inventory-history', href: '/inventory-history', label: 'Lịch sử Kho', icon: History, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'blue', subLabel: 'Chủ nhà hàng', order: 64 },
+  { key: 'owner-inventory-management', href: '/inventory-management', label: 'QL Hàng tồn kho', icon: Package, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'blue', subLabel: 'Chủ nhà hàng', group: 'Quản lý công việc', order: 62 },
+  { key: 'owner-product-management', href: '/product-management', label: 'QL Mặt hàng & Công thức', icon: FileSignature, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'blue', subLabel: 'Chủ nhà hàng', group: 'Quản lý công việc', order: 63 },
+  { key: 'owner-inventory-history', href: '/inventory-history', label: 'Lịch sử Kho', icon: History, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'blue', subLabel: 'Chủ nhà hàng', group: 'Quản lý công việc', order: 64 },
 
   // Common
   {
@@ -129,6 +129,7 @@ const ACCESS_RULES: AccessRule[] = [
     href: '/schedule',
     label: 'Lịch làm việc',
     icon: CalendarDays,
+    roles: ['Phục vụ', 'Pha chế', 'Quản lý', 'Thu ngân'],
     requiresCheckIn: false,
     order: 90,
   },

@@ -9,7 +9,7 @@ import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
-import TodaysTasksCard from '@/app/(app)/monthly-tasks/_components/task-reporting-card';
+import StaffBulletinBoard from '@/components/staff-bulletin-board';
 import DashboardLayout from '@/components/dashboard-layout';
 import type { MonthlyTaskAssignment, ShiftTemplate } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
@@ -55,7 +55,7 @@ export function ManagerHomeView() {
     <DashboardLayout
       title={<span className="flex items-center gap-2"><UserCog /> Bảng điều khiển Quản lý</span>}
       description={todaysShifts.length > 0 ? `Hôm nay bạn có ca: ${shiftsText}. Chọn chức năng để thực hiện.` : 'Bạn không có ca làm việc nào hôm nay.'}
-      top={isCheckedIn && todaysMonthlyAssignments.length > 0 ? <TodaysTasksCard assignments={todaysMonthlyAssignments} /> : undefined}
+      top={<StaffBulletinBoard assignments={todaysMonthlyAssignments} />}
     >
       {/* Primary action cards are rendered by DashboardLayout now. Keep the alert and fallback UI. */}
       {!isCheckedIn && (

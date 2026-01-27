@@ -3,27 +3,29 @@ import type { Violation, ManagedUser } from '@/lib/types';
 
 export const getSeverityBadgeClass = (severity: Violation['severity']) => {
     switch (severity) {
-      case 'high': return 'bg-rose-100 text-rose-700 border-none shadow-sm font-black';
-      case 'medium': return 'bg-amber-100 text-amber-700 border-none shadow-sm font-black';
+      case 'high': return 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 border-none shadow-sm font-bold';
+      case 'medium': return 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border-none shadow-sm font-bold';
       case 'low':
       default:
-        return 'bg-blue-100 text-blue-700 border-none shadow-sm font-black';
+        return 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border-none shadow-sm font-bold';
     }
 };
 
 export const getSeverityCardClass = (severity: Violation['severity']) => {
     switch (severity) {
-    case 'high': return 'bg-rose-500/5';
-    case 'medium': return 'bg-amber-500/5';
-    default: return 'bg-white';
+    case 'high': return 'bg-rose-50/60 dark:bg-rose-950/20';
+    case 'medium': return 'bg-amber-50/40 dark:bg-amber-950/10';
+    case 'low': return 'bg-white dark:bg-blue-950/10';
+    default: return 'bg-white dark:bg-zinc-950';
     }
 };
 
 export const getSeverityBorderClass = (severity: Violation['severity']) => {
     switch (severity) {
-    case 'high': return 'border-rose-500/30';
-    case 'medium': return 'border-amber-500/30';
-    default: return 'border-zinc-100';
+    case 'high': return 'border-rose-100 dark:border-rose-900/50';
+    case 'medium': return 'border-amber-100 dark:border-amber-900/50';
+    case 'low': return 'border-blue-100/50 dark:border-blue-900/50';
+    default: return 'border-zinc-100 dark:border-zinc-900';
     }
 };
 

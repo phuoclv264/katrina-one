@@ -19,6 +19,7 @@ import ViolationCategoryManagementDialog from './_components/violation-category-
 import ViolationInfoDialog from './_components/violation-info-dialog';
 import { ViolationDialog } from './_components/violation-dialog';
 import { ViolationCard } from './_components/violation-card';
+import { cn } from '@/lib/utils';
 import { generateSmartAbbreviations } from '@/lib/violations-utils';
 
 import { useRouter } from 'nextjs-toploader/app';
@@ -477,231 +478,266 @@ function ViolationsView() {
 
   return (
     <>
-      <div className="container mx-auto p-4 sm:p-6 md:p-8">
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold font-headline flex items-center gap-3">
-            <ShieldX /> {pageTitle}
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Theo dõi và quản lý các vấn đề liên quan đến nhân viên.
-          </p>
+      <div className="container mx-auto px-4 py-6 sm:py-8 lg:px-8">
+        <header className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold font-headline flex items-center gap-3">
+              <ShieldX className="text-destructive h-7 w-7 sm:h-8 sm:w-8" /> {pageTitle}
+            </h1>
+            <p className="text-sm sm:text-base text-muted-foreground mt-1">
+              Theo dõi và quản lý các vấn đề liên quan đến nhân viên.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {!canManage && (
+              <Button variant="secondary" onClick={() => openAddDialog(true)} className="flex-1 sm:flex-none h-11 sm:h-10">
+                <BadgeInfo className="mr-2 h-4 w-4" /> Tự thú
+              </Button>
+            )}
+            {canManage && (
+              <Button onClick={() => openAddDialog(false)} className="flex-1 min-w-full sm:flex-1 h-11 sm:h-10">
+                <Plus className="mr-2 h-4 w-4" /> Thêm mới
+              </Button>
+            )}
+            {staffPendingViolations.length > 0 && user.role !== 'Chủ nhà hàng' && (
+              <Button variant="default" className="flex-none sm:flex-none h-11 sm:h-10 bg-amber-600 hover:bg-amber-700" onClick={() => setIsSubmitAllOpen(true)}>
+                <Camera className="mr-2 h-4 w-4" />
+                Nộp phạt ({staffPendingViolations.length})
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => setIsInfoDialogOpen(true)} className="flex-1 sm:flex-none h-11 sm:h-10">
+              <BadgeInfo className="mr-2 h-4 w-4" />
+              Chính sách
+            </Button>
+            {isOwner && (
+              <Button variant="outline" size="icon" onClick={() => setIsCategoryDialogOpen(true)} className="shrink-0 h-11 w-11 sm:h-10 sm:w-10">
+                <Settings className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </header>
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <CardTitle>Danh sách Vi phạm</CardTitle>
-                <CardDescription className="mt-1">
-                  Các ghi nhận gần đây nhất sẽ được hiển thị ở đầu.
-                </CardDescription>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                {/* Staff-only submit all button */}
-                {user.role !== 'Chủ nhà hàng' && staffPendingViolations.length > 0 && (
-                  <Button variant="default" className="w-full sm:w-auto" onClick={() => setIsSubmitAllOpen(true)}>
-                    <Camera className="mr-2 h-4 w-4" />
-                    Nộp phạt ({staffPendingViolations.length})
-                  </Button>
-                )}
-                {!canManage && (
-                  <Button variant="secondary" onClick={() => openAddDialog(true)} className="w-full sm:w-auto">
-                    <BadgeInfo className="mr-2 h-4 w-4" /> Tự thú
-                  </Button>
-                )}
-                {canManage && (
-                  <Button onClick={() => openAddDialog(false)} className="w-full sm:w-auto">
-                    <Plus className="mr-2 h-4 w-4" /> Thêm mới
-                  </Button>
-                )}
-                <div className="flex gap-2 w-full sm:w-auto">
-                  <Button variant="outline" onClick={() => setIsInfoDialogOpen(true)} className="flex-grow">
-                    <BadgeInfo className="mr-2 h-4 w-4" />
-                    Chính sách phạt
-                  </Button>
-                  {isOwner && (
-                    <Button variant="outline" size="icon" onClick={() => setIsCategoryDialogOpen(true)} className="shrink-0">
-                      <Settings className="h-4 w-4" />
-                    </Button>
+
+        {/* Stats Section - Optimized for Mobile */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {/* Month Selector Card */}
+          <Card className="bg-gradient-to-br from-indigo-700 to-indigo-800 text-white border-none shadow-lg overflow-hidden relative">
+            <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
+              <ChevronRight className="h-16 w-16 -mr-4 -mt-4" />
+            </div>
+            <CardContent className="p-5 flex flex-col justify-between h-full">
+              <span className="text-xs font-medium uppercase tracking-wider opacity-80 mb-3 block">Tháng báo cáo</span>
+              <div className="flex items-center justify-between">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all active:scale-90"
+                  onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+                
+                <div className="text-center flex-1">
+                  <div className="text-xl font-bold tracking-tight">{formattedCurrentMonth}</div>
+                  {!isAtCurrentMonth && (
+                    <button 
+                      onClick={setToCurrentMonth}
+                      className="text-[10px] mt-1 bg-white/20 hover:bg-white/30 px-2 py-0.5 rounded-full transition-colors"
+                    >
+                      Về hiện tại
+                    </button>
                   )}
                 </div>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "h-9 w-9 text-white rounded-full transition-all active:scale-90",
+                    isAtCurrentMonth ? "bg-white/5 opacity-40 cursor-not-allowed" : "bg-white/10 hover:bg-white/20"
+                  )}
+                  onClick={() => !isAtCurrentMonth && setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+                  disabled={isAtCurrentMonth}
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </Button>
               </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 mt-4">
-              <Combobox
-                options={displayUsers.map(u => ({ value: u.uid, label: u.displayName }))}
-                value={filterUsers.map(u => u.uid)}
-                onChange={(vals) => {
-                  const selectedIds = vals as string[];
-                  const selected = displayUsers.filter(u => selectedIds.includes(u.uid));
-                  setFilterUsers(selected);
-                }}
-                multiple={true}
-                placeholder="Chọn nhân viên..."
-                searchPlaceholder="Tìm nhân viên..."
-                emptyText="Không tìm thấy nhân viên."
-              />
-              <Combobox
-                options={categoryData.list.map(c => ({ value: c.name, label: c.name }))}
-                value={filterCategoryName}
-                onChange={(val) => setFilterCategoryName(val as string)}
-                placeholder="Lọc theo loại vi phạm..."
-                searchPlaceholder="Tìm loại vi phạm..."
-                emptyText="Không tìm thấy loại vi phạm."
-              />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-6 grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-              <div className="lg:col-span-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl p-3 sm:p-4 shadow-md">
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="text-sm opacity-90">Tháng</div>
-                    <div className="inline-flex items-center gap-2 bg-white/10 rounded-md px-2 py-1 flex-wrap">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
-                        aria-label="Previous month"
-                        className={prevBtnClass}
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
+            </CardContent>
+          </Card>
 
-                      <div className="text-sm sm:text-base font-semibold tracking-wide">{formattedCurrentMonth}</div>
+          {/* Stat Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 lg:col-span-3 gap-4">
+            <Card className="bg-card shadow-sm border-s-4 border-s-blue-500">
+              <CardContent className="p-4 flex flex-col justify-center h-full">
+                <div className="text-muted-foreground text-xs font-medium mb-1 flex items-center gap-1.5">
+                  <ShieldX className="h-3.5 w-3.5" /> Tổng số
+                </div>
+                <div className="text-2xl font-bold tracking-tight">{monthSummary.totalCount} <span className="text-sm font-normal text-muted-foreground">vụ</span></div>
+              </CardContent>
+            </Card>
 
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
-                        aria-label="Next month"
-                        disabled={isAtCurrentMonth}
-                        className={nextBtnClass}
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
+            <Card className="bg-card shadow-sm border-s-4 border-s-red-500">
+              <CardContent className="p-4 flex flex-col justify-center h-full">
+                <div className="text-muted-foreground text-xs font-medium mb-1 flex items-center gap-1.5">
+                  <BadgeInfo className="h-3.5 w-3.5" /> Tiền phạt
+                </div>
+                <div className="text-xl sm:text-2xl font-bold tracking-tight text-red-600">
+                  {monthSummary.totalCost.toLocaleString('vi-VN')}
+                  <span className="text-xs font-normal text-muted-foreground ml-1">đ</span>
+                </div>
+              </CardContent>
+            </Card>
 
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={setToCurrentMonth}
-                        aria-label="Set to current month"
-                        className="ml-2 text-xs bg-white/10 hover:bg-white/20 rounded-md px-2 py-1 hidden sm:inline-flex"
-                      >
-                        Hôm nay
-                      </Button>
-                    </div>
+            <Card className="bg-card shadow-sm border-s-4 border-s-amber-500 col-span-2 md:col-span-1">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-muted-foreground text-xs font-medium flex items-center gap-1.5">
+                    <UserSearch className="h-3.5 w-3.5" /> Chưa nộp
                   </div>
-
-                  <div className="flex flex-wrap items-stretch gap-2 w-full sm:w-auto mt-3 sm:mt-0">
-                    <div className="flex items-center gap-2 bg-white/10 bg-opacity-12 rounded-lg px-3 py-2 w-full sm:w-auto sm:min-w-[110px]">
-                      <ShieldX className="h-4 w-4 opacity-90" />
-                      <div className="flex-1 flex flex-col">
-                        <div className="text-xs opacity-80">Tổng vi phạm</div>
-                        <div className="text-lg sm:text-xl font-semibold">{monthSummary.totalCount}</div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 bg-white/10 bg-opacity-12 rounded-lg px-3 py-2 w-full sm:w-auto sm:min-w-[140px]">
-                      <BadgeInfo className="h-4 w-4 opacity-90" />
-                      <div className="flex-1 flex flex-col">
-                        <div className="text-xs opacity-80">Tổng tiền phạt</div>
-                        <div className="text-base sm:text-lg font-semibold">{monthSummary.totalCost.toLocaleString('vi-VN')}</div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 bg-white/10 bg-opacity-12 rounded-lg px-3 py-2 w-full sm:w-auto sm:min-w-[120px]">
-                      <UserSearch className="h-4 w-4 opacity-90" />
-                      <div className="flex-1 flex flex-col">
-                        <div className="text-xs opacity-80">Chưa nộp</div>
-                        <div className="text-base sm:text-lg font-semibold text-amber-100">{perUserSummary.totalUnpaid.toLocaleString('vi-VN')}</div>
-                      </div>
-                    </div>
+                  <div className="text-amber-600 font-bold text-lg">
+                    {perUserSummary.totalUnpaid.toLocaleString('vi-VN')}đ
                   </div>
                 </div>
-              </div>
-              <div className="bg-white rounded-xl p-2 shadow-md">
-                <Accordion type="single" collapsible>
-                  <AccordionItem value="top-staff">
-                    <AccordionTrigger className="px-4 py-3 flex items-center justify-between">
-                      <div className="text-sm font-medium">Top nhân viên ưu tú</div>
-                      <div className="text-sm text-muted-foreground">{perUserSummary.list.length} nhân viên</div>
-                    </AccordionTrigger>
-                    <AccordionContent className="p-4">
-                      <div className="space-y-2 max-h-72 overflow-auto">
-                        {perUserSummary.list.map(u => (
-                          <div key={u.userId} className="flex items-center justify-between px-2 py-1">
-                            <div className="text-sm font-medium">{u.name}</div>
-                            <div className="text-sm text-muted-foreground">Tổng: {u.total.toLocaleString('vi-VN')} — Chưa: {u.unpaid.toLocaleString('vi-VN')}</div>
+                <Accordion type="single" collapsible className="w-full">
+                  <AccordionItem value="staff-list" className="border-none">
+                    <AccordionTrigger className="hidden">Trigger</AccordionTrigger>
+                    <AccordionContent className="pt-2">
+                      <div className="space-y-1 max-h-40 overflow-auto pr-1">
+                        {perUserSummary.list.filter(u => u.unpaid > 0).map(u => (
+                          <div key={u.userId} className="flex items-center justify-between py-1 border-b border-dashed border-muted last:border-0">
+                            <span className="text-[11px] font-medium max-w-[80px]">{u.name}</span>
+                            <span className="text-[11px] text-amber-700 font-semibold">{u.unpaid.toLocaleString('vi-VN')}đ</span>
                           </div>
                         ))}
                       </div>
-                      <div className="mt-4 border-t pt-3 text-sm text-right font-semibold">Tổng chưa nộp: <span className="text-amber-600">{perUserSummary.totalUnpaid.toLocaleString('vi-VN')}</span></div>
                     </AccordionContent>
+                    <div className="flex justify-center -mt-1">
+                      <AccordionTrigger className="py-0 text-[10px] text-muted-foreground hover:no-underline">
+                        Chi tiết danh sách
+                      </AccordionTrigger>
+                    </div>
                   </AccordionItem>
                 </Accordion>
-              </div>
-            </div>
-            {filteredViolations.length === 0 ? (
-              <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-4">
-                <FilterX className="h-12 w-12" />
-                <p>Không tìm thấy vi phạm nào khớp với bộ lọc.</p>
-              </div>
-            ) : (
-              <>
-                {/* Render full violation list (no accordion) */}
-                <div className="space-y-4">
-                  {filteredViolations.map(v => (
-                    <ViolationCard
-                      ref={(el) => {
-                        if (el) violationRefs.current.set(v.id, el);
-                        else violationRefs.current.delete(v.id);
-                      }}
-                      key={v.id}
-                      violation={v}
-                      currentUser={user!}
-                      categoryData={categoryData}
-                      userAbbreviations={userAbbreviations}
-                      processingViolationId={processingViolationId}
-                      openCommentSectionIds={openCommentSectionIds}
-                      onToggleFlag={handleToggleFlag}
-                      onToggleWaivePenalty={handleToggleWaivePenalty}
-                      onEdit={(violation) => { setViolationToEdit(violation); setIsSelfConfessMode(false); setIsDialogOpen(true); }}
-                      onDelete={handleDeleteViolation}
-                      onPenaltySubmit={async (violation, user, mode) => {
-                        if (mode === 'manual') {
-                          if (confirm(`Xác nhận ${user.name} đã nộp phạt?`)) {
-                            setProcessingViolationId(violation.id);
-                            try {
-                              await dataStore.markPenaltyAsSubmitted(violation.id, { userId: user.id, userName: user.name });
-                              toast.success(`Đã xác nhận ${user.name} nộp phạt.`);
-                            } catch (error) {
-                              console.error("Failed to mark penalty as submitted:", error);
-                              toast.error('Không thể xác nhận nộp phạt.');
-                            } finally {
-                              setProcessingViolationId(null);
-                            }
-                          }
-                        } else {
-                          setActiveViolationForPenalty(violation);
-                          setActiveUserForPenalty(user);
-                          setPenaltyCaptureMode(mode);
-                          setIsPenaltyCameraOpen(true);
-                        }
-                      }}
-                      onCommentSubmit={handleCommentSubmit}
-                      onCommentEdit={handleCommentEdit}
-                      onCommentDelete={handleCommentDelete}
-                      onToggleCommentSection={toggleCommentSection}
-                      setActiveViolationForPenalty={setActiveViolationForPenalty}
-                      setActiveUserForPenalty={setActiveUserForPenalty}
-                      setIsPenaltyCameraOpen={setIsPenaltyCameraOpen}
-                    />
-                  ))}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Filter Toolbar */}
+        <div className="flex flex-col sm:flex-row gap-3 p-4 bg-muted/40 rounded-xl mb-6 items-center">
+          <div className="w-full sm:flex-1">
+            <Combobox
+              options={displayUsers.map(u => ({ value: u.uid, label: u.displayName }))}
+              value={filterUsers.map(u => u.uid)}
+              onChange={(vals) => {
+                const selectedIds = vals as string[];
+                const selected = displayUsers.filter(u => selectedIds.includes(u.uid));
+                setFilterUsers(selected);
+              }}
+              multiple={true}
+              placeholder="Lọc theo nhân viên..."
+              searchPlaceholder="Tìm nhân viên..."
+              emptyText="Không tìm thấy nhân viên."
+              className="w-full bg-background border-none shadow-sm"
+            />
+          </div>
+          <div className="w-full sm:flex-1">
+            <Combobox
+              options={categoryData.list.map(c => ({ value: c.name, label: c.name }))}
+              value={filterCategoryName}
+              onChange={(val) => setFilterCategoryName(val as string)}
+              placeholder="Lọc theo loại lỗi..."
+              searchPlaceholder="Tìm loại vi phạm..."
+              emptyText="Không tìm thấy loại vi phạm."
+              className="w-full bg-background border-none shadow-sm"
+            />
+          </div>
+          {(filterUsers.length > 0 || filterCategoryName) && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => { setFilterUsers([]); setFilterCategoryName(''); }}
+              className="text-muted-foreground text-xs h-11 sm:h-auto w-full sm:w-auto"
+            >
+              <FilterX className="mr-2 h-4 w-4" /> Xóa lọc
+            </Button>
+          )}
+        </div>
+
+        {/* Violations List */}
+        <div className="space-y-4 pb-20">
+          <div className="flex items-center justify-between px-1 mb-2">
+            <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground/60">
+              {filteredViolations.length} Ghi nhận vi phạm
+            </h2>
+          </div>
+          
+          {filteredViolations.length === 0 ? (
+            <Card className="border-dashed border-2 py-16">
+              <CardContent className="text-center text-muted-foreground flex flex-col items-center gap-4">
+                <div className="p-4 bg-muted rounded-full">
+                  <FilterX className="h-8 w-8" />
                 </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
+                <div>
+                  <p className="font-semibold text-foreground">Không có dữ liệu</p>
+                  <p className="text-sm mt-1">Vui lòng thử điều chỉnh bộ lọc hoặc chọn tháng khác.</p>
+                </div>
+                {(filterUsers.length > 0 || filterCategoryName) && (
+                  <Button variant="outline" size="sm" onClick={() => { setFilterUsers([]); setFilterCategoryName(''); }}>
+                    Gỡ bỏ tất cả bộ lọc
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            filteredViolations.map(v => (
+              <ViolationCard
+                ref={(el) => {
+                  if (el) violationRefs.current.set(v.id, el);
+                  else violationRefs.current.delete(v.id);
+                }}
+                key={v.id}
+                violation={v}
+                currentUser={user!}
+                categoryData={categoryData}
+                userAbbreviations={userAbbreviations}
+                processingViolationId={processingViolationId}
+                openCommentSectionIds={openCommentSectionIds}
+                onToggleFlag={handleToggleFlag}
+                onToggleWaivePenalty={handleToggleWaivePenalty}
+                onEdit={(violation) => { setViolationToEdit(violation); setIsSelfConfessMode(false); setIsDialogOpen(true); }}
+                onDelete={handleDeleteViolation}
+                onPenaltySubmit={async (violation, user, mode) => {
+                  if (mode === 'manual') {
+                    if (confirm(`Xác nhận ${user.name} đã nộp phạt?`)) {
+                      setProcessingViolationId(violation.id);
+                      try {
+                        await dataStore.markPenaltyAsSubmitted(violation.id, { userId: user.id, userName: user.name });
+                        toast.success(`Đã xác nhận ${user.name} nộp phạt.`);
+                      } catch (error) {
+                        console.error("Failed to mark penalty as submitted:", error);
+                        toast.error('Không thể xác nhận nộp phạt.');
+                      } finally {
+                        setProcessingViolationId(null);
+                      }
+                    }
+                  } else {
+                    setActiveViolationForPenalty(violation);
+                    setActiveUserForPenalty(user);
+                    setPenaltyCaptureMode(mode);
+                    setIsPenaltyCameraOpen(true);
+                  }
+                }}
+                onCommentSubmit={handleCommentSubmit}
+                onCommentEdit={handleCommentEdit}
+                onCommentDelete={handleCommentDelete}
+                onToggleCommentSection={toggleCommentSection}
+                setActiveViolationForPenalty={setActiveViolationForPenalty}
+                setActiveUserForPenalty={setActiveUserForPenalty}
+                setIsPenaltyCameraOpen={setIsPenaltyCameraOpen}
+              />
+            ))
+          )}
+        </div>
       </div>
 
       {/* SubmitAllDialog for staff bulk penalty evidence */}

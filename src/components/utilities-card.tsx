@@ -14,13 +14,6 @@ export default function UtilitiesCard() {
   const { user, isOnActiveShift, activeShifts } = useAuth();
   const { isCheckedIn } = useCheckInCardPlacement();
   const nav = useAppNavigation();
-  const [todayTasks, setTodayTasks] = useState<DailyTask[]>([]);
-
-  useEffect(() => {
-    if (!user) return;
-    const unsub = dataStore.subscribeToDailyTasksForDate(new Date(), (tasks) => setTodayTasks(tasks));
-    return unsub;
-  }, [user]);
 
   const secondaryActions = useMemo(() => {
     if (!user) return [];
@@ -36,42 +29,7 @@ export default function UtilitiesCard() {
     return secondary;
   }, [user, activeShifts, isCheckedIn, isOnActiveShift]);
 
-  const hasPendingDailyAssignment = useMemo(() => {
-    if (!user) return false;
-    const uid = user.uid;
-    const role = user.role as UserRole;
-    const todayKey = new Date().toISOString().slice(0, 10);
-    return todayTasks.some((t) => {
-      if (!t) return false;
-      if (t.status === 'completed') return false;
-      if (t.assignedDate !== todayKey) return false;
-      if (t.targetMode === 'roles') {
-        return (t.targetRoles || []).includes(role);
-      }
-      if (t.targetMode === 'users') {
-        return (t.targetUserIds || []).includes(uid);
-      }
-      return false;
-    });
-  }, [todayTasks, user]);
-
-  const pendingDailyCount = useMemo(() => {
-    if (!user) return 0;
-    const uid = user.uid;
-    const role = user.role as UserRole;
-    const todayKey = new Date().toISOString().slice(0, 10);
-    return todayTasks.reduce((count, t) => {
-      if (!t) return count;
-      if (t.status === 'completed') return count;
-      if (t.assignedDate !== todayKey) return count;
-      if (t.targetMode === 'roles' && (t.targetRoles || []).includes(role)) return count + 1;
-      if (t.targetMode === 'users' && (t.targetUserIds || []).includes(uid)) return count + 1;
-      return count;
-    }, 0);
-  }, [todayTasks, user]);
-
-  const showDailyCardForManager = user?.role === 'Quản lý';
-  const hasActions = (secondaryActions?.length ?? 0) > 0 || showDailyCardForManager || hasPendingDailyAssignment;
+  const hasActions = (secondaryActions?.length ?? 0) > 0;
 
   if (!user || !hasActions) return null;
 
@@ -86,22 +44,6 @@ export default function UtilitiesCard() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 auto-rows-min items-stretch">
-        {(showDailyCardForManager || hasPendingDailyAssignment) && (
-          <div className="relative col-span-2">
-            <DashboardActionCard
-              label={showDailyCardForManager ? 'Giao việc cần làm' : (pendingDailyCount > 1 ? `Bạn có ${pendingDailyCount} công việc` : 'Bạn có công việc mới')}
-              subLabel={showDailyCardForManager ? (pendingDailyCount > 0 ? `Có ${pendingDailyCount} nhiệm vụ chờ` : 'Giao và quản lý công việc') : 'Mở danh sách công việc'}
-              icon={ListChecks}
-              onClick={() => nav.push('/daily-assignments')}
-              color={showDailyCardForManager ? 'amber' : 'rose'}
-              variant={'primary'}
-              className="shadow-lg h-full"
-            />
-            {pendingDailyCount > 0 && (
-              <span className="absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full bg-rose-500 text-white text-[12px] flex items-center justify-center font-bold">{pendingDailyCount}</span>
-            )}
-          </div>
-        )}
 
         {secondaryActions.filter(a => a.href !== '/daily-assignments').map((action, index) => {
           return (

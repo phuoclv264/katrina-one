@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import CheckInCard from '@/app/(app)/_components/check-in-card';
 import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
 import UtilitiesCard from '@/components/utilities-card';
-import QuickEventsCard from './events/QuickEventsCard';
 import { DashboardActionCard } from '@/components/dashboard-action-card';
 import { useAuth } from '@/hooks/use-auth';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
@@ -34,7 +33,6 @@ export default function DashboardLayout({ title, description, top, children, cla
         {showCheckInCardOnTop && <CheckInCard />}
 
         {top}
-        <QuickEventsCard />
 
         <Card>
           <CardHeader>

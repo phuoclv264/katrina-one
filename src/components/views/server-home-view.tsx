@@ -10,7 +10,7 @@ import { useEffect, useMemo, useCallback } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
-import TodaysTasksCard from '@/app/(app)/monthly-tasks/_components/task-reporting-card';
+import StaffBulletinBoard from '@/components/staff-bulletin-board';
 import DashboardLayout from '@/components/dashboard-layout';
 import type { MonthlyTaskAssignment, ShiftTemplate } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
@@ -76,7 +76,7 @@ export function ServerHomeView() {
     <DashboardLayout
       title="Checklist Công việc"
       description={todaysShifts.length > 0 ? `Hôm nay bạn có ca: ${shiftsText}. Chọn ca để báo cáo.` : 'Bạn không có ca làm việc nào hôm nay, liên hệ chủ quán để thay đổi lịch làm.'}
-      top={isCheckedIn && todaysMonthlyAssignments.length > 0 ? <TodaysTasksCard assignments={todaysMonthlyAssignments} /> : undefined}
+      top={<StaffBulletinBoard assignments={todaysMonthlyAssignments} />}
     >
       {/* Primary action cards are rendered by DashboardLayout now. Keep the alert/fallback here. */}
       {! (isCheckedIn && activeMainShiftKeys.length > 0) && (

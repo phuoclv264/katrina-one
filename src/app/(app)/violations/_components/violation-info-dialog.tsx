@@ -19,12 +19,7 @@ import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Search, Info, SlidersHorizontal, X } from 'lucide-react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -226,31 +221,29 @@ export default function ViolationInfoDialog({ isOpen, onClose, categories, gener
         </DialogBody>
 
         <DialogFooter className="flex-row items-center justify-between gap-4 border-t p-4 sm:p-6 bg-background shrink-0">
-          <TooltipProvider delayDuration={0}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="sm" className="rounded-full gap-2 border-primary/20 hover:bg-primary/5 text-primary h-9 px-4">
-                  <Info className="h-4 w-4" />
-                  <span className="text-xs font-bold">Quy tắc chung</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-[300px] p-4 bg-card shadow-2xl border-primary/20 rounded-2xl">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 pb-2 border-b border-primary/10">
-                    <div className="p-1.5 rounded-lg bg-primary/10">
-                      <Info className="h-4 w-4 text-primary" />
-                    </div>
-                    <p className="text-xs font-bold text-primary tracking-tight">
-                      CÁC QUY TẮC PHẠT CHUNG
-                    </p>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="rounded-full gap-2 border-primary/20 hover:bg-primary/5 text-primary h-9 px-4">
+                <Info className="h-4 w-4" />
+                <span className="text-xs font-bold">Quy tắc chung</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="center" className="max-w-[300px] p-4 bg-card shadow-2xl border-primary/20 rounded-2xl">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 pb-2 border-b border-primary/10">
+                  <div className="p-1.5 rounded-lg bg-primary/10">
+                    <Info className="h-4 w-4 text-primary" />
                   </div>
-                  <div className="text-[11px] leading-relaxed text-foreground/80 whitespace-pre-wrap font-medium">
-                    {generalRuleSummary ? generalRuleSummary : 'Không có quy tắc phạt chung nào được thiết lập.'}
-                  </div>
+                  <p className="text-xs font-bold text-primary tracking-tight">
+                    CÁC QUY TẮC PHẠT CHUNG
+                  </p>
                 </div>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+                <div className="text-[11px] leading-relaxed text-foreground/80 whitespace-pre-wrap font-medium">
+                  {generalRuleSummary ? generalRuleSummary : 'Không có quy tắc phạt chung nào được thiết lập.'}
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
 
           <DialogAction variant="secondary" onClick={onClose} className="h-10 px-8 rounded-full">
             Đóng

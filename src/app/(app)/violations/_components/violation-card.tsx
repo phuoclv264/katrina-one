@@ -71,8 +71,17 @@ export const ViolationCard = React.forwardRef<HTMLDivElement, ViolationCardProps
             return `${userAbbr}: ${(uc.cost || 0).toLocaleString('vi-VN')}đ`;
         }).join(', ');
 
-    const cardBorderColor = v.isFlagged ? 'border-red-500/50 ring-2 ring-red-500/20' : (isWaived ? 'border-green-500/50 ring-2 ring-green-500/20' : getSeverityBorderClass(v.severity));
-    const cardBgColor = v.isFlagged ? 'bg-red-500/5' : (isWaived ? 'bg-green-500/5' : getSeverityCardClass(v.severity));
+    const cardBorderColor = v.isFlagged 
+        ? 'border-red-200 dark:border-red-900/50 ring-2 ring-red-500/10' 
+        : (isWaived 
+            ? 'border-green-200 dark:border-green-900/50 ring-2 ring-green-500/10' 
+            : getSeverityBorderClass(v.severity));
+            
+    const cardBgColor = v.isFlagged 
+        ? 'bg-red-50/60 dark:bg-red-950/20' 
+        : (isWaived 
+            ? 'bg-green-50/60 dark:bg-green-950/20' 
+            : getSeverityCardClass(v.severity));
 
     const handleOpenLightbox = (media: (string | MediaAttachment)[], index: number) => {
         const slides = media.map(item => {
