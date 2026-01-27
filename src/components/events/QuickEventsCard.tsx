@@ -18,7 +18,7 @@ export default function QuickEventsCard() {
 
     useEffect(() => {
         if (!user) return;
-        const unsub = subscribeToActiveEvents(user.role, setActiveEvents);
+        const unsub = subscribeToActiveEvents(user.role, Boolean(user.isTestAccount), setActiveEvents);
         return () => unsub();
     }, [user]);
 

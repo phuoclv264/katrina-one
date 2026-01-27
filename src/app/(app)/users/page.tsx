@@ -24,7 +24,7 @@ import { Combobox } from '@/components/combobox';
 import { Badge } from '@/components/ui/badge';
 import { normalizeSearchString, getInitials, cn } from '@/lib/utils';
 import { AvatarUpload } from '@/components/avatar-upload';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { UserAvatar as SharedUserAvatar } from '@/components/user-avatar';
 
 const RoleBadge = ({ role, isSecondary = false }: { role: UserRole, isSecondary?: boolean }) => {
     const colors = {
@@ -50,12 +50,7 @@ const RoleBadge = ({ role, isSecondary = false }: { role: UserRole, isSecondary?
 };
 
 const UserAvatar = ({ user, className }: { user: ManagedUser, className?: string }) => (
-    <Avatar className={cn("h-9 w-9 border shadow-sm", className)}>
-        {user.photoURL && <AvatarImage src={user.photoURL} alt={user.displayName} />}
-        <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">
-            {getInitials(user.displayName)}
-        </AvatarFallback>
-    </Avatar>
+    <SharedUserAvatar user={user} size="h-9 w-9" className={cn("border shadow-sm", className)} />
 );
 
 const TestBadge = () => (

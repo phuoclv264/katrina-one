@@ -3,6 +3,7 @@
 import React, { useMemo, useState, useEffect, act } from 'react';
 import dynamic from 'next/dynamic';
 import { useAuth } from '@/hooks/use-auth';
+import { getUserAccessLinks } from '@/lib/user-access-links';
 import { BottomNav, NavTab } from '@/components/bottom-nav';
 import {
   Home,
@@ -115,7 +116,7 @@ const ChecklistPageComponent = dynamic(
 // Placeholder components
 const HomeView = () => <div className="p-4">Home View Content</div>;
 
-function buildTabs(user: any, isCheckedIn: boolean): NavTab[] {
+function buildTabs(user: any, isCheckedIn: boolean, assignedRoles: string[] = [], activeShiftKeys: string[] = []): NavTab[] {
   const commonUserTab: NavTab = {
     id: 'menu',
     label: 'Menu',
@@ -126,6 +127,7 @@ function buildTabs(user: any, isCheckedIn: boolean): NavTab[] {
     return [{ id: 'home', label: 'Trang chủ', icon: Home }, commonUserTab];
   }
 
+  // Owners keep the same dedicated navigation
   if (user.role === 'Chủ nhà hàng') {
     return [
       { id: 'home', label: 'Trang chủ', icon: Home },
@@ -135,6 +137,7 @@ function buildTabs(user: any, isCheckedIn: boolean): NavTab[] {
     ];
   }
 
+  // Cashiers have their own tab
   if (user.role === 'Thu ngân') {
     return [
       { id: 'home', label: 'Trang chủ', icon: Home },
@@ -144,17 +147,32 @@ function buildTabs(user: any, isCheckedIn: boolean): NavTab[] {
     ];
   }
 
+  // Determine quick-access based on assigned role(s) for the user's active shift(s).
+  // Assigned roles take precedence over the user's main role when present.
   let quickAccess: NavTab | null = null;
-  switch (user.role) {
-    case 'Phục vụ':
-      if (isCheckedIn) quickAccess = { id: 'checklist', label: 'Checklist', icon: ClipboardList };
-      break;
-    case 'Pha chế':
-      if (isCheckedIn) quickAccess = { id: 'hygiene', label: 'Vệ sinh', icon: ShieldCheck };
-      break;
-    case 'Quản lý':
-      if (isCheckedIn) quickAccess = { id: 'comprehensive-reports', label: 'Báo cáo toàn diện', icon: FileText };
-      break;
+  const hasAssigned = Array.isArray(assignedRoles) && assignedRoles.length > 0;
+
+  if (hasAssigned) {
+    if (assignedRoles.includes('Phục vụ') && isCheckedIn) {
+      quickAccess = { id: 'checklist', label: 'Checklist', icon: ClipboardList };
+    } else if (assignedRoles.includes('Pha chế') && isCheckedIn) {
+      quickAccess = { id: 'hygiene', label: 'Vệ sinh', icon: ShieldCheck };
+    } else if (assignedRoles.includes('Quản lý') && isCheckedIn) {
+      quickAccess = { id: 'comprehensive-reports', label: 'Báo cáo toàn diện', icon: FileText };
+    }
+  } else {
+    // No assigned role for active shift(s) — fall back to main role behaviour
+    switch (user.role) {
+      case 'Phục vụ':
+        if (isCheckedIn) quickAccess = { id: 'checklist', label: 'Checklist', icon: ClipboardList };
+        break;
+      case 'Pha chế':
+        if (isCheckedIn) quickAccess = { id: 'hygiene', label: 'Vệ sinh', icon: ShieldCheck };
+        break;
+      case 'Quản lý':
+        if (isCheckedIn) quickAccess = { id: 'comprehensive-reports', label: 'Báo cáo toàn diện', icon: FileText };
+        break;
+    }
   }
 
   const tabs: NavTab[] = [{ id: 'home', label: 'Trang chủ', icon: Home }];
@@ -227,7 +245,7 @@ function setPageHash(href: string, mode: 'push' | 'replace' = 'push') {
 // usePreserveScroll moved to src/hooks/use-preserve-scroll.ts
 
 export function MobileLayout({ children }: { children: React.ReactNode }) {
-  const { user, refreshTrigger } = useAuth();
+  const { user, refreshTrigger, activeShifts, isOnActiveShift } = useAuth();
   const { isCheckedIn } = useCheckInCardPlacement();
   const pathname = usePathname();
   const [activeTab, setActiveTab] = useState('home');
@@ -235,7 +253,8 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
   const [virtualHref, setVirtualHref] = useState<string | null>(null);
   const { restore: restoreScroll, persist: persistScroll } = usePreserveScroll();
 
-  const tabs = useMemo(() => buildTabs(user, isCheckedIn), [user, isCheckedIn, refreshTrigger]);
+  const access = user ? getUserAccessLinks({ user, isCheckedIn, activeShifts, isOnActiveShift }) : undefined;
+  const tabs = useMemo(() => buildTabs(user, isCheckedIn, access?.meta.assignedRoles ?? [], access?.meta.activeShiftKeys ?? []), [user, isCheckedIn, activeShifts, isOnActiveShift, refreshTrigger]);
 
   // Initialize active tab based on pathname.
   // Important: do NOT let this override hash-driven SPA navigation (#tab / #page),

@@ -10,6 +10,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogBody,
+  DialogAction,
+  DialogCancel,
 } from '@/components/ui/dialog';
 import {
   InputOTP,
@@ -45,34 +48,45 @@ export default function PinDialog({ isOpen, onClose, onSubmit, parentDialogTag }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose} dialogTag="pin-dialog" parentDialogTag={parentDialogTag}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <KeyRound className="h-5 w-5" />
-            Xác thực nhân viên
-          </DialogTitle>
-          <DialogDescription>
-            Vui lòng nhập mã PIN 4 số của bạn để bắt đầu ca làm việc.
-          </DialogDescription>
+      <DialogContent>
+        <DialogHeader variant="premium" iconkey="lock" className="pb-10 text-left">
+          <div className="flex items-center gap-4 relative z-10">
+            <div className="bg-zinc-900 border border-zinc-800 p-3 rounded-2xl">
+              <KeyRound className="h-6 w-6 text-zinc-400" />
+            </div>
+            <div>
+              <DialogTitle className="mb-1">
+                Xác thực nhân viên
+              </DialogTitle>
+              <DialogDescription className="text-zinc-400 text-[10px] font-black uppercase tracking-[0.2em]">
+                Vui lòng nhập mã PIN 4 số của bạn
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="flex flex-col items-center justify-center gap-4">
+
+        <DialogBody>
+          <div className="flex flex-col items-center justify-center py-6">
             <InputOTP
               maxLength={4}
               value={pin}
               onChange={(value) => setPin(value)}
             >
-              <InputOTPGroup>
-                <InputOTPSlot index={0} />
-                <InputOTPSlot index={1} />
-                <InputOTPSlot index={2} />
-                <InputOTPSlot index={3} />
+              <InputOTPGroup className="gap-2">
+                <InputOTPSlot index={0} className="w-14 h-16 rounded-2xl border-2 text-2xl font-black border-zinc-100 bg-zinc-50 focus:ring-zinc-900" />
+                <InputOTPSlot index={1} className="w-14 h-16 rounded-2xl border-2 text-2xl font-black border-zinc-100 bg-zinc-50 focus:ring-zinc-900" />
+                <InputOTPSlot index={2} className="w-14 h-16 rounded-2xl border-2 text-2xl font-black border-zinc-100 bg-zinc-50 focus:ring-zinc-900" />
+                <InputOTPSlot index={3} className="w-14 h-16 rounded-2xl border-2 text-2xl font-black border-zinc-100 bg-zinc-50 focus:ring-zinc-900" />
               </InputOTPGroup>
             </InputOTP>
           </div>
-        </div>
+        </DialogBody>
+
         <DialogFooter>
-          <Button type="submit" onClick={handleSubmit} disabled={pin.length < 4}>Đăng nhập</Button>
+          <DialogCancel onClick={onClose}>Hủy</DialogCancel>
+          <DialogAction onClick={handleSubmit} disabled={pin.length < 4}>
+            Đăng nhập
+          </DialogAction>
         </DialogFooter>
       </DialogContent>
     </Dialog>

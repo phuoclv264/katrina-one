@@ -17,7 +17,7 @@ import { Loader2, LogOut, Building, Edit2, User, Coffee, Banknote, UserCog } fro
 import { usePathname } from 'next/navigation';
 import Image from '@/components/ui/image';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { UserAvatar } from "./user-avatar";
 import { getInitials } from '@/lib/utils';
 import { ProfileDialog } from "./profile-dialog";
 import { useState } from "react";
@@ -122,15 +122,17 @@ export function AppSidebar() {
             className="relative group/avatar cursor-pointer shrink-0"
             onClick={() => setProfileOpen(true)}
           >
-            <Avatar className="h-10 w-10 border border-border shadow-sm group-hover/avatar:brightness-75 transition-all">
-              <AvatarImage src={user?.photoURL || ''} />
-              <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
-                {getInitials(displayName)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity">
-              <Edit2 className="h-4 w-4 text-white drop-shadow-md" />
-            </div>
+            <UserAvatar 
+              user={user} 
+              size="h-10 w-10" 
+              rounded="full" 
+              className="border border-border shadow-sm group-hover/avatar:brightness-75 transition-all"
+              fallbackClassName="bg-primary/10 text-primary text-xs font-bold"
+            >
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity">
+                <Edit2 className="h-4 w-4 text-white drop-shadow-md" />
+              </div>
+            </UserAvatar>
           </div>
           <div className="flex flex-col overflow-hidden">
             <span className="font-semibold truncate">{displayName}</span>
@@ -142,15 +144,17 @@ export function AppSidebar() {
             className="relative group/avatar cursor-pointer"
             onClick={() => setProfileOpen(true)}
           >
-            <Avatar className="h-8 w-8 border border-border shadow-sm group-hover/avatar:brightness-75 transition-all">
-              <AvatarImage src={user?.photoURL || ''} />
-              <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-bold">
-                {getInitials(displayName)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity">
-              <Edit2 className="h-3 w-3 text-white drop-shadow-md" />
-            </div>
+            <UserAvatar 
+              user={user} 
+              size="h-8 w-8" 
+              rounded="full" 
+              className="border border-border shadow-sm group-hover/avatar:brightness-75 transition-all"
+              fallbackClassName="bg-primary/10 text-primary text-[10px] font-bold"
+            >
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity">
+                <Edit2 className="h-3 w-3 text-white drop-shadow-md" />
+              </div>
+            </UserAvatar>
           </div>
         </div>
       </SidebarHeader>

@@ -10,13 +10,16 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogBody,
+  DialogAction,
+  DialogCancel,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AvatarUpload } from '@/components/avatar-upload';
 import { toast } from '@/components/ui/pro-toast';
-import { Loader2, Save } from 'lucide-react';
+import { Loader2, Save, User } from 'lucide-react';
 
 interface ProfileDialogProps {
   open: boolean;
@@ -63,68 +66,64 @@ export function ProfileDialog({ open, onOpenChange, parentDialogTag }: ProfileDi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} dialogTag="profile-dialog" parentDialogTag={parentDialogTag}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Hồ sơ cá nhân</DialogTitle>
-          <DialogDescription>
-            Cập nhật thông tin cá nhân của bạn tại đây.
-          </DialogDescription>
+      <DialogContent>
+        <DialogHeader variant="premium" icon={<User />} className="pb-10 text-left">
+          <div>
+            <DialogTitle className="mb-1">Hồ sơ cá nhân</DialogTitle>
+            <DialogDescription className="text-zinc-400 text-[10px] font-black uppercase tracking-[0.2em]">Cập nhật thông tin cá nhân của bạn</DialogDescription>
+          </div>
         </DialogHeader>
 
-        <div className="flex flex-col gap-6 py-4">
-          <AvatarUpload
-            currentPhotoURL={photoURL}
-            onUploadComplete={setPhotoURL}
-            uid={user.uid}
-            displayName={user.displayName || ''}
-          />
+        <DialogBody>
+          <div className="space-y-6 pt-2">
+            <div className="flex justify-center py-4">
+              <AvatarUpload
+                currentPhotoURL={photoURL}
+                onUploadComplete={setPhotoURL}
+                uid={user.uid}
+                displayName={user.displayName || ''}
+              />
+            </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="displayName">Tên hiển thị</Label>
-            <Input
-              id="displayName"
-              value={displayName}
-              disabled
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Nhập tên của bạn"
-            />
-          </div>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="displayName" className="text-[10px] font-black uppercase tracking-wider text-zinc-500 ml-1">Tên hiển thị</Label>
+                <Input
+                  id="displayName"
+                  value={displayName}
+                  disabled
+                  readOnly
+                  className="h-14 rounded-2xl border-zinc-100 bg-zinc-50 font-bold px-4 cursor-not-allowed opacity-75 shadow-sm"
+                />
+                <p className="text-[10px] text-zinc-400 italic ml-1">* Vui lòng liên hệ quản lý để thay đổi tên hiển thị.</p>
+              </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="email" className="text-muted-foreground">Email (Không thể thay đổi)</Label>
-            <Input
-              id="email"
-              value={user.email || ''}
-              disabled
-              className="bg-muted"
-            />
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-wider text-zinc-500 ml-1">Email / Tài khoản</Label>
+                <Input
+                  id="email"
+                  value={user.email || ''}
+                  disabled
+                  readOnly
+                  className="h-14 rounded-2xl border-zinc-100 bg-zinc-50 font-bold px-4 cursor-not-allowed opacity-75 shadow-sm"
+                />
+              </div>
 
-          <div className="grid gap-2">
-            <Label className="text-muted-foreground">Vai trò</Label>
-            <div className="px-3 py-2 border rounded-md bg-muted text-sm text-muted-foreground">
-              {user.role}
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-wider text-zinc-500 ml-1">Vai trò hệ thống</Label>
+                <div className="h-14 flex items-center px-4 rounded-2xl bg-zinc-50 border border-zinc-100 text-sm font-black uppercase tracking-wider text-zinc-600 shadow-sm">
+                  {user.role}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        </DialogBody>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-            Hủy
-          </Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Đang lưu...
-              </>
-            ) : (
-              <>
-                <Save className="mr-2 h-4 w-4" />
-                Lưu thay đổi
-              </>
-            )}
-          </Button>
+          <DialogCancel onClick={() => onOpenChange(false)}>Đóng</DialogCancel>
+          <DialogAction onClick={handleSave} isLoading={saving} disabled={saving}>
+            Lưu thay đổi
+          </DialogAction>
         </DialogFooter>
       </DialogContent>
     </Dialog>

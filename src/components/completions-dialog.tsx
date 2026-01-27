@@ -6,13 +6,17 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
+  DialogDescription,
   DialogFooter,
+  DialogBody,
+  DialogCancel,
+  DialogAction
 } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogIcon } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Clock, MessageSquare, CheckCircle2, XCircle, Trash2, User } from 'lucide-react';
+import { History, Clock, MessageSquare, CheckCircle2, XCircle, Trash2, User } from 'lucide-react';
 import { photoStore } from '@/lib/photo-store';
 import type { CompletionRecord } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -91,104 +95,89 @@ export default function CompletionsDialog({ open, onOpenChange, otherStaffComple
   }, [open, currentCompletions]);
 
   const [confirmDeleteIndex, setConfirmDeleteIndex] = React.useState<number | null>(null);
+  const [confirmDeletePhoto, setConfirmDeletePhoto] = React.useState<{ index: number; id: string } | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} dialogTag="completions-view" parentDialogTag={parentDialogTag}>
-      <DialogContent className="max-w-[95vw] sm:max-w-2xl p-0 overflow-hidden border-none shadow-2xl rounded-[32px] sm:rounded-[40px] bg-slate-50/95 backdrop-blur-xl">
-        {/* Beautiful Header */}
-        <div className="relative bg-gradient-to-br from-blue-600 to-indigo-700 pt-4 pb-6 px-4 sm:px-6 text-white overflow-hidden">
-          {/* Abstract Decorations */}
-          <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/2 w-48 h-48 bg-blue-400/20 rounded-full blur-2xl pointer-events-none" />
-          
-          <div className="relative flex flex-col sm:flex-row items-center sm:items-center gap-4 text-center sm:text-left">
-            <div className="h-14 w-14 rounded-3xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 shadow-md transform hover:scale-105 transition-transform duration-300">
-              <CheckCircle2 className="h-8 w-8 text-white drop-shadow" />
-            </div>
-            <div className="flex-1 space-y-1">
-              <p className="text-blue-100 text-sm font-bold uppercase tracking-[0.2em]">Lịch sử hoàn thành</p>
-              <DialogTitle className="text-2xl sm:text-3xl font-black text-white leading-tight">
-                {taskName}
-              </DialogTitle>
-            </div>
-          </div>
-        </div>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader variant="success" iconkey="check">
+          <DialogTitle>Lịch sử hoàn thành</DialogTitle>
+          <DialogDescription className="line-clamp-2 sm:truncate">{taskName}</DialogDescription>
+        </DialogHeader>
 
-        <div className="relative -mt-6 rounded-t-[32px] bg-slate-50 border-t border-white/20 p-3 sm:p-4">
-          <ScrollArea className="h-[60vh] sm:h-[68vh] max-h-[72vh] w-full pr-4">
-            <div className="space-y-4 pb-6">
-              {flattened.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-24 text-center">
-                  <div className="h-20 w-20 rounded-full bg-slate-100 flex items-center justify-center mb-4">
-                    <User className="h-10 w-10 text-slate-300" />
-                  </div>
-                  <p className="text-slate-400 font-medium italic">Chưa có ai thực hiện công việc này</p>
+        <DialogBody className="bg-zinc-50/30">
+          <div className="space-y-4 pb-10">
+            {flattened.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="h-16 w-16 rounded-full bg-zinc-100 flex items-center justify-center mb-4 text-zinc-300">
+                  <User className="h-8 w-8" />
                 </div>
-              ) : (
+                <p className="text-zinc-500 font-medium italic text-sm">Chưa có ai thực hiện công việc này</p>
+              </div>
+            ) : (
                 flattened.map((entry, idx) => (
                   <div
                     key={`${entry.userId || 'self'}-${idx}`}
                     className={cn(
-                      "group relative border rounded-[24px] p-4 shadow-sm transition-all duration-300",
+                      "group relative border rounded-2xl p-4 shadow-sm transition-all duration-300",
                       entry.origin === 'self' 
-                        ? "bg-white border-blue-100 hover:border-blue-200 hover:shadow-md" 
-                        : "bg-white/80 border-slate-100 opacity-90 grayscale-[0.2] hover:grayscale-0 hover:bg-white"
+                        ? "bg-white border-blue-100/50" 
+                        : "bg-white/80 border-zinc-100 opacity-90 grayscale-[0.2] hover:grayscale-0 hover:bg-white"
                     )}
                   >
                     {/* Header of Item */}
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-4">
+                      <div className="flex items-center gap-3 sm:gap-4">
                         <div className={cn(
-                          "h-12 w-12 rounded-2xl flex items-center justify-center font-bold text-lg border shadow-sm transition-colors",
+                          "h-10 w-10 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center font-bold text-base sm:text-lg border transition-colors shrink-0",
                           entry.origin === 'self' 
-                            ? "bg-blue-600 text-white border-blue-400" 
-                            : "bg-slate-100 text-slate-500 border-slate-200"
+                            ? "bg-zinc-900 text-white border-zinc-800" 
+                            : "bg-zinc-100 text-zinc-500 border-zinc-200"
                         )}>
                           {entry.staffName === 'Bạn' ? 'B' : entry.staffName.charAt(0).toUpperCase()}
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                             <p className="text-[17px] font-extrabold text-slate-900 leading-none">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                             <p className="text-sm sm:text-base font-bold text-zinc-900 leading-none truncate">
                               {entry.staffName}
                             </p>
                             {entry.origin === 'self' && (
-                              <Badge className="bg-blue-50 text-blue-600 border-blue-100 px-2 py-0 h-5 text-[10px] font-black uppercase">Bạn</Badge>
+                              <Badge className="bg-blue-50 text-blue-600 border-blue-100/30 px-2 py-0 h-5 text-[10px] font-black uppercase">Bạn</Badge>
+                            )}
+                            {entry.origin === 'self' && typeof entry.selfIndex === 'number' && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors ml-auto sm:ml-0"
+                                onClick={() => {
+                                  if (!onDeleteCurrentCompletion) return;
+                                  setConfirmDeleteIndex(entry.selfIndex!);
+                                }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                              </Button>
                             )}
                           </div>
                           <div className="flex items-center gap-1.5 mt-1">
-                            <Clock className="h-3 w-3 text-slate-400" />
-                            <span className="text-xs font-bold text-slate-400 tracking-wide uppercase">{entry.completion.timestamp}</span>
+                            <Clock className="h-3 w-3 text-zinc-400" />
+                            <span className="text-[10px] font-bold text-zinc-400 tracking-wide uppercase">{entry.completion.timestamp}</span>
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-end gap-2 ml-auto sm:ml-0 shrink-0">
                         {taskType === 'boolean' && entry.completion.value !== undefined && (
                           <div className={cn(
-                            "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider",
+                            "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] sm:text-[11px] font-black uppercase tracking-wider",
                             entry.completion.value 
                               ? "bg-emerald-50 text-emerald-600" 
                               : "bg-red-50 text-red-600"
                           )}>
-                             {entry.completion.value ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
+                             {entry.completion.value ? <CheckCircle2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> : <XCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5" />}
                              {entry.completion.value ? 'Đã làm' : 'Chưa làm'}
                           </div>
                         )}
-
-                        {entry.origin === 'self' && typeof entry.selfIndex === 'number' && (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-10 w-10 rounded-xl text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors"
-                            onClick={() => {
-                              if (!onDeleteCurrentCompletion) return;
-                              setConfirmDeleteIndex(entry.selfIndex!);
-                            }}
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </Button>
-                        )} 
                       </div>
                     </div>
 
@@ -199,7 +188,7 @@ export default function CompletionsDialog({ open, onOpenChange, otherStaffComple
                           <div className="absolute left-4 top-4 text-amber-500">
                              <MessageSquare className="h-4 w-4" />
                           </div>
-                          <div className="bg-amber-50/50 rounded-2xl p-4 pl-11 text-[15px] font-medium text-amber-800 leading-relaxed border border-amber-100/50 italic">
+                        <div className="bg-amber-50/50 rounded-xl p-4 pl-11 text-[15px] font-medium text-amber-800 leading-relaxed border border-amber-100/50 italic">
                             "{entry.completion.note}"
                           </div>
                         </div>
@@ -210,7 +199,7 @@ export default function CompletionsDialog({ open, onOpenChange, otherStaffComple
                           <div className="absolute left-4 top-4 text-slate-300">
                              <MessageSquare className="h-4 w-4" />
                           </div>
-                          <div className="bg-slate-50/80 rounded-2xl p-4 pl-11 text-[15px] font-medium text-slate-700 leading-relaxed border border-slate-100/50 italic">
+                        <div className="bg-zinc-50/80 rounded-xl p-4 pl-11 text-[15px] font-medium text-zinc-700 leading-relaxed border border-zinc-100/50 italic">
                             "{entry.completion.opinion}"
                           </div>
                         </div>
@@ -218,7 +207,7 @@ export default function CompletionsDialog({ open, onOpenChange, otherStaffComple
 
                       {/* Photo Grid */}
                       {((entry.completion.photos?.length || 0) > 0 || (entry.origin === 'self' && (entry.completion.photoIds || []).length > 0)) && (
-                        <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 mt-3">
+                        <div className="grid grid-cols-3 min-[400px]:grid-cols-4 sm:grid-cols-5 gap-2 mt-3">
                           {(() => {
                             const permanent = entry.completion.photos || [];
                             const local = (entry.origin === 'self' && entry.completion.photoIds) ? entry.completion.photoIds.map(id => ({ id, url: localPhotoUrls.get(id) })).filter(x => x.url) as { id: string, url: string }[] : [];
@@ -226,7 +215,7 @@ export default function CompletionsDialog({ open, onOpenChange, otherStaffComple
                             return all.map((item, pIdx) => (
                               <div
                                 key={`${item.url}-${pIdx}`}
-                                className="group/photo relative aspect-square rounded-[18px] overflow-hidden cursor-pointer hover:ring-4 hover:ring-blue-100 transition-all shadow-sm active:scale-95"
+                                className="group/photo relative aspect-square rounded-xl overflow-hidden cursor-pointer hover:ring-2 hover:ring-zinc-900 transition-all shadow-sm active:scale-95"
                                 role="button"
                                 tabIndex={0}
                                 onClick={() => onOpenLightbox(all.map(a => ({ src: a.url })), pIdx)}
@@ -252,9 +241,7 @@ export default function CompletionsDialog({ open, onOpenChange, otherStaffComple
                                       className="h-7 w-7 rounded-lg shadow-lg"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        if (window.confirm('Xóa ảnh chưa gửi này?')) {
-                                          onDeleteCurrentPhoto(entry.selfIndex!, item.id!);
-                                        }
+                                      setConfirmDeletePhoto({ index: entry.selfIndex!, id: item.id! });
                                       }}
                                     >
                                       <Trash2 className="h-3.5 w-3.5" />
@@ -268,44 +255,45 @@ export default function CompletionsDialog({ open, onOpenChange, otherStaffComple
                       )}
                     </div>
                     
-                    {/* Background indicator for self */}
-                    {entry.origin === 'self' && (
-                      <div className="absolute top-0 right-0 w-16 h-16 overflow-hidden pointer-events-none">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/5 rotate-45 translate-x-16 -translate-y-16" />
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          </ScrollArea>
-        </div>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogBody>
 
         {/* Confirm deletion using the shared AlertDialog (replaces window.confirm) */}
-        <AlertDialog open={confirmDeleteIndex !== null} onOpenChange={(v) => { if (!v) setConfirmDeleteIndex(null); }} parentDialogTag="completions-dialog" variant="destructive">
-          <AlertDialogContent className="rounded-3xl">
-            <AlertDialogHeader>
-              <AlertDialogTitle>Xóa lần hoàn thành?</AlertDialogTitle>
-              <AlertDialogDescription>Hành động này sẽ xóa mục hoàn thành — thao tác không thể hoàn tác.</AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel className="rounded-xl" disabled={isDeleting}>Hủy</AlertDialogCancel>
+        <AlertDialog 
+          open={confirmDeleteIndex !== null} 
+          onOpenChange={(v) => { if (!v) setConfirmDeleteIndex(null); }}
+        >
+          <AlertDialogContent className="rounded-[32px] border-none p-0 overflow-hidden shadow-2xl max-w-[400px]">
+            <div className="bg-red-50 p-8 flex justify-center">
+              <AlertDialogIcon variant="destructive" />
+            </div>
+            <div className="p-8 pt-6 text-center">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="text-2xl font-black text-zinc-900 text-center">Xóa hoàn thành?</AlertDialogTitle>
+                <AlertDialogDescription className="text-zinc-500 text-base font-medium text-center mt-2">
+                  Hành động này sẽ xóa vĩnh viễn mục hoàn thành này khỏi hệ thống.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+            </div>
+            <AlertDialogFooter className="p-6 bg-zinc-50 gap-3 sm:gap-0">
+              <AlertDialogCancel className="h-12 rounded-2xl flex-1 border-zinc-200 font-bold text-zinc-600" disabled={isDeleting}>
+                Hủy
+              </AlertDialogCancel>
               <AlertDialogAction
-                className="rounded-xl"
+                className="h-12 rounded-2xl flex-1 bg-red-600 hover:bg-red-700 text-white font-bold shadow-lg shadow-red-200"
                 isLoading={isDeleting}
                 disabled={isDeleting}
                 onClick={async () => {
                   if (confirmDeleteIndex === null || !onDeleteCurrentCompletion || isDeleting) return;
                   setIsDeleting(true);
-                  const idx = confirmDeleteIndex;
                   try {
-                    // support both sync and async callbacks
-                    await Promise.resolve(onDeleteCurrentCompletion(idx));
-                    // close dialog only after successful deletion
+                    await Promise.resolve(onDeleteCurrentCompletion(confirmDeleteIndex));
                     setConfirmDeleteIndex(null);
                   } catch (err) {
                     console.error('Failed to delete completion', err);
-                    // keep dialog open so user can retry; optionally show toast elsewhere
                   } finally {
                     setIsDeleting(false);
                   }
@@ -317,15 +305,44 @@ export default function CompletionsDialog({ open, onOpenChange, otherStaffComple
           </AlertDialogContent>
         </AlertDialog>
 
-        <DialogFooter className="sticky bottom-0 z-30 p-5 bg-white border-t border-slate-100 sm:justify-center backdrop-blur-sm">
-            <Button
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              aria-label="Đóng"
-              className="w-full sm:w-48 h-12 rounded-2xl font-black text-slate-600 border-slate-200 hover:bg-slate-50 transition-all active:scale-95 text-base shadow-sm"
-            >
-              Đóng
-            </Button>
+        {/* Confirm delete unsent photo */}
+        <AlertDialog 
+          open={confirmDeletePhoto !== null} 
+          onOpenChange={(open) => !open && setConfirmDeletePhoto(null)}
+        >
+          <AlertDialogContent className="rounded-[32px] border-none p-0 overflow-hidden shadow-2xl max-w-[400px]">
+             <div className="bg-red-50 p-8 flex justify-center">
+                <AlertDialogIcon variant="destructive" />
+             </div>
+             <div className="p-8 pt-6 text-center">
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="text-2xl font-black text-zinc-900 text-center">Xóa ảnh chưa gửi?</AlertDialogTitle>
+                  <AlertDialogDescription className="text-zinc-500 text-base font-medium text-center mt-2">
+                    Bạn có chắc chắn muốn xóa ảnh này không? Ảnh chưa được gửi lên máy chủ.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+             </div>
+             <AlertDialogFooter className="p-6 bg-zinc-50 gap-3 sm:gap-0">
+                <AlertDialogCancel className="h-12 rounded-2xl flex-1 border-zinc-200 font-bold text-zinc-600">Hủy</AlertDialogCancel>
+                <AlertDialogAction 
+                  className="h-12 rounded-2xl flex-1 bg-red-600 hover:bg-red-700 text-white font-bold shadow-lg shadow-red-200"
+                  onClick={() => {
+                    if (confirmDeletePhoto && onDeleteCurrentPhoto) {
+                      onDeleteCurrentPhoto(confirmDeletePhoto.index, confirmDeletePhoto.id);
+                      setConfirmDeletePhoto(null);
+                    }
+                  }}
+                >
+                  Xóa
+                </AlertDialogAction>
+             </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <DialogFooter className="border-t bg-white">
+          <DialogAction variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto px-10">
+            Đóng
+          </DialogAction>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { UserAvatar } from '@/components/user-avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -91,12 +91,7 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
             <h2 className="text-2xl font-bold tracking-tight">Xin chào,</h2>
             <h3 className="text-xl font-semibold text-primary">{user.displayName}</h3>
           </div>
-          <Avatar className="h-16 w-16 border-2 border-background shadow-lg">
-            <AvatarImage src={user.photoURL || ''} />
-            <AvatarFallback className="bg-primary text-primary-foreground text-lg">
-              {getInitials(user.displayName || 'User')}
-            </AvatarFallback>
-          </Avatar>
+          <UserAvatar user={user} size="h-16 w-16" rounded="full" className="border-2 border-background shadow-lg" />
         </div>
 
         <div className="flex items-center justify-between gap-2 mb-2">
