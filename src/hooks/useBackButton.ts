@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { Capacitor, PluginListenerHandle } from "@capacitor/core";
 import { App } from "@capacitor/app";
 import usePreserveScroll from '@/hooks/use-preserve-scroll';
@@ -22,7 +23,7 @@ export function useBackButton(
   lightbox?: LightboxControls,
   userRole?: string
 ) {
-  const router = useRouter();
+  const nav = useAppNavigation();
   const pathname = usePathname();
 
   // Use refs to hold the latest values of dependencies
@@ -41,21 +42,33 @@ export function useBackButton(
         currentLightbox.closeLightbox();
       } else if (currentDialog?.isAnyDialogOpen) {
         currentDialog.closeDialog();
-      } else if (canGoBack && pathname !== "/shifts" && pathname !== "/bartender" && pathname !== "/manager" && pathname !== "/admin") {
-        if (userRole === "Phục vụ") {
-          router.push("/shifts");
-        } else if (userRole === "Pha chế") {
-          router.push("/bartender");
-        } else if (userRole === "Quản lý") {
-          router.push("/manager");
-        } else if (userRole === "Chủ nhà hàng") {
-          router.push("/admin");
+      } else if (pathname !== "/shifts" && pathname !== "/bartender" && pathname !== "/manager" && pathname !== "/admin") {
+        // Prefer navigating back in the app/navigation history when possible.
+        // `canGoBack` represents the webview history state; if it's true we
+        // perform a back navigation. Otherwise fall back to sending the user
+        // to their role-specific home page.
+        if (canGoBack) {
+          try {
+            nav.back();
+          } catch {
+            // If nav.back throws for any reason, fall through to role fallback
+          }
+        } else {
+          if (userRole === "Phục vụ") {
+            nav.push("/shifts");
+          } else if (userRole === "Pha chế") {
+            nav.push("/bartender");
+          } else if (userRole === "Quản lý") {
+            nav.push("/manager");
+          } else if (userRole === "Chủ nhà hàng") {
+            nav.push("/admin");
+          }
         }
       } else {
         App.minimizeApp();
       }
     },
-    [router, userRole, pathname]
+    [nav, userRole, pathname]
   );
 
   useEffect(() => {

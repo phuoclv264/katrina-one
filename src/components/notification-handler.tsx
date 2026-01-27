@@ -6,12 +6,12 @@ import { requestNotificationPermission, unregisterNotifications } from '@/lib/fi
 import { toast } from 'react-hot-toast';
 import type { Notification } from '@/lib/types';
 import { Capacitor } from '@capacitor/core';
-import { useRouter } from 'nextjs-toploader/app';
+import { useAppNavigation } from '@/contexts/app-navigation-context';
 
 export default function NotificationHandler() {
   const { user } = useAuth();
   const lastUserObject = useRef(user);
-  const router = useRouter();
+  const nav = useAppNavigation();
 
   const handleNewNotification = useCallback((notification: Notification) => {
     toast.success(JSON.stringify(notification));
@@ -19,9 +19,13 @@ export default function NotificationHandler() {
 
   const handleNotificationAction = useCallback((href: string) => {
     if (href) {
-      router.push(href);
+      try {
+        nav.push(href);
+      } catch {
+        // Ignore navigation errors from notification actions
+      }
     }
-  }, [router]);
+  }, [nav]);
 
   useEffect(() => {
     if (user && (!lastUserObject.current || lastUserObject.current.uid !== user.uid) && Capacitor.isNativePlatform()) {
