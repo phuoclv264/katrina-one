@@ -1,15 +1,24 @@
 import React, { useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { Dialog, DialogTitle, DialogContent, DialogFooter, DialogHeader, DialogDescription } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { 
+  Dialog, 
+  DialogTitle, 
+  DialogContent, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogDescription,
+  DialogBody,
+  DialogAction,
+  DialogCancel
+} from '@/components/ui/dialog';
 import type { Violation, ViolationUser } from '@/lib/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { FileText, DollarSign, Camera, CalendarDays, Users } from 'lucide-react';
+import { FileText, Camera, CalendarDays, Users, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 interface SubmitAllDialogProps {
   open: boolean;
@@ -92,77 +101,113 @@ export const SubmitAllDialog: React.FC<SubmitAllDialogProps> = ({ open, onClose,
   };
 
   const renderDesktopView = () => (
-    <>
-      <div className="bg-muted/50 px-4 py-2 border-b sticky top-0 z-20 backdrop-blur-sm bg-background/95">
-        <div className="flex items-center justify-between">
-          <div
-            className="flex items-center gap-3 cursor-pointer"
-            onClick={isProcessing || unsubmittedCount === 0 ? undefined : toggleSelectAll}
-          >
-            <Checkbox
-              checked={allSelectableSelected}
-              disabled={isProcessing || unsubmittedCount === 0}
-              aria-label="select-all"
-            />
-            <span className="font-medium text-sm">Chọn tất cả</span>
+    <div className="space-y-3">
+      <div className="bg-muted/30 p-3 rounded-2xl flex items-center justify-between border border-primary/5">
+        <div
+          className="flex items-center gap-3 cursor-pointer group"
+          onClick={isProcessing || unsubmittedCount === 0 ? undefined : toggleSelectAll}
+        >
+          <Checkbox
+            checked={allSelectableSelected}
+            disabled={isProcessing || unsubmittedCount === 0}
+            className="rounded-md h-5 w-5"
+          />
+          <div className="flex flex-col">
+            <span className="font-bold text-sm group-hover:text-primary transition-colors">Chọn tất cả</span>
+            <span className="text-[10px] text-muted-foreground">
+              {unsubmittedCount} vi phạm có thể chọn
+            </span>
           </div>
-          <span className="text-sm text-muted-foreground">
-            {unsubmittedCount} vi phạm có thể chọn
-          </span>
         </div>
+        
+        {selectedIds.length > 0 && (
+          <Badge variant="secondary" className="px-3 py-1 rounded-full gap-2 bg-primary/10 text-primary border-none text-[10px]">
+            <CheckCircle2 className="h-3 w-3" />
+            Đã chọn {selectedIds.length} mục
+          </Badge>
+        )}
       </div>
-      <div className="border rounded-lg overflow-hidden">
+
+      <div className="border border-primary/10 rounded-[1.5rem] overflow-hidden bg-card/50">
         <Table>
-          <TableHeader className="bg-background">
-            <TableRow className="bg-muted/30">
-              <TableHead className="w-12"></TableHead>
-              <TableHead className="w-28">Ngày</TableHead>
-              <TableHead className="w-32">Người</TableHead>
-              <TableHead className="w-40">Loại</TableHead>
-              <TableHead>Nội dung</TableHead>
-              <TableHead className="text-right w-32">Số tiền</TableHead>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent border-primary/10 bg-muted/20">
+              <TableHead className="w-12 pl-6"></TableHead>
+              <TableHead className="w-32 font-bold text-foreground/70 py-3">Thời gian</TableHead>
+              <TableHead className="w-48 font-bold text-foreground/70 py-3">Đối tượng</TableHead>
+              <TableHead className="w-40 font-bold text-foreground/70 py-3">Danh mục</TableHead>
+              <TableHead className="font-bold text-foreground/70 py-3">Nội dung vi phạm</TableHead>
+              <TableHead className="text-right w-40 pr-8 font-bold text-foreground/70 py-3">Số tiền</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {selectableViolations.map(v => (
-              <TableRow key={v.id} onClick={isProcessing || v.alreadySubmitted ? undefined : () => toggleSelect(v.id)} className={v.alreadySubmitted ? "opacity-60" : "hover:bg-muted/30 cursor-pointer"}>
-                <TableCell>
+              <TableRow 
+                key={v.id} 
+                onClick={isProcessing || v.alreadySubmitted ? undefined : () => toggleSelect(v.id)} 
+                className={cn(
+                  "transition-colors border-primary/5",
+                  v.alreadySubmitted ? "opacity-40 grayscale-[0.5]" : "hover:bg-primary/5 cursor-pointer",
+                  selectedIds.includes(v.id) && "bg-primary/[0.03]"
+                )}
+              >
+                <TableCell className="pl-6 py-2.5">
                   <Checkbox
                     checked={selectedIds.includes(v.id)}
                     onCheckedChange={() => toggleSelect(v.id)}
                     disabled={isProcessing || v.alreadySubmitted}
-                    aria-label={`select-${v.id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="rounded-md h-5 w-5"
                   />
                 </TableCell>
-                <TableCell>
-                  <span className="text-sm">
-                    {v.createdAt && format(new Date(v.createdAt.toString()), 'dd/MM/yyyy HH:mm')}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{(v.users || []).map((u: any) => u.name).join(', ')}</span>
+                <TableCell className="py-2.5">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold">
+                      {v.createdAt && format(new Date(v.createdAt.toString()), 'HH:mm')}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {v.createdAt && format(new Date(v.createdAt.toString()), 'dd/MM/yyyy')}
+                    </span>
                   </div>
                 </TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="font-normal">{v.categoryName}</Badge>
+                <TableCell className="py-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-full bg-slate-100 dark:bg-slate-800">
+                      <Users className="h-3 w-3 text-muted-foreground" />
+                    </div>
+                    <span className="text-sm font-medium max-w-[150px]">
+                      {(v.users || []).map((u: any) => u.name).join(', ')}
+                    </span>
+                  </div>
                 </TableCell>
-                <TableCell>
-                  <p className="text-sm whitespace-normal break-words">{v.content}</p>
+                <TableCell className="py-2.5">
+                  <Badge variant="outline" className="font-medium bg-background border-primary/20 text-[11px] px-2 py-0">
+                    {v.categoryName}
+                  </Badge>
                 </TableCell>
-                <TableCell className="text-right">
-                  <span className="font-semibold text-base">{(v.userCost || 0).toLocaleString('vi-VN')}</span>
-                  <span className="text-xs text-muted-foreground ml-1">₫</span>
+                <TableCell className="py-2.5">
+                  <p className="text-sm text-foreground/80 line-clamp-1 leading-relaxed">
+                    {v.content}
+                  </p>
+                </TableCell>
+                <TableCell className="text-right pr-8 py-2.5">
+                  <div className="flex flex-col items-end">
+                    <span className="font-bold text-base text-primary whitespace-nowrap">
+                      {(v.userCost || 0).toLocaleString('vi-VN')}
+                      <span className="text-[10px] ml-1 font-medium">₫</span>
+                    </span>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
             {selectableViolations.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-12">
-                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <FileText className="h-12 w-12 opacity-20" />
-                    <p>Không có vi phạm để nộp</p>
+                <TableCell colSpan={6} className="text-center py-16">
+                  <div className="flex flex-col items-center gap-4 text-muted-foreground/40">
+                    <div className="p-4 rounded-full bg-muted/30">
+                      <FileText className="h-10 w-10" />
+                    </div>
+                    <p className="text-sm font-medium">Không có vi phạm khả dụng để nộp</p>
                   </div>
                 </TableCell>
               </TableRow>
@@ -170,146 +215,153 @@ export const SubmitAllDialog: React.FC<SubmitAllDialogProps> = ({ open, onClose,
           </TableBody>
         </Table>
       </div>
-    </>
+    </div>
   );
 
   const renderMobileView = () => (
-    <div className="space-y-3 pr-4">
+    <div className="space-y-3 px-3">
       {unsubmittedCount > 0 && (
-        <div className="bg-muted/50 rounded-lg p-2 border sticky top-0 z-10 backdrop-blur-sm bg-background/95">
-          <div className="flex items-center justify-between">
-            <div
-              className="flex items-center gap-3 cursor-pointer"
-              onClick={isProcessing ? undefined : toggleSelectAll}
-            >
-              <Checkbox
-                checked={allSelectableSelected}
-                disabled={isProcessing}
-                aria-label="select-all"
-              />
-              <span className="font-medium text-sm">Chọn tất cả</span>
-            </div>
-            <span className="text-xs text-muted-foreground">
-              {unsubmittedCount} vi phạm
-            </span>
+        <div className="bg-muted/30 rounded-2xl p-3 border border-primary/5 flex items-center justify-between sticky top-0 z-10 backdrop-blur-md">
+          <div
+            className="flex items-center gap-3 cursor-pointer"
+            onClick={isProcessing ? undefined : toggleSelectAll}
+          >
+            <Checkbox
+              checked={allSelectableSelected}
+              disabled={isProcessing}
+              className="rounded-md h-5 w-5"
+            />
+            <span className="font-bold text-sm">Chọn tất cả</span>
           </div>
+          <span className="text-[10px] font-bold text-muted-foreground bg-background/50 px-2 py-1 rounded-lg">
+            {unsubmittedCount}
+          </span>
         </div>
       )}
-      <div className="space-y-3">
+
+      <div className="grid gap-2.5">
         {selectableViolations.map(v => (
           <div
             key={v.id}
             onClick={isProcessing || v.alreadySubmitted ? undefined : () => toggleSelect(v.id)}
-            className={`border rounded-xl overflow-hidden transition-all ${v.alreadySubmitted
-              ? 'bg-muted/30 opacity-60'
-              : selectedIds.includes(v.id)
-                ? 'border-primary shadow-md bg-primary/5'
-                : 'bg-card shadow-sm hover:shadow-md cursor-pointer'
-              }`}
+            className={cn(
+              "relative rounded-[1.5rem] border transition-all duration-200 overflow-hidden",
+              v.alreadySubmitted 
+                ? 'bg-muted/20 opacity-40 grayscale-[0.5] border-transparent' 
+                : selectedIds.includes(v.id)
+                  ? 'bg-primary/[0.04] border-primary/30 shadow-sm'
+                  : 'bg-card border-primary/10 hover:border-primary/20 shadow-none'
+            )}
           >
-            <div className="p-4 flex items-start gap-3">
-              <Checkbox
-                className="mt-1.5"
-                checked={selectedIds.includes(v.id)}
-                onCheckedChange={() => toggleSelect(v.id)}
-                disabled={isProcessing || v.alreadySubmitted}
-                aria-label={`select-${v.id}`}
-              />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <Badge variant="outline" className="font-medium">{v.categoryName}</Badge>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <CalendarDays className="h-3.5 w-3.5" />
-                    <span>{v.createdAt && format(new Date(v.createdAt.toString()), 'dd/MM/yy')}</span>
-                  </div>
+            <div className="p-4 flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground/50">
+                  <CalendarDays className="h-3 w-3" />
+                  <span>{v.createdAt && format(new Date(v.createdAt.toString()), 'HH:mm - dd/MM/yyyy')}</span>
                 </div>
+                
+                <Checkbox
+                  checked={selectedIds.includes(v.id)}
+                  onCheckedChange={() => toggleSelect(v.id)}
+                  disabled={isProcessing || v.alreadySubmitted}
+                  onClick={(e) => e.stopPropagation()}
+                  className="rounded-lg h-6 w-6 flex-shrink-0"
+                />
+              </div>
 
-                <p className="text-sm text-muted-foreground mb-3 whitespace-normal break-words">{v.content}</p>
+              <div className="space-y-1.5">
+                <Badge variant="outline" className="font-black bg-background border-primary/20 text-[9px] uppercase tracking-[0.1em] px-2 py-0.5 rounded-md w-fit block">
+                  {v.categoryName}
+                </Badge>
+                
+                <p className="text-sm font-semibold text-foreground/90 leading-normal break-words">
+                  {v.content}
+                </p>
+              </div>
 
-                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
-                  <Users className="h-3.5 w-3.5" />
-                  <span>{(v.users || []).map((u: any) => u.name).join(', ')}</span>
-                </div>
-
-                <Separator className="mb-3" />
-
+              <div className="flex items-center justify-between pt-1 border-t border-dashed border-primary/10 mt-1">
                 <div className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-bold text-xl">{(v.userCost || 0).toLocaleString('vi-VN')}</span>
-                  <span className="text-sm text-muted-foreground">₫</span>
+                  <div className="flex -space-x-2">
+                    <div className="p-1 px-1.5 rounded-full bg-slate-100 dark:bg-slate-800 border-2 border-background flex items-center gap-1 grayscale-[0.5]">
+                      <Users className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-[9px] font-bold text-muted-foreground">
+                        {(v.users || []).length}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-medium text-muted-foreground max-w-[100px]">
+                    {(v.users || []).map((u: any) => u.name).join(', ')}
+                  </span>
+                </div>
+
+                <div className="flex items-baseline gap-0.5">
+                  <span className="font-black text-xl text-primary whitespace-nowrap">
+                    {(v.userCost || 0).toLocaleString('vi-VN')}
+                  </span>
+                  <span className="text-[10px] font-bold text-primary italic">₫</span>
                 </div>
               </div>
             </div>
+
+            {/* Selection indicator bar */}
+            {selectedIds.includes(v.id) && !v.alreadySubmitted && (
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary" />
+            )}
+            
+            {/* Already submitted badge */}
+            {v.alreadySubmitted && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <Badge variant="secondary" className="bg-background/80 backdrop-blur-sm text-foreground/40 font-bold border-none pointer-events-none">
+                  Đã nộp
+                </Badge>
+              </div>
+            )}
           </div>
         ))}
-        {selectableViolations.length === 0 && (
-          <div className="text-center py-12">
-            <div className="flex flex-col items-center gap-3 text-muted-foreground">
-              <FileText className="h-16 w-16 opacity-20" />
-              <p className="text-sm">Không có vi phạm để nộp</p>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()} dialogTag="submit-all-violations-dialog" parentDialogTag={parentDialogTag}>
-      <DialogContent className={`${isMobile ? "max-w-md" : "max-w-5xl"} max-h-[90vh] overflow-hidden`}>
-        <DialogHeader className="sticky top-0 z-30 border-b">
+      <DialogContent className={`${isMobile ? "max-w-md" : "max-w-5xl"}`}>
+        <DialogHeader iconkey="camera" variant="info" className='pb-3'>
           <DialogTitle>Nộp bằng chứng cho nhiều vi phạm</DialogTitle>
-          <DialogDescription>
-            Chọn các vi phạm cần nộp. Bạn sẽ ghi hình video một lần và video này sẽ được gửi cho tất cả các mục đã chọn.
-          </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[60vh]">
-          <div className="space-y-4 p-4">
+        <DialogBody className="p-0">
+          <div className="space-y-4 pt-2 pb-4 px-3 sm:px-6">
             {isMobile ? renderMobileView() : renderDesktopView()}
+            
             {error && (
-              <div className="bg-destructive/10 text-destructive px-4 py-3 rounded-lg border border-destructive/20 text-sm">
-                {error}
+              <div className="mx-3 sm:mx-0 bg-destructive/5 text-destructive p-3 rounded-2xl border border-destructive/10 text-xs flex items-center gap-3">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <p className="font-medium">{error}</p>
               </div>
             )}
           </div>
-        </ScrollArea>
+        </DialogBody>
 
-        <DialogFooter className="sticky bottom-0 z-30 bg-background/90 backdrop-blur-sm border-t py-4 flex-col sm:flex-row gap-3">
-          <Button
-            onClick={onClose}
-            variant="outline"
-            disabled={isProcessing}
+        <DialogFooter variant="muted" className="flex-col sm:flex-row gap-3 sm:px-8">
+          <DialogCancel 
+            onClick={onClose} 
+            disabled={isProcessing} 
             className="w-full sm:w-auto order-2 sm:order-1"
           >
             Hủy
-          </Button>
-          <Button
+          </DialogCancel>
+          <DialogAction
             onClick={handleTriggerSubmit}
-            disabled={isProcessing || selectedIds.length === 0}
-            className="w-full sm:flex-1 order-1 sm:order-2 h-12 text-base font-semibold"
-            size="lg"
+            isLoading={isProcessing}
+            disabled={selectedIds.length === 0}
+            variant="default"
+            className="w-full sm:flex-1 order-1 sm:order-2 h-14"
           >
-            {isProcessing ? (
-              <>
-                <span className="animate-pulse">Đang xử lý...</span>
-              </>
-            ) : (
-              <>
-                <div className="flex items-center gap-2 min-w-0">
-                  <Camera className="h-5 w-5 flex-shrink-0" aria-hidden />
-                  <span className="min-w-0 flex flex-col sm:flex-row sm:items-center text-left leading-tight">
-                    <span className="font-semibold text-sm sm:text-base whitespace-normal break-words">
-                      Ghi hình &amp; Gửi <span className="sm:mx-2">({selectedIds.length})</span>
-                    </span>
-                    <span className="text-xs sm:text-sm text-muted-foreground mt-1 sm:mt-0 sm:ml-3 whitespace-normal break-words">
-                      {totalSelectedCost.toLocaleString('vi-VN')} ₫
-                    </span>
-                  </span>
-                </div>
-              </>
-            )}
-          </Button>
+            <div className="flex flex-col items-center leading-none">
+              <span className="text-sm font-bold">Ghi hình &amp; Gửi ({selectedIds.length})</span>
+              <span className="text-[10px] opacity-80 mt-1 font-medium">{totalSelectedCost.toLocaleString('vi-VN')} ₫</span>
+            </div>
+          </DialogAction>
         </DialogFooter>
       </DialogContent>
     </Dialog>

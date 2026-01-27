@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter, DialogAction } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
 import type { AssignedShift, ManagedUser, Schedule, ShiftBusyEvidence, ShiftTemplate, UserRole, BusyReportRequest } from '@/lib/types';
 import { subscribeToBusyReportRequestsForWeek } from '@/lib/schedule-store';
 import type { AuthUser } from '@/hooks/use-auth';
@@ -153,21 +153,25 @@ export default function WeekScheduleDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} dialogTag="week-schedule-dialog" parentDialogTag={parentDialogTag}>
-      <DialogContent className="max-w-6xl p-0 overflow-hidden flex flex-col border-none sm:rounded-2xl">
-        <DialogHeader className="p-4 sm:p-6 pb-2 sm:pb-3 pr-12 sm:pr-16 border-b border-slate-100 dark:border-slate-800 shrink-0">
-          <div className="flex items-center justify-between gap-4">
-            <DialogTitle className="text-l sm:text-2xl font-bold font-headline tracking-tight">Lịch làm việc tuần</DialogTitle>
-            {schedule && (
-              <Badge variant={schedule.status === 'published' ? 'default' : 'secondary'} className="px-3 py-0.5 rounded-full text-[10px] sm:text-xs uppercase font-bold tracking-wider">
-                {statusLabel[schedule.status]}
-              </Badge>
-            )}
+      <DialogContent className="max-w-6xl p-0 overflow-hidden flex flex-col border-none sm:rounded-2xl h-[90vh] sm:h-auto">
+        <DialogHeader iconkey="calendar" className="shrink-0">
+          <div className="flex items-center justify-between gap-4 w-full">
+            <div className="flex flex-col">
+              <DialogTitle>Lịch làm việc tuần</DialogTitle>
+              {schedule && (
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge variant={schedule.status === 'published' ? 'default' : 'secondary'} className="px-2 py-0 rounded-full text-[10px] uppercase font-bold tracking-wider">
+                    {statusLabel[schedule.status]}
+                  </Badge>
+                </div>
+              )}
+            </div>
           </div>
         </DialogHeader>
 
-        <div className="flex-1 flex flex-col min-h-0 bg-slate-50/30 dark:bg-transparent">
+        <DialogBody className="p-0 flex flex-col bg-slate-50/30 dark:bg-transparent overflow-hidden">
           {/* Action Header & Navigation */}
-          <div className="px-4 sm:px-6 py-3 border-b bg-background sticky top-0 z-10">
+          <div className="px-4 sm:px-6 py-3 border-b bg-background sticky top-0 z-10 shrink-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center justify-between sm:justify-start gap-4 order-2 sm:order-1">
                 <Button
@@ -183,16 +187,19 @@ export default function WeekScheduleDialog({
                   <span className="text-sm font-bold text-foreground">
                     {format(weekInterval.start, 'dd/MM')} — {format(weekInterval.end, 'dd/MM/yyyy')}
                   </span>
-                  {weekOffset !== 0 ? (
-                    <button
-                      onClick={() => setWeekOffset(0)}
-                      className="text-[10px] font-bold text-primary hover:underline uppercase"
-                    >
-                      Hiện tại
-                    </button>
-                  ) : (
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase">Tuần này</span>
-                  )}
+                  <div className="flex items-center gap-1.5">
+                    <CalendarIcon className="h-3 w-3 text-primary" />
+                    {weekOffset !== 0 ? (
+                      <button
+                        onClick={() => setWeekOffset(0)}
+                        className="text-[10px] font-bold text-primary hover:underline uppercase"
+                      >
+                        Hiện tại
+                      </button>
+                    ) : (
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase">Tuần này</span>
+                    )}
+                  </div>
                 </div>
 
                 <Button
@@ -245,9 +252,9 @@ export default function WeekScheduleDialog({
             </div>
           </div>
 
-          <ScrollArea className="flex-1 min-h-0">
+          <ScrollArea className="flex-1">
             {/* Desktop Table */}
-            <div className="min-w-[1000px] max-h-[80vh] hidden md:block p-4 sm:p-6">
+            <div className="min-w-[1000px] hidden md:block p-4 sm:p-6 text-foreground">
               {hasSchedule ? (
                 <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-card overflow-hidden shadow-sm">
                   <Table className="table-fixed w-full border-collapse">
@@ -337,7 +344,7 @@ export default function WeekScheduleDialog({
                                 >
                                   <div className="flex items-start justify-between gap-1.5 mb-2">
                                     <div className="flex-1 min-w-0">
-                                      <div className="font-bold text-xs truncate leading-tight">{shiftForCell.label}</div>
+                                      <div className="font-bold text-xs leading-tight">{shiftForCell.label}</div>
                                       <div className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
                                         {shiftForCell.timeSlot.start}-{shiftForCell.timeSlot.end}
                                       </div>
@@ -379,7 +386,7 @@ export default function WeekScheduleDialog({
             </div>
 
             {/* Mobile layout */}
-            <div className="md:hidden p-2 space-y-3 max-h-[80vh]">
+            <div className="md:hidden p-2 space-y-3">
               {hasSchedule ? (
                 daysOfWeek.map((day) => {
                   const dateKey = format(day, 'yyyy-MM-dd');
@@ -388,7 +395,7 @@ export default function WeekScheduleDialog({
                   const isToday = dateKey === format(new Date(), 'yyyy-MM-dd');
 
                   return (
-                    <div key={dateKey} className={cn("space-y-3", isToday ? "ring-1 ring-primary/20 bg-primary/5 rounded-md" : "")}>
+                    <div key={dateKey} className={cn("space-y-3 p-1 rounded-2xl", isToday ? "ring-1 ring-primary/20 bg-primary/5" : "")}>
                       <div className="flex items-center gap-3 sticky top-0 bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur-sm py-1 z-[5]">
                         <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
                         <div className="flex flex-col items-center">
@@ -432,6 +439,10 @@ export default function WeekScheduleDialog({
                                 return assignedOfRole < req.count;
                               }));
 
+                              if (sortedUsers.length === 0 && !isUnderstaffed) {
+                                return null;
+                              }
+
                             const isRelevantToMe = relevantUnderstaffedShifts.some(s => s.id === shiftForCell.id);
 
                             return (
@@ -457,7 +468,7 @@ export default function WeekScheduleDialog({
                                     <div className="min-w-0">
                                       <div className="flex items-center gap-2 mb-0.5">
                                         <h4 className="font-bold text-sm tracking-tight">{shiftForCell.label}</h4>
-                                        <Badge variant="outline" className="text-[9px] h-3.5 px-1 py-0 border-slate-200 uppercase font-bold text-muted-foreground font-mono">
+                                        <Badge variant="outline" className="text-[9px] h-3.5 px-1 py-0 border-slate-200 uppercase font-bold text-muted-foreground font-mono text-foreground">
                                           {shiftForCell.role}
                                         </Badge>
                                       </div>
@@ -473,7 +484,7 @@ export default function WeekScheduleDialog({
                                         isRelevantToMe ? "bg-amber-100 border-amber-200 text-amber-600" : "bg-destructive/5 border-destructive/10 text-destructive"
                                       )}>
                                         <AlertTriangle className="h-3.5 w-3.5" />
-                                        <span className="text-[10px] font-bold">Lacking</span>
+                                        <span className="text-[10px] font-bold">Thiếu</span>
                                       </div>
                                     )}
                                   </div>
@@ -509,7 +520,13 @@ export default function WeekScheduleDialog({
               )}
             </div>
           </ScrollArea>
-        </div>
+        </DialogBody>
+
+        <DialogFooter className="border-t bg-background shrink-0">
+          <DialogAction variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">
+            Đóng
+          </DialogAction>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

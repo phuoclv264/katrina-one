@@ -168,7 +168,7 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
                     </p>
                     {shift && (
                         <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                            <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">{shiftInfoText}</span>
+                            <span className="text-[11px] font-medium text-muted-foreground">{shiftInfoText}</span>
                             <Badge variant="secondary" className="h-4.5 px-1.5 text-[9px] font-bold rounded-md bg-muted/50">
                                 {dateText}
                             </Badge>

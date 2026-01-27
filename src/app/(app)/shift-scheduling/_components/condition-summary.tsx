@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
 import { Checkbox } from '@/components/ui/checkbox';
-import { Trash2, Edit2 } from 'lucide-react';
+import { Trash2, Edit2, X, AlertCircle, Info, Calendar, User, Clock, Calculator, LayoutGrid, Check, Trophy, Lock, AlertTriangle, Link2, UserMinus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ScheduleCondition, ShiftTemplate, ManagedUser } from '@/lib/types';
@@ -34,6 +34,16 @@ const typeLabels: Record<string, string> = {
   StaffShiftLink: 'Ràng buộc',
   StaffExclusion: 'Không ghép chung',
   AvailabilityStrictness: 'Thời gian rảnh',
+};
+
+const typeIcons: Record<string, React.ReactNode> = {
+  WorkloadLimit: <Calculator className="h-3.5 w-3.5" />,
+  DailyShiftLimit: <Clock className="h-3.5 w-3.5" />,
+  ShiftStaffing: <User className="h-3.5 w-3.5" />,
+  StaffPriority: <Trophy className="h-3.5 w-3.5" />,
+  StaffShiftLink: <Link2 className="h-3.5 w-3.5" />,
+  StaffExclusion: <UserMinus className="h-3.5 w-3.5" />,
+  AvailabilityStrictness: <Calendar className="h-3.5 w-3.5" />,
 };
 
 export default function ConditionSummary({
@@ -91,105 +101,130 @@ export default function ConditionSummary({
   }, [filtered]);
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-sm">Tổng hợp điều kiện ({filtered.length})</h3>
-          {employeeFilterUserId && (
-            <div className="flex items-center gap-2 ml-4">
-              <Badge variant="secondary" className="text-[11px] h-6">
-                {allUsers.find(u => u.uid === employeeFilterUserId)?.displayName || '—'}
-              </Badge>
-              {onClearEmployeeFilter && (
-                <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={onClearEmployeeFilter} aria-label="Clear employee filter">
-                  ✕
-                </Button>
-              )}
-            </div>
-          )}
+    <div className="flex flex-col gap-6 p-1">
+      <div className="flex items-center justify-between px-1">
+        <div className="flex flex-col">
+          <h3 className="font-black text-sm uppercase tracking-tighter text-muted-foreground/80 flex items-center gap-2">
+            <LayoutGrid className="h-4 w-4" />
+            Điều kiện đang áp dụng
+          </h3>
+          <p className="text-[10px] text-muted-foreground font-medium">Tìm thấy {filtered.length} ràng buộc phù hợp</p>
         </div>
+        
+        {employeeFilterUserId && (
+          <div className="flex items-center gap-1.5 bg-primary/5 pl-3 pr-1 py-1 rounded-2xl border border-primary/10">
+            <span className="text-[10px] font-black text-primary uppercase">{allUsers.find(u => u.uid === employeeFilterUserId)?.displayName || '—'}</span>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-6 w-6 rounded-xl hover:bg-primary/10 text-primary" 
+              onClick={onClearEmployeeFilter}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 min-h-0">
-        <div className="space-y-3 pr-4 pb-4">
+        <div className="space-y-6">
           <AnimatePresence initial={false}>
             {Object.entries(groupedByType).length === 0 ? (
-              <div className="text-xs text-muted-foreground text-center py-8">
-                Chưa có điều kiện nào
+              <div className="text-center py-16 bg-muted/20 rounded-[2.5rem] border-2 border-dashed border-primary/5">
+                 <div className="w-12 h-12 bg-background rounded-2xl border border-primary/5 flex items-center justify-center mx-auto mb-3 opacity-20">
+                   <AlertCircle className="h-6 w-6" />
+                 </div>
+                 <p className="text-muted-foreground font-bold text-sm">Chưa có điều kiện nào</p>
+                 <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1 opacity-50">Vui lòng thêm điều kiện mới</p>
               </div>
             ) : (
               Object.entries(groupedByType).map(([type, items]) => (
                 <motion.div
                   key={`group_${type}`}
-                  initial={{ opacity: 0, y: -4 }}
+                  initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  className="space-y-1"
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="space-y-3"
                 >
-                  <div className="text-xs font-semibold text-muted-foreground">
-                    {typeLabels[type] || type} ({items.length})
+                  <div className="flex items-center gap-2 px-1">
+                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-primary/10 to-transparent" />
+                    <span className="text-[11px] font-black text-primary uppercase tracking-widest bg-background px-4 py-1 rounded-full border border-primary/10">
+                      {typeLabels[type] || type}
+                    </span>
+                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-primary/10 to-transparent" />
                   </div>
-                  {items.map(c => (
-                    <motion.div
-                      key={c.id}
-                      layout
-                      initial={{ opacity: 0, scale: 0.96 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.96 }}
-                      className={cn(
-                        'border rounded-md p-2.5 text-xs overflow-hidden',
-                        !c.enabled && 'opacity-50 bg-muted'
-                      )}
-                    >
-                      <div className="flex flex-col">
-                        <div className="flex items-center gap-2">
-                          <Checkbox
-                            checked={c.enabled}
-                            onCheckedChange={() => onToggleEnabled(c.id)}
-                            className="h-3 w-3"
-                            aria-label={`Enable condition ${c.id}`}
-                          />
 
-                          <span className="font-medium text-[11px] min-w-0 truncate">
-                            {getConditionLabel(c, shiftTemplates, allUsers)}
-                          </span>
+                  <div className="grid gap-2">
+                    {items.map(c => (
+                      <motion.div
+                        key={c.id}
+                        layout
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className={cn(
+                          'group relative bg-background border rounded-2xl p-4 transition-all duration-300 hover:shadow-md hover:border-primary/20',
+                          !c.enabled ? 'grayscale opacity-60 bg-muted/10 border-dashed' : 'border-primary/10'
+                        )}
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className="pt-1">
+                            <Checkbox
+                              checked={c.enabled}
+                              onCheckedChange={() => onToggleEnabled(c.id)}
+                              className="h-5 w-5 rounded-lg border-2 border-primary/20 bg-background data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground transition-all"
+                            />
+                          </div>
 
-                          {c.mandatory && (
-                            <Badge variant="secondary" className="text-[10px] h-5">
-                              Bắt buộc
-                            </Badge>
-                          )}
+                          <div className="flex-1 min-w-0 flex flex-col gap-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <div className={cn(
+                                "flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-tight",
+                                c.enabled ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                              )}>
+                                {typeIcons[type] || <Info className="h-3 w-3" />}
+                                {getConditionLabel(c, shiftTemplates, allUsers)}
+                              </div>
 
-                          <div className="ml-auto flex items-center gap-1">
+                              {c.mandatory && (
+                                <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-none px-2 py-0.5 rounded-lg text-[10px] font-black uppercase shadow-none">
+                                  Bắt buộc
+                                </Badge>
+                              )}
+                            </div>
+
+                            <div className="text-[12px] font-medium text-muted-foreground leading-snug">
+                              {getConditionDetails(c, shiftTemplates, allUsers)}
+                            </div>
+                          </div>
+
+                          <div className="shrink-0 flex items-center gap-1">
                             {onEdit && (
                               <Button
                                 variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0"
+                                size="icon"
+                                className="h-10 w-10 p-0 rounded-xl hover:bg-primary/5 text-muted-foreground hover:text-primary transition-colors"
                                 onClick={() => onEdit(c)}
-                                aria-label="Edit condition"
                               >
-                                <Edit2 className="h-3 w-3" />
+                                <Edit2 className="h-4 w-4" />
                               </Button>
                             )}
                             <Button
                               variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                              size="icon"
+                              className="h-10 w-10 p-0 rounded-xl hover:bg-destructive/5 text-muted-foreground hover:text-destructive transition-colors"
                               onClick={() => onDelete(c.id)}
-                              aria-label="Delete condition"
                             >
-                              <Trash2 className="h-3 w-3" />
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </div>
 
-                        <div className="text-[11px] text-muted-foreground pl-5 min-w-0 truncate mt-0.5">
-                          {getConditionDetails(c, shiftTemplates, allUsers)}
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
+                        {!c.enabled && (
+                          <div className="absolute inset-0 bg-background/20 backdrop-grayscale pointer-events-none rounded-2xl" />
+                        )}
+                      </motion.div>
+                    ))}
+                  </div>
                 </motion.div>
               ))
             )}
