@@ -556,7 +556,7 @@ export default function PassRequestsDialog({
                     </DialogDescription>
                 </DialogHeader>
 
-                <DialogBody className="p-0 flex flex-col overflow-hidden bg-slate-50/30 dark:bg-slate-900/10 h-[60vh] sm:h-auto max-h-[70vh]">
+                <DialogBody className="p-0 flex flex-col overflow-hidden bg-slate-50/30 dark:bg-slate-900/10">
                     <Tabs defaultValue="pending" className="flex flex-col flex-1 overflow-hidden">
                         <div className="px-4 sm:px-5 pt-4 sm:pt-5 pb-2 sm:pb-3 bg-background/50 backdrop-blur-sm border-b border-slate-100 dark:border-slate-800/50">
                             <TabsList className="grid w-full grid-cols-2 h-10 sm:h-11 p-1 bg-muted/50 rounded-xl">
