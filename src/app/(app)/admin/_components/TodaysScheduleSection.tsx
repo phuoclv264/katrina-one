@@ -7,8 +7,8 @@ import { Button } from '@/components/ui/button';
 import type { AssignedShift } from '@/lib/types';
 import { generateShortName, formatTime, cn } from '@/lib/utils';
 import { AlertCircle, Eye } from 'lucide-react';
-import type { EmployeeAttendance } from '@/lib/types';
-import { parse, isAfter } from 'date-fns';
+import type { EmployeeAttendance, EmployeeStatus } from '@/lib/types';
+import { parse, isAfter, differenceInMinutes } from 'date-fns';
 import { useLightbox } from '@/contexts/lightbox-context';
 
 interface ShiftWithStatus extends AssignedShift {
@@ -20,6 +20,18 @@ interface TodaysScheduleSectionProps {
   offShiftEmployees?: EmployeeAttendance[];
   onViewDetails?: () => void;
 }
+
+interface MatchedAttendance {
+  checkInTime: Date | null;
+  checkOutTime: Date | null;
+  lateMinutes: number | null;
+  lateReason: string | null;
+  lateReasonPhotoUrl?: string | null;
+  estimatedLateMinutes?: number | null;
+  status: EmployeeStatus;
+}
+
+
 
 export function TodaysScheduleSection({ shifts, offShiftEmployees, onViewDetails }: TodaysScheduleSectionProps) {
   const navigation = useAppNavigation();
@@ -40,7 +52,7 @@ export function TodaysScheduleSection({ shifts, offShiftEmployees, onViewDetails
             if (onViewDetails) {
               onViewDetails();
             } else {
-              navigation.push('/schedule');
+              navigation.push('/shift-scheduling');
             }
           }}
           className="text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-full h-8 px-4 transition-all"
@@ -99,13 +111,13 @@ export function TodaysScheduleSection({ shifts, offShiftEmployees, onViewDetails
                   <div className="flex flex-col gap-2.5 mt-0.5">
                     {shift.assignedUsers.length > 0 ? (
                       shift.assignedUsers.map((user) => {
-                        // Try to find attendance info attached to the shift (admin page augments shifts with employees[])
-                        const employeeInfo = shift.employees?.find((e: EmployeeAttendance) => e.id === user.userId);
-                        const checkIn = formatTime(employeeInfo?.checkInTime);
-                        const checkOut = formatTime(employeeInfo?.checkOutTime);
+                        // Use the pre-processed attendance data from shift.employees
+                        const employeeData = shift.employees?.find(emp => emp.id === user.userId);
+                        const checkIn = formatTime(employeeData?.checkInTime);
+                        const checkOut = formatTime(employeeData?.checkOutTime);
                         let lateMessage = null;
-                        if (employeeInfo?.lateReason) {
-                          lateMessage = `Xin trễ${employeeInfo?.estimatedLateMinutes ? ` ${employeeInfo.estimatedLateMinutes} phút` : ''}${employeeInfo?.lateReason ? ` — ${employeeInfo.lateReason.trim()}` : ''}`;
+                        if (employeeData?.lateReason) {
+                          lateMessage = `Xin trễ${employeeData?.estimatedLateMinutes ? ` ${employeeData.estimatedLateMinutes} phút` : ''}${employeeData?.lateReason ? ` — ${employeeData.lateReason.trim()}` : ''}`;
                         }
 
                         return (
@@ -116,6 +128,8 @@ export function TodaysScheduleSection({ shifts, offShiftEmployees, onViewDetails
                                 "text-[11px] px-2 py-0 h-5 border-0 font-bold transition-colors",
                                 (!checkIn && hasStarted)
                                   ? "bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 shadow-sm ring-1 ring-red-100 dark:ring-red-900/30"
+                                  : employeeData?.status === 'late'
+                                  ? "bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 shadow-sm ring-1 ring-amber-100 dark:ring-amber-900/20"
                                   : "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 shadow-sm ring-1 ring-emerald-100 dark:ring-emerald-900/20"
                               )}
                             >
@@ -124,31 +138,43 @@ export function TodaysScheduleSection({ shifts, offShiftEmployees, onViewDetails
                             <div className="text-[11px] text-zinc-500 dark:text-zinc-400 tracking-tight">
                               {checkIn ? <span className="font-semibold text-zinc-700 dark:text-zinc-200">{checkIn} - </span> : <span className="italic opacity-60">Chưa check-in</span>}
                               {checkOut && <span className="font-semibold text-zinc-700 dark:text-zinc-200">{checkOut}</span>}
-                              {employeeInfo?.status === 'pending_late' && (
+                              {employeeData?.status === 'pending_late' && (
                                 <span className="ml-3 inline-flex items-center gap-2">
-                                  <span className="text-amber-600 dark:text-amber-400 font-bold">Dự kiến trễ {employeeInfo?.estimatedLateMinutes ?? '?'} phút</span>
+                                  <span className="text-amber-600 dark:text-amber-400 font-bold">Dự kiến trễ {employeeData?.estimatedLateMinutes ?? '?'} phút</span>
 
-                                  {employeeInfo?.lateReason && (
-                                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500 italic line-clamp-1 max-w-[120px]">{employeeInfo?.lateReason}</span>
+                                  {employeeData?.lateReason && (
+                                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500 italic line-clamp-1 max-w-[120px]">{employeeData?.lateReason}</span>
                                   )}
 
-                                  {employeeInfo?.lateReasonPhotoUrl && (
+                                  {employeeData?.lateReasonPhotoUrl && (
                                     <Button
                                       variant="ghost"
                                       size="icon"
                                       className="h-6 w-6 rounded-md text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30"
-                                      onClick={() => { if (employeeInfo?.lateReasonPhotoUrl) openLightbox([{ src: employeeInfo.lateReasonPhotoUrl }]) }}
+                                      onClick={() => { if (employeeData?.lateReasonPhotoUrl) openLightbox([{ src: employeeData.lateReasonPhotoUrl }]) }}
                                       title="Xem minh chứng"
-                                      aria-label={`Xem minh chứng của ${employeeInfo?.name ?? ''}`}
+                                      aria-label={`Xem minh chứng của ${user.userName}`}
                                     >
                                       <Eye className="h-3.5 w-3.5" />
                                     </Button>
                                   )}
                                 </span>
                               )}
-                              {employeeInfo?.status === 'late' && (
-                                <span className="ml-3 text-red-500 font-medium">
-                                  Trễ {employeeInfo?.lateMinutes ?? '?'} phút{lateMessage && ` (${lateMessage})`}
+                              {employeeData?.status === 'late' && (
+                                <span className="ml-3 inline-flex items-center gap-1 text-red-500 font-medium">
+                                  <span>Trễ {employeeData?.lateMinutes ?? '?'} phút{lateMessage && ` (${lateMessage})`}</span>
+                                  {employeeData?.lateReasonPhotoUrl && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 rounded-md text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                                      onClick={() => { if (employeeData?.lateReasonPhotoUrl) openLightbox([{ src: employeeData.lateReasonPhotoUrl }]) }}
+                                      title="Xem minh chứng"
+                                      aria-label={`Xem minh chứng của ${user.userName}`}
+                                    >
+                                      <Eye className="h-3.5 w-3.5" />
+                                    </Button>
+                                  )}
                                 </span>
                               )}
                             </div>

@@ -27,6 +27,7 @@ import {
     Loader2,
     FileX2,
     AlertTriangle,
+    Calendar,
 } from 'lucide-react';
 import {
     getISOWeek,
@@ -792,6 +793,30 @@ export default function ScheduleView() {
         return badgeContent;
     };
 
+    const handleBackToToday = () => {
+        const today = new Date();
+        const todayKey = format(today, 'yyyy-MM-dd');
+
+        // 1. Set to current week if needed
+        if (!isSameWeek(currentDate, today, { weekStartsOn: 1 })) {
+            setCurrentDate(today);
+        }
+
+        // 2. Expand today in accordion
+        if (!openMobileDays.includes(todayKey)) {
+            setOpenMobileDays(prev => [...prev, todayKey]);
+        }
+
+        // 3. Scroll to today
+        // Use a timeout to allow render/expansion
+        setTimeout(() => {
+            const el = document.getElementById('today-mobile-item');
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }, 300);
+    };
+
     return (
         <TooltipProvider>
             <div className="flex flex-col xl:flex-row gap-8">
@@ -960,7 +985,7 @@ export default function ScheduleView() {
                                         const isPast = !isToday && isAfter(new Date(), day);
                                         return (
                                             <AccordionItem value={dateKey} key={dateKey} className={cn("border-b group", isToday && "bg-yellow-50 dark:bg-yellow-900/30", isPast && "opacity-70")}>
-                                                <div className="p-4 bg-muted/30 rounded-t-md">
+                                                <div className="p-4 bg-muted/30 rounded-t-md" id={isToday ? "today-mobile-item" : undefined}>
                                                     <AccordionTrigger className="font-semibold text-base hover:no-underline p-0">
                                                         <span className="text-lg">{format(day, 'eeee, dd/MM', { locale: vi })}{isToday && <Badge className="ml-2 text-xs">Hôm nay</Badge>}</span>
                                                     </AccordionTrigger>
@@ -1197,6 +1222,18 @@ export default function ScheduleView() {
                     </div>
                 </div>
             )}
+
+            {/* Back to Today FAB (Mobile Only) */}
+            <div className="fixed right-4 z-[20] transition-[bottom] duration-300 bottom-5 [.bottom-nav-visible_&]:bottom-20 md:hidden">
+                <Button
+                    size="icon"
+                    className="w-14 h-14 rounded-full font-black shadow-2xl shadow-primary/30 bg-primary hover:bg-primary/90 text-primary-foreground flex items-center justify-center relative transition-all active:scale-95 p-0 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    onClick={handleBackToToday}
+                    aria-label="Về hôm nay"
+                >
+                    <Calendar className="h-6 w-6" />
+                </Button>
+            </div>
 
 
             {activeShift && user && (
