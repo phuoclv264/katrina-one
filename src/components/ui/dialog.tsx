@@ -181,7 +181,7 @@ const DialogHeader = ({
             </div>
           )}
 
-          <div className="flex flex-col space-y-1.5 text-center sm:text-left min-w-0">
+          <div className="flex flex-col space-y-1.5 text-center sm:text-left min-w-0 flex-1">
             {children}
           </div>
         </div>
