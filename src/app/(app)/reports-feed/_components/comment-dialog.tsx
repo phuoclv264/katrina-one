@@ -191,7 +191,7 @@ export default function CommentDialog({
                     </DialogHeader>
 
                     <DialogBody className="bg-muted/5 flex flex-col">
-                        <div ref={scrollAreaRef} className="flex-1 flex flex-col gap-6 overflow-auto">
+                        <div ref={scrollAreaRef} className="flex-1 flex flex-col gap-6">
                             {(report.comments || []).length > 0 ? (
                                 (report.comments || []).map(comment => {
                                     const isMyComment = comment.authorId === currentUser.uid;

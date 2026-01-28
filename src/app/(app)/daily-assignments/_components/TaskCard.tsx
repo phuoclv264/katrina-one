@@ -213,7 +213,7 @@ export default function TaskCard({ task, reports, canSubmit, pendingMedia, pendi
               <div className="rounded-lg bg-muted/20 p-2.5 sm:p-3 space-y-2 border border-muted-foreground/5">
                 <div className="text-[10px] font-black uppercase tracking-[0.1em] text-muted-foreground/70 flex items-center gap-2">
                   <span className="h-px bg-muted-foreground/20 flex-1" />
-                  Hướng dẫn mẫu
+                  Hướng dẫn | Khu vực
                   <span className="h-px bg-muted-foreground/20 flex-1" />
                 </div>
                 <MediaPreview media={task.media} />

@@ -253,6 +253,7 @@ export type MediaItem = {
   id: string; // local ID from photoStore
   type: 'photo' | 'video';
   blob?: Blob; // For video files, which are not stored in photoStore
+  url?: string; // local URL or Firebase Storage URL
 };
 
 export type MediaAttachment = {
