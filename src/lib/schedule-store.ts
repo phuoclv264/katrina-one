@@ -1284,6 +1284,25 @@ export async function deletePassRequestNotification(notificationId: string): Pro
     await deleteDoc(docRef);
 }
 
+export async function addStaffToShift(weekId: string, shiftId: string, user: ManagedUser, assignedRole?: UserRole): Promise<void> {
+    const docRef = doc(db, 'schedules', weekId);
+    const snap = await getDoc(docRef);
+    if (!snap.exists()) throw new Error('Schedule not found');
+    const schedule = snap.data() as Schedule;
+    const newShifts = schedule.shifts.map(s => {
+        if (s.id !== shiftId) return s;
+        if (s.assignedUsers.some(au => au.userId === user.uid)) return s;
+        return {
+            ...s,
+            assignedUsers: [
+                ...s.assignedUsers,
+                { userId: user.uid, displayName: user.displayName, assignedRole: assignedRole || user.role }
+            ]
+        };
+    });
+    await updateDoc(docRef, { shifts: newShifts });
+}
+
 // --- Monthly Tasks (New Rule-Based System) ---
 
 function isTaskScheduledForDate(task: MonthlyTask, date: Date): boolean {

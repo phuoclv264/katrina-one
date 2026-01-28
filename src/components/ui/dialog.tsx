@@ -63,9 +63,9 @@ const DialogContent = React.forwardRef<
     <DialogOverlay className={overlayClassName} />
     <DialogPrimitive.Content
       ref={ref}
-      onInteractOutside={(e: any) => e.preventDefault()}
-      onPointerDownOutside={(e: any) => e.preventDefault()}
-      onFocusOutside={(e: any) => e.preventDefault()}
+      onInteractOutside={(e: any) => { if (!props.onInteractOutside) e.preventDefault() }}
+      onPointerDownOutside={(e: any) => { if (!props.onPointerDownOutside) e.preventDefault() }}
+      onFocusOutside={(e: any) => { if (!props.onFocusOutside) e.preventDefault() }}
       aria-describedby={undefined}
       className={cn(
         "fixed left-[50%] top-[50%] z-50 max-h-[90vh] grid w-full max-w-[95dvw] sm:max-w-lg translate-x-[-50%] translate-y-[-50%] gap-0 border-none bg-card shadow-soft duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] rounded-[2.5rem] overflow-hidden sm:max-w-lg",
