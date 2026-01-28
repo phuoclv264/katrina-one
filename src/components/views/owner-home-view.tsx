@@ -449,6 +449,71 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
               return d;
             };
 
+            // Helper: get display times for continuous work across multiple shifts
+            const getContinuousWorkTimes = (record: AttendanceRecord, currentShift: AssignedShift, userShifts: AssignedShift[]) => {
+              // Sort user shifts by start time
+              const sortedShifts = [...userShifts].sort((a, b) => {
+                const aStart = parse(a.timeSlot.start, 'HH:mm', new Date(a.date));
+                const bStart = parse(b.timeSlot.start, 'HH:mm', new Date(b.date));
+                return aStart.getTime() - bStart.getTime();
+              });
+              
+              const currentIndex = sortedShifts.findIndex(s => s.id === currentShift.id);
+              const prevShift = sortedShifts[currentIndex - 1];
+              const nextShift = sortedShifts[currentIndex + 1];
+              
+              const recStart = record.checkInTime ? toDateSafe(record.checkInTime)! : null;
+              const recEnd = record.checkOutTime ? toDateSafe(record.checkOutTime)! : null;
+              
+              const shiftStartDt = parse(currentShift.timeSlot.start, 'HH:mm', new Date(currentShift.date));
+              const shiftEndDt = parse(currentShift.timeSlot.end, 'HH:mm', new Date(currentShift.date));
+              const nowDt = new Date();
+              
+              // Determine check-in time
+              let checkInTime: Date | null = null;
+              if (recStart) {
+                if (recStart >= shiftStartDt && recStart <= shiftEndDt) {
+                  // Actual check-in falls within this shift
+                  checkInTime = recStart;
+                } else if (prevShift && currentIndex > 0) {
+                  // For continuous work: if there's a previous shift, show current shift start as check-in
+                  checkInTime = shiftStartDt;
+                } else {
+                  // Default to shift start
+                  checkInTime = shiftStartDt;
+                }
+              }
+              
+              // Determine check-out time
+              let checkOutTime: Date | null = null;
+              if (recEnd) {
+                if (recEnd >= shiftStartDt && recEnd <= shiftEndDt) {
+                  // Actual check-out falls within this shift
+                  checkOutTime = isAfter(nowDt, recEnd) || +recEnd <= +nowDt ? recEnd : null;
+                } else if (recEnd > shiftEndDt) {
+                  // User checked out after this shift ended - show the actual check-out time
+                  checkOutTime = recEnd;
+                }
+              } else {
+                // No checkout yet (in-progress).
+                // Only set auto-checkout if there is a next shift and it has started.
+                if (nextShift && currentIndex < sortedShifts.length - 1) {
+                  const nextShiftStart = parse(nextShift.timeSlot.start, 'HH:mm', new Date(nextShift.date));
+                  // If next shift has started, assume continuous work and close this shift at next shift start
+                  if (nowDt >= nextShiftStart) {
+                    checkOutTime = nextShiftStart;
+                  } else {
+                    checkOutTime = null;
+                  }
+                } else {
+                  // Single shift or last shift - if not checked out, leave empty
+                  checkOutTime = null;
+                }
+              }
+              
+              return { checkInTime, checkOutTime };
+            };
+
             if (nearestRecord) {
               // Record may be a pending_late (no checkInTime) or a real check-in record with optional checkOutTime
               if (nearestRecord.status === 'pending_late') {
@@ -459,40 +524,20 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
               } else if (nearestRecord.checkInTime) {
                 const recStart = toDateSafe(nearestRecord.checkInTime)!;
                 const recEnd = nearestRecord.checkOutTime ? toDateSafe(nearestRecord.checkOutTime)! : null;
-
                 const shiftStartDt = shiftStart;
                 const shiftEndDt = shiftEnd;
-                const nowDt = new Date();
-
+                
                 // If the record interval intersects this shift, compute per-shift displayed times
                 const intersects = recStart <= shiftEndDt && (!recEnd || recEnd >= shiftStartDt);
-
+                
                 if (intersects) {
-                  // Displayed check-in: actual start if inside shift, otherwise shift start
-                  if (recStart >= shiftStartDt && recStart <= shiftEndDt) {
-                    checkInTime = recStart;
-                  } else {
-                    checkInTime = shiftStartDt;
-                  }
-
-                  // Displayed check-out:
-                  if (recEnd) {
-                    if (recEnd >= shiftStartDt && recEnd <= shiftEndDt) {
-                      // user's actual checkout falls inside this shift
-                      // only show it if it's already happened (recEnd <= now)
-                      checkOutTime = isAfter(nowDt, recEnd) || +recEnd <= +nowDt ? recEnd : null;
-                    } else if (recEnd > shiftEndDt) {
-                      // user checked out after this shift ended — for past shifts show scheduled end, for ongoing shifts hide
-                      checkOutTime = isAfter(nowDt, shiftEndDt) ? shiftEndDt : null;
-                    } else {
-                      // recEnd < shiftStartDt (shouldn't happen for intersects) — ignore
-                      checkOutTime = null;
-                    }
-                  } else {
-                    // no checkout yet (in-progress). If this shift already ended, show shift end as check-out (they worked through it);
-                    // otherwise leave checkout empty so UI shows ongoing for later shifts.
-                    checkOutTime = isAfter(nowDt, shiftEndDt) ? shiftEndDt : null;
-                  }
+                  // Use the clean helper function to get display times for continuous work
+                  const userShifts = userToShiftsMap[assignedUser.userId] || [];
+                  const { checkInTime: displayCheckIn, checkOutTime: displayCheckOut } = 
+                    getContinuousWorkTimes(nearestRecord, shift, userShifts);
+                  
+                  checkInTime = displayCheckIn;
+                  checkOutTime = displayCheckOut;
 
                   // Pull lateReason fields from the record when relevant
                   if (nearestRecord.lateReason) lateReason = nearestRecord.lateReason;
@@ -520,8 +565,6 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
                   // nearestRecord does not intersect this shift (defensive) — treat as absent for this shift
                   status = 'absent';
                 }
-              } else {
-                status = 'absent';
               }
             }
             return {
