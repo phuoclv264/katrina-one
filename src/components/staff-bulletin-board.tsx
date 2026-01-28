@@ -16,7 +16,7 @@ import { useCheckInCardPlacement } from "@/hooks/useCheckInCardPlacement";
 import { useAppNavigation } from "@/contexts/app-navigation-context";
 import { dataStore } from "@/lib/data-store";
 import { subscribeToActiveEvents } from "@/lib/events-store";
-import type { AttendanceRecord, DailyTask, DailyTaskReport, Event, MediaItem, MonthlyTaskAssignment, SimpleUser, UserRole } from "@/lib/types";
+import type { AttendanceRecord, DailyTask, DailyTaskReport, Event, MediaItem, MonthlyTaskAssignment, SimpleUser, UserRole, ManagedUser } from "@/lib/types";
 import MonthlyTasksDialog from "@/components/staff-bulletin-board/MonthlyTasksDialog";
 import DailyAssignmentsDialog from "@/components/staff-bulletin-board/DailyAssignmentsDialog";
 import EventsDialog from "@/components/staff-bulletin-board/EventsDialog";
@@ -72,6 +72,12 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
 
   // Determine whether work-related items should be shown/subscribed to
   const showWorkStuff = isCheckedIn || user?.role === "Chủ nhà hàng";
+
+  const canManageDaily = useMemo(() => {
+    if (!user) return false;
+    if (user.role === "Chủ nhà hàng") return true;
+    return user.role === "Quản lý" && Boolean(isCheckedIn);
+  }, [user, isCheckedIn]);
 
   const userRoles = useMemo(() => {
     if (!user) return [] as UserRole[];
@@ -195,6 +201,11 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
     if (!user) return [] as DailyTask[];
     return dailyTasks.filter((task) => task.assignedDate === todayKey && isUserTargeted(task, user.uid, userRoles));
   }, [dailyTasks, user, userRoles]);
+
+  const dialogTasks = useMemo(() => {
+    if (!showWorkStuff) return [] as DailyTask[];
+    return canManageDaily ? dailyTasks : targetedDailyTasks;
+  }, [canManageDaily, dailyTasks, targetedDailyTasks, showWorkStuff]);
 
   const dailyReportsByTask = useMemo(() => {
     const map = new Map<string, DailyTaskReport[]>();
@@ -352,7 +363,7 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
               {showWorkStuff && (
                 <button
                   onClick={() => setDailyListOpen(true)}
-                  disabled={targetedDailyTasks.length === 0}
+                  disabled={!canManageDaily && targetedDailyTasks.length === 0}
                   className="group relative flex items-center gap-3 p-3 rounded-2xl border border-blue-500/10 bg-blue-500/5 text-left transition-all hover:bg-blue-500/10 active:scale-[0.98] disabled:opacity-40 disabled:grayscale"
                 >
                   <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm shadow-blue-500/20">
@@ -367,7 +378,7 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
                       <span className="text-[10px] font-black uppercase tracking-widest text-blue-600/70">Phát sinh</span>
                       <span className="text-[10px] font-black text-muted-foreground">{dailyStats.done}/{dailyStats.total}</span>
                     </div>
-                    <h3 className="text-sm font-black leading-none pr-4">Công việc cần làm</h3>
+                    <h3 className="text-sm font-black leading-none pr-4">{canManageDaily ? "Giao việc" : "Công việc cần làm"}</h3>
                     <Progress value={(dailyStats.done / (dailyStats.total || 1)) * 100} className="mt-2.5 h-1 bg-blue-500/10" />
                   </div>
 
@@ -449,9 +460,11 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
       <DailyAssignmentsDialog
         open={dailyListOpen}
         onOpenChange={setDailyListOpen}
-        tasks={targetedDailyTasks}
+        tasks={dialogTasks}
         reportsByTask={dailyReportsByTask}
         onNavigate={handleDailyNavigate}
+        canManageDaily={canManageDaily}
+        allUsers={users || []}
       />
 
       <EventsDialog
