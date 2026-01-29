@@ -38,7 +38,7 @@ import {
 import { DashboardHeader } from '@/app/(app)/admin/_components/DashboardHeader';
 import { subscribeToHandoverReport } from '@/lib/cashier-store';
 import { KPIMetricsSection } from '@/app/(app)/admin/_components/KPIMetricsSection';
-import { RevenueAnalyticsSection } from '@/app/(app)/admin/_components/RevenueAnalyticsSection';
+
 import { RecentReportsCard } from '@/app/(app)/admin/_components/RecentReportsCard';
 import { QuickAccessToolsSection } from '@/app/(app)/admin/_components/QuickAccessToolsSection';
 import MonthlyStaffReportDialog from '@/app/(app)/reports/_components/MonthlyStaffReportDialog';
@@ -645,10 +645,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 md:gap-6">
             {/* Left: Revenue Analytics (2 cols) */}
             <div className="xl:col-span-2 flex flex-col gap-4 md:gap-6">
-              <RevenueAnalyticsSection
-                revenueByMethod={cashierOverview.revenueByMethod}
-                totalRevenue={cashierOverview.totalRevenue}
-              />
+
               {/* Schedule */}
               <TodaysScheduleSection 
                 shifts={todayShifts} 

@@ -14,8 +14,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'nextjs-toploader/app';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { cn, normalizeSearchString } from '@/lib/utils';
-import isEqual from 'lodash.isequal';
+import { cn, advancedSearch } from '@/lib/utils';
 import InventoryTools from './_components/inventory-tools';
 import ItemEditPopover from './_components/item-edit-popover';
 import { Badge } from '@/components/ui/badge';
@@ -79,7 +78,7 @@ export default function InventoryManagementPage() {
         if (!inventoryList) return [];
         let list = inventoryList;
         if (filter) {
-            list = list.filter(item => normalizeSearchString(item.name).includes(normalizeSearchString(filter)));
+            list = advancedSearch(list, filter, ['name']);
         }
         if (categoryFilter !== 'all') {
             list = list.filter(item => item.category === categoryFilter);

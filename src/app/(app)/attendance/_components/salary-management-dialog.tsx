@@ -16,7 +16,7 @@ import { useAuth } from '@/hooks/use-auth';
 import SalaryRecordSectionContent from './salary-record-section-content';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Combobox } from '@/components/combobox';
-import { cn, normalizeSearchString } from '@/lib/utils';
+import { advancedSearch, cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Input } from '@/components/ui/input';
 import { UserAvatar } from '@/components/user-avatar';
@@ -285,11 +285,7 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
         }
 
         if (searchQuery.trim()) {
-            const query = normalizeSearchString(searchQuery);
-            records = records.filter(r =>
-                normalizeSearchString(r.userName).includes(query) ||
-                normalizeSearchString(r.userRole).includes(query)
-            );
+            records = advancedSearch(records, searchQuery, ['userName', 'userRole']);
         }
 
         return records;

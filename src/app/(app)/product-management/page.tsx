@@ -16,7 +16,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import ProductTools from './_components/product-tools';
 import { v4 as uuidv4 } from 'uuid';
 import { Checkbox } from '@/components/ui/checkbox';
-import { cn, normalizeSearchString } from '@/lib/utils';
+import { cn, normalizeSearchString, advancedSearch } from '@/lib/utils';
 import isEqual from 'lodash.isequal';
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -95,12 +95,15 @@ export default function ProductManagementPage() {
     const filteredProducts = useMemo(() => {
         if (!products) return [];
         let list = products;
-        if (filter) {
-            list = list.filter(product => normalizeSearchString(product.name).includes(normalizeSearchString(filter)));
-        }
+        
         if (categoryFilter !== 'all') {
             list = list.filter(product => product.category === categoryFilter);
         }
+
+        if (filter) {
+            list = advancedSearch(list, filter, ['name']);
+        }
+        
         return list;
     }, [products, filter, categoryFilter]);
 

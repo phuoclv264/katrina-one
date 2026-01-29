@@ -22,7 +22,7 @@ import { Users2, Trash2, Edit, Loader2, Settings, StickyNote, Search, FlaskConic
 import { Switch } from '@/components/ui/switch';
 import { Combobox } from '@/components/combobox';
 import { Badge } from '@/components/ui/badge';
-import { normalizeSearchString, cn } from '@/lib/utils';
+import { cn, advancedSearch } from '@/lib/utils';
 import { AvatarUpload } from '@/components/avatar-upload';
 import { UserAvatar as SharedUserAvatar } from '@/components/user-avatar';
 
@@ -379,11 +379,7 @@ export default function UsersPage() {
         if (!filterText) {
             return users;
         }
-        const normalizedFilter = normalizeSearchString(filterText);
-        return users.filter(u =>
-            normalizeSearchString(u.displayName).includes(normalizedFilter) ||
-            (u.email && normalizeSearchString(u.email).includes(normalizedFilter))
-        );
+        return advancedSearch(users, filterText, ['displayName', 'email', 'role']);
     }, [users, filterText]);
 
     if (isLoading || authLoading) {

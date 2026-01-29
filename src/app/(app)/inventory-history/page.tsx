@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Badge } from '@/components/ui/badge';
-import { cn, normalizeSearchString } from '@/lib/utils';
+import { cn, advancedSearch } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 
 type CombinedHistoryEntry = {
@@ -242,10 +242,13 @@ function InventoryHistoryView() {
         });
 
         // 4. Filter
-        let filtered = processedHistory.filter(entry => {
-        if (debouncedFilterItemName && !normalizeSearchString(entry.itemName).includes(normalizeSearchString(debouncedFilterItemName))) {
-                return false;
-            }
+        let filtered = processedHistory;
+        
+        if (debouncedFilterItemName) {
+            filtered = advancedSearch(filtered, debouncedFilterItemName, ['itemName']);
+        }
+
+        filtered = filtered.filter(entry => {
             if (filterSupplier && entry.itemSupplier !== filterSupplier) {
                 return false;
             }

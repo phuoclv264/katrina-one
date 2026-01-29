@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Check, ChevronsUpDown, Plus, X, Trash2, Search } from "lucide-react"
 import * as PopoverPrimitive from "@radix-ui/react-popover"
-import { cn, normalizeSearchString } from "@/lib/utils"
+import { cn, advancedSearch } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
   AlertDialog,
@@ -157,6 +157,11 @@ export function Combobox({
     (option) => option.label.toLowerCase() === inputValue.toLowerCase()
   )
 
+  const filteredOptions = React.useMemo(() => {
+    if (!searchable) return options
+    return advancedSearch(options, inputValue, ['label'])
+  }, [options, inputValue, searchable])
+
   return (
     <Popover modal={false} open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -226,12 +231,7 @@ export function Combobox({
         const commandContent = (
           <Command
             className="border-none"
-            filter={(value: string, search: string) => {
-              if (!searchable) return 1
-              const normalizedValue = normalizeSearchString(value ?? "")
-              const normalizedSearch = normalizeSearchString(search ?? "")
-              return normalizedValue.includes(normalizedSearch) ? 1 : 0
-            }}
+            shouldFilter={false}
           >
             {searchable && (
               <div className="flex items-center border-b px-3" cmdk-input-wrapper="">
@@ -264,7 +264,7 @@ export function Combobox({
                 )}
               </CommandEmpty>
               <CommandGroup>
-                {options.map((option) => {
+                {filteredOptions.map((option) => {
                   const isSelected = selectedValues.includes(option.value)
                   return (
                     <CommandItem

@@ -183,3 +183,94 @@ export function selectLatestRevenueStats(stats: RevenueStats[]): RevenueStats[] 
     .map((v) => v.stat)
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }
+
+/**
+ * Advanced search function that filters and sorts items based on a query string.
+ *
+ * Features:
+ * - Case-insensitive and accent-insensitive (handles Vietnamese tones).
+ * - Multi-field search support.
+ * - Token-based matching: Query is split into words; all words must be present in the item.
+ * - Relevance sorting:
+ *    1. Exact match on a field
+ *    2. Field starts with query
+ *    3. Phrase match (consecutive tokens)
+ *    4. General token match
+ *
+ * @param items - The array of objects to search.
+ * @param query - The search query string.
+ * @param keys - Array of keys (strings) or accessor functions to retrieve searchable text from an item.
+ * @returns The filtered and sorted array of items.
+ */
+export function advancedSearch<T>(
+  items: T[],
+  query: string,
+  keys: (keyof T | ((item: T) => string | undefined | null))[]
+): T[] {
+  if (!query || !query.trim()) {
+    return items;
+  }
+
+  const normalizedQuery = normalizeSearchString(query);
+  const queryTokens = normalizedQuery.split(/\s+/).filter(Boolean);
+
+  if (queryTokens.length === 0) {
+    return items;
+  }
+
+  // Helper to get normalized values from item
+  const getItemValues = (item: T): string[] => {
+    return keys.map((key) => {
+      let value: string | undefined | null = '';
+      if (typeof key === 'function') {
+        value = key(item);
+      } else {
+        const v = item[key];
+        // Handle various types safely
+        if (typeof v === 'string') value = v;
+        else if (typeof v === 'number') value = String(v);
+        else if (v && typeof v === 'object' && 'toString' in v) value = String(v);
+      }
+      return value ? normalizeSearchString(value) : '';
+    });
+  };
+
+  const scoredItems = items.map((item) => {
+    const fieldValues = getItemValues(item);
+    const combinedItemText = fieldValues.join(' ');
+
+    // 1. Check if ALL tokens are present (AND logic)
+    const allTokensMatch = queryTokens.every((token) => combinedItemText.includes(token));
+
+    if (!allTokensMatch) {
+      return { item, score: -1 };
+    }
+
+    // 2. Calculate Score for sorting
+    let score = 0;
+
+    // Priority 1: Exact match on any field
+    if (fieldValues.some((val) => val === normalizedQuery)) {
+      score += 100;
+    }
+    // Priority 2: Starts with query on any field
+    else if (fieldValues.some((val) => val.startsWith(normalizedQuery))) {
+      score += 50;
+    }
+    // Priority 3: Combined text contains the full phrase
+    else if (combinedItemText.includes(normalizedQuery)) {
+      score += 20;
+    }
+    // Priority 4: Default token match (already verified)
+    else {
+        score += 10;
+    }
+
+    return { item, score };
+  });
+
+  return scoredItems
+    .filter((entry) => entry.score !== -1)
+    .sort((a, b) => b.score - a.score)
+    .map((entry) => entry.item);
+}

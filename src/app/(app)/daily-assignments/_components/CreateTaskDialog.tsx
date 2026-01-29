@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Camera, ShieldCheck, Edit, FileText, Users, Image as ImageIcon, Search, Calendar, ChevronRight } from 'lucide-react';
 import { ManagedUser, MediaItem, DailyTaskTargetMode, UserRole } from '@/lib/types';
-import { cn, normalizeSearchString } from '@/lib/utils';
+import { cn, advancedSearch } from '@/lib/utils';
 
 type NewTaskShape = {
   title: string;
@@ -46,11 +46,8 @@ type Props = {
 export default function CreateTaskDialog({ isOpen, onOpenChange, newTask, setNewTask, onCreate, isCreating, setInstructionCameraOpen, allUsers, roles, isEditing, parentDialogTag }: Props) {
   const [userFilter, setUserFilter] = React.useState('');
   const filteredUsers = React.useMemo(() => {
-    const q = normalizeSearchString(userFilter);
-    if (!q) return allUsers;
-    return allUsers.filter((u) => (
-      normalizeSearchString(u.displayName || '').includes(q)
-    ));
+    if (!userFilter) return allUsers;
+    return advancedSearch(allUsers, userFilter, ['displayName', 'role']);
   }, [allUsers, userFilter]);
 
   return (

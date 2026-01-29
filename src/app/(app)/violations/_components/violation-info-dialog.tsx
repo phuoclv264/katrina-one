@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import type { ViolationCategory, FineRule } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { cn } from '@/lib/utils';
+import { cn, advancedSearch } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Search, Info, SlidersHorizontal, X } from 'lucide-react';
@@ -71,11 +71,19 @@ export default function ViolationInfoDialog({ isOpen, onClose, categories, gener
   }, [categories]);
 
   const filteredCategories = useMemo(() => {
-    return sortedCategories.filter(cat => {
-      const matchSearch = (cat.name || '').toLowerCase().includes(searchTerm.toLowerCase());
-      const matchSeverity = severityFilter === 'all' || cat.severity === severityFilter;
-      return matchSearch && matchSeverity;
-    });
+    let filtered = sortedCategories;
+    
+    // Apply severity filter
+    if (severityFilter !== 'all') {
+      filtered = filtered.filter(cat => cat.severity === severityFilter);
+    }
+
+    // Apply search
+    if (searchTerm) {
+      filtered = advancedSearch(filtered, searchTerm, ['name']);
+    }
+
+    return filtered;
   }, [sortedCategories, searchTerm, severityFilter]);
 
   const generalRuleSummary = useMemo(() => {
