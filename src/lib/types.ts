@@ -382,6 +382,14 @@ export type EmployeeAttendance = {
   status: EmployeeStatus;
   checkInTime: Date | null;
   checkOutTime: Date | null;
+  /**
+   * For continuous/multiple attendance sessions within a single shift.
+   * If this array is present, checkInTime/checkOutTime may be used as a summary or primary session.
+   */
+  records?: {
+    checkInTime: Date | null;
+    checkOutTime: Date | null;
+  }[];
   lateMinutes: number | null;
   lateReason: string | null;
   lateReasonPhotoUrl?: string | null;
