@@ -20,7 +20,7 @@ import { getEventVotes, getEventDraws, deleteVote, runPrizeDraw } from '@/lib/ev
 import { useAuth } from '@/hooks/use-auth';
 import type { Event, EventVote, EventCandidate, ManagedUser, PrizeDrawResult, EventResult } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { UserAvatar } from '@/components/user-avatar';
 import { format } from 'date-fns';
 import { toast } from '@/components/ui/pro-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -311,10 +311,14 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
                             {/* Mini avatar stack */}
                             <div className="flex -space-x-2 mt-4 overflow-hidden">
                                 {votes.slice(0, 5).map((v, i) => (
-                                    <Avatar key={i} className="h-6 w-6 border-2 border-white shadow-sm shrink-0">
-                                        <AvatarImage src={allUsers.find(u => u.uid === v.userId)?.photoURL || undefined} />
-                                        <AvatarFallback className="text-[8px]">{v.userDisplay.name.charAt(0)}</AvatarFallback>
-                                    </Avatar>
+                                    <UserAvatar
+                                        key={i}
+                                        avatarUrl={allUsers.find(u => u.uid === v.userId)?.photoURL}
+                                        nameOverride={v.userDisplay.name}
+                                        size="h-6 w-6"
+                                        className="border-2 border-white shadow-sm shrink-0"
+                                        fallbackClassName="text-[8px]"
+                                    />
                                 ))}
                                 {votes.length > 5 && (
                                     <div className="h-6 w-6 rounded-full bg-muted border-2 border-white flex items-center justify-center text-[8px] font-black z-10 shrink-0">
@@ -452,10 +456,13 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
                                                     {res.voterDetails.map((voter: any) => (
                                                         <div key={voter.id} className="flex items-center gap-2 p-2 rounded-xl bg-muted/20 hover:bg-primary/5 transition-colors border border-transparent hover:border-primary/10 group">
-                                                            <Avatar className="h-7 w-7 border border-white shadow-sm shrink-0">
-                                                                <AvatarImage src={voter.avatar} />
-                                                                <AvatarFallback className="text-[9px] font-bold">{voter.name.charAt(0)}</AvatarFallback>
-                                                            </Avatar>
+                                                            <UserAvatar
+                                                                avatarUrl={voter.avatar}
+                                                                nameOverride={voter.name}
+                                                                size="h-7 w-7"
+                                                                className="border border-white shadow-sm shrink-0"
+                                                                fallbackClassName="text-[9px] font-bold"
+                                                            />
                                                             <span className="text-[11px] font-bold truncate flex-1">{voter.name}</span>
                                                         </div>
                                                     ))}
@@ -507,10 +514,13 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
                                             <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                                                 <div className="flex items-center gap-4 flex-1">
                                                     <div className="relative shrink-0">
-                                                        <Avatar className="h-12 w-12 sm:h-14 sm:w-14 border-2 border-white shadow-soft">
-                                                            <AvatarImage src={allCandidates.find(c => c.id === res.id)?.avatarUrl} className="object-cover" />
-                                                            <AvatarFallback className="font-bold text-lg">{res.name.charAt(0)}</AvatarFallback>
-                                                        </Avatar>
+                                                        <UserAvatar
+                                                            avatarUrl={allCandidates.find(c => c.id === res.id)?.avatarUrl}
+                                                            nameOverride={res.name}
+                                                            size="h-12 w-12 sm:h-14 sm:w-14"
+                                                            className="border-2 border-white shadow-soft"
+                                                            fallbackClassName="font-bold text-lg"
+                                                        />
                                                     </div>
                                                     <div className="min-w-0">
                                                         <p className="text-sm sm:text-md font-black truncate">{res.name}</p>
@@ -543,10 +553,13 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
                                                         {res.voterDetails.map((voter: any) => (
                                                             <div key={voter.id} className="flex items-center justify-between p-2 rounded-xl bg-muted/20 hover:bg-amber-500/5 transition-colors border border-transparent hover:border-amber-500/10">
                                                                 <div className="flex items-center gap-2 min-w-0 flex-1">
-                                                                    <Avatar className="h-6 w-6 border border-white shadow-sm shrink-0">
-                                                                        <AvatarImage src={voter.avatar} />
-                                                                        <AvatarFallback className="text-[8px] font-bold">{voter.name.charAt(0)}</AvatarFallback>
-                                                                    </Avatar>
+                                                                    <UserAvatar
+                                                                        avatarUrl={voter.avatar}
+                                                                        nameOverride={voter.name}
+                                                                        size="h-6 w-6"
+                                                                        className="border border-white shadow-sm shrink-0"
+                                                                        fallbackClassName="text-[8px] font-bold"
+                                                                    />
                                                                     <span className="text-[10px] font-bold truncate">{voter.name}</span>
                                                                 </div>
                                                                 <div className="flex items-center gap-1 shrink-0 ml-2">
@@ -605,10 +618,13 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
                                     .slice(0, 2)
                                     .map((comment, i) => (
                                         <div key={i} className="p-5 bg-white shadow-soft rounded-[2rem] border border-black/[0.03] flex gap-4 items-start">
-                                            <Avatar className="h-10 w-10 shrink-0 border-2 border-white shadow-sm overflow-hidden">
-                                                <AvatarImage src={comment.avatar} />
-                                                <AvatarFallback className="font-bold bg-muted">{comment.author.charAt(0)}</AvatarFallback>
-                                            </Avatar>
+                                            <UserAvatar
+                                                avatarUrl={comment.avatar}
+                                                nameOverride={comment.author}
+                                                size="h-10 w-10"
+                                                className="shrink-0 border-2 border-white shadow-sm overflow-hidden"
+                                                fallbackClassName="font-bold bg-muted"
+                                            />
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex justify-between items-start mb-1">
                                                     <p className="text-sm font-black">{comment.author}</p>
@@ -689,10 +705,13 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
                                                     <div className="flex flex-wrap gap-3">
                                                         {draw.winners.map(winner => (
                                                             <div key={winner.userId} className="flex items-center gap-2 bg-primary/5 border border-primary/10 pl-1 pr-4 py-1 rounded-2xl">
-                                                                <Avatar className="h-8 w-8 shadow-sm">
-                                                                    <AvatarImage src={allUsers.find(u => u.uid === winner.userId)?.photoURL || undefined} />
-                                                                    <AvatarFallback className="text-[10px]">{winner.userName.charAt(0)}</AvatarFallback>
-                                                                </Avatar>
+                                                                <UserAvatar
+                                                                    avatarUrl={allUsers.find(u => u.uid === winner.userId)?.photoURL}
+                                                                    nameOverride={winner.userName}
+                                                                    size="h-8 w-8"
+                                                                    className="shadow-sm"
+                                                                    fallbackClassName="text-[10px]"
+                                                                />
                                                                 <span className="text-sm font-black text-primary">{winner.userName}</span>
                                                             </div>
                                                         ))}
@@ -789,10 +808,13 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
                                             <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                                 {/* Left side: Avatar + User Info */}
                                                 <div className="flex items-center gap-3 min-w-0">
-                                                    <Avatar className="h-11 w-11 border-2 border-white shadow-soft shrink-0">
-                                                        <AvatarImage src={allUsers.find(u => u.uid === v.userId)?.photoURL || undefined} />
-                                                        <AvatarFallback className="font-bold bg-muted text-[10px]">{(v.userDisplay?.name || '').charAt(0)}</AvatarFallback>
-                                                    </Avatar>
+                                                    <UserAvatar
+                                                        avatarUrl={allUsers.find(u => u.uid === v.userId)?.photoURL}
+                                                        nameOverride={v.userDisplay?.name}
+                                                        size="h-11 w-11"
+                                                        className="border-2 border-white shadow-soft shrink-0"
+                                                        fallbackClassName="font-bold bg-muted text-[10px]"
+                                                    />
                                                     <div className="min-w-0">
                                                         <h5 className="font-black text-sm leading-tight">{event.anonymousResults ? "Nhân viên ẩn danh" : v.userDisplay?.name}</h5>
                                                         <div className="flex items-center gap-2 mt-1">
@@ -818,10 +840,13 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
                                                                             title={choice?.name || '—'}
                                                                             aria-label={choice?.name || 'choice'}
                                                                         >
-                                                                            <Avatar className="h-5 w-5 shrink-0">
-                                                                                <AvatarImage src={choice?.avatarUrl || undefined} />
-                                                                                <AvatarFallback className="text-[9px] bg-muted font-black">{(choice?.name || '·').charAt(0)}</AvatarFallback>
-                                                                            </Avatar>
+                                                                            <UserAvatar
+                                                                                avatarUrl={choice?.avatarUrl}
+                                                                                nameOverride={choice?.name || '·'}
+                                                                                size="h-5 w-5"
+                                                                                className="shrink-0"
+                                                                                fallbackClassName="text-[9px] bg-muted font-black"
+                                                                            />
                                                                             <span className="whitespace-normal break-words leading-tight">{choice?.name || 'Không rõ'}</span>
                                                                         </div>
                                                                     );
@@ -876,10 +901,13 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
                                             <MessageSquareText className="h-16 w-16 text-primary" />
                                         </div>
                                         <div className="flex items-center gap-3">
-                                            <Avatar className="h-8 w-8 border-2 border-white shadow-sm shrink-0">
-                                                <AvatarImage src={comment.avatar || undefined} />
-                                                <AvatarFallback className="text-[10px] font-bold">{comment.author.charAt(0)}</AvatarFallback>
-                                            </Avatar>
+                                            <UserAvatar
+                                                avatarUrl={comment.avatar}
+                                                nameOverride={comment.author}
+                                                size="h-8 w-8"
+                                                className="border-2 border-white shadow-sm shrink-0"
+                                                fallbackClassName="text-[10px] font-bold"
+                                            />
                                             <div className="min-w-0">
                                                 <p className="font-black text-sm truncate">{comment.author}</p>
                                                 <div className="flex items-center gap-2">

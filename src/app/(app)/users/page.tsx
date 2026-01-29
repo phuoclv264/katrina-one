@@ -22,7 +22,7 @@ import { Users2, Trash2, Edit, Loader2, Settings, StickyNote, Search, FlaskConic
 import { Switch } from '@/components/ui/switch';
 import { Combobox } from '@/components/combobox';
 import { Badge } from '@/components/ui/badge';
-import { normalizeSearchString, getInitials, cn } from '@/lib/utils';
+import { normalizeSearchString, cn } from '@/lib/utils';
 import { AvatarUpload } from '@/components/avatar-upload';
 import { UserAvatar as SharedUserAvatar } from '@/components/user-avatar';
 
@@ -49,8 +49,8 @@ const RoleBadge = ({ role, isSecondary = false }: { role: UserRole, isSecondary?
     );
 };
 
-const UserAvatar = ({ user, className }: { user: ManagedUser, className?: string }) => (
-    <SharedUserAvatar user={user} size="h-9 w-9" className={cn("border shadow-sm", className)} />
+const UserAvatar = ({ user, className, size }: { user: ManagedUser, className?: string, size?: string }) => (
+    <SharedUserAvatar user={user} size={size || "h-9 w-9"} className={cn("border shadow-sm", className)} />
 );
 
 const TestBadge = () => (

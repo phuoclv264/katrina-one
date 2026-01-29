@@ -12,6 +12,8 @@ interface UserAvatarProps {
     fallbackClassName?: string;
     // Allow overriding the initials logic if needed
     nameOverride?: string;
+    // Allow overriding the avatar URL directly
+    avatarUrl?: string | null;
     // Shape control
     rounded?: 'full' | 'lg' | 'xl' | '2xl' | '3xl';
     children?: React.ReactNode;
@@ -23,11 +25,12 @@ export const UserAvatar = ({
     className, 
     fallbackClassName,
     nameOverride,
+    avatarUrl,
     rounded = 'xl',
     children
 }: UserAvatarProps) => {
     const displayName = nameOverride || user?.displayName;
-    const photoURL = user?.photoURL || "";
+    const photoURL = avatarUrl || user?.photoURL || "";
 
     const roundedClass = {
         'full': 'rounded-full',

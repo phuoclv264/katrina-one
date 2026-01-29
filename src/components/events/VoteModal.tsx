@@ -23,7 +23,7 @@ import { toast } from '@/components/ui/pro-toast';
 import { getUserVote, submitVote } from '@/lib/events-store';
 import type { Event, EventCandidate, AuthUser, EventVote } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { UserAvatar } from '@/components/user-avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Progress } from '@/components/ui/progress';
@@ -250,10 +250,12 @@ export default function VoteModal({ isOpen, onClose, event, currentUser, parentD
                                         htmlFor={`candidate-${candidate.id}`}
                                         className="flex items-center gap-4 rounded-xl border-2 p-4 cursor-pointer hover:bg-accent/50 transition-all [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5 [&:has([data-state=checked])]:shadow-sm"
                                     >
-                                        <Avatar className="h-12 w-12 border-2 border-background shadow-sm">
-                                            <AvatarImage src={candidate.avatarUrl} alt={candidate.name} />
-                                            <AvatarFallback>{candidate.name.charAt(0)}</AvatarFallback>
-                                        </Avatar>
+                                        <UserAvatar
+                                            avatarUrl={candidate.avatarUrl}
+                                            nameOverride={candidate.name}
+                                            size="h-12 w-12"
+                                            className="border-2 border-background shadow-sm"
+                                        />
                                         <div className="flex-1">
                                             <span className="font-bold text-base">{candidate.name}</span>
                                             {candidate.meta?.role && <p className="text-xs text-muted-foreground font-medium">{candidate.meta.role}</p>}
@@ -310,10 +312,12 @@ export default function VoteModal({ isOpen, onClose, event, currentUser, parentD
                                         htmlFor={`candidate-${candidate.id}`}
                                         className="flex items-center gap-4 rounded-xl border-2 p-4 cursor-pointer hover:bg-accent/50 transition-all [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5 [&:has([data-state=checked])]:shadow-sm"
                                     >
-                                        <Avatar className="h-12 w-12 border-2 border-background shadow-sm">
-                                            <AvatarImage src={candidate.avatarUrl} alt={candidate.name} />
-                                            <AvatarFallback>{candidate.name.charAt(0)}</AvatarFallback>
-                                        </Avatar>
+                                        <UserAvatar
+                                            avatarUrl={candidate.avatarUrl}
+                                            nameOverride={candidate.name}
+                                            size="h-12 w-12"
+                                            className="border-2 border-background shadow-sm"
+                                        />
                                         <div className="flex-1">
                                             <span className="font-bold text-base">{candidate.name}</span>
                                             {candidate.meta?.role && <p className="text-xs text-muted-foreground font-medium">{candidate.meta.role}</p>}
@@ -384,10 +388,12 @@ export default function VoteModal({ isOpen, onClose, event, currentUser, parentD
                                         <CardContent className="p-5 space-y-4">
                                             <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                                                 <div className="flex items-center gap-3 flex-1">
-                                                    <Avatar className="h-12 w-12 border-2 border-background shadow-sm">
-                                                        <AvatarImage src={candidate.avatarUrl} alt={candidate.name} />
-                                                        <AvatarFallback>{candidate.name.charAt(0)}</AvatarFallback>
-                                                    </Avatar>
+                                                    <UserAvatar
+                                                        avatarUrl={candidate.avatarUrl}
+                                                        nameOverride={candidate.name}
+                                                        size="h-12 w-12"
+                                                        className="border-2 border-background shadow-sm"
+                                                    />
                                                     <div className="flex-1">
                                                         <p className="font-bold text-base leading-tight">{candidate.name}</p>
                                                         {candidate.meta?.role && <p className="text-xs text-muted-foreground font-medium">{candidate.meta.role}</p>}

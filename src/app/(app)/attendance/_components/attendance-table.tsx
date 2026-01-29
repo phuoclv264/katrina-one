@@ -32,7 +32,7 @@ import {
   AlertDialogIcon 
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { UserAvatar } from '@/components/user-avatar';
 import React from 'react';
 
 export default function AttendanceTable({
@@ -120,12 +120,13 @@ export default function AttendanceTable({
                   {/* Nhân viên */}
                   <TableCell className="align-top">
                     <div className="flex items-start gap-3">
-                      <Avatar className="h-10 w-10 border border-border flex-shrink-0">
-                        <AvatarImage src={user?.photoURL || ''} />
-                        <AvatarFallback className="text-sm bg-primary/10 text-primary">
-                          {getInitials(user?.displayName)}
-                        </AvatarFallback>
-                      </Avatar>
+                      <UserAvatar
+                          user={user}
+                          nameOverride={user?.displayName}
+                          size="h-10 w-10"
+                          className="border border-border flex-shrink-0"
+                          fallbackClassName="text-sm bg-primary/10 text-primary"
+                      />
 
                       <div className="space-y-1">
                         <div className="font-semibold text-gray-900">{user?.displayName || 'Không rõ'}</div>

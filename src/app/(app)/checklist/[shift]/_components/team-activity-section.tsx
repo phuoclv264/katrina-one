@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn, getInitials } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { UserAvatar } from '@/components/user-avatar';
 
 interface TeamActivitySectionProps {
   otherStaffReports: ShiftReport[];
@@ -185,11 +186,11 @@ export default function TeamActivitySection({
                     key={report.userId}
                     className="flex items-center gap-2 bg-white rounded-xl px-3 py-2 border border-blue-200"
                   >
-                    <Avatar className="w-6 h-6">
-                      <AvatarFallback className="text-[10px] font-bold bg-blue-500 text-white">
-                        {getInitials(report.staffName)}
-                      </AvatarFallback>
-                    </Avatar>
+                    <UserAvatar
+                        nameOverride={report.staffName}
+                        size="h-6 w-6"
+                        fallbackClassName="text-[10px] font-bold bg-blue-500 text-white"
+                    />
                     <span className="text-xs font-semibold text-blue-900">
                       {report.staffName}
                     </span>
@@ -215,11 +216,12 @@ export default function TeamActivitySection({
                       )}
                     >
                       <div className="flex items-start gap-3">
-                        <Avatar className="w-8 h-8 mt-0.5">
-                          <AvatarFallback className="text-[10px] font-bold bg-gradient-to-br from-blue-500 to-blue-600 text-white">
-                            {getInitials(activity.staffName)}
-                          </AvatarFallback>
-                        </Avatar>
+                        <UserAvatar
+                            nameOverride={activity.staffName}
+                            size="h-8 w-8"
+                            className="mt-0.5"
+                            fallbackClassName="text-[10px] font-bold bg-gradient-to-br from-blue-500 to-blue-600 text-white"
+                        />
                         
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
