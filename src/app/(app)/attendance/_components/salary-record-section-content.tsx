@@ -865,7 +865,6 @@ const SalaryRecordSectionContent: React.FC<SalaryRecordSectionContentProps> = ({
                         <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/10 flex-shrink-0 shadow-inner">
                             <UserAvatar
                                 user={users.find((u) => u.uid === record.userId) || null}
-                                size="h-5 w-5"
                                 rounded="2xl"
                                 className="object-cover"
                                 fallbackClassName="text-[10px]"

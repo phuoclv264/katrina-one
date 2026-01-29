@@ -18,7 +18,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AvatarUpload } from '@/components/avatar-upload';
-import { UserAvatar } from '@/components/user-avatar';
 import { toast } from '@/components/ui/pro-toast';
 import { Loader2, Save, User } from 'lucide-react';
 
@@ -78,7 +77,12 @@ export function ProfileDialog({ open, onOpenChange, parentDialogTag }: ProfileDi
         <DialogBody>
           <div className="space-y-6 pt-2">
             <div className="flex justify-center py-4">
-              <UserAvatar user={user} className="h-24 w-24" />
+              <AvatarUpload
+                currentPhotoURL={photoURL}
+                onUploadComplete={setPhotoURL}
+                uid={user.uid}
+                displayName={displayName}
+              />
             </div>
 
             <div className="space-y-4">

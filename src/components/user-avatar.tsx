@@ -21,7 +21,7 @@ interface UserAvatarProps {
 
 export const UserAvatar = ({ 
     user, 
-    size = "h-8 w-8", 
+    size, 
     className, 
     fallbackClassName,
     nameOverride,
@@ -30,7 +30,7 @@ export const UserAvatar = ({
     children
 }: UserAvatarProps) => {
     const displayName = nameOverride || user?.displayName;
-    const photoURL = avatarUrl || user?.photoURL || "";
+    const photoURL = avatarUrl || user?.photoURL || undefined;
 
     const roundedClass = {
         'full': 'rounded-full',
