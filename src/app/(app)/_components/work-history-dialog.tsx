@@ -14,13 +14,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Loader2, TrendingUp } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 import { format, startOfMonth, endOfMonth, addMonths } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { dataStore } from '@/lib/data-store';
-import type { AuthUser, AttendanceRecord, Schedule } from '@/lib/types';
+import type { AuthUser, AttendanceRecord, Schedule, BonusRecord, SalaryAdvanceRecord } from '@/lib/types';
 import { Timestamp } from 'firebase/firestore';
 import { findShiftForRecord, getStatusInfo } from '@/lib/attendance-utils';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -45,7 +45,15 @@ export default function WorkHistoryDialog({ isOpen, onClose, user, parentDialogT
   const [isLoading, setIsLoading] = useState(false);
   const [currentMonth, setCurrentMonth] = useState<Date>(startOfMonth(new Date()));
   const [hourlyRate, setHourlyRate] = useState<number | null>(null);
-  const [monthlyPayInfo, setMonthlyPayInfo] = useState<{ status?: 'paid' | 'unpaid'; actualPaidAmount?: number; paidAt?: Timestamp } | null>(null);
+  const [monthlyPayInfo, setMonthlyPayInfo] = useState<{ 
+      status?: 'paid' | 'unpaid'; 
+      actualPaidAmount?: number; 
+      paidAt?: Timestamp; 
+      bonuses?: BonusRecord[];
+      advances?: SalaryAdvanceRecord[];
+      salaryAdvance?: number;
+      bonus?: number;
+  } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -92,7 +100,15 @@ export default function WorkHistoryDialog({ isOpen, onClose, user, parentDialogT
     dataStore.getMonthlySalarySheet(monthId).then(sheet => {
       if (sheet && sheet.salaryRecords[user.uid]) {
         const r = sheet.salaryRecords[user.uid];
-        setMonthlyPayInfo({ status: r.paymentStatus, actualPaidAmount: r.actualPaidAmount, paidAt: r.paidAt });
+        setMonthlyPayInfo({ 
+            status: r.paymentStatus, 
+            actualPaidAmount: r.actualPaidAmount, 
+            paidAt: r.paidAt, 
+            bonuses: r.bonuses,
+            advances: r.advances,
+            salaryAdvance: r.salaryAdvance,
+            bonus: r.bonus
+        });
       } else {
         setMonthlyPayInfo(null);
       }
@@ -100,7 +116,7 @@ export default function WorkHistoryDialog({ isOpen, onClose, user, parentDialogT
   }, [isOpen, user, currentMonth]);
 
   const summary = useMemo(() => {
-    return records.reduce(
+    const attendanceTotal = records.reduce(
       (acc, record) => {
         acc.totalHours += record.totalHours || 0;
         acc.totalSalary += record.salary || 0;
@@ -108,7 +124,21 @@ export default function WorkHistoryDialog({ isOpen, onClose, user, parentDialogT
       },
       { totalHours: 0, totalSalary: 0 }
     );
-  }, [records]);
+    
+    // Add bonuses and subtract advances
+    const totalBonus = monthlyPayInfo?.bonus || 0;
+    const totalAdvance = monthlyPayInfo?.salaryAdvance || 0;
+    
+    // Calculate final expected salary
+    // Note: We don't subtract penalties here as they are complex to fetch/calculate per user in this view easily without fetching all violations
+    // But typically "Expected Salary" implies what they earned from work + bonus - advance.
+    const expectedSalary = Math.max(0, attendanceTotal.totalSalary + totalBonus - totalAdvance);
+
+    return {
+        ...attendanceTotal,
+        expectedSalary
+    };
+  }, [records, monthlyPayInfo]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose} dialogTag="work-history-dialog" parentDialogTag={parentDialogTag}>
@@ -160,9 +190,9 @@ export default function WorkHistoryDialog({ isOpen, onClose, user, parentDialogT
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
                 {/* Total Estimated Salary */}
                 <div className="rounded-lg border bg-white shadow-sm p-1.5 flex flex-col min-w-[80px]">
-                  <p className="text-[10px] font-medium text-muted-foreground leading-tight truncate">Lương dự tính</p>
+                  <p className="text-[10px] font-medium text-muted-foreground leading-tight truncate">Lương thực nhận</p>
                   <p className="text-xs font-bold text-primary truncate">
-                    {summary.totalSalary.toLocaleString('vi-VN')}đ
+                    {summary.expectedSalary.toLocaleString('vi-VN')}đ
                   </p>
                 </div>
 
@@ -198,6 +228,52 @@ export default function WorkHistoryDialog({ isOpen, onClose, user, parentDialogT
               </div>
             </div>
           </div>
+
+          {/* Advances Section */}
+          {monthlyPayInfo?.advances && monthlyPayInfo.advances.length > 0 && (
+            <div className="px-4 py-2 bg-amber-50/50 border-b border-amber-100">
+                <div className="flex items-center gap-2 mb-2">
+                    <TrendingUp className="w-4 h-4 text-amber-600 rotate-180" />
+                    <span className="text-xs font-bold text-amber-700 uppercase">Các khoản tạm ứng tháng này</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {monthlyPayInfo.advances.map(advance => (
+                        <div key={advance.id} className="bg-white border border-amber-100 rounded-lg p-2 flex justify-between items-start shadow-sm">
+                            <div className="text-xs text-zinc-600">
+                                <p className="font-medium text-amber-700">{advance.amount.toLocaleString('vi-VN')}đ</p>
+                                <p className="text-[10px] text-zinc-500">{advance.note}</p>
+                            </div>
+                            <span className="text-[9px] text-zinc-400">
+                                {format(new Date(advance.createdAt as string), 'dd/MM')}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+          )}
+
+          {/* Bonuses Section */}
+          {monthlyPayInfo?.bonuses && monthlyPayInfo.bonuses.length > 0 && (
+            <div className="px-4 py-2 bg-emerald-50/50 border-b border-emerald-100">
+                <div className="flex items-center gap-2 mb-2">
+                    <TrendingUp className="w-4 h-4 text-emerald-600" />
+                    <span className="text-xs font-bold text-emerald-700 uppercase">Các khoản thưởng tháng này</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {monthlyPayInfo.bonuses.map(bonus => (
+                        <div key={bonus.id} className="bg-white border border-emerald-100 rounded-lg p-2 flex justify-between items-start shadow-sm">
+                            <div className="text-xs text-zinc-600">
+                                <p className="font-medium text-emerald-700">{bonus.amount.toLocaleString('vi-VN')}đ</p>
+                                <p className="text-[10px] text-zinc-500">{bonus.note}</p>
+                            </div>
+                            <span className="text-[9px] text-zinc-400">
+                                {format(new Date(bonus.createdAt as string), 'dd/MM')}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+          )}
 
           <ScrollArea className="flex-grow px-4 py-2 overflow-auto">
             {isLoading ? (

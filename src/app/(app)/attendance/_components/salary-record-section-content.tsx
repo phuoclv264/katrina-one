@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Wallet, TrendingUp, DollarSign, History, ShieldAlert, XCircle, Info, Calendar, User, Loader2, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Wallet, TrendingUp, DollarSign, History, ShieldAlert, XCircle, Info, Calendar, User, Loader2, CheckCircle, Plus, Trash2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,8 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Textarea } from '@/components/ui/textarea';
 import type { SalaryRecord, SimpleUser, Schedule, ManagedUser } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -32,6 +34,7 @@ type SalaryRecordSectionContentProps = {
     users: ManagedUser[];
     onRecordUpdated: (userId: string, updates: Partial<SalaryRecord>) => void;
     onBack: () => void;
+    dialogContainerRef: React.RefObject<HTMLElement | null>;
 };
 
 // Embedded SalaryRecordAccordionItem component
@@ -43,17 +46,23 @@ const SalaryRecordAccordionItem: React.FC<{
     scheduleMap: Record<string, Schedule>;
     onRecordUpdated: (userId: string, updates: Partial<SalaryRecord>) => void;
     standalone?: boolean;
+    dialogContainerRef: React.RefObject<HTMLElement | null>;
 }> = React.memo(
-    ({ record, monthId, currentUser, currentUserRole, scheduleMap, onRecordUpdated, standalone = false }) => {
-        const [localAdvanceAmount, setLocalAdvanceAmount] = useState<string>(
-            record.salaryAdvance?.toString() ?? ''
-        );
-        const containerRef = useRef<HTMLDivElement | null>(null);
-        const [localBonusAmount, setLocalBonusAmount] = useState<string>(
-            record.bonus?.toString() ?? ''
-        );
-        const [isUpdatingAdvance, setIsUpdatingAdvance] = useState(false);
-        const [isUpdatingBonus, setIsUpdatingBonus] = useState(false);
+    ({ record, monthId, currentUser, currentUserRole, scheduleMap, onRecordUpdated, standalone = false, dialogContainerRef }) => {
+        // Advance state
+        const [isAddAdvanceDialogOpen, setIsAddAdvanceDialogOpen] = useState(false);
+        const [newAdvanceAmount, setNewAdvanceAmount] = useState('');
+        const [newAdvanceNote, setNewAdvanceNote] = useState('');
+        const [isAddingAdvance, setIsAddingAdvance] = useState(false);
+        const [isDeletingAdvanceId, setIsDeletingAdvanceId] = useState<string | null>(null);
+
+        // Bonus state
+        const [isAddBonusDialogOpen, setIsAddBonusDialogOpen] = useState(false);
+        const [newBonusAmount, setNewBonusAmount] = useState('');
+        const [newBonusNote, setNewBonusNote] = useState('');
+        const [isAddingBonus, setIsAddingBonus] = useState(false);
+        const [isDeletingBonusId, setIsDeletingBonusId] = useState<string | null>(null);
+
         const isMobile = useIsMobile();
         const [isUpdatingPaymentStatus, setIsUpdatingPaymentStatus] = useState(false);
         const [isPayDialogOpen, setIsPayDialogOpen] = useState(false);
@@ -67,50 +76,127 @@ const SalaryRecordAccordionItem: React.FC<{
             return () => clearTimeout(id);
         }, [isPayDialogOpen]);
 
-        useEffect(() => {
-            setLocalAdvanceAmount(record.salaryAdvance?.toString() ?? '');
-            setLocalBonusAmount(record.bonus?.toString() ?? '');
-        }, [record.salaryAdvance, record.bonus]);
-
-        const handleUpdateAdvance = useCallback(async () => {
-            if (!monthId || !record.userId) return;
-            const amount = Number(localAdvanceAmount);
-            if (isNaN(amount) || amount < 0) {
-                toast.error('Số tiền tạm ứng không hợp lệ.');
+        const handleAddAdvance = useCallback(async () => {
+            if (!currentUser || !monthId || !record.userId) return;
+            const amount = Number(newAdvanceAmount.replace(/\D/g, ''));
+            if (isNaN(amount) || amount <= 0) {
+                toast.error('Số tiền không hợp lệ');
                 return;
             }
-            setIsUpdatingAdvance(true);
-            const toastId = toast.loading('Đang cập nhật tiền tạm ứng...');
-            try {
-                await dataStore.updateSalaryAdvance(monthId, record.userId, amount);
-                onRecordUpdated(record.userId, { salaryAdvance: amount });
-                toast.success('Đã cập nhật tiền tạm ứng.', { id: toastId });
-            } catch (error) {
-                toast.error('Lỗi khi cập nhật tiền tạm ứng.', { id: toastId });
-            } finally {
-                setIsUpdatingAdvance(false);
-            }
-        }, [monthId, record.userId, localAdvanceAmount, onRecordUpdated]);
-
-        const handleUpdateBonus = useCallback(async () => {
-            if (!monthId || !record.userId) return;
-            const amount = Number(localBonusAmount);
-            if (isNaN(amount) || amount < 0) {
-                toast.error('Số tiền thưởng không hợp lệ.');
+            if (!newAdvanceNote.trim()) {
+                toast.error('Vui lòng nhập lý do tạm ứng');
                 return;
             }
-            setIsUpdatingBonus(true);
-            const toastId = toast.loading('Đang cập nhật tiền thưởng...');
+
+            setIsAddingAdvance(true);
+            const toastId = toast.loading('Đang thêm khoản tạm ứng...');
             try {
-                await dataStore.updateSalaryBonus(monthId, record.userId, amount);
-                onRecordUpdated(record.userId, { bonus: amount });
-                toast.success('Đã cập nhật tiền thưởng.', { id: toastId });
+                const newAdvanceId = await dataStore.addSalaryAdvance(monthId, record.userId, amount, newAdvanceNote, currentUser);
+
+                const newAdvance = {
+                    id: newAdvanceId,
+                    amount,
+                    note: newAdvanceNote,
+                    createdBy: currentUser,
+                    createdAt: new Date().toISOString()
+                };
+                const updatedAdvances = [...(record.advances || []), newAdvance];
+                const updatedTotal = (record.salaryAdvance || 0) + amount;
+
+                onRecordUpdated(record.userId, { salaryAdvance: updatedTotal, advances: updatedAdvances });
+
+                setNewAdvanceAmount('');
+                setNewAdvanceNote('');
+                setIsAddAdvanceDialogOpen(false);
+                toast.success('Đã thêm khoản tạm ứng', { id: toastId });
             } catch (error) {
-                toast.error('Lỗi khi cập nhật tiền thưởng.', { id: toastId });
+                toast.error('Lỗi khi thêm khoản tạm ứng', { id: toastId });
+                console.error(error);
             } finally {
-                setIsUpdatingBonus(false);
+                setIsAddingAdvance(false);
             }
-        }, [monthId, record.userId, localBonusAmount, onRecordUpdated]);
+        }, [currentUser, monthId, record.userId, newAdvanceAmount, newAdvanceNote, record.advances, record.salaryAdvance, onRecordUpdated]);
+
+        const handleDeleteAdvance = useCallback(async (advanceId: string, amount: number) => {
+            if (!monthId || !record.userId) return;
+
+            setIsDeletingAdvanceId(advanceId);
+            const toastId = toast.loading('Đang xóa khoản tạm ứng...');
+            try {
+                await dataStore.deleteSalaryAdvance(monthId, record.userId, advanceId);
+
+                const updatedAdvances = (record.advances || []).filter(a => a.id !== advanceId);
+                const updatedTotal = (record.salaryAdvance || 0) - amount;
+
+                onRecordUpdated(record.userId, { salaryAdvance: updatedTotal, advances: updatedAdvances });
+                toast.success('Đã xóa khoản tạm ứng', { id: toastId });
+            } catch (error) {
+                toast.error('Lỗi khi xóa khoản tạm ứng', { id: toastId });
+            } finally {
+                setIsDeletingAdvanceId(null);
+            }
+        }, [monthId, record.userId, record.advances, record.salaryAdvance, onRecordUpdated]);
+
+        const handleAddBonus = useCallback(async () => {
+            if (!currentUser || !monthId || !record.userId) return;
+            const amount = Number(newBonusAmount.replace(/\D/g, ''));
+            if (isNaN(amount) || amount <= 0) {
+                toast.error('Số tiền không hợp lệ');
+                return;
+            }
+            if (!newBonusNote.trim()) {
+                toast.error('Vui lòng nhập lý do thưởng');
+                return;
+            }
+
+            setIsAddingBonus(true);
+            const toastId = toast.loading('Đang thêm khoản thưởng...');
+            try {
+                const newBonusId = await dataStore.addSalaryBonus(monthId, record.userId, amount, newBonusNote, currentUser);
+
+                const newBonus = {
+                    id: newBonusId,
+                    amount,
+                    note: newBonusNote,
+                    createdBy: currentUser,
+                    createdAt: new Date().toISOString()
+                };
+                const updatedBonuses = [...(record.bonuses || []), newBonus];
+                const updatedTotal = (record.bonus || 0) + amount;
+
+                onRecordUpdated(record.userId, { bonus: updatedTotal, bonuses: updatedBonuses });
+
+                setNewBonusAmount('');
+                setNewBonusNote('');
+                setIsAddBonusDialogOpen(false);
+                toast.success('Đã thêm khoản thưởng', { id: toastId });
+            } catch (error) {
+                toast.error('Lỗi khi thêm khoản thưởng', { id: toastId });
+                console.error(error);
+            } finally {
+                setIsAddingBonus(false);
+            }
+        }, [currentUser, monthId, record.userId, newBonusAmount, newBonusNote, record.bonuses, record.bonus, onRecordUpdated]);
+
+        const handleDeleteBonus = useCallback(async (bonusId: string, amount: number) => {
+            if (!monthId || !record.userId) return;
+
+            setIsDeletingBonusId(bonusId);
+            const toastId = toast.loading('Đang xóa khoản thưởng...');
+            try {
+                await dataStore.deleteSalaryBonus(monthId, record.userId, bonusId);
+
+                const updatedBonuses = (record.bonuses || []).filter(b => b.id !== bonusId);
+                const updatedTotal = (record.bonus || 0) - amount;
+
+                onRecordUpdated(record.userId, { bonus: updatedTotal, bonuses: updatedBonuses });
+                toast.success('Đã xóa khoản thưởng', { id: toastId });
+            } catch (error) {
+                toast.error('Lỗi khi xóa khoản thưởng', { id: toastId });
+            } finally {
+                setIsDeletingBonusId(null);
+            }
+        }, [monthId, record.userId, record.bonuses, record.bonus, onRecordUpdated]);
 
         const handleTogglePaymentStatus = useCallback(async () => {
             if (!currentUser || !monthId || !record.userId) return;
@@ -231,49 +317,147 @@ const SalaryRecordAccordionItem: React.FC<{
                     <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
                         <div className="sm:col-span-8 grid grid-cols-2 gap-3">
                             <div className="space-y-1.5">
-                                <Label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1" htmlFor={`advance-${record.userId}`}>Cập nhật tạm ứng</Label>
-                                <div className="relative group">
-                                    <Input
-                                        id={`advance-${record.userId}`}
-                                        type="number"
-                                        placeholder="0"
-                                        className="h-11 bg-white border-zinc-100 pr-12 rounded-xl focus-visible:ring-primary/20 shadow-sm"
-                                        value={localAdvanceAmount}
-                                        onChange={(e) => setLocalAdvanceAmount(e.target.value)}
-                                        onFocus={(e) => e.target.select()}
-                                    />
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={handleUpdateAdvance}
-                                        className="absolute right-1 top-1 h-9 px-3 rounded-lg text-primary hover:bg-primary/5 font-bold"
-                                        disabled={isUpdatingAdvance}
-                                    >
-                                        {isUpdatingAdvance ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Lưu'}
-                                    </Button>
+                                <Label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Tạm ứng</Label>
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between bg-white border border-zinc-100 rounded-xl px-3 py-2 shadow-sm">
+                                        <span className="font-bold text-amber-500">{(record.salaryAdvance || 0).toLocaleString('vi-VN')}đ</span>
+                                        <Popover open={isAddAdvanceDialogOpen} onOpenChange={setIsAddAdvanceDialogOpen}>
+                                            <PopoverTrigger asChild>
+                                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 rounded-full hover:bg-amber-50 text-amber-500">
+                                                    <Plus className="h-4 w-4" />
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-80 p-4 space-y-4" align="end" container={dialogContainerRef.current}>
+                                                <h4 className="font-medium leading-none">Thêm khoản tạm ứng</h4>
+                                                <div className="space-y-3">
+                                                    <div className="space-y-1">
+                                                        <Label htmlFor="advance-amount">Số tiền</Label>
+                                                        <Input
+                                                            id="advance-amount"
+                                                            placeholder="0"
+                                                            className="h-9"
+                                                            value={newAdvanceAmount}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value.replace(/\D/g, '');
+                                                                setNewAdvanceAmount(val ? Number(val).toLocaleString('vi-VN') : '');
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <Label htmlFor="advance-note">Lý do</Label>
+                                                        <Textarea
+                                                            id="advance-note"
+                                                            placeholder="VD: Ứng lương..."
+                                                            className="h-20 resize-none"
+                                                            value={newAdvanceNote}
+                                                            onChange={(e) => setNewAdvanceNote(e.target.value)}
+                                                        />
+                                                    </div>
+                                                    <Button onClick={handleAddAdvance} disabled={isAddingAdvance} className="w-full bg-amber-500 hover:bg-amber-600 text-white">
+                                                        {isAddingAdvance ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Thêm'}
+                                                    </Button>
+                                                </div>
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
+
+                                    {/* Advance List */}
+                                    {record.advances && record.advances.length > 0 && (
+                                        <div className="space-y-1.5">
+                                            {record.advances.map(advance => (
+                                                <div key={advance.id} className="flex items-start justify-between bg-amber-50/30 border border-amber-100 rounded-lg p-2 text-xs">
+                                                    <div className="space-y-0.5 min-w-0">
+                                                        <div className="font-bold text-amber-600">{advance.amount.toLocaleString('vi-VN')}đ</div>
+                                                        <div className="text-zinc-600 break-words">{advance.note}</div>
+                                                        <div className="text-[9px] text-zinc-400 mt-1">
+                                                            {format(new Date(advance.createdAt as string), 'dd/MM HH:mm')} • {advance.createdBy?.userName}
+                                                        </div>
+                                                    </div>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-6 w-6 text-zinc-400 hover:text-red-500 hover:bg-red-50 -mr-1 flex-shrink-0"
+                                                        onClick={() => handleDeleteAdvance(advance.id, advance.amount)}
+                                                        disabled={isDeletingAdvanceId === advance.id}
+                                                    >
+                                                        {isDeletingAdvanceId === advance.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                                                    </Button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             <div className="space-y-1.5">
-                                <Label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1" htmlFor={`bonus-${record.userId}`}>Tiền thưởng nóng</Label>
-                                <div className="relative group">
-                                    <Input
-                                        id={`bonus-${record.userId}`}
-                                        type="number"
-                                        placeholder="0"
-                                        className="h-11 bg-white border-zinc-100 pr-12 rounded-xl focus-visible:ring-emerald-500/20 shadow-sm"
-                                        value={localBonusAmount}
-                                        onChange={(e) => setLocalBonusAmount(e.target.value)}
-                                        onFocus={(e) => e.target.select()}
-                                    />
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={handleUpdateBonus}
-                                        className="absolute right-1 top-1 h-9 px-3 rounded-lg text-emerald-600 hover:bg-emerald-50 font-bold"
-                                        disabled={isUpdatingBonus}
-                                    >
-                                        {isUpdatingBonus ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Lưu'}
-                                    </Button>
+                                <Label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Khen thưởng</Label>
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between bg-white border border-zinc-100 rounded-xl px-3 py-2 shadow-sm">
+                                        <span className="font-bold text-emerald-600">{(record.bonus || 0).toLocaleString('vi-VN')}đ</span>
+                                        <Popover open={isAddBonusDialogOpen} onOpenChange={setIsAddBonusDialogOpen}>
+                                            <PopoverTrigger asChild>
+                                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 rounded-full hover:bg-emerald-50 text-emerald-600">
+                                                    <Plus className="h-4 w-4" />
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-80 p-4 space-y-4" align="end" container={dialogContainerRef.current}>
+                                                <h4 className="font-medium leading-none">Thêm khoản thưởng</h4>
+                                                <div className="space-y-3">
+                                                    <div className="space-y-1">
+                                                        <Label htmlFor="amount">Số tiền</Label>
+                                                        <Input
+                                                            id="amount"
+                                                            placeholder="0"
+                                                            className="h-9"
+                                                            value={newBonusAmount}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value.replace(/\D/g, '');
+                                                                setNewBonusAmount(val ? Number(val).toLocaleString('vi-VN') : '');
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <Label htmlFor="note">Lý do</Label>
+                                                        <Textarea
+                                                            id="note"
+                                                            placeholder="VD: Thưởng doanh số..."
+                                                            className="h-20 resize-none"
+                                                            value={newBonusNote}
+                                                            onChange={(e) => setNewBonusNote(e.target.value)}
+                                                        />
+                                                    </div>
+                                                    <Button onClick={handleAddBonus} disabled={isAddingBonus} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">
+                                                        {isAddingBonus ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Thêm'}
+                                                    </Button>
+                                                </div>
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
+
+                                    {/* Bonus List */}
+                                    {record.bonuses && record.bonuses.length > 0 && (
+                                        <div className="space-y-1.5">
+                                            {record.bonuses.map(bonus => (
+                                                <div key={bonus.id} className="flex items-start justify-between bg-emerald-50/30 border border-emerald-100 rounded-lg p-2 text-xs">
+                                                    <div className="space-y-0.5 min-w-0">
+                                                        <div className="font-bold text-emerald-700">{bonus.amount.toLocaleString('vi-VN')}đ</div>
+                                                        <div className="text-zinc-600 break-words">{bonus.note}</div>
+                                                        <div className="text-[9px] text-zinc-400 mt-1">
+                                                            {format(new Date(bonus.createdAt as string), 'dd/MM HH:mm')} • {bonus.createdBy?.userName}
+                                                        </div>
+                                                    </div>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-6 w-6 text-zinc-400 hover:text-red-500 hover:bg-red-50 -mr-1 flex-shrink-0"
+                                                        onClick={() => handleDeleteBonus(bonus.id, bonus.amount)}
+                                                        disabled={isDeletingBonusId === bonus.id}
+                                                    >
+                                                        {isDeletingBonusId === bonus.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                                                    </Button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -583,7 +767,7 @@ const SalaryRecordAccordionItem: React.FC<{
         }
 
         return (
-            <AccordionItem ref={containerRef} value={record.userId} className="border-none mb-3">
+            <AccordionItem value={record.userId} className="border-none mb-3">
                 <AccordionTrigger className="group p-4 bg-white rounded-2xl hover:no-underline border border-zinc-100 shadow-sm transition-all hover:bg-zinc-50 data-[state=open]:rounded-b-none data-[state=open]:border-b-0">
                     <div className="flex justify-between items-center w-full">
                         <div className="flex items-center gap-3 pr-2">
@@ -627,6 +811,7 @@ const SalaryRecordSectionContent: React.FC<SalaryRecordSectionContentProps> = ({
     users,
     onRecordUpdated,
     onBack,
+    dialogContainerRef,
 }) => {
     // Track whether this component has ever been given a valid `record`.
     // If it had one and later the parent clears it (e.g. dialog closed / sheet unloaded),
@@ -726,6 +911,7 @@ const SalaryRecordSectionContent: React.FC<SalaryRecordSectionContentProps> = ({
                         scheduleMap={scheduleMap}
                         onRecordUpdated={onRecordUpdated}
                         standalone={true}
+                        dialogContainerRef={dialogContainerRef}
                     />
                 </div>
             </ScrollArea>

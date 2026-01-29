@@ -16,7 +16,7 @@ import { useAuth } from '@/hooks/use-auth';
 import SalaryRecordSectionContent from './salary-record-section-content';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Combobox } from '@/components/combobox';
-import { cn } from '@/lib/utils';
+import { cn, normalizeSearchString } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Input } from '@/components/ui/input';
 import { UserAvatar } from '@/components/user-avatar';
@@ -176,7 +176,9 @@ const calculateSalarySheet = async (
             paymentStatus: existingSalaryRecords?.[user.uid]?.paymentStatus || 'unpaid',
             paidAt: existingSalaryRecords?.[user.uid]?.paidAt,
             salaryAdvance: existingSalaryRecords?.[user.uid]?.salaryAdvance || 0,
+            advances: existingSalaryRecords?.[user.uid]?.advances || [],
             bonus: existingSalaryRecords?.[user.uid]?.bonus || 0,
+            bonuses: existingSalaryRecords?.[user.uid]?.bonuses || [],
         };
     }
 
@@ -199,6 +201,7 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
     const [searchQuery, setSearchQuery] = useState('');
     const [nextMonthSalaryByUser, setNextMonthSalaryByUser] = useState<Record<string, number>>({});
     const [currentSection, setCurrentSection] = useState<string | null>(null); // null = main view, string = userId
+    const dialogRef = React.useRef<HTMLDivElement>(null);
     const eligibleThreshold = 500000;
 
     const availableMonths = useMemo(() => {
@@ -282,10 +285,10 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
         }
 
         if (searchQuery.trim()) {
-            const query = searchQuery.toLowerCase();
+            const query = normalizeSearchString(searchQuery);
             records = records.filter(r =>
-                r.userName.toLowerCase().includes(query) ||
-                r.userRole.toLowerCase().includes(query)
+                normalizeSearchString(r.userName).includes(query) ||
+                normalizeSearchString(r.userRole).includes(query)
             );
         }
 
@@ -385,7 +388,7 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose} dialogTag="salary-management-dialog" parentDialogTag={parentDialogTag}>
-            <DialogContent className="max-w-4xl flex flex-col p-0 overflow-hidden bg-zinc-50">
+            <DialogContent ref={dialogRef} className="max-w-4xl flex flex-col p-0 overflow-hidden bg-zinc-50">
                 {currentSection === null ? (
                     <>
                         <div className="flex flex-col bg-white border-b shadow-sm">
@@ -604,6 +607,7 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
                         users={allUsers}
                         onRecordUpdated={handleRecordUpdated}
                         onBack={() => setCurrentSection(null)}
+                        dialogContainerRef={dialogRef}
                     />
                 ) : null}
             </DialogContent>

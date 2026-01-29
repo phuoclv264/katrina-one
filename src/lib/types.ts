@@ -556,7 +556,8 @@ export type NotificationType =
   | 'new_revenue_stats'
   | 'new_violation'
   | 'new_incident_report'
-  | 'new_cash_handover_report';
+  | 'new_cash_handover_report'
+  | 'salary_update';
 
 export type PassRequestPayload = {
   notificationType?: 'pass_request';
@@ -607,6 +608,7 @@ export type Notification = {
   createdAt: string | Timestamp;
   messageTitle?: string,
   messageBody?: string,
+  recipientUids?: string[];
   payload?: any;
   isRead?: { [userId: string]: boolean };
   // pass_request notifications only
@@ -1036,6 +1038,22 @@ export type SpecialPeriod = {
   updatedAt: string | Timestamp;
 };
 
+export type BonusRecord = {
+  id: string;
+  amount: number;
+  note: string;
+  createdBy: SimpleUser;
+  createdAt: string | Timestamp;
+};
+
+export type SalaryAdvanceRecord = {
+  id: string;
+  amount: number;
+  note: string;
+  createdBy: SimpleUser;
+  createdAt: string | Timestamp;
+};
+
 export type SalaryRecord = {
   userId: string;
   userName: string;
@@ -1052,7 +1070,9 @@ export type SalaryRecord = {
   paymentStatus?: 'paid' | 'unpaid';
   paidAt?: Timestamp;
   salaryAdvance?: number;
+  advances?: SalaryAdvanceRecord[];
   bonus?: number;
+  bonuses?: BonusRecord[];
   actualPaidAmount?: number;
 };
 
