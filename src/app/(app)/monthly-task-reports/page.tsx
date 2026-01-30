@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from "react"
-import Image from "next/image"
 import { useRouter } from "nextjs-toploader/app"
 import { useSearchParams } from "next/navigation"
 import { format, subMonths, addMonths } from "date-fns"
@@ -9,44 +8,25 @@ import {
   CalendarCheck,
   ChevronLeft,
   ChevronRight,
-  Clock,
-  User,
-  Video,
-  Trash2,
-  Loader2,
-  MessageSquareText,
-  ImageIcon,
-  CheckCircle2,
-  AlertCircle,
 } from "lucide-react"
-import { toast } from "@/components/ui/pro-toast"
 import { useAuth } from "@/hooks/use-auth"
 import { dataStore } from "@/lib/data-store"
-import type { MediaAttachment, MonthlyTask, TaskCompletionRecord, Schedule, AssignedUser } from "@/lib/types"
+import type { MonthlyTask, TaskCompletionRecord, Schedule, AssignedUser } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { LoadingPage } from "@/components/loading/LoadingPage"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
 import { useDataRefresher } from "@/hooks/useDataRefresher"
 import { useLightbox } from "@/contexts/lightbox-context"
 import { getAssignmentsForMonth } from "@/lib/schedule-utils"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { vi } from "date-fns/locale"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getQueryParamWithMobileHashFallback } from "@/lib/url-params"
 import { useIsMobile } from "@/hooks/use-mobile"
+
+// New components
+import { TaskItemCard, StaffItemCard } from "./_components/list-item-cards"
+import { TaskReportsDialog } from "./_components/task-reports-dialog"
+import { StaffReportsDialog } from "./_components/staff-reports-dialog"
 
 type DailyAssignment = {
   date: string
@@ -72,12 +52,14 @@ function MonthlyTaskReportsView() {
   const [schedules, setSchedules] = useState<Schedule[]>([])
   const [allUsers, setAllUsers] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [openTasks, setOpenTasks] = useState<string[]>([])
-  const [openUsers, setOpenUsers] = useState<string[]>([])
+  
+  // Selected states for dialogs
+  const [selectedTaskName, setSelectedTaskName] = useState<string | null>(null)
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+
   const [viewMode, setViewMode] = useState<"tasks" | "staffs">("tasks")
 
   const { openLightbox } = useLightbox()
-  const [isDeleting, setIsDeleting] = useState(false)
 
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const handleDataRefresh = useCallback(() => {
@@ -101,6 +83,7 @@ function MonthlyTaskReportsView() {
       setIsLoading(true)
       const unsubCompletions = dataStore.subscribeToMonthlyTaskCompletionsForMonth(currentMonth, (data) => {
         setCompletions(data)
+        setIsLoading(false)
       })
       const unsubTasks = dataStore.subscribeToMonthlyTasks((tasks) => {
         setMonthlyTasks(tasks)
@@ -111,10 +94,6 @@ function MonthlyTaskReportsView() {
       const unsubUsers = dataStore.subscribeToUsers((users) => {
         setAllUsers(users)
       })
-
-      setTimeout(() => {
-        setIsLoading(false)
-      }, 500)
 
       return () => {
         unsubCompletions()
@@ -194,36 +173,32 @@ function MonthlyTaskReportsView() {
     return map
   }, [completions])
 
-  const createLightboxSlides = (media: MediaAttachment[]) =>
-    media.map((att) => {
-      if (att.type === "video") {
-        return {
-          type: "video" as const,
-          sources: [
-            { src: att.url, type: "video/mp4" },
-            { src: att.url, type: "video/webm" },
-          ],
+  const selectedUserUnreportedTasks = useMemo(() => {
+    if (!selectedUserId || !assignmentsByTask) return []
+    const unreported: { taskName: string; date: string; shiftLabel: string }[] = []
+    
+    Object.entries(assignmentsByTask).forEach(([taskName, days]) => {
+      days.forEach(day => {
+        const isAssigned = day.assignedUsers.some(u => u.userId === selectedUserId)
+        if (isAssigned) {
+          const hasReported = day.completions.some(c => c.completedBy?.userId === selectedUserId)
+          if (!hasReported) {
+            const shift = day.assignedUsersByShift.find(s => s.users.some(u => u.userId === selectedUserId))
+            unreported.push({
+              taskName,
+              date: day.date,
+              shiftLabel: shift?.shiftLabel || "Ka làm"
+            })
+          }
         }
-      }
-      return { src: att.url }
+      })
     })
 
-  const handleOpenLightbox = (media: NonNullable<TaskCompletionRecord["media"]>, index: number) => {
-    openLightbox(createLightboxSlides(media), index)
-  }
+    return unreported.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  }, [selectedUserId, assignmentsByTask])
 
-  const handleDeleteReport = async (record: TaskCompletionRecord) => {
-    if (!record.completedBy) return
-    setIsDeleting(true)
-    try {
-      await dataStore.deleteMonthlyTaskCompletion(record.taskId, record.completedBy.userId, record.assignedDate)
-      toast.success("Đã xóa báo cáo thành công.")
-    } catch (error) {
-      console.error("Failed to delete report:", error)
-      toast.error("Không thể xóa báo cáo.")
-    } finally {
-      setIsDeleting(false)
-    }
+  const handleOpenLightbox = (slides: any[], index: number) => {
+    openLightbox(slides, index)
   }
 
   // Initialize month and scroll to a specific report via URL params
@@ -311,10 +286,10 @@ function MonthlyTaskReportsView() {
     if (!matchedRecord) return
 
     if (viewMode === "tasks") {
-      setOpenTasks((prev) => (prev.includes(matchedRecord.taskName) ? prev : [...prev, matchedRecord.taskName]))
+      setSelectedTaskName(matchedRecord.taskName)
     } else {
       const uid = matchedRecord.completedBy?.userId
-      if (uid) setOpenUsers((prev) => (prev.includes(uid) ? prev : [...prev, uid]))
+      if (uid) setSelectedUserId(uid)
     }
 
     setPendingScrollKey(anchor)
@@ -327,311 +302,176 @@ function MonthlyTaskReportsView() {
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/5">
-        <div className="container mx-auto max-w-6xl px-4 py-8 sm:px-6 md:px-8">
-          <div className="mb-8">
-            <div className="mb-6">
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-2">
-                Báo cáo Công việc Định kỳ
+      <div className="min-h-screen bg-slate-50/50 dark:bg-zinc-950 pb-20 relative overflow-hidden">
+        {/* Background Decorative Blobs */}
+        <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] -translate-y-1/2 pointer-events-none" />
+        <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-blue-500/5 rounded-full blur-[100px] translate-y-1/2 pointer-events-none" />
+
+        <div className="container mx-auto max-w-6xl px-4 py-12 sm:px-6 md:px-8 relative z-10">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-12">
+            <div className="space-y-4">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20">
+                <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                <span className="text-[11px] font-black text-primary uppercase tracking-[0.2em]">Management System</span>
+              </div>
+              <h1 className="text-5xl md:text-6xl font-black text-slate-900 dark:text-white tracking-tight leading-[1.1]">
+                Báo cáo <br />
+                <span className="text-primary italic">Định kỳ</span>
               </h1>
-              <p className="text-muted-foreground text-lg">
-                Theo dõi và quản lý báo cáo hoàn thành công việc của nhân viên
+              <p className="text-slate-500 dark:text-zinc-400 text-lg max-w-md font-medium leading-relaxed">
+                Hệ thống truy xuất dữ liệu hoàn thành công việc theo phân ca hàng ngày.
               </p>
+            </div>
+
+            <div className="flex flex-col items-end gap-4">
+              <div className="flex items-center gap-2 bg-white dark:bg-zinc-900/80 backdrop-blur-xl p-2 rounded-[2rem] border border-slate-200/60 dark:border-zinc-800/60 shadow-xl shadow-slate-200/40 dark:shadow-none">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+                  className="h-14 w-14 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all text-slate-600 dark:text-zinc-400"
+                >
+                  <ChevronLeft className="h-6 w-6" />
+                </Button>
+                
+                <div className="px-6 text-center min-w-[160px]">
+                  <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em] mb-1">Tháng công tác</p>
+                  <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">
+                    {format(currentMonth, "MM")} / {format(currentMonth, "yyyy")}
+                  </span>
+                </div>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+                  className="h-14 w-14 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all text-slate-600 dark:text-zinc-400"
+                >
+                  <ChevronRight className="h-6 w-6" />
+                </Button>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setCurrentMonth(new Date())}
+                className="rounded-full px-8 h-10 border-slate-200/60 dark:border-zinc-800/60 bg-white/50 dark:bg-zinc-900/50 backdrop-blur-md text-[11px] font-black uppercase tracking-[0.2em] hover:bg-primary hover:text-white hover:border-primary transition-all duration-300"
+              >
+                Về hiện tại
+              </Button>
             </div>
           </div>
 
-          <Card className="border-0 shadow-lg bg-white dark:bg-card mb-8">
-            <CardHeader className="pb-4">
-              <div className="flex justify-between items-center">
-                <div>
-                  <CardTitle className="text-2xl font-bold flex items-center gap-2">
-                    <CalendarCheck className="h-6 w-6 text-primary" />
-                    Tháng {format(currentMonth, "MM/yyyy")}
-                  </CardTitle>
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="w-full space-y-12">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 border-b border-slate-200/60 dark:border-zinc-800/60 pb-8">
+              <TabsList className="flex h-14 p-1.5 bg-slate-200/30 dark:bg-zinc-900/50 rounded-[1.5rem] border border-slate-200/60 dark:border-zinc-800/60 w-full sm:w-auto">
+                <TabsTrigger 
+                  value="tasks" 
+                  className="px-10 rounded-[1.1rem] font-black text-xs uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-primary data-[state=active]:shadow-lg shadow-slate-200/50 transition-all duration-300 flex-1 sm:flex-none"
+                >
+                  Nhiệm vụ
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="staffs" 
+                  className="px-10 rounded-[1.1rem] font-black text-xs uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-primary data-[state=active]:shadow-lg shadow-slate-200/50 transition-all duration-300 flex-1 sm:flex-none"
+                >
+                  Nhân sự
+                </TabsTrigger>
+              </TabsList>
+
+              <div className="flex items-center gap-3">
+                <div className="hidden md:flex flex-col items-end">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Trạng thái</span>
+                  <span className="text-xs font-bold text-emerald-500">Dữ liệu thời gian thực</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-                    className="hover:bg-primary/10 hover:text-primary"
-                  >
-                    <ChevronLeft className="h-5 w-5" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-                    className="hover:bg-primary/10 hover:text-primary"
-                  >
-                    <ChevronRight className="h-5 w-5" />
-                  </Button>
+                <div className="h-10 w-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
+                  <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                 </div>
               </div>
-              <div className="mt-4">
-                <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)}>
-                  <TabsList className="grid grid-cols-2 w-full">
-                    <TabsTrigger value="tasks">Xem theo nhiệm vụ</TabsTrigger>
-                    <TabsTrigger value="staffs">Xem theo nhân viên</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </div>
-            </CardHeader>
-            <CardContent>
+            </div>
+
+            <div className="min-h-[400px]">
               {isLoading ? (
-                <div className="space-y-6">
-                  {[...Array(3)].map((_, i) => (
-                    <div key={i} className="space-y-4 rounded-xl border p-4">
-                      <Skeleton className="h-8 w-1/3 rounded-lg" />
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Skeleton className="h-56 w-full rounded-lg" />
-                        <Skeleton className="h-56 w-full rounded-lg" />
-                      </div>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} className="h-48 w-full rounded-[2.5rem] bg-slate-100 dark:bg-zinc-900/50 animate-pulse border border-slate-200/50 dark:border-zinc-800/50" />
                   ))}
                 </div>
               ) : (
-                viewMode === "tasks"
-                  ? (
-                    hasAnyData ? (
-                      <Accordion type="multiple" value={openTasks} onValueChange={setOpenTasks} className="w-full space-y-4">
-                        {taskEntries.map(([taskName, dailyAssignments]) => {
-                          const task = monthlyTasks.find((t) => t.name === taskName)
-                          if (!task || (dailyAssignments as DailyAssignment[]).length === 0) return null
-                          return (
-                            <AccordionItem key={task.id} value={task.name} className="border rounded-xl overflow-hidden border-primary/10 hover:border-primary/30 transition-colors">
-                              <AccordionTrigger className="p-0 text-lg font-semibold hover:no-underline">
-                                <div className="p-5 rounded-xl w-full text-left bg-gradient-to-r from-primary/5 to-transparent hover:from-primary/10 transition-colors flex items-center justify-between">
-                                  <span className="font-semibold text-foreground">{task.name}</span>
-                                  <span className="text-sm text-muted-foreground font-normal">{(dailyAssignments as DailyAssignment[]).reduce((sum, a) => sum + a.completions.length, 0)} báo cáo</span>
-                                </div>
-                              </AccordionTrigger>
-                              <AccordionContent className="pt-6 px-5 pb-6">
-                                <div className="space-y-6">
-                                  {(dailyAssignments as DailyAssignment[])
-                                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                                    .map((assignment) => {
-                                      const { date, assignedUsers, completions: records } = assignment
-                                      const totalCompletions = records.length
-                                      const completionPercentage = assignedUsers.length > 0 ? Math.round((totalCompletions / assignedUsers.length) * 100) : 0
-
-                                      const reportedUsersWithRecords = records.map((record) => {
-                                        const assignedUser = assignedUsers.find((u) => u.userId === record.completedBy?.userId)
-                                        return {
-                                          user: assignedUser || record.completedBy,
-                                          record,
-                                          isOffShift: !assignedUser
-                                        }
-                                      })
-
-                                      const unreportedUsers = assignedUsers.filter((user) => !records.some((r) => r.completedBy?.userId === user.userId))
-                                      return (
-                                        <div key={date} className="space-y-4">
-                                          <div className="flex items-center justify-between gap-3 pb-3 border-b border-primary/10">
-                                            <div>
-                                              <h3 className="font-bold text-lg text-foreground flex items-center gap-2">📅 {format(new Date(date), "dd/MM/yyyy")}</h3>
-                                              <p className="text-sm text-muted-foreground mt-1">{totalCompletions}/{assignedUsers.length} nhân viên đã báo cáo</p>
-                                            </div>
-                                            <div className="flex flex-col items-end">
-                                              <div className={`text-2xl font-bold ${completionPercentage === 100 ? "text-emerald-600 dark:text-emerald-400" : completionPercentage >= 50 ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400"}`}>{completionPercentage}%</div>
-                                              <div className="w-24 h-1.5 bg-secondary rounded-full mt-2 overflow-hidden"><div className={`h-full transition-all ${completionPercentage === 100 ? "bg-emerald-500" : completionPercentage >= 50 ? "bg-amber-500" : "bg-rose-500"}`} style={{ width: `${completionPercentage}%` }} /></div>
-                                            </div>
-                                          </div>
-                                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                            {reportedUsersWithRecords.map(({ user: reportedUser, record, isOffShift }) => {
-                                              const shiftInfo = assignment.assignedUsersByShift.find((s) => s.users.some((u) => u.userId === reportedUser?.userId))
-                                              return (
-                                                <Card key={reportedUser?.userId || record.completionId} className={`relative group/card overflow-hidden border transition-all hover:shadow-md ${isOffShift ? "bg-amber-50/30 dark:bg-amber-900/5 border-amber-200/50 dark:border-amber-900/30" : "bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-200/50 dark:border-emerald-900/50"}`} ref={(el) => {
-                                                  setReportCardRef(`monthly-${record.taskId}-${record.assignedDate}`, el)
-                                                  if (record.completionId) {
-                                                    setReportCardRef(record.completionId, el)
-                                                  }
-                                                }}>
-                                                  <CardContent className="p-5 space-y-4">
-                                                    <div className="flex items-start justify-between gap-2">
-                                                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                                                        <div className={`p-2 rounded-lg flex-shrink-0 ${isOffShift ? "bg-amber-100 dark:bg-amber-900" : "bg-emerald-100 dark:bg-emerald-900"}`}><User className={`h-4 w-4 ${isOffShift ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}`} /></div>
-                                                        <div className="min-w-0 flex-1">
-                                                          <p className="font-semibold text-sm truncate text-foreground flex items-center gap-2">
-                                                            {reportedUser?.userName || "Unknown"}
-                                                            {isOffShift && <span className="text-[10px] font-normal text-amber-600 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded border border-amber-100 dark:border-amber-800">Ngoài ca</span>}
-                                                          </p>
-                                                          {record.completedAt && (<p className="text-xs text-muted-foreground flex items-center gap-1 mt-1"><Clock className="h-3 w-3" />{format(record.completedAt.toDate(), "HH:mm")}</p>)}
-                                                        </div>
-                                                      </div>
-                                                      <div className="flex-shrink-0"><CheckCircle2 className={`h-5 w-5 ${isOffShift ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}`} /></div>
-                                                    </div>
-                                                    {shiftInfo ? (
-                                                      <div className="flex items-center gap-2 p-2 bg-secondary/50 dark:bg-primary/10 rounded-lg text-xs">
-                                                        <span className="font-medium text-foreground">{shiftInfo.shiftLabel}</span>
-                                                        <span className="text-muted-foreground">{shiftInfo.timeSlot.start} - {shiftInfo.timeSlot.end}</span>
-                                                      </div>
-                                                    ) : isOffShift && (
-                                                      <div className="flex items-center gap-2 p-2 bg-amber-100/20 dark:bg-amber-900/10 rounded-lg text-xs text-amber-700 dark:text-amber-400">
-                                                        <AlertCircle className="h-3 w-3" />
-                                                        <span>Không có ca làm việc trong ngày</span>
-                                                      </div>
-                                                    )}
-                                                    <>
-                                                      {record.note && (<Alert variant="default" className="border-0 bg-amber-100/30 dark:bg-amber-900/20 p-3"><div className="flex items-start gap-2"><MessageSquareText className="h-4 w-4 mt-0.5 text-amber-700 dark:text-amber-400 flex-shrink-0" /><AlertDescription className="text-amber-800 dark:text-amber-300 text-xs">{record.note}</AlertDescription></div></Alert>)}
-                                                      {record.media && record.media.length > 0 && (
-                                                        <div>
-                                                          <h4 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5"><ImageIcon className="h-3.5 w-3.5" /> BẰNG CHỨNG ({record.media.length})</h4>
-                                                          <div className="flex flex-wrap gap-2">
-                                                            {record.media.map((att, index) => (
-                                                              <button key={index} onClick={() => handleOpenLightbox(record.media!, index)} className="relative w-20 h-20 rounded-lg overflow-hidden group bg-secondary hover:ring-2 ring-primary/50 transition-all">
-                                                                {att.type === "photo" ? (<Image src={att.url || "/placeholder.svg"} alt={`Bằng chứng ${index + 1}`} fill className="object-cover transition-transform duration-200 group-hover:scale-110" />) : att.type === "video" ? (<><video src={`${att.url}#t=0.1`} preload="metadata" muted playsInline className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-110" /><div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-75 group-hover:opacity-100 transition-opacity"><Video className="h-6 w-6 text-white" /></div></>) : null}
-                                                              </button>
-                                                            ))}
-                                                          </div>
-                                                        </div>
-                                                      )}
-                                                      <div className="pt-2 border-t border-primary/10">
-                                                        <AlertDialog parentDialogTag="root">
-                                                          <AlertDialogTrigger asChild>
-                                                            <Button variant="ghost" size="sm" className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 h-8 text-xs" disabled={isDeleting}>{isDeleting ? (<Loader2 className="h-3 w-3 animate-spin mr-2" />) : (<Trash2 className="h-3 w-3 mr-2" />)}Xóa báo cáo</Button>
-                                                          </AlertDialogTrigger>
-                                                          <AlertDialogContent>
-                                                            <AlertDialogHeader>
-                                                              <AlertDialogTitle>Xác nhận xóa báo cáo?</AlertDialogTitle>
-                                                              <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn báo cáo và tất cả bằng chứng đính kèm.</AlertDialogDescription>
-                                                            </AlertDialogHeader>
-                                                            <AlertDialogFooter>
-                                                              <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                              <AlertDialogAction onClick={() => handleDeleteReport(record)} isLoading={isDeleting} disabled={isDeleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{isDeleting ? 'Đang xóa...' : 'Xóa'}</AlertDialogAction>
-                                                            </AlertDialogFooter>
-                                                          </AlertDialogContent>
-                                                        </AlertDialog>
-                                                      </div>
-                                                    </>
-                                                  </CardContent>
-                                                </Card>
-                                              )
-                                            })}
-                                            {unreportedUsers.length > 0 && (
-                                              <Card className="relative group/card overflow-hidden border transition-all hover:shadow-md bg-white/50 dark:bg-secondary/50 border-primary/10">
-                                                <CardContent className="p-5">
-                                                  <div className="flex items-center gap-3 mb-4"><div className="p-2 rounded-lg flex-shrink-0 bg-secondary"><AlertCircle className="h-4 w-4 text-amber-500" /></div><div><p className="font-semibold text-sm text-foreground">Chưa báo cáo</p><p className="text-xs text-muted-foreground">{unreportedUsers.length} nhân viên</p></div></div>
-                                                  <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
-                                                    {unreportedUsers.map((unreportedUser) => {
-                                                      const shiftInfo = assignment.assignedUsersByShift.find((s) => s.users.some((u) => u.userId === unreportedUser.userId))
-                                                      return (<div key={unreportedUser.userId} className="flex items-center gap-2 text-sm text-muted-foreground"><User className="h-3.5 w-3.5 flex-shrink-0" /><div className="min-w-0 flex-1"><span className="truncate block">{unreportedUser.userName}</span>{shiftInfo && (<span className="text-xs text-muted-foreground/70">{shiftInfo.shiftLabel} · {shiftInfo.timeSlot.start} - {shiftInfo.timeSlot.end}</span>)}</div></div>)
-                                                    })}
-                                                  </div>
-                                                </CardContent>
-                                              </Card>
-                                            )}
-                                          </div>
-                                        </div>
-                                      )
-                                    })}
-                                </div>
-                              </AccordionContent>
-                            </AccordionItem>
-                          )
-                        })}
-                      </Accordion>
-                    ) : (
-                      <div className="text-center py-16 px-8"><div className="inline-block p-4 rounded-full bg-primary/10 mb-4"><CalendarCheck className="h-12 w-12 text-primary" /></div><h3 className="text-xl font-bold text-foreground">Không có báo cáo</h3><p className="mt-2 text-muted-foreground">Không có báo cáo công việc nào được gửi trong tháng này.</p></div>
-                    )
+                viewMode === "tasks" ? (
+                  hasAnyData ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                      {taskEntries.map(([taskName, dailyAssignments]) => {
+                        const totalReports = dailyAssignments.reduce((sum, a) => sum + a.completions.length, 0)
+                        return (
+                          <TaskItemCard
+                            key={taskName}
+                            name={taskName}
+                            reportCount={totalReports}
+                            onClick={() => setSelectedTaskName(taskName)}
+                          />
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <EmptyState message="Không có báo cáo công việc nào được gửi trong tháng này." />
                   )
-                  : (
-                    <div className="space-y-4">
-                      {userRanking.length === 0 ? (
-                        <div className="text-center py-16 px-8"><div className="inline-block p-4 rounded-full bg-primary/10 mb-4"><CalendarCheck className="h-12 w-12 text-primary" /></div><h3 className="text-xl font-bold text-foreground">Không có báo cáo</h3><p className="mt-2 text-muted-foreground">Chưa có nhân viên nào hoàn thành công việc trong tháng này.</p></div>
-                      ) : (
-                        <Accordion type="multiple" value={openUsers} onValueChange={setOpenUsers} className="w-full space-y-4">
-                          {userRanking.map((entry, idx) => {
-                            const userRecords = completionsByUser.get(entry.userId)?.records || []
-                            return (
-                              <AccordionItem key={entry.userId} value={entry.userId} className="border rounded-xl overflow-hidden border-primary/10 hover:border-primary/30 transition-colors">
-                                <AccordionTrigger className="p-0 text-lg font-semibold hover:no-underline">
-                                  <div className="p-5 rounded-xl w-full text-left bg-gradient-to-r from-primary/5 to-transparent hover:from-primary/10 transition-colors flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                      <div className="p-2 rounded-lg bg-primary/10"><User className="h-4 w-4 text-primary" /></div>
-                                      <div>
-                                        <p className="font-semibold text-sm text-foreground">{entry.userName}</p>
-                                        <p className="text-xs text-muted-foreground">Xếp hạng #{idx + 1}</p>
-                                      </div>
-                                    </div>
-                                    <div className="text-right">
-                                      <div className="text-2xl font-bold text-foreground">{entry.count}</div>
-                                      <div className="text-xs text-muted-foreground">báo cáo trong tháng</div>
-                                    </div>
-                                  </div>
-                                </AccordionTrigger>
-                                <AccordionContent className="pt-6 px-5 pb-6">
-                                  {userRecords.length === 0 ? (
-                                    <div className="text-center text-sm text-muted-foreground">Không có báo cáo chi tiết.</div>
-                                  ) : (
-                                    <div className="space-y-4">
-                                      {userRecords.map((record) => (
-                                        <Card
-                                          key={record.completionId || `${record.taskId}-${record.assignedDate}-${entry.userId}`}
-                                          className="relative group/card overflow-hidden border transition-all hover:shadow-md bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-200/50 dark:border-emerald-900/50"
-                                          ref={(el) =>
-                                            setReportCardRef(
-                                              record.completionId || `${record.taskId}-${record.assignedDate}-${entry.userId}`,
-                                              el,
-                                            )
-                                          }
-                                        >
-                                          <CardContent className="p-5 space-y-4">
-                                            <div className="flex items-start justify-between gap-2">
-                                              <div className="flex items-center gap-3 flex-1 min-w-0">
-                                                <div className="p-2 rounded-lg flex-shrink-0 bg-emerald-100 dark:bg-emerald-900"><CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /></div>
-                                                <div className="min-w-0 flex-1">
-                                                  <p className="font-semibold text-sm truncate text-foreground">{record.taskName}</p>
-                                                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1"><Clock className="h-3 w-3" />{format(new Date(record.assignedDate), "dd/MM/yyyy")}{record.completedAt && ` · ${format(record.completedAt.toDate(), "HH:mm")}`}</p>
-                                                </div>
-                                              </div>
-                                            </div>
-                                            {record.note && (
-                                              <Alert variant="default" className="border-0 bg-amber-100/30 dark:bg-amber-900/20 p-3">
-                                                <div className="flex items-start gap-2">
-                                                  <MessageSquareText className="h-4 w-4 mt-0.5 text-amber-700 dark:text-amber-400 flex-shrink-0" />
-                                                  <AlertDescription className="text-amber-800 dark:text-amber-300 text-xs">{record.note}</AlertDescription>
-                                                </div>
-                                              </Alert>
-                                            )}
-                                            {record.media && record.media.length > 0 && (
-                                              <div>
-                                                <h4 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5"><ImageIcon className="h-3.5 w-3.5" /> BẰNG CHỨNG ({record.media.length})</h4>
-                                                <div className="flex flex-wrap gap-2">
-                                                  {record.media.map((att, index) => (
-                                                    <button key={index} onClick={() => handleOpenLightbox(record.media!, index)} className="relative w-20 h-20 rounded-lg overflow-hidden group bg-secondary hover:ring-2 ring-primary/50 transition-all">
-                                                      {att.type === "photo" ? (
-                                                        <Image src={att.url || "/placeholder.svg"} alt={`Bằng chứng ${index + 1}`} fill className="object-cover transition-transform duration-200 group-hover:scale-110" />
-                                                      ) : att.type === "video" ? (
-                                                        <>
-                                                          <video src={`${att.url}#t=0.1`} preload="metadata" muted playsInline className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-110" />
-                                                          <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-75 group-hover:opacity-100 transition-opacity"><Video className="h-6 w-6 text-white" /></div>
-                                                        </>
-                                                      ) : null}
-                                                    </button>
-                                                  ))}
-                                                </div>
-                                              </div>
-                                            )}
-                                          </CardContent>
-                                        </Card>
-                                      ))}
-                                    </div>
-                                  )}
-                                </AccordionContent>
-                              </AccordionItem>
-                            )
-                          })}
-                        </Accordion>
-                      )}
+                ) : (
+                  userRanking.length === 0 ? (
+                    <EmptyState message="Chưa có nhân viên nào gửi báo cáo trong tháng này." />
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                      {userRanking.map((entry, idx) => (
+                        <StaffItemCard
+                          key={entry.userId}
+                          userName={entry.userName}
+                          rank={idx + 1}
+                          reportCount={entry.count}
+                          onClick={() => setSelectedUserId(entry.userId)}
+                        />
+                      ))}
                     </div>
                   )
+                )
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </Tabs>
         </div>
       </div>
+
+      {/* Dialogs */}
+      <TaskReportsDialog
+        isOpen={!!selectedTaskName}
+        onClose={() => setSelectedTaskName(null)}
+        taskName={selectedTaskName || ""}
+        dailyAssignments={selectedTaskName ? (assignmentsByTask[selectedTaskName] || []) : []}
+        onOpenLightbox={handleOpenLightbox}
+        setReportCardRef={setReportCardRef}
+      />
+
+      <StaffReportsDialog
+        isOpen={!!selectedUserId}
+        onClose={() => setSelectedUserId(null)}
+        userId={selectedUserId || ""}
+        userName={selectedUserId ? (completionsByUser.get(selectedUserId)?.userName || "") : ""}
+        records={selectedUserId ? (completionsByUser.get(selectedUserId)?.records || []) : []}
+        unreportedTasks={selectedUserUnreportedTasks}
+        onOpenLightbox={handleOpenLightbox}
+        setReportCardRef={setReportCardRef}
+      />
     </>
+  )
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-32 px-8 text-center bg-white/40 dark:bg-zinc-900/20 backdrop-blur-md rounded-[3rem] border border-dashed border-slate-300 dark:border-zinc-800">
+      <div className="p-8 rounded-[2.5rem] bg-slate-50 dark:bg-zinc-900/50 text-slate-300 dark:text-zinc-700 mb-8 border border-slate-100 dark:border-zinc-800/50 shadow-inner">
+        <CalendarCheck className="h-20 w-20" />
+      </div>
+      <h3 className="text-2xl font-black text-slate-800 dark:text-zinc-200 mb-3 tracking-tight">Không tìm thấy dữ liệu</h3>
+      <p className="text-slate-500 dark:text-zinc-400 font-medium text-lg leading-relaxed max-w-sm">
+        {message}
+      </p>
+    </div>
   )
 }
 
