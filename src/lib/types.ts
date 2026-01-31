@@ -28,10 +28,7 @@ export type SimpleUser = {
   userName: string;
 };
 
-export type AppSettings = {
-  isRegistrationEnabled: boolean;
-  lastIssueNoteScan?: string | Timestamp;
-};
+export type AppSettings = { isRegistrationEnabled: boolean; lastIssueNoteScan?: string | Timestamp; managerApprovalEnabled?: boolean; };
 
 export type Task = {
   id: string;
@@ -1082,6 +1079,10 @@ export type MonthlySalarySheet = {
   calculatedBy: SimpleUser;
   scheduleMap: Record<string, Schedule>; // Keyed by weekId
   salaryRecords: Record<string, SalaryRecord>; // Keyed by userId
+  eligibility?: {
+    threshold: number;
+    penaltiesMustBeZero: boolean;
+  };
 };
 
 // --- Daily Assignments ---

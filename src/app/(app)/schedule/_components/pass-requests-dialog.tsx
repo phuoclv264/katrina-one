@@ -12,6 +12,7 @@ import {
     DialogCancel
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import type { Schedule, ManagedUser, Notification, AuthUser, UserRole, AssignedShift } from '@/lib/types';
 import { format, parseISO, isWithinInterval } from 'date-fns';
@@ -31,7 +32,6 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { dataStore } from '@/lib/data-store';
-import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { cn, getInitials } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
@@ -39,6 +39,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { UserAvatar } from '@/components/user-avatar';
+import { toast } from '@/components/ui/pro-toast';
 
 
 type RequestCardProps = {
@@ -55,13 +56,13 @@ type RequestCardProps = {
     onApprove: (notification: Notification) => void;
     onRejectApproval: (notificationId: string) => void;
     onDeleteHistory: (notificationId: string) => void;
+    managerApprovalEnabled: boolean;
 };
 
-const RequestCard = ({ notification, schedule, currentUser, allUsers, processingNotificationId, onAccept, onDecline, onCancel, onRevert, onAssign, onApprove, onRejectApproval, onDeleteHistory }: RequestCardProps) => {
+const RequestCard = ({ notification, schedule, currentUser, allUsers, processingNotificationId, onAccept, onDecline, onCancel, onRevert, onAssign, onApprove, onRejectApproval, onDeleteHistory, managerApprovalEnabled }: RequestCardProps) => {
     const { payload, status, createdAt, resolvedAt, resolvedBy } = notification;
     const isManagerOrOwner = currentUser.role === 'Quản lý' || currentUser.role === 'Chủ nhà hàng';
     const isProcessing = processingNotificationId === notification.id;
-
 
     // --- Status and Type Configuration ---
     const getStatusConfig = () => {
@@ -212,9 +213,30 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
                 const isRequestByManager = allUsers.find(u => u.uid === payload.requestingUser.userId)?.role === 'Quản lý';
                 const isTakenByManager = payload.takenBy && allUsers.find(u => u.uid === payload.takenBy.userId)?.role === 'Quản lý';
                 const canOwnerApprove = currentUser.role === 'Chủ nhà hàng';
-                const canManagerApprove = currentUser.role === 'Quản lý' && !isRequestByManager && !isTakenByManager;
+                const canManagerApproveByRole = currentUser.role === 'Quản lý' && !isRequestByManager && !isTakenByManager;
 
-                if (canOwnerApprove || canManagerApprove) {
+                const showManagerDisabledAlert = () => {
+                    toast.error("Không thể phê duyệt", {message: 'Chủ quán đã tắt tính năng duyệt của bạn, liên hệ chủ quán để được mở lại'});
+                };
+
+                if (canOwnerApprove) {
+                    return (
+                        <div className="flex gap-2 w-full sm:w-auto">
+                            <ActionButton variant="destructive" icon={XCircle} onClick={() => onRejectApproval(notification.id)}>Từ chối</ActionButton>
+                            <ActionButton icon={CheckCircle} onClick={() => onApprove(notification)}>Phê duyệt</ActionButton>
+                        </div>
+                    );
+                }
+
+                if (canManagerApproveByRole) {
+                    if (!managerApprovalEnabled) {
+                        return (
+                            <div className="flex gap-2 w-full sm:w-auto">
+                                <ActionButton variant="destructive" icon={XCircle} onClick={showManagerDisabledAlert}>Từ chối</ActionButton>
+                                <ActionButton icon={CheckCircle} onClick={showManagerDisabledAlert}>Phê duyệt</ActionButton>
+                            </div>
+                        );
+                    }
                     return (
                         <div className="flex gap-2 w-full sm:w-auto">
                             <ActionButton variant="destructive" icon={XCircle} onClick={() => onRejectApproval(notification.id)}>Từ chối</ActionButton>
@@ -441,7 +463,25 @@ export default function PassRequestsDialog({
     parentDialogTag,
 }: PassRequestsDialogProps) {
     const { user: currentUser } = useAuth();
-    const { toast } = useToast();
+    const [managerApprovalEnabled, setManagerApprovalEnabled] = React.useState(true);
+
+    React.useEffect(() => {
+        const unsubscribe = dataStore.subscribeToAppSettings((settings) => {
+            setManagerApprovalEnabled(settings.managerApprovalEnabled !== false);
+        });
+        return unsubscribe;
+    }, []);
+
+    const handleToggleManagerApproval = async (enabled: boolean) => {
+        setManagerApprovalEnabled(enabled);
+        try {
+            await dataStore.updateAppSettings({ managerApprovalEnabled: enabled });
+            toast.success('Đã cập nhật', {message: enabled ? 'Quản lý có thể phê duyệt yêu cầu.' : 'Đã tắt quyền phê duyệt của Quản lý.'});
+        } catch (error) {
+            toast.error("Lỗi", {message: "Không thể cập nhật cài đặt. Vui lòng thử lại."})
+            setManagerApprovalEnabled(!enabled);
+        }
+    };
 
     const isManagerOrOwner = currentUser?.role === 'Quản lý' || currentUser?.role === 'Chủ nhà hàng';
 
@@ -531,16 +571,9 @@ export default function PassRequestsDialog({
         if (currentUser?.role !== 'Chủ nhà hàng') return;
         try {
             await dataStore.deletePassRequestNotification(notificationId);
-            toast({
-                title: "Thành công",
-                description: "Đã xóa yêu cầu khỏi lịch sử."
-            });
+            toast.success("Thành công", {message: "Đã xóa yêu cầu khỏi lịch sử."})
         } catch (error) {
-            toast({
-                title: "Lỗi",
-                description: "Không thể xóa yêu cầu.",
-                variant: "destructive"
-            });
+            toast.error("Lỗi", {message: "Không thể xóa yêu cầu."})
         }
     }
 
@@ -557,6 +590,15 @@ export default function PassRequestsDialog({
                 </DialogHeader>
 
                 <DialogBody className="p-0 flex flex-col overflow-hidden bg-slate-50/30 dark:bg-slate-900/10">
+                    {currentUser.role === 'Chủ nhà hàng' && (
+                        <div className="px-4 sm:px-5 pt-3 pb-2 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <UserCog className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-[11px] sm:text-[12px] font-bold">Cho phép Quản lý phê duyệt yêu cầu</span>
+                            </div>
+                            <Switch checked={managerApprovalEnabled} onCheckedChange={handleToggleManagerApproval} />
+                        </div>
+                    )}
                     <Tabs defaultValue="pending" className="flex flex-col flex-1 overflow-hidden">
                         <div className="px-4 sm:px-5 pt-4 sm:pt-5 pb-2 sm:pb-3 bg-background/50 backdrop-blur-sm border-b border-slate-100 dark:border-slate-800/50">
                             <TabsList className="grid w-full grid-cols-2 h-10 sm:h-11 p-1 bg-muted/50 rounded-xl">
@@ -600,6 +642,7 @@ export default function PassRequestsDialog({
                                                 onApprove={onApprove}
                                                 onRejectApproval={onRejectApproval}
                                                 onDeleteHistory={handleDeleteFromHistory}
+                                                managerApprovalEnabled={managerApprovalEnabled}
                                             />
                                         ))}
                                     </div>
@@ -633,6 +676,7 @@ export default function PassRequestsDialog({
                                                 onApprove={onApprove}
                                                 onRejectApproval={onRejectApproval}
                                                 onDeleteHistory={handleDeleteFromHistory}
+                                                managerApprovalEnabled={managerApprovalEnabled}
                                             />
                                         ))}
                                     </div>

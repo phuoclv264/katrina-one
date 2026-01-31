@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogCancel } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -19,6 +20,7 @@ import { Combobox } from '@/components/combobox';
 import { advancedSearch, cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { UserAvatar } from '@/components/user-avatar';
 
 type SalaryManagementDialogProps = {
@@ -188,6 +190,7 @@ const calculateSalarySheet = async (
         calculatedBy: currentUser,
         scheduleMap, // Include scheduleMap in the sheet
         salaryRecords,
+        eligibility: { threshold: 500000, penaltiesMustBeZero: true },
     };
 };
 
@@ -202,7 +205,8 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
     const [nextMonthSalaryByUser, setNextMonthSalaryByUser] = useState<Record<string, number>>({});
     const [currentSection, setCurrentSection] = useState<string | null>(null); // null = main view, string = userId
     const dialogRef = React.useRef<HTMLDivElement>(null);
-    const eligibleThreshold = 500000;
+    const [eligibilityDraft, setEligibilityDraft] = useState<{ threshold: number; penaltiesMustBeZero: boolean }>({ threshold: 500000, penaltiesMustBeZero: true });
+    const [isFilterPopoverOpen, setIsFilterPopoverOpen] = useState(false);
 
     const availableMonths = useMemo(() => {
         const months = new Set<string>();
@@ -265,6 +269,14 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
         };
     }, [isOpen, selectedMonth, allUsers, currentUser]);
 
+    useEffect(() => {
+        if (salarySheet?.eligibility) {
+            setEligibilityDraft({ threshold: salarySheet.eligibility.threshold, penaltiesMustBeZero: salarySheet.eligibility.penaltiesMustBeZero });
+        } else {
+            setEligibilityDraft({ threshold: 500000, penaltiesMustBeZero: true });
+        }
+    }, [salarySheet]);
+
     const sortedSalaryRecords = useMemo(() => {
         if (!salarySheet) return [];
         const roleOrder: Record<string, number> = { 'Quản lý': 1, 'Pha chế': 2, 'Phục vụ': 3, 'Thu ngân': 4 };
@@ -296,21 +308,25 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
     }, [filteredRecords]);
 
     const eligibleRecords = useMemo(() => {
+        const threshold = eligibilityDraft.threshold;
+        const requireNoPenalties = eligibilityDraft.penaltiesMustBeZero;
         return filteredRecords.filter(r =>
             r.paymentStatus !== 'paid' &&
-            (nextMonthSalaryByUser[r.userId] || 0) >= eligibleThreshold &&
-            ((r.totalUnpaidPenalties || 0) === 0)
+            (nextMonthSalaryByUser[r.userId] || 0) >= threshold &&
+            (requireNoPenalties ? ((r.totalUnpaidPenalties || 0) === 0) : true)
         );
-    }, [filteredRecords, nextMonthSalaryByUser]);
+    }, [filteredRecords, nextMonthSalaryByUser, eligibilityDraft]);
 
     const ineligibleRecords = useMemo(() => {
+        const threshold = eligibilityDraft.threshold;
+        const requireNoPenalties = eligibilityDraft.penaltiesMustBeZero;
         return filteredRecords.filter(r =>
             r.paymentStatus !== 'paid' && (
-                (nextMonthSalaryByUser[r.userId] || 0) < eligibleThreshold ||
-                ((r.totalUnpaidPenalties || 0) > 0)
+                (nextMonthSalaryByUser[r.userId] || 0) < threshold ||
+                (requireNoPenalties ? ((r.totalUnpaidPenalties || 0) > 0) : false)
             )
         );
-    }, [filteredRecords, nextMonthSalaryByUser]);
+    }, [filteredRecords, nextMonthSalaryByUser, eligibilityDraft]);
 
     const totalEligibleAmount = useMemo(() => {
         return eligibleRecords.reduce((sum, record) => {
@@ -360,6 +376,22 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
         } catch (error) {
             console.error("Salary calculation failed:", error);
             toast.error('Lỗi khi tính toán bảng lương.', { id: 'recalc' });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSaveEligibility = async () => {
+        if (!salarySheet) return;
+        setIsLoading(true);
+        try {
+            const updated = { ...salarySheet, eligibility: { threshold: eligibilityDraft.threshold, penaltiesMustBeZero: eligibilityDraft.penaltiesMustBeZero } };
+            await dataStore.saveMonthlySalarySheet(selectedMonth, updated as any);
+            setSalarySheet(updated);
+            toast.success('Đã lưu điều kiện đủ trả lương.');
+            setIsFilterPopoverOpen(false);
+        } catch (error) {
+            toast.error('Lỗi khi lưu điều kiện.');
         } finally {
             setIsLoading(false);
         }
@@ -425,7 +457,7 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
                                                 value: month,
                                                 label: `Tháng ${format(parseISO(`${month}-01`), 'MM/yyyy')}`
                                             }))}
-                                            className="w-full h-9 bg-zinc-50 border-zinc-200"
+                                            className="w-full h-9 bg-zinc-50 border-zinc-200 rounded-xl"
                                             placeholder="Chọn tháng"
                                             compact
                                             searchable={false}
@@ -435,7 +467,7 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
                                         <Input
                                             placeholder="Tìm tên nhân viên..."
-                                            className="pl-9 h-9 bg-zinc-50 border-zinc-200 focus-visible:ring-primary/20"
+                                            className="pl-9 h-9 bg-zinc-50 border-zinc-200 focus-visible:ring-primary/20 rounded-xl"
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
                                         />
@@ -443,47 +475,115 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
                                 </div>
 
                                 {salarySheet && (
-                                    <div className="w-full -mx-3 px-3">
-                                        <div className="w-full flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-                                            <Card className="flex-1 border-none shadow-none bg-emerald-50/70 p-2 rounded-xl border border-emerald-100">
-                                                <div className="flex items-center gap-1.5 text-emerald-700 mb-0">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                                    <span className="text-[9px] font-bold uppercase tracking-wider">Đủ Trả</span>
-                                                </div>
-                                                <div className="text-sm font-black text-emerald-900">
-                                                    {totalEligibleAmount.toLocaleString('vi-VN')}đ
-                                                </div>
-                                                <div className="text-[9px] text-emerald-600/80 font-medium">
-                                                    {eligibleRecords.length} người
-                                                </div>
-                                            </Card>
+                                    <div className="w-full px-3 pt-1.5 pb-2">
+                                        <Popover open={isFilterPopoverOpen} onOpenChange={setIsFilterPopoverOpen}>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                <PopoverTrigger asChild>
+                                                    <button className="relative overflow-hidden group flex flex-col gap-1 p-2.5 rounded-2xl bg-emerald-50 border border-emerald-100/50 hover:bg-emerald-100/40 transition-all active:scale-[0.98] text-left shadow-sm shadow-emerald-500/5">
+                                                        <div className="flex items-center gap-1.5 relative z-10">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                            <span className="text-[8px] font-black text-emerald-700 uppercase tracking-wider">Đủ Trả</span>
+                                                            <Filter className="w-2 h-2 ml-auto opacity-40" />
+                                                        </div>
+                                                        <div className="flex items-baseline gap-0.5 relative z-10">
+                                                            <span className="text-base font-black text-emerald-950 tracking-tight tabular-nums">
+                                                                {Math.floor(totalEligibleAmount / 1000).toLocaleString('vi-VN')}k
+                                                            </span>
+                                                        </div>
+                                                        <div className="text-[8px] font-bold text-emerald-600/70 whitespace-nowrap relative z-10">
+                                                            {eligibleRecords.length} người
+                                                        </div>
+                                                        <TrendingUp className="absolute -right-1 -bottom-1 w-8 h-8 text-emerald-500/10 group-hover:scale-110 transition-transform" />
+                                                    </button>
+                                                </PopoverTrigger>
 
-                                            <Card className="flex-1 border-none shadow-none bg-amber-50/70 p-2 rounded-xl border border-amber-100">
-                                                <div className="flex items-center gap-1.5 text-amber-700 mb-0">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                                                    <span className="text-[9px] font-bold uppercase tracking-wider">Chưa đủ</span>
+                                                <div className="bg-white p-2.5 rounded-2xl border border-zinc-100 shadow-soft flex flex-col gap-1">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                                                        <span className="text-[8px] font-black text-zinc-400 uppercase tracking-wider">Chưa đủ</span>
+                                                    </div>
+                                                    <div className="text-base font-black text-zinc-900 tracking-tight">
+                                                        {Math.floor(totalIneligibleAmount / 1000).toLocaleString('vi-VN')}k
+                                                    </div>
+                                                    <div className="text-[8px] font-bold text-amber-500 flex items-center gap-1">
+                                                        {ineligibleRecords.length} người
+                                                    </div>
                                                 </div>
-                                                <div className="text-sm font-black text-amber-900">
-                                                    {totalIneligibleAmount.toLocaleString('vi-VN')}đ
-                                                </div>
-                                                <div className="text-[9px] text-amber-600/80 font-medium">
-                                                    {ineligibleRecords.length} người
-                                                </div>
-                                            </Card>
 
-                                            <Card className="flex-1 border-none shadow-none bg-blue-50/70 p-2 rounded-xl border border-blue-100">
-                                                <div className="flex items-center gap-1.5 text-blue-700 mb-0">
-                                                    <CheckCircle className="h-3 w-3" />
-                                                    <span className="text-[9px] font-bold uppercase tracking-wider">Đã Trả</span>
+                                                <div className="bg-white p-2.5 rounded-2xl border border-zinc-100 shadow-soft flex flex-col gap-1">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <CheckCircle className="w-2.5 h-2.5 text-blue-500" />
+                                                        <span className="text-[8px] font-black text-zinc-400 uppercase tracking-wider">Đã Trả</span>
+                                                    </div>
+                                                    <div className="text-base font-black text-zinc-900 tracking-tight">
+                                                        {paidRecords.length}
+                                                    </div>
+                                                    <div className="text-[8px] font-bold text-blue-500">
+                                                        Hoàn thiện
+                                                    </div>
                                                 </div>
-                                                <div className="text-sm font-black text-blue-900">
-                                                    {paidRecords.length}
+                                            </div>
+
+                                            <PopoverContent 
+                                                className="w-80 p-4 rounded-2xl shadow-xl border-zinc-100 z-[110]" 
+                                                align="start" 
+                                                sideOffset={12}
+                                                container={dialogRef.current}
+                                            >
+                                                <div className="space-y-4">
+                                                    <div className="flex items-center gap-2.5">
+                                                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                                            <Filter className="h-4 w-4" />
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="font-bold text-sm text-zinc-900 leading-none">Thiết lập điều kiện</h4>
+                                                            <p className="text-[10px] text-zinc-500 mt-1 font-medium">Tự động phân loại nhân viên đủ trả lương</p>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="space-y-3 pt-1">
+                                                        <div className="space-y-1.5">
+                                                            <div className="flex items-center justify-between">
+                                                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest pl-1">Mức lương tối thiểu</label>
+                                                                <span className="text-[10px] font-bold text-primary bg-primary/5 px-2 py-0.5 rounded-full">
+                                                                    {(eligibilityDraft.threshold || 0).toLocaleString('vi-VN')}đ
+                                                                </span>
+                                                            </div>
+                                                            <div className="relative">
+                                                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                                                                <Input
+                                                                    type="number"
+                                                                    className="h-10 pl-9 bg-zinc-50 border-zinc-200 focus-visible:ring-primary/20 font-medium rounded-xl"
+                                                                    value={eligibilityDraft.threshold}
+                                                                    onChange={(e) => setEligibilityDraft(prev => ({ ...prev, threshold: Math.max(0, Number(e.target.value || 0)) }))}
+                                                                    placeholder="Nhập số tiền..."
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 border border-zinc-100 transition-colors hover:bg-zinc-100/50">
+                                                            <div className="space-y-0.5 pr-2">
+                                                                <label className="text-[11px] font-bold text-zinc-700 block">Không được có lỗi phạt</label>
+                                                                <p className="text-[9px] text-zinc-500 leading-tight">Nhân viên chưa có tiền phạt trong tháng</p>
+                                                            </div>
+                                                            <Switch
+                                                                checked={eligibilityDraft.penaltiesMustBeZero}
+                                                                onCheckedChange={(v) => setEligibilityDraft(prev => ({ ...prev, penaltiesMustBeZero: !!v }))}
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    <Button
+                                                        onClick={handleSaveEligibility}
+                                                        className="w-full h-11 font-bold rounded-xl shadow-lg shadow-primary/10"
+                                                        disabled={isLoading}
+                                                    >
+                                                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                                                        Cập nhật điều kiện
+                                                    </Button>
                                                 </div>
-                                                <div className="text-[9px] text-blue-600/80 font-medium">
-                                                    Hoàn thiện
-                                                </div>
-                                            </Card>
-                                        </div>
+                                            </PopoverContent>
+                                        </Popover>
                                     </div>
                                 )}
                             </div>
@@ -606,6 +706,7 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
                         dialogContainerRef={dialogRef}
                     />
                 ) : null}
+
             </DialogContent>
         </Dialog>
     );
