@@ -23,7 +23,7 @@ import { formatDistanceToNow, format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import VoteModal from "@/components/events/VoteModal";
+import EventParticipationView from "@/components/events/EventParticipationView";
 import type { AuthUser, Event } from "@/lib/types";
 
 const getEventTypeLabel = (type: string): string => {
@@ -62,22 +62,29 @@ export type EventsDialogProps = {
 };
 
 export default function EventsDialog({ open, onOpenChange, events, currentUser, joinedEventIds = new Set() }: EventsDialogProps) {
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [isVoteModalOpen, setIsVoteModalOpen] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+
+  const selectedEvent = useMemo(() => 
+    selectedEventId ? events.find(e => e.id === selectedEventId) || null : null
+  , [events, selectedEventId]);
 
   const orderedEvents = useMemo(() => {
-    return [...events].sort((a, b) => a.endAt.toDate().getTime() - b.endAt.toDate().getTime());
+    return [...events].sort((a, b) => {
+      const timeA = a.endAt?.toDate?.()?.getTime() || 0;
+      const timeB = b.endAt?.toDate?.()?.getTime() || 0;
+      return timeA - timeB;
+    });
   }, [events]);
 
   const handleBack = () => {
-    setSelectedEvent(null);
+    setSelectedEventId(null);
   };
 
   return (
     <>
       <Dialog open={open} onOpenChange={(val) => {
         onOpenChange(val);
-        if (!val) setSelectedEvent(null);
+        if (!val) setSelectedEventId(null);
       }} dialogTag="events-list-dialog" parentDialogTag="root">
         <DialogContent className="max-w-lg p-0 overflow-hidden flex flex-col bg-zinc-50 dark:bg-zinc-950">          <DialogTitle className="sr-only">
             {selectedEvent ? selectedEvent.title : "Sự kiện & Thông báo"}
@@ -113,7 +120,7 @@ export default function EventsDialog({ open, onOpenChange, events, currentUser, 
                         key={event.id}
                         whileHover={{ scale: 1.01 }}
                         whileTap={{ scale: 0.98 }}
-                        onClick={() => setSelectedEvent(event)}
+                        onClick={() => setSelectedEventId(event.id)}
                         className={cn(
                           "w-full text-left rounded-[2rem] p-5 transition-all relative border bg-white dark:bg-zinc-900 shadow-sm hover:shadow-md group overflow-hidden",
                           isJoined 
@@ -146,7 +153,7 @@ export default function EventsDialog({ open, onOpenChange, events, currentUser, 
                               )}
                               <div className="flex items-center gap-1.5 text-[10px] font-bold text-zinc-400 uppercase tracking-tight opacity-70">
                                 <Clock3 className="h-3.5 w-3.5" />
-                                {formatDistanceToNow(event.endAt.toDate(), { addSuffix: true, locale: vi })}
+                                {event.endAt ? formatDistanceToNow(event.endAt.toDate(), { addSuffix: true, locale: vi }) : "..."}
                               </div>
                             </div>
                           </div>
@@ -202,77 +209,18 @@ export default function EventsDialog({ open, onOpenChange, events, currentUser, 
                 </div>
               </div>
 
-              <DialogBody className="space-y-8 pt-6 pb-20">
-                <div className="space-y-4">
-                  <div className="bg-emerald-50/40 dark:bg-emerald-950/20 rounded-[1.5rem] p-6 border border-emerald-100/50 space-y-3 relative overflow-hidden">
-                    <div className="absolute -right-6 -top-6 h-24 w-24 bg-emerald-500/5 rounded-full blur-2xl" />
-                    <div className="flex items-center gap-2 text-[11px] font-black text-emerald-600 uppercase tracking-widest relative">
-                      <MessageSquare className="h-4 w-4" />
-                      Chi tiết thông báo
-                    </div>
-                    <p className="text-sm font-medium leading-relaxed text-zinc-700 dark:text-zinc-200 relative whitespace-pre-wrap">
-                      {selectedEvent.description}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-white dark:bg-zinc-900 rounded-2xl p-4 border border-zinc-200 dark:border-zinc-800 flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500 shadow-sm shrink-0">
-                        <Clock3 className="h-5 w-5" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">Trạng thái</p>
-                        <p className="text-xs font-black text-zinc-700 dark:text-zinc-300">
-                          {formatDistanceToNow(selectedEvent.endAt.toDate(), { addSuffix: true, locale: vi })}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="bg-white dark:bg-zinc-900 rounded-2xl p-4 border border-zinc-200 dark:border-zinc-800 flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500 shadow-sm shrink-0">
-                        <Calendar className="h-5 w-5" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">Hết hạn</p>
-                        <p className="text-xs font-black text-zinc-700 dark:text-zinc-300">
-                          {format(selectedEvent.endAt.toDate(), "dd/MM/yyyy")}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-amber-50/50 dark:bg-amber-950/20 rounded-2xl p-4 border border-amber-100/50 flex gap-3">
-                  <Info className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
-                  <p className="text-[11px] text-amber-800 dark:text-amber-200 leading-relaxed font-medium">
-                    Vui lòng tham gia hoạt động trước thời hạn nêu trên để đảm bảo quyền lợi và trách nhiệm tại Katrina Coffee.
-                  </p>
-                </div>
-              </DialogBody>
-
-              <DialogFooter className="p-6 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 mt-auto">
-                <Button
-                  size="lg"
-                  className="w-full h-14 rounded-[1.5rem] font-black text-sm uppercase tracking-widest bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl shadow-emerald-500/20 active:scale-[0.98] transition-all"
-                  onClick={() => setIsVoteModalOpen(true)}
-                >
-                  Bắt đầu tham gia
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </DialogFooter>
+              <div className="flex-1 overflow-y-auto">
+                {currentUser && (
+                  <EventParticipationView
+                    event={selectedEvent}
+                    currentUser={currentUser}
+                  />
+                )}
+              </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
-
-      {selectedEvent && currentUser && (
-        <VoteModal
-          isOpen={isVoteModalOpen}
-          onClose={() => setIsVoteModalOpen(false)}
-          event={selectedEvent}
-          currentUser={currentUser}
-          parentDialogTag="events-list-dialog"
-        />
-      )}
     </>
   );
 }

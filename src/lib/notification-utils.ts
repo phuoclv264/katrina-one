@@ -186,6 +186,22 @@ export const getNotificationDetails = (notification: Notification, currentUserId
                 description: messageBody,
                 href: `/reports/cashier?highlight=handover-${payload.reportId}`,
             };
+        case 'new_ballot_draw': {
+            let targetPage = '/';
+            if (currentUserRole === 'Phục vụ') targetPage = '/shifts';
+            else if (currentUserRole === 'Pha chế') targetPage = '/bartender';
+            else if (currentUserRole === 'Quản lý') targetPage = '/manager';
+            else if (currentUserRole === 'Thu ngân') targetPage = '/cashier';
+
+            const eventId = payload?.eventId;
+            const href = eventId ? `${targetPage}?openBallotResult=${eventId}` : targetPage;
+            return {
+                icon: Megaphone,
+                title: messageTitle,
+                description: messageBody,
+                href: href,
+            };
+        }
         default:
             return {
                 icon: MailQuestion,

@@ -50,6 +50,11 @@ import { LoadingPage } from '@/components/loading/LoadingPage';
 import { findNearestAttendanceRecord } from '@/lib/attendance-utils';
 import { toDateSafe, cn, selectLatestRevenueStats } from '@/lib/utils';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
+import { useSearchParams, useRouter } from "next/navigation";
+import { getEvent } from "@/lib/events-store";
+import { getQueryParamWithMobileHashFallback } from "@/lib/url-params";
+import type { Event } from "@/lib/types";
+import EventResultsDialog from "@/app/(app)/admin/events/_components/event-results-dialog";
 
 interface OwnerHomeViewProps {
   isStandalone?: boolean;
@@ -58,6 +63,8 @@ interface OwnerHomeViewProps {
 export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
   const { user, loading: authLoading } = useAuth();
   const nav = useAppNavigation();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const [revenueStats, setRevenueStats] = useState<RevenueStats[]>([]);
@@ -76,6 +83,29 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
   const [isCashierDataDialogOpen, setIsCashierDataDialogOpen] = useState(false);
   const [todaysSchedule, setTodaysSchedule] = useState<Schedule | null>(null);
   const [handoverByDate, setHandoverByDate] = useState<Record<string, CashHandoverReport[] | null>>({});
+  const [directEvent, setDirectEvent] = useState<Event | null>(null);
+
+  // Handle deep-linking to specific event results from notifications
+  useEffect(() => {
+    const openId = getQueryParamWithMobileHashFallback({
+      param: "openBallotResult",
+      searchParams: searchParams,
+      hash: typeof window !== "undefined" ? window.location.hash : ""
+    });
+
+    if (openId) {
+      getEvent(openId).then((event) => {
+        if (event) {
+          setDirectEvent(event);
+          // Remove the param from URL without reloading
+          const params = new URLSearchParams(window.location.search);
+          params.delete("openBallotResult");
+          const query = params.toString();
+          router.replace(`${window.location.pathname}${query ? `?${query}` : ""}`);
+        }
+      });
+    }
+  }, [searchParams, router]);
 
   useEffect(() => {
     if (!authLoading && user?.role !== 'Chủ nhà hàng') {
@@ -687,6 +717,16 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
         inventoryList={inventoryList}
         handoverByDate={handoverByDate}
       />
+
+      {directEvent && (
+        <EventResultsDialog
+          isOpen={true}
+          onClose={() => setDirectEvent(null)}
+          event={directEvent}
+          allUsers={allUsers}
+          parentDialogTag="root"
+        />
+      )}
     </div>
   );
 }
