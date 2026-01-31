@@ -21,6 +21,7 @@ import { ArrowRight, AlertCircle, CheckCircle, XCircle, Undo, Info, UserCheck, T
 import {
     AlertDialog,
     AlertDialogAction,
+    AlertDialogBody,
     AlertDialogCancel,
     AlertDialogContent,
     AlertDialogDescription,
@@ -57,6 +58,43 @@ type RequestCardProps = {
     onRejectApproval: (notificationId: string) => void;
     onDeleteHistory: (notificationId: string) => void;
     managerApprovalEnabled: boolean;
+};
+
+const ManagerApprovalDisabledAlert = ({ children }: { children: React.ReactNode }) => {
+    const [isOpen, setIsOpen] = React.useState(false);
+
+    return (
+        <AlertDialog
+            dialogTag="alert-dialog"
+            parentDialogTag="root"
+            variant="warning"
+            open={isOpen}
+            onOpenChange={setIsOpen}
+        >
+            <AlertDialogTrigger asChild>
+                {children}
+            </AlertDialogTrigger>
+            <AlertDialogContent
+                maxWidth="sm"
+                className="bg-gradient-to-br from-amber-50/80 via-white to-white shadow-2xl dark:from-amber-900/30 dark:via-slate-900/80 dark:to-slate-950"
+            >
+                <AlertDialogHeader className="flex-col gap-4 text-center sm:text-left">
+                    <AlertDialogIcon variant="warning" className="mx-auto" />
+                    <AlertDialogTitle className="text-[22px] text-slate-900 dark:text-white">Không thể phê duyệt</AlertDialogTitle>
+                    <AlertDialogDescription className="text-base text-slate-600 dark:text-slate-300">
+                        Chủ quán đã tắt quyền phê duyệt của Quản lý. Hãy liên hệ chủ quán để phục hồi quyền này trước khi thực hiện thao tác.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogBody className="text-sm text-slate-600 dark:text-slate-300 space-y-1">
+                    <p className="font-semibold text-slate-700 dark:text-slate-100">Quyền này chỉ có chủ quán mới bật lại.</p>
+                    <p className="text-slate-500 dark:text-slate-400">Khi bật xong bạn sẽ có thể duyệt các yêu cầu đang chờ duyệt ngay lập tức.</p>
+                </AlertDialogBody>
+                <AlertDialogFooter className="gap-3">
+                    <AlertDialogAction onClick={() => setIsOpen(false)}>Đã hiểu</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    );
 };
 
 const RequestCard = ({ notification, schedule, currentUser, allUsers, processingNotificationId, onAccept, onDecline, onCancel, onRevert, onAssign, onApprove, onRejectApproval, onDeleteHistory, managerApprovalEnabled }: RequestCardProps) => {
@@ -215,9 +253,6 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
                 const canOwnerApprove = currentUser.role === 'Chủ nhà hàng';
                 const canManagerApproveByRole = currentUser.role === 'Quản lý' && !isRequestByManager && !isTakenByManager;
 
-                const showManagerDisabledAlert = () => {
-                    toast.error("Không thể phê duyệt", {message: 'Chủ quán đã tắt tính năng duyệt của bạn, liên hệ chủ quán để được mở lại'});
-                };
 
                 if (canOwnerApprove) {
                     return (
@@ -232,8 +267,12 @@ const RequestCard = ({ notification, schedule, currentUser, allUsers, processing
                     if (!managerApprovalEnabled) {
                         return (
                             <div className="flex gap-2 w-full sm:w-auto">
-                                <ActionButton variant="destructive" icon={XCircle} onClick={showManagerDisabledAlert}>Từ chối</ActionButton>
-                                <ActionButton icon={CheckCircle} onClick={showManagerDisabledAlert}>Phê duyệt</ActionButton>
+                                <ManagerApprovalDisabledAlert>
+                                    <ActionButton variant="destructive" icon={XCircle} onClick={() => {}}>Từ chối</ActionButton>
+                                </ManagerApprovalDisabledAlert>
+                                <ManagerApprovalDisabledAlert>
+                                    <ActionButton icon={CheckCircle} onClick={() => {}}>Phê duyệt</ActionButton>
+                                </ManagerApprovalDisabledAlert>
                             </div>
                         );
                     }
