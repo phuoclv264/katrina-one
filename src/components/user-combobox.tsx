@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { Check, Search, UserPlus, Plus } from 'lucide-react';
-import { cn, normalizeSearchString } from '@/lib/utils';
+import { cn, normalizeSearchString, advancedSearch } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
     Command,
@@ -40,6 +40,7 @@ export function UserCombobox({
     const [open, setOpen] = React.useState(false);
     const triggerRef = React.useRef<HTMLDivElement | null>(null);
     const [container, setContainer] = React.useState<HTMLElement | null>(null);
+    const [searchQuery, setSearchQuery] = React.useState("");
 
     React.useLayoutEffect(() => {
         if (open) {
@@ -59,20 +60,22 @@ export function UserCombobox({
         return list.map(item => item.user);
     }, [users, selectedUids]);
 
+    const filteredUsers = React.useMemo(() => {
+        return advancedSearch(availableUsers, searchQuery, ['displayName', 'role']);
+    }, [availableUsers, searchQuery]);
+
     const commandContent = (
         <Command 
             className="border-none"
-            filter={(value, search) => {
-                const normalizedValue = normalizeSearchString(value ?? "");
-                const normalizedSearch = normalizeSearchString(search ?? "");
-                return normalizedValue.includes(normalizedSearch) ? 1 : 0;
-            }}
+            shouldFilter={false}
         >
             <div className="flex items-center px-3 border-b border-primary/5 bg-slate-50/50">
                 <CommandInput 
                     placeholder="Tìm theo tên hoặc vai trò..." 
                     className="h-12 border-none ring-0 focus:ring-0 font-bold bg-transparent"
                     autoFocus
+                    value={searchQuery}
+                    onValueChange={setSearchQuery}
                 />
             </div>
             <CommandList className="max-h-[300px]">
@@ -85,7 +88,7 @@ export function UserCombobox({
                     </p>
                 </CommandEmpty>
                 <CommandGroup className="p-2">
-                    {availableUsers.map((user) => (
+                    {filteredUsers.map((user) => (
                         <CommandItem
                             key={user.uid}
                             value={user.displayName + " " + user.role}

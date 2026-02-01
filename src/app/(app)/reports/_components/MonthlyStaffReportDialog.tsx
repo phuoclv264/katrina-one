@@ -10,7 +10,7 @@ import type { ManagedUser, ShiftReport, Violation, AttendanceRecord, TasksByShif
 import { format, startOfMonth, endOfMonth, parseISO, addMonths, subMonths } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Loader2, AlertTriangle, Camera, ListTodo, ThumbsDown, ThumbsUp, Users, ListTree, ListX, ChevronLeft, ChevronRight, LayoutGrid, Trophy, CheckCircle2, Target } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { UserAvatar } from '@/components/user-avatar';
 import { Badge } from '@/components/ui/badge';
 import Image from '@/components/ui/image';
 import { Switch } from '@/components/ui/switch';
@@ -548,12 +548,12 @@ function TaskCentricView({ allUsers, monthlyData, tasksByShift, bartenderTasks, 
                                                 <div key={user.uid} className="p-3 md:p-4 border rounded-2xl bg-card shadow-sm flex flex-col gap-2.5 md:gap-3 relative overflow-hidden">
                                                     <div className="absolute top-0 left-0 w-1 h-full bg-primary/20" />
                                                     <div className="flex items-center gap-2.5 md:gap-3">
-                                                        <Avatar className="h-8 w-8 md:h-10 md:w-10 border-2 border-primary/10 shrink-0">
-                                                            <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${user.displayName}`} />
-                                                            <AvatarFallback className="bg-primary/5 text-primary font-bold text-xs md:text-sm">
-                                                                {user.displayName.charAt(0)}
-                                                            </AvatarFallback>
-                                                        </Avatar>
+                                                        <UserAvatar
+                                                            user={user}
+                                                            size="h-8 w-8 md:h-10 md:w-10"
+                                                            className="border-2 border-primary/10 shrink-0"
+                                                            fallbackClassName="bg-primary/5 text-primary font-bold text-xs md:text-sm"
+                                                        />
                                                         <div className="flex flex-col min-w-0 text-left">
                                                             <p className="font-bold text-foreground tracking-tight text-xs md:text-sm truncate">{user.displayName}</p>
                                                             <p className="text-[9px] md:text-[10px] font-bold text-muted-foreground uppercase tracking-wider truncate">{user.role}</p>
@@ -799,12 +799,12 @@ export default function MonthlyStaffReportDialog({ isOpen, onOpenChange, parentD
                                                         className="w-full border rounded-2xl bg-card overflow-hidden transition-all duration-200 hover:shadow-md hover:border-primary/20 active:scale-[0.98] text-left p-4 md:p-5 flex items-center justify-between group"
                                                     >
                                                         <div className="flex items-center gap-3 md:gap-4">
-                                                            <Avatar className="h-10 w-10 md:h-12 md:w-12 border-2 border-primary/10">
-                                                                <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${user.displayName}`} />
-                                                                <AvatarFallback className="bg-primary/5 text-primary text-base md:text-lg font-bold">
-                                                                    {user.displayName.charAt(0)}
-                                                                </AvatarFallback>
-                                                            </Avatar>
+                                                            <UserAvatar
+                                                                user={user}
+                                                                size="h-10 w-10 md:h-12 md:w-12"
+                                                                className="border-2 border-primary/10"
+                                                                fallbackClassName="bg-primary/5 text-primary text-base md:text-lg font-bold"
+                                                            />
                                                             <div className="space-y-0.5 min-w-0">
                                                                 <p className="font-bold text-foreground tracking-tight group-hover:text-primary transition-colors">{user.displayName}</p>
                                                                 <div className="flex items-center gap-2 flex-wrap">

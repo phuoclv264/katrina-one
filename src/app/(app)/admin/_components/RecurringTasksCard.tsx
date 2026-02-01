@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useMemo, useState, useCallback } from 'react';
-import { CheckCircle, AlertCircle, Circle, ChevronDown, Eye } from 'lucide-react';
+import { CheckCircle, AlertCircle, Circle, ChevronDown } from 'lucide-react';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
 import type { MonthlyTask, MonthlyTaskAssignment, TaskCompletionRecord, ManagedUser } from '@/lib/types';
 import { useLightbox } from '@/contexts/lightbox-context';
 import { formatTime } from '@/lib/utils';
+import TaskReportDetailsDialog from './TaskReportDetailsDialog';
 
 interface RecurringTasksCardProps {
   monthlyTasks: MonthlyTask[];
@@ -36,7 +37,9 @@ type TaskSummary = {
 export function RecurringTasksCard({ monthlyTasks, taskAssignments, staffDirectory = [] }: RecurringTasksCardProps) {
   const navigation = useAppNavigation();
   const { openLightbox } = useLightbox();
-  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
+  // We use selectedTaskId to navigate to the "detail page" of a task
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
 
   const staffById = useMemo(() => {
     const map = new Map<string, ManagedUser>();
@@ -157,11 +160,7 @@ export function RecurringTasksCard({ monthlyTasks, taskAssignments, staffDirecto
     };
   }, [taskSummaries]);
 
-  const toggleTask = useCallback((taskId: string) => {
-    setExpandedTaskId((prev) => (prev === taskId ? null : taskId));
-  }, []);
-
-  const handleLightboxOpen = useCallback((media: any[] | undefined) => {
+  const handleLightboxOpen = useCallback((media: any[] | undefined, index = 0) => {
     if (!media || media.length === 0) return;
     
     const slides = media.map((attachment) =>
@@ -175,7 +174,7 @@ export function RecurringTasksCard({ monthlyTasks, taskAssignments, staffDirecto
           }
         : { src: attachment.url },
     );
-    openLightbox(slides, 0);
+    openLightbox(slides, index);
   }, [openLightbox]);
 
   if (taskSummaries.length === 0) {
@@ -202,72 +201,6 @@ export function RecurringTasksCard({ monthlyTasks, taskAssignments, staffDirecto
     );
   }
 
-  const renderStaffList = (
-    label: string,
-    staff: StaffStatus[],
-    status: StaffStatus['status'],
-  ) => {
-    const statusStyles: Record<StaffStatus['status'], { className: string; icon: React.JSX.Element }> = {
-      completed: {
-        className: 'text-emerald-300',
-        icon: <CheckCircle className="h-3.5 w-3.5" />,
-      },
-      reported: {
-        className: 'text-amber-300',
-        icon: <AlertCircle className="h-3.5 w-3.5" />,
-      },
-      pending: {
-        className: 'text-gray-300',
-        icon: <Circle className="h-3.5 w-3.5" />,
-      },
-    };
-
-    return (
-      <div>
-        <div className={`flex items-center gap-1.5 text-[11px] font-semibold uppercase mb-2 ${statusStyles[status].className}`}>
-          {statusStyles[status].icon}
-          <span>{label}</span>
-        </div>
-        {staff.length === 0 ? (
-          <p className="text-[11px] opacity-60">Không có ghi nhận.</p>
-        ) : (
-          <div className="space-y-1.5">
-            {staff.map((item) => (
-              <div key={item.userId} className="flex items-start justify-between bg-white/5 rounded px-2 py-1.5 border border-white/10">
-                <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-medium truncate">{item.userName}</p>
-                  <p className="text-[10px] opacity-70 truncate">{item.shiftLabels.join(', ')}</p>
-                  {item.status === 'reported' && item.completion?.note && (
-                    <p className="text-[10px] text-amber-300 mt-0.5 line-clamp-2">"{item.completion.note}"</p>
-                  )}
-                </div>
-                <div className="flex flex-col items-end gap-1 ml-2">
-                  {item.status === 'completed' && item.completion?.completedAt && (
-                    <span className="text-[10px] font-semibold text-emerald-300">
-                      {formatTime(item.completion.completedAt, 'HH:mm')}
-                    </span>
-                  )}
-                  {item.completion?.media && item.completion.media.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleLightboxOpen(item.completion?.media);
-                      }}
-                      className="text-[10px] text-blue-300 hover:underline inline-flex items-center gap-0.5"
-                    >
-                      <Eye className="h-3 w-3" />
-                      Xem
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
 
   return (
     <div className="bg-gradient-to-br from-indigo-600 to-blue-700 dark:from-indigo-700 dark:to-blue-800 rounded-2xl shadow-lg p-6 text-white relative overflow-hidden">
@@ -297,138 +230,54 @@ export function RecurringTasksCard({ monthlyTasks, taskAssignments, staffDirecto
           </div>
         </div>
 
-        {/* All tasks with accordion */}
+        {/* All tasks with navigation triggers */}
         <div className="space-y-2 mb-3 max-h-[500px] overflow-y-auto">
           {taskSummaries.map((task) => {
-            const isExpanded = expandedTaskId === task.taskId;
             const completionPct = task.totalAssigned > 0 ? Math.round((task.completed / task.totalAssigned) * 100) : 0;
-            
-            const completedStaff = task.staffStatuses.filter((s) => s.status === 'completed');
-            const reportedStaff = task.staffStatuses.filter((s) => s.status === 'reported');
-            const pendingStaff = task.staffStatuses.filter((s) => s.status === 'pending');
             
             return (
               <div key={task.taskId} className="bg-white/10 rounded-lg backdrop-blur-sm border border-white/10 overflow-hidden">
-                {/* Accordion Header */}
+                {/* Navigation Trigger */}
                 <button
                   type="button"
-                  onClick={() => toggleTask(task.taskId)}
+                  onClick={() => { setSelectedTaskId(task.taskId); setIsDetailOpen(true); }}
                   className="w-full p-3 text-left hover:bg-white/5 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <p className="text-sm font-medium leading-relaxed line-clamp-2">{task.taskName}</p>
-                        <ChevronDown 
-                          className={`h-3.5 w-3.5 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
-                        />
                       </div>
-                      {!isExpanded && (
-                        <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
-                          {task.completed > 0 && (
-                            <span className="flex items-center gap-0.5 bg-emerald-500/20 px-1 py-0.5 rounded">
-                              <CheckCircle className="h-2.5 w-2.5 text-emerald-300" />
-                              {task.completed}
-                            </span>
-                          )}
-                          {task.reported > 0 && (
-                            <span className="flex items-center gap-0.5 bg-amber-500/20 px-1 py-0.5 rounded">
-                              <AlertCircle className="h-2.5 w-2.5 text-amber-300" />
-                              {task.reported}
-                            </span>
-                          )}
-                          {task.pending > 0 && (
-                            <span className="flex items-center gap-0.5 bg-gray-500/20 px-1 py-0.5 rounded">
-                              <Circle className="h-2.5 w-2.5 text-gray-300" />
-                              {task.pending}
-                            </span>
-                          )}
-                        </div>
-                      )}
+                      <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                        {task.completed > 0 && (
+                          <span className="flex items-center gap-0.5 bg-emerald-500/20 px-1 py-0.5 rounded">
+                            <CheckCircle className="h-2.5 w-2.5 text-emerald-300" />
+                            {task.completed}
+                          </span>
+                        )}
+                        {task.reported > 0 && (
+                          <span className="flex items-center gap-0.5 bg-amber-500/20 px-1 py-0.5 rounded">
+                            <AlertCircle className="h-2.5 w-2.5 text-amber-300" />
+                            {task.reported}
+                          </span>
+                        )}
+                        {task.pending > 0 && (
+                          <span className="flex items-center gap-0.5 bg-gray-500/20 px-1 py-0.5 rounded">
+                            <Circle className="h-2.5 w-2.5 text-gray-300" />
+                            {task.pending}
+                          </span>
+                        )}
+                      </div>
                     </div>
+                    <ChevronDown className="h-4 w-4 opacity-50 -rotate-90" />
                   </div>
-                  {!isExpanded && (
-                    <div className="w-full bg-white/10 rounded-full h-1 overflow-hidden mt-2">
-                      <div 
-                        className="bg-white h-1 rounded-full transition-all duration-300" 
-                        style={{ width: `${completionPct}%` }}
-                      ></div>
-                    </div>
-                  )}
+                  <div className="w-full bg-white/10 rounded-full h-1 overflow-hidden mt-2">
+                    <div 
+                      className="bg-white h-1 rounded-full transition-all duration-300" 
+                      style={{ width: `${completionPct}%` }}
+                    ></div>
+                  </div>
                 </button>
-
-                {/* Accordion Content */}
-                {isExpanded && (
-                  <div className="border-t border-white/10 p-3 space-y-3 animate-in fade-in duration-200">
-                    {task.description && (
-                      <p className="text-[11px] opacity-80 leading-relaxed">{task.description}</p>
-                    )}
-                    
-                    {/* Summary stats */}
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="bg-emerald-500/10 rounded px-2 py-1.5 text-center">
-                        <div className="text-sm font-bold text-emerald-300">{task.completed}</div>
-                        <div className="text-[10px] opacity-80">Hoàn thành</div>
-                      </div>
-                      <div className="bg-amber-500/10 rounded px-2 py-1.5 text-center">
-                        <div className="text-sm font-bold text-amber-300">{task.reported}</div>
-                        <div className="text-[10px] opacity-80">Báo cáo</div>
-                      </div>
-                      <div className="bg-gray-500/10 rounded px-2 py-1.5 text-center">
-                        <div className="text-sm font-bold text-gray-300">{task.pending}</div>
-                        <div className="text-[10px] opacity-80">Chưa gửi</div>
-                      </div>
-                    </div>
-
-                    {/* Staff lists */}
-                    <div className="space-y-3">
-                      {renderStaffList('Đã hoàn thành', completedStaff, 'completed')}
-                      {renderStaffList('Đã báo cáo', reportedStaff, 'reported')}
-                      {renderStaffList('Chưa gửi', pendingStaff, 'pending')}
-                    </div>
-
-                    {/* Additional reports */}
-                    {task.additionalReports.length > 0 && (
-                      <div className="pt-3 border-t border-white/10">
-                        <p className="text-[11px] font-semibold uppercase opacity-80 mb-2">Báo cáo khác</p>
-                        <div className="space-y-1.5">
-                          {task.additionalReports.map((report, idx) => (
-                            <div
-                              key={report.completionId ?? `${report.taskId}-${idx}`}
-                              className="flex items-start justify-between bg-white/5 rounded px-2 py-1.5 border border-dashed border-white/10"
-                            >
-                              <div className="flex-1 min-w-0">
-                                <p className="text-[11px] font-medium">{report.completedBy?.userName ?? 'Không xác định'}</p>
-                                {report.note && (
-                                  <p className="text-[10px] text-amber-300 line-clamp-2">"{report.note}"</p>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2 ml-2">
-                                {report.completedAt && (
-                                  <span className="text-[10px] font-semibold text-emerald-300">
-                                    {formatTime(report.completedAt, 'HH:mm')}
-                                  </span>
-                                )}
-                                {report.media && report.media.length > 0 && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleLightboxOpen(report.media);
-                                    }}
-                                    className="text-[10px] text-blue-300 hover:underline inline-flex items-center gap-0.5"
-                                  >
-                                    <Eye className="h-3 w-3" />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             );
           })}
@@ -440,6 +289,15 @@ export function RecurringTasksCard({ monthlyTasks, taskAssignments, staffDirecto
         >
           Xem chi tiết tất cả công việc
         </button>
+
+        <TaskReportDetailsDialog
+          open={isDetailOpen}
+          onOpenChange={(open) => {
+            setIsDetailOpen(open);
+            if (!open) setSelectedTaskId(null);
+          }}
+          task={taskSummaries.find((t) => t.taskId === selectedTaskId) ?? null}
+        />
       </div>
     </div>
   );

@@ -28,10 +28,7 @@ export type SimpleUser = {
   userName: string;
 };
 
-export type AppSettings = {
-  isRegistrationEnabled: boolean;
-  lastIssueNoteScan?: string | Timestamp;
-};
+export type AppSettings = { isRegistrationEnabled: boolean; lastIssueNoteScan?: string | Timestamp; managerApprovalEnabled?: boolean; };
 
 export type Task = {
   id: string;
@@ -382,6 +379,14 @@ export type EmployeeAttendance = {
   status: EmployeeStatus;
   checkInTime: Date | null;
   checkOutTime: Date | null;
+  /**
+   * For continuous/multiple attendance sessions within a single shift.
+   * If this array is present, checkInTime/checkOutTime may be used as a summary or primary session.
+   */
+  records?: {
+    checkInTime: Date | null;
+    checkOutTime: Date | null;
+  }[];
   lateMinutes: number | null;
   lateReason: string | null;
   lateReasonPhotoUrl?: string | null;
@@ -548,7 +553,9 @@ export type NotificationType =
   | 'new_revenue_stats'
   | 'new_violation'
   | 'new_incident_report'
-  | 'new_cash_handover_report';
+  | 'new_cash_handover_report'
+  | 'new_ballot_draw'
+  | 'salary_update';
 
 export type PassRequestPayload = {
   notificationType?: 'pass_request';
@@ -599,6 +606,7 @@ export type Notification = {
   createdAt: string | Timestamp;
   messageTitle?: string,
   messageBody?: string,
+  recipientUids?: string[];
   payload?: any;
   isRead?: { [userId: string]: boolean };
   // pass_request notifications only
@@ -1028,6 +1036,22 @@ export type SpecialPeriod = {
   updatedAt: string | Timestamp;
 };
 
+export type BonusRecord = {
+  id: string;
+  amount: number;
+  note: string;
+  createdBy: SimpleUser;
+  createdAt: string | Timestamp;
+};
+
+export type SalaryAdvanceRecord = {
+  id: string;
+  amount: number;
+  note: string;
+  createdBy: SimpleUser;
+  createdAt: string | Timestamp;
+};
+
 export type SalaryRecord = {
   userId: string;
   userName: string;
@@ -1044,7 +1068,9 @@ export type SalaryRecord = {
   paymentStatus?: 'paid' | 'unpaid';
   paidAt?: Timestamp;
   salaryAdvance?: number;
+  advances?: SalaryAdvanceRecord[];
   bonus?: number;
+  bonuses?: BonusRecord[];
   actualPaidAmount?: number;
 };
 
@@ -1054,6 +1080,10 @@ export type MonthlySalarySheet = {
   calculatedBy: SimpleUser;
   scheduleMap: Record<string, Schedule>; // Keyed by weekId
   salaryRecords: Record<string, SalaryRecord>; // Keyed by userId
+  eligibility?: {
+    threshold: number;
+    penaltiesMustBeZero: boolean;
+  };
 };
 
 // --- Daily Assignments ---
@@ -1179,7 +1209,7 @@ export type MonthlyTaskAssignment = {
 
 // --- Event Feature Types ---
 export type EventType = 'vote' | 'multi-vote' | 'review' | 'ballot';
-export type EventStatus = 'draft' | 'active' | 'closed';
+export type EventStatus = 'draft' | 'waiting' | 'active' | 'closed';
 
 export type EventCandidate = {
   id: string; // Can be userId or a custom ID for an option
@@ -1200,6 +1230,7 @@ export type Event = {
   
   // Eligibility
   eligibleRoles: UserRole[];
+  targetUserIds?: string[]; // Specific users targeted for this event
   
   // Content
   candidates: EventCandidate[]; // For staff-based events
@@ -1213,6 +1244,14 @@ export type Event = {
     name: string;
     description: string;
     imageUrl?: string;
+  };
+  // Ballot-specific configuration
+  ballotConfig?: {
+    winnerCount: number;
+    resultMessage: string; // Message to show to winners
+    loserMessage: string; // Message to show to non-winners
+    autoDraw: boolean; // Whether to run automatically at end time
+    ballotDrawTime?: Timestamp; // Specific time for ballot draw (separate from event end time)
   };
   /** Mark event as test-only — only visible to users with `isTestAccount` */
   isTest?: boolean;

@@ -81,7 +81,7 @@ export function ProfileDialog({ open, onOpenChange, parentDialogTag }: ProfileDi
                 currentPhotoURL={photoURL}
                 onUploadComplete={setPhotoURL}
                 uid={user.uid}
-                displayName={user.displayName || ''}
+                displayName={displayName}
               />
             </div>
 

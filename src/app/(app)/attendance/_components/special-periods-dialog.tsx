@@ -24,7 +24,7 @@ import { toast } from '@/components/ui/pro-toast';
 import { Loader2, Plus, Trash2, Calendar as CalendarIcon, Clock, Sparkles, CalendarDays, Search, User } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { cn, normalizeSearchString } from '@/lib/utils';
+import { cn, advancedSearch } from '@/lib/utils';
 import { Timestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -67,11 +67,7 @@ export default function SpecialPeriodsDialog({
 
     const filteredUsers = useMemo(() => {
         if (!userSearch) return users;
-        const normalizedSearch = normalizeSearchString(userSearch);
-        return users.filter(u =>
-            normalizeSearchString(u.displayName || '').includes(normalizedSearch) ||
-            normalizeSearchString(u.email || '').includes(normalizedSearch)
-        );
+        return advancedSearch(users, userSearch, ['displayName', 'email', 'role']);
     }, [users, userSearch]);
 
     const toggleUser = (uid: string) => {

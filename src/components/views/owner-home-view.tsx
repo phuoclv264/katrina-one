@@ -29,7 +29,6 @@ import {
   getISOWeek,
   getISOWeekYear,
   isWithinInterval,
-  isBefore,
   isAfter,
   addDays,
   parse,
@@ -39,7 +38,7 @@ import {
 import { DashboardHeader } from '@/app/(app)/admin/_components/DashboardHeader';
 import { subscribeToHandoverReport } from '@/lib/cashier-store';
 import { KPIMetricsSection } from '@/app/(app)/admin/_components/KPIMetricsSection';
-import { RevenueAnalyticsSection } from '@/app/(app)/admin/_components/RevenueAnalyticsSection';
+
 import { RecentReportsCard } from '@/app/(app)/admin/_components/RecentReportsCard';
 import { QuickAccessToolsSection } from '@/app/(app)/admin/_components/QuickAccessToolsSection';
 import MonthlyStaffReportDialog from '@/app/(app)/reports/_components/MonthlyStaffReportDialog';
@@ -51,6 +50,11 @@ import { LoadingPage } from '@/components/loading/LoadingPage';
 import { findNearestAttendanceRecord } from '@/lib/attendance-utils';
 import { toDateSafe, cn, selectLatestRevenueStats } from '@/lib/utils';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
+import { useSearchParams, useRouter } from "next/navigation";
+import { getEvent } from "@/lib/events-store";
+import { getQueryParamWithMobileHashFallback } from "@/lib/url-params";
+import type { Event } from "@/lib/types";
+import EventResultsDialog from "@/app/(app)/admin/events/_components/event-results-dialog";
 
 interface OwnerHomeViewProps {
   isStandalone?: boolean;
@@ -59,6 +63,8 @@ interface OwnerHomeViewProps {
 export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
   const { user, loading: authLoading } = useAuth();
   const nav = useAppNavigation();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const [revenueStats, setRevenueStats] = useState<RevenueStats[]>([]);
@@ -77,6 +83,29 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
   const [isCashierDataDialogOpen, setIsCashierDataDialogOpen] = useState(false);
   const [todaysSchedule, setTodaysSchedule] = useState<Schedule | null>(null);
   const [handoverByDate, setHandoverByDate] = useState<Record<string, CashHandoverReport[] | null>>({});
+  const [directEvent, setDirectEvent] = useState<Event | null>(null);
+
+  // Handle deep-linking to specific event results from notifications
+  useEffect(() => {
+    const openId = getQueryParamWithMobileHashFallback({
+      param: "openBallotResult",
+      searchParams: searchParams,
+      hash: typeof window !== "undefined" ? window.location.hash : ""
+    });
+
+    if (openId) {
+      getEvent(openId).then((event) => {
+        if (event) {
+          setDirectEvent(event);
+          // Remove the param from URL without reloading
+          const params = new URLSearchParams(window.location.search);
+          params.delete("openBallotResult");
+          const query = params.toString();
+          router.replace(`${window.location.pathname}${query ? `?${query}` : ""}`);
+        }
+      });
+    }
+  }, [searchParams, router]);
 
   useEffect(() => {
     if (!authLoading && user?.role !== 'Chủ nhà hàng') {
@@ -321,7 +350,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
 
     // Track which record belongs to which shift
     const recordToShiftAssignment = new Map<string, string>(); // recordId -> shiftId
-    const shiftUserToRecordAssignment = new Map<string, string>(); // "shiftId_userId" -> recordId
+    const shiftUserToRecordsAssignment = new Map<string, string[]>(); // "shiftId_userId" -> recordIds[]
 
     // For each record, find the shift it's closest to
     attendanceRecords.forEach(record => {
@@ -348,7 +377,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
       }
     });
 
-    // For each shift, for each user assigned, find their best record from those that claimed this shift
+    // For each shift, for each user assigned, find all records that should belong to this shift
     currentDayShifts.forEach(shift => {
       const sStart = parse(shift.timeSlot.start, 'HH:mm', new Date(shift.date));
       
@@ -377,30 +406,9 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
 
         if (perspectiveRecords.length === 0) return;
 
-        // Prefer a record that actually starts inside the shift; otherwise choose the closest start.
-        let bestRecordId = '';
-        let minDiff = Infinity;
-
-        perspectiveRecords.forEach(r => {
-          const rStart = toDateSafe(r.checkInTime)!;
-          const shiftEndDt = parse(shift.timeSlot.end, 'HH:mm', new Date(shift.date));
-
-          if (isWithinInterval(rStart, { start: sStart, end: shiftEndDt })) {
-            bestRecordId = r.id;
-            minDiff = 0;
-            return;
-          }
-
-          const diff = Math.abs(differenceInMinutes(rStart, sStart));
-          if (diff < minDiff) {
-            minDiff = diff;
-            bestRecordId = r.id;
-          }
-        });
-
-        if (bestRecordId) {
-          shiftUserToRecordAssignment.set(`${shift.id}_${user.userId}`, bestRecordId);
-        }
+        // Collect all valid record IDs for this user in this shift
+        const recordIds = perspectiveRecords.map(r => r.id);
+        shiftUserToRecordsAssignment.set(`${shift.id}_${user.userId}`, recordIds);
       });
     });
 
@@ -415,24 +423,22 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
 
           const employees = shift.assignedUsers.map((assignedUser) => {
             const userRecords = recordsByUser[assignedUser.userId] || [];
-            const userShifts = userToShiftsMap[assignedUser.userId] || [];
 
-            // Logic: "don't show the checkin time if the user's second shift if the first shift is not passed and the second has not come yet"
-            const hasStarted = isAfter(new Date(), shiftStart);
-            const isFirstShiftActive = userShifts.some(otherS => {
-              if (otherS.id === shift.id) return false;
-              const otherStart = parse(otherS.timeSlot.start, 'HH:mm', new Date(otherS.date));
-              const otherEnd = parse(otherS.timeSlot.end, 'HH:mm', new Date(otherS.date));
-              return isBefore(otherStart, shiftStart) && isBefore(new Date(), otherEnd);
-            });
+            const assignedRecordIds = shiftUserToRecordsAssignment.get(`${shift.id}_${assignedUser.userId}`) || [];
+            
+            // Get all full record objects
+            const assignedRecords = assignedRecordIds
+              .map(id => userRecords.find(r => r.id === id))
+              .filter((r): r is AttendanceRecord => !!r)
+              // Sort by check-in time ascending
+              .sort((a, b) => {
+                const aTime = a.checkInTime ? toDateSafe(a.checkInTime)?.getTime() || 0 : 0;
+                const bTime = b.checkInTime ? toDateSafe(b.checkInTime)?.getTime() || 0 : 0;
+                return aTime - bTime;
+              });
 
-            const assignedRecordId = shiftUserToRecordAssignment.get(`${shift.id}_${assignedUser.userId}`);
-            const nearestRecord = (assignedRecordId && !isFirstShiftActive)
-              ? userRecords.find(r => r.id === assignedRecordId)
-              : null;
-
-            // If a record spans multiple shifts, nearestRecord may still be used for more than one shift — keep it marked used
-            if (nearestRecord) usedRecordIds.add(nearestRecord.id);
+            // Mark all used
+            assignedRecords.forEach(r => usedRecordIds.add(r.id));
 
             let status: 'present' | 'late' | 'absent' | 'pending_late' = 'absent';
             let checkInTime: Date | null = null;
@@ -442,137 +448,58 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
             let lateReasonPhotoUrl: string | null = null;
             let estimatedLateMinutes: number | null = null;
 
-            // Helper: clamp date to shift interval
-            const clampToShift = (d: Date, start: Date, end: Date) => {
-              if (d <= start) return start;
-              if (d >= end) return end;
-              return d;
-            };
+            // Use the first record for primary status determination
+            const primaryRecord = assignedRecords[0];
 
-            // Helper: get display times for continuous work across multiple shifts
-            const getContinuousWorkTimes = (record: AttendanceRecord, currentShift: AssignedShift, userShifts: AssignedShift[]) => {
-              // Sort user shifts by start time
-              const sortedShifts = [...userShifts].sort((a, b) => {
-                const aStart = parse(a.timeSlot.start, 'HH:mm', new Date(a.date));
-                const bStart = parse(b.timeSlot.start, 'HH:mm', new Date(b.date));
-                return aStart.getTime() - bStart.getTime();
-              });
-              
-              const currentIndex = sortedShifts.findIndex(s => s.id === currentShift.id);
-              const prevShift = sortedShifts[currentIndex - 1];
-              const nextShift = sortedShifts[currentIndex + 1];
-              
-              const recStart = record.checkInTime ? toDateSafe(record.checkInTime)! : null;
-              const recEnd = record.checkOutTime ? toDateSafe(record.checkOutTime)! : null;
-              
-              const shiftStartDt = parse(currentShift.timeSlot.start, 'HH:mm', new Date(currentShift.date));
-              const shiftEndDt = parse(currentShift.timeSlot.end, 'HH:mm', new Date(currentShift.date));
-              const nowDt = new Date();
-              
-              // Determine check-in time
-              let checkInTime: Date | null = null;
-              if (recStart) {
-                if (recStart >= shiftStartDt && recStart <= shiftEndDt) {
-                  // Actual check-in falls within this shift
-                  checkInTime = recStart;
-                } else if (prevShift && currentIndex > 0) {
-                  // For continuous work: if there's a previous shift, show current shift start as check-in
-                  checkInTime = shiftStartDt;
-                } else {
-                  // Default to shift start
-                  checkInTime = shiftStartDt;
-                }
-              }
-              
-              // Determine check-out time
-              let checkOutTime: Date | null = null;
-              if (recEnd) {
-                if (recEnd >= shiftStartDt && recEnd <= shiftEndDt) {
-                  // Actual check-out falls within this shift
-                  checkOutTime = isAfter(nowDt, recEnd) || +recEnd <= +nowDt ? recEnd : null;
-                } else if (recEnd > shiftEndDt) {
-                  // User checked out after this shift ended - show the actual check-out time
-                  checkOutTime = recEnd;
-                }
-              } else {
-                // No checkout yet (in-progress).
-                // Only set auto-checkout if there is a next shift and it has started.
-                if (nextShift && currentIndex < sortedShifts.length - 1) {
-                  const nextShiftStart = parse(nextShift.timeSlot.start, 'HH:mm', new Date(nextShift.date));
-                  // If next shift has started, assume continuous work and close this shift at next shift start
-                  if (nowDt >= nextShiftStart) {
-                    checkOutTime = nextShiftStart;
-                  } else {
-                    checkOutTime = null;
-                  }
-                } else {
-                  // Single shift or last shift - if not checked out, leave empty
-                  checkOutTime = null;
-                }
-              }
-              
-              return { checkInTime, checkOutTime };
-            };
-
-            if (nearestRecord) {
+            if (primaryRecord) {
               // Record may be a pending_late (no checkInTime) or a real check-in record with optional checkOutTime
-              if (nearestRecord.status === 'pending_late') {
+              if (primaryRecord.status === 'pending_late') {
                 status = 'pending_late';
-                estimatedLateMinutes = typeof nearestRecord.estimatedLateMinutes === 'number' ? nearestRecord.estimatedLateMinutes : null;
-                lateReason = nearestRecord.lateReason || (estimatedLateMinutes ? `Dự kiến trễ ${estimatedLateMinutes} phút` : null);
-                lateReasonPhotoUrl = nearestRecord.lateReasonPhotoUrl || null;
-              } else if (nearestRecord.checkInTime) {
-                const recStart = toDateSafe(nearestRecord.checkInTime)!;
-                const recEnd = nearestRecord.checkOutTime ? toDateSafe(nearestRecord.checkOutTime)! : null;
-                const shiftStartDt = shiftStart;
-                const shiftEndDt = shiftEnd;
+                estimatedLateMinutes = typeof primaryRecord.estimatedLateMinutes === 'number' ? primaryRecord.estimatedLateMinutes : null;
+                lateReason = primaryRecord.lateReason || (estimatedLateMinutes ? `Dự kiến trễ ${estimatedLateMinutes} phút` : null);
+                lateReasonPhotoUrl = primaryRecord.lateReasonPhotoUrl || null;
+              } else if (primaryRecord.checkInTime) {
+                const recStart = toDateSafe(primaryRecord.checkInTime)!;
+                const recEnd = primaryRecord.checkOutTime ? toDateSafe(primaryRecord.checkOutTime)! : null;
                 
-                // If the record interval intersects this shift, compute per-shift displayed times
-                const intersects = recStart <= shiftEndDt && (!recEnd || recEnd >= shiftStartDt);
-                
-                if (intersects) {
-                  // Use the clean helper function to get display times for continuous work
-                  const userShifts = userToShiftsMap[assignedUser.userId] || [];
-                  const { checkInTime: displayCheckIn, checkOutTime: displayCheckOut } = 
-                    getContinuousWorkTimes(nearestRecord, shift, userShifts);
-                  
-                  checkInTime = displayCheckIn;
-                  checkOutTime = displayCheckOut;
+                checkInTime = recStart;
+                checkOutTime = recEnd;
 
-                  // Pull lateReason fields from the record when relevant
-                  if (nearestRecord.lateReason) lateReason = nearestRecord.lateReason;
-                  if (nearestRecord.lateReasonPhotoUrl) lateReasonPhotoUrl = nearestRecord.lateReasonPhotoUrl;
-                  if (nearestRecord.estimatedLateMinutes && nearestRecord.estimatedLateMinutes > 0) estimatedLateMinutes = nearestRecord.estimatedLateMinutes;
+                // Pull lateReason fields from the record when relevant
+                if (primaryRecord.lateReason) lateReason = primaryRecord.lateReason;
+                if (primaryRecord.lateReasonPhotoUrl) lateReasonPhotoUrl = primaryRecord.lateReasonPhotoUrl;
+                if (primaryRecord.estimatedLateMinutes && primaryRecord.estimatedLateMinutes > 0) estimatedLateMinutes = primaryRecord.estimatedLateMinutes;
 
-                  // Determine status and lateMinutes using the displayed checkInTime vs the adjusted shift start
-                  const shiftStartTime = parse(shift.timeSlot.start, 'HH:mm', new Date(shift.date));
-                  if (shiftStartTime.getHours() < 6) shiftStartTime.setHours(6, 0, 0, 0);
-                  const staff = allUsers.find((u: any) => u.id === assignedUser.userId || u.uid === assignedUser.userId || u.userId === assignedUser.userId);
-                  if (staff?.role === 'Quản lý' && shiftStartTime.getHours() === 6) shiftStartTime.setHours(7, 0, 0, 0);
+                // Determine status and lateMinutes using the displayed checkInTime vs the adjusted shift start
+                const shiftStartTime = parse(shift.timeSlot.start, 'HH:mm', new Date(shift.date));
+                if (shiftStartTime.getHours() < 6) shiftStartTime.setHours(6, 0, 0, 0);
+                const staff = allUsers.find((u: any) => u.id === assignedUser.userId || u.uid === assignedUser.userId || u.userId === assignedUser.userId);
+                if (staff?.role === 'Quản lý' && shiftStartTime.getHours() === 6) shiftStartTime.setHours(7, 0, 0, 0);
 
-                  if (checkInTime) {
-                    const diff = differenceInMinutes(checkInTime, shiftStartTime);
-                    if (diff > 5) {
-                      status = 'late';
-                      lateMinutes = diff;
-                    } else {
-                      status = 'present';
-                    }
+                if (checkInTime) {
+                  const diff = differenceInMinutes(checkInTime, shiftStartTime);
+                  if (diff > 5) {
+                    status = 'late';
+                    lateMinutes = diff;
                   } else {
-                    status = 'absent';
+                    status = 'present';
                   }
                 } else {
-                  // nearestRecord does not intersect this shift (defensive) — treat as absent for this shift
                   status = 'absent';
                 }
               }
             }
+            
             return {
               id: assignedUser.userId,
               name: assignedUser.userName,
               status,
               checkInTime,
               checkOutTime,
+              records: assignedRecords.map(r => ({
+                checkInTime: r.checkInTime ? toDateSafe(r.checkInTime) : null,
+                checkOutTime: r.checkOutTime ? toDateSafe(r.checkOutTime) : null,
+              })),
               lateMinutes,
               lateReason,
               lateReasonPhotoUrl,
@@ -748,10 +675,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 md:gap-6">
             {/* Left: Revenue Analytics (2 cols) */}
             <div className="xl:col-span-2 flex flex-col gap-4 md:gap-6">
-              <RevenueAnalyticsSection
-                revenueByMethod={cashierOverview.revenueByMethod}
-                totalRevenue={cashierOverview.totalRevenue}
-              />
+
               {/* Schedule */}
               <TodaysScheduleSection 
                 shifts={todayShifts} 
@@ -761,6 +685,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
 
             {/* Right column: Quick access + Tasks (1 col) */}
             <div className="flex flex-col gap-4 md:gap-6">
+              <RecurringTasksCard monthlyTasks={monthlyTasks} taskAssignments={taskAssignments} staffDirectory={allUsers} />
               <QuickAccessToolsSection onNavigate={(path) => {
                 if (path === 'create-monthly-report') {
                   setIsMonthlyReportOpen(true);
@@ -772,7 +697,6 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
               }} />
               <MonthlyStaffReportDialog isOpen={isMonthlyReportOpen} onOpenChange={(open: boolean) => setIsMonthlyReportOpen(open)} parentDialogTag="root" />
               <SalaryManagementDialog isOpen={isSalaryDialogOpen} onClose={() => setIsSalaryDialogOpen(false)} allUsers={allUsers} parentDialogTag="root" />
-              <RecurringTasksCard monthlyTasks={monthlyTasks} taskAssignments={taskAssignments} staffDirectory={allUsers} />
             </div>
           </div>
 
@@ -793,6 +717,16 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
         inventoryList={inventoryList}
         handoverByDate={handoverByDate}
       />
+
+      {directEvent && (
+        <EventResultsDialog
+          isOpen={true}
+          onClose={() => setDirectEvent(null)}
+          event={directEvent}
+          allUsers={allUsers}
+          parentDialogTag="root"
+        />
+      )}
     </div>
   );
 }

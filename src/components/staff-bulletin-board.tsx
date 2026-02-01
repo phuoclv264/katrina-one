@@ -1,13 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { format, endOfToday, startOfToday } from "date-fns";
 import { vi } from "date-fns/locale";
-import { Megaphone, Clock3, ClipboardList, ListChecks, AlertCircle, TimerReset, Zap, ChevronRight } from "lucide-react";
+import { Megaphone, Clock3, ClipboardList, ListChecks, AlertCircle, TimerReset, Zap, ChevronRight, Sparkles } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { UserAvatar } from "@/components/user-avatar";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "@/components/ui/pro-toast";
@@ -15,11 +17,13 @@ import { useAuth } from "@/hooks/use-auth";
 import { useCheckInCardPlacement } from "@/hooks/useCheckInCardPlacement";
 import { useAppNavigation } from "@/contexts/app-navigation-context";
 import { dataStore } from "@/lib/data-store";
-import { subscribeToActiveEvents } from "@/lib/events-store";
+import { subscribeToActiveEvents, getEvent } from "@/lib/events-store";
+import { getQueryParamWithMobileHashFallback } from "@/lib/url-params";
 import type { AttendanceRecord, DailyTask, DailyTaskReport, Event, MediaItem, MonthlyTaskAssignment, SimpleUser, UserRole, ManagedUser } from "@/lib/types";
 import MonthlyTasksDialog from "@/components/staff-bulletin-board/MonthlyTasksDialog";
 import DailyAssignmentsDialog from "@/components/staff-bulletin-board/DailyAssignmentsDialog";
 import EventsDialog from "@/components/staff-bulletin-board/EventsDialog";
+import VoteModal from "@/components/events/VoteModal";
 import { cn } from "@/lib/utils";
 
 const todayKey = format(new Date(), "yyyy-MM-dd");
@@ -59,6 +63,8 @@ export type StaffBulletinBoardProps = {
 export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardProps) {
   const { user, users, isOnActiveShift, activeShifts } = useAuth();
   const nav = useAppNavigation();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const { isCheckedIn } = useCheckInCardPlacement();
 
   const [dailyTasks, setDailyTasks] = useState<DailyTask[]>([]);
@@ -69,6 +75,29 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
   const [eventsListOpen, setEventsListOpen] = useState(false);
   const [activeEvents, setActiveEvents] = useState<Event[]>([]);
   const [joinedEventIds, setJoinedEventIds] = useState<Set<string>>(new Set());
+  const [directEvent, setDirectEvent] = useState<Event | null>(null);
+
+  // Handle deep-linking to specific event results from notifications
+  useEffect(() => {
+    const openId = getQueryParamWithMobileHashFallback({
+      param: "openBallotResult",
+      searchParams: searchParams,
+      hash: typeof window !== "undefined" ? window.location.hash : ""
+    });
+
+    if (openId) {
+      getEvent(openId).then((event) => {
+        if (event) {
+          setDirectEvent(event);
+          // Remove the param from URL without reloading
+          const params = new URLSearchParams(window.location.search);
+          params.delete("openBallotResult");
+          const query = params.toString();
+          router.replace(`${window.location.pathname}${query ? `?${query}` : ""}`);
+        }
+      });
+    }
+  }, [searchParams, router]);
 
   // Determine whether work-related items should be shown/subscribed to
   const showWorkStuff = isCheckedIn || user?.role === "Chủ nhà hàng";
@@ -149,13 +178,13 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
   // Keep active events relevant to the user
   useEffect(() => {
     if (!user) return;
-    const unsub = subscribeToActiveEvents(user.role, Boolean(user.isTestAccount), setActiveEvents);
+    const unsub = subscribeToActiveEvents({ role: user.role, isTestAccount: Boolean(user.isTestAccount), uid: user.uid }, setActiveEvents);
     return () => unsub();
   }, [user]);
 
   const managedUsersById = useMemo(() => {
-    const map = new Map<string, { name: string; role?: UserRole }>();
-    (users || []).forEach((u) => map.set(u.uid, { name: u.displayName, role: u.role }));
+    const map = new Map<string, ManagedUser>();
+    (users || []).forEach((u) => map.set(u.uid, u));
     return map;
   }, [users]);
 
@@ -236,7 +265,8 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
         return {
           id: r.id,
           userId: r.userId,
-          name: userInfo?.name || "Nhân viên",
+          user: userInfo,
+          name: userInfo?.displayName || "Nhân viên",
           role: userInfo?.role,
           minutes: r.estimatedLateMinutes,
           note: r.lateReason,
@@ -309,29 +339,70 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
                   {format(new Date(), "dd/MM", { locale: vi })}
                 </CardDescription>
 
-                {showWorkStuff && pendingLateRequests.length > 0 && (
-                  <div className="mt-2.5 space-y-1.5">
-                    {pendingLateRequests.map((req) => (
-                      <div
-                        key={req.id}
-                        className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-50/50 px-2.5 py-1.5 dark:bg-amber-500/10"
-                      >
-                        <AlertCircle className="h-3 w-3 shrink-0 text-amber-600 dark:text-amber-400 animate-pulse" />
-                        <div className="flex flex-col min-w-0">
-                          <span className="text-[11px] font-black text-amber-700 dark:text-amber-400">
-                            {req.name} • xin đi trễ {req.minutes} phút
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
           </CardHeader>
 
+          {showWorkStuff && pendingLateRequests.length > 0 && (
+            <div className="pb-3">
+              <div className="flex flex-col gap-2 rounded-xl bg-amber-50/50 p-3 dark:bg-amber-500/5 border border-amber-200/50 dark:border-amber-500/10">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                    <AlertCircle className="h-3 w-3" />
+                  </div>
+                  <span className="text-xs font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                    Xin đi trễ ({pendingLateRequests.length})
+                  </span>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {pendingLateRequests.map((req) => (
+                    <div
+                      key={req.id}
+                      className="flex items-start gap-3 p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-amber-100 dark:border-amber-500/20 shadow-sm"
+                    >
+                      <UserAvatar
+                        user={req.user}
+                        nameOverride={req.name}
+                        className="h-8 w-8 border border-amber-100 dark:border-amber-500/20"
+                        fallbackClassName="bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 font-bold text-[10px]"
+                        rounded="full"
+                      />
+                      <div className="flex-1 min-w-0 pt-0.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200 leading-none">
+                            {req.name}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className="border-amber-200 text-amber-700 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400 text-[9px] h-4 px-1.5 font-bold whitespace-nowrap"
+                          >
+                            {req.minutes} phút
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           <CardContent className="p-3 pt-2">
             <div className="flex flex-col gap-2">
+              {!showWorkStuff && relevantEvents.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-6 text-center px-4">
+                  <div className="h-10 w-10 rounded-full bg-orange-100 dark:bg-orange-500/10 flex items-center justify-center mb-3">
+                    <Sparkles className="h-5 w-5 text-orange-500" />
+                  </div>
+                  <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                    Chưa có thông tin mới
+                  </p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                    Chúc các em một ngày tốt lành và tràn đầy năng lượng!
+                  </p>
+                </div>
+              )}
               {/* Tile: Monthly Tasks */}
               {showWorkStuff && (
                 <button
@@ -387,46 +458,48 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
               )}
 
               {/* Tile: Events */}
-              <button
-                onClick={() => setEventsListOpen(true)}
-                disabled={relevantEvents.length === 0}
-                className="group relative flex items-center gap-3 p-3 rounded-2xl border border-emerald-500/10 bg-emerald-500/5 text-left transition-all hover:bg-emerald-500/10 active:scale-[0.98] disabled:opacity-40 disabled:grayscale"
-              >
-                <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm shadow-emerald-500/20">
-                  <Zap className="h-5 w-5" />
-                  {pendingEventsCount > 0 && (
-                    <StatusDot />
-                  )}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600/70">Tương tác</span>
-                    <span className="text-[10px] font-black text-muted-foreground">
-                      {relevantEvents.length - pendingEventsCount}/{relevantEvents.length}
-                    </span>
+              {relevantEvents.length > 0 && (
+                <button
+                  onClick={() => setEventsListOpen(true)}
+                  disabled={relevantEvents.length === 0}
+                  className="group relative flex items-center gap-3 p-3 rounded-2xl border border-emerald-500/10 bg-emerald-500/5 text-left transition-all hover:bg-emerald-500/10 active:scale-[0.98] disabled:opacity-40 disabled:grayscale"
+                >
+                  <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm shadow-emerald-500/20">
+                    <Zap className="h-5 w-5" />
+                    {pendingEventsCount > 0 && (
+                      <StatusDot />
+                    )}
                   </div>
-                  <h3 className="text-sm font-black leading-none pr-4 mb-2">Sự kiện & Bình chọn</h3>
 
-                  {pendingEventsCount > 0 ? (
-                    <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 animate-pulse">
-                      <span className="text-[10px] font-black">{pendingEventsCount}</span>
-                      <span className="text-[8px] font-black uppercase tracking-tighter">Cần làm</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600/70">Tương tác</span>
+                      <span className="text-[10px] font-black text-muted-foreground">
+                        {relevantEvents.length - pendingEventsCount}/{relevantEvents.length}
+                      </span>
                     </div>
-                  ) : (
-                    <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-500 border border-zinc-200 dark:border-zinc-700/50">
-                      <span className="text-[10px] font-black">{relevantEvents.length}</span>
-                      <span className="text-[8px] font-black uppercase tracking-tighter">Đã xong</span>
-                    </div>
-                  )}
-                  <Progress
-                    value={((relevantEvents.length - pendingEventsCount) / (relevantEvents.length || 1)) * 100}
-                    className="mt-2.5 h-1 bg-emerald-500/10"
-                  />
-                </div>
+                    <h3 className="text-sm font-black leading-none pr-4 mb-2">Sự kiện & Bình chọn</h3>
 
-                <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-emerald-600 transition-colors shrink-0" />
-              </button>
+                    {pendingEventsCount > 0 ? (
+                      <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 animate-pulse">
+                        <span className="text-[10px] font-black">{pendingEventsCount}</span>
+                        <span className="text-[8px] font-black uppercase tracking-tighter">Cần làm</span>
+                      </div>
+                    ) : (
+                      <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-500 border border-zinc-200 dark:border-zinc-700/50">
+                        <span className="text-[10px] font-black">{relevantEvents.length}</span>
+                        <span className="text-[8px] font-black uppercase tracking-tighter">Đã xong</span>
+                      </div>
+                    )}
+                    <Progress
+                      value={((relevantEvents.length - pendingEventsCount) / (relevantEvents.length || 1)) * 100}
+                      className="mt-2.5 h-1 bg-emerald-500/10"
+                    />
+                  </div>
+
+                  <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-emerald-600 transition-colors shrink-0" />
+                </button>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -474,6 +547,15 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
         currentUser={user}
         joinedEventIds={joinedEventIds}
       />
+      {directEvent && user && (
+        <VoteModal
+          event={directEvent}
+          isOpen={true}
+          onClose={() => setDirectEvent(null)}
+          currentUser={user}
+          parentDialogTag="root"
+        />
+      )}
     </>
   );
 }

@@ -31,7 +31,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter }
 
 import isEqual from 'lodash.isequal';
 import { toast } from '@/components/ui/pro-toast';
-import { cn, normalizeSearchString } from '@/lib/utils';
+import { cn, advancedSearch } from '@/lib/utils';
 import { Combobox } from '@/components/combobox';
 
 
@@ -191,16 +191,16 @@ function AddIngredientDialog({
   }
 
   const filteredItems = useMemo(() => {
-    const normalizedSearchText = normalizeSearchString(search);
+    let items: (InventoryItem | Product)[] = [];
     if (ingredientSource === 'inventory') {
-      return inventoryList.filter(item => normalizeSearchString(item.name).includes(normalizedSearchText));
+      items = inventoryList;
     } else {
-      return allProducts.filter(p =>
-        p.id !== currentProductId &&
-        p.isIngredient === true &&
-        normalizeSearchString(p.name).includes(normalizedSearchText)
-      );
+      items = allProducts.filter(p => p.id !== currentProductId && p.isIngredient === true);
     }
+
+    if (!search) return items;
+
+    return advancedSearch(items, search, ['name']);
   }, [search, ingredientSource, inventoryList, allProducts, currentProductId]);
 
   const availableUnits = useMemo(() => {

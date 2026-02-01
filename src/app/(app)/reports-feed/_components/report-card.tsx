@@ -11,7 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from '@/components/ui/label';
 import CommentDialog from './comment-dialog';
 import { toast } from '@/components/ui/pro-toast';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { UserAvatar } from '@/components/user-avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Separator } from '@/components/ui/separator';
 import { useLightbox } from '@/contexts/lightbox-context';
@@ -229,12 +229,13 @@ export default function ReportCard({
                     </CardTitle>
 
                     <div className="flex items-center gap-3">
-                        <Avatar className="h-10 w-10 border-2 border-white shadow-soft">
-                            <AvatarImage src={reporterPhotoURL || ''} />
-                            <AvatarFallback className="bg-muted text-muted-foreground font-black text-xs">
-                                {reporterAvatarFallback}
-                            </AvatarFallback>
-                        </Avatar>
+                        <UserAvatar
+                            avatarUrl={reporterPhotoURL}
+                            nameOverride={reporterDisplayName}
+                            size="h-10 w-10"
+                            className="border-2 border-white shadow-soft"
+                            fallbackClassName="bg-muted text-muted-foreground font-black text-xs"
+                        />
                         <div className="flex flex-col">
                             <div className="flex items-center gap-1.5">
                                 <span className="text-xs font-black uppercase tracking-widest text-foreground/80 leading-none">

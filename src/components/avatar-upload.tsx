@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { UserAvatar } from '@/components/user-avatar';
 import { Button } from '@/components/ui/button';
 import { Camera, Loader2, Upload, X } from 'lucide-react';
 import { uploadFile, deleteFileByUrl } from '@/lib/data-store-helpers';
@@ -76,12 +76,14 @@ export function AvatarUpload({ currentPhotoURL, onUploadComplete, uid, displayNa
   return (
     <div className="flex flex-col items-center gap-4">
       <div className="relative group">
-        <Avatar className="h-24 w-24 border-2 border-primary/20 shadow-sm">
-          <AvatarImage src={currentPhotoURL || ''} />
-          <AvatarFallback className="bg-primary/10 text-primary text-xl font-bold">
-            {getInitials(displayName || 'U')}
-          </AvatarFallback>
-        </Avatar>
+        <UserAvatar
+          avatarUrl={currentPhotoURL}
+          nameOverride={displayName || 'U'}
+          size="h-24 w-24"
+          className="border-2 border-primary/20 shadow-sm"
+          rounded="full"
+          fallbackClassName="bg-primary/10 text-primary text-xl font-bold"
+        />
         
         {uploading && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full">

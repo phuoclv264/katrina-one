@@ -17,7 +17,8 @@ import {
     getDocs,
     limit,
     orderBy,
-    getDoc
+    getDoc,
+    QuerySnapshot,
 } from 'firebase/firestore';
 import type { Event, EventVote, PrizeDrawResult, AuthUser } from './types';
 
@@ -26,7 +27,7 @@ import type { Event, EventVote, PrizeDrawResult, AuthUser } from './types';
 /**
  * Subscribes to all events, regardless of status. For admin use.
  */
-function normalizeEventDoc(id: string, raw: any): Event {
+export function normalizeEventDoc(id: string, raw: any): Event {
     // Ensure UI-code never receives undefined for commonly accessed fields.
     // Keep timestamps as-is (Firestore Timestamp-like) so existing helpers (toDateSafe) work.
     const type: Event['type'] = raw?.type || 'vote';
@@ -43,12 +44,15 @@ function normalizeEventDoc(id: string, raw: any): Event {
         updatedAt: raw?.updatedAt ?? Timestamp.now(),
         ownerId: raw?.ownerId || raw?.createdBy || '',
         eligibleRoles: raw?.eligibleRoles ?? [],
+        targetUserIds: raw?.targetUserIds ?? [],
         candidates: raw?.candidates ?? [],
         options: raw?.options ?? [],
         allowComments: raw?.allowComments ?? true,
         anonymousResults: raw?.anonymousResults ?? false,
         // Test-only flag
         isTest: Boolean(raw?.isTest),
+        // Ballot configuration for ballot-type events
+        ballotConfig: raw?.ballotConfig ?? undefined,
         // keep other optional fields from raw when present
         // type-specific defaults applied below
     } as any;
@@ -63,11 +67,29 @@ function normalizeEventDoc(id: string, raw: any): Event {
 
     if (type === 'ballot') {
         base.prize = raw?.prize ?? raw?.reward ?? undefined;
+        // Ensure ballotConfig is properly loaded from Firestore
+        base.ballotConfig = raw?.ballotConfig ?? {
+            winnerCount: 1,
+            resultMessage: 'Chúc mừng bạn đã trúng thưởng! 🎉',
+            loserMessage: 'Cảm ơn bạn đã tham gia! Lần sau may mắn hơn nhé! 💪',
+            autoDraw: true,
+        };
     } else {
         delete (base as any).prize;
+        delete (base as any).ballotConfig;
     }
 
     return base;
+}
+
+/**
+ * Fetches a single event by ID.
+ */
+export async function getEvent(id: string): Promise<Event | null> {
+    const docRef = doc(db, 'events', id);
+    const snap = await getDoc(docRef);
+    if (!snap.exists()) return null;
+    return normalizeEventDoc(snap.id, snap.data());
 }
 
 export function subscribeToAllEvents(callback: (events: Event[]) => void): () => void {
@@ -123,6 +145,7 @@ export async function addOrUpdateEvent(event: Omit<Event, 'id'>, id?: string): P
 
         // eligibility & content
         eligibleRoles: (event.eligibleRoles || []).filter(Boolean),
+        targetUserIds: (event.targetUserIds || []).filter(Boolean),
         candidates: (event.candidates || []).map(sanitizeCandidate),
         options: (event.options || []).map(sanitizeOption),
 
@@ -144,6 +167,17 @@ export async function addOrUpdateEvent(event: Omit<Event, 'id'>, id?: string): P
             name: String(event.prize?.name ?? ''),
             description: String(event.prize?.description ?? ''),
             imageUrl: event.prize?.imageUrl ?? null,
+        }
+        : null;
+
+    // Ballot configuration
+    dataToSaveRaw.ballotConfig = event.type === 'ballot'
+        ? {
+            winnerCount: typeof event.ballotConfig?.winnerCount === 'number' ? event.ballotConfig.winnerCount : 1,
+            resultMessage: String(event.ballotConfig?.resultMessage ?? 'Chúc mừng bạn đã trúng thưởng! 🎉'),
+            loserMessage: String(event.ballotConfig?.loserMessage ?? 'Cảm ơn bạn đã tham gia! Lần sau may mắn hơn nhé! 💪'),
+            autoDraw: Boolean(event.ballotConfig?.autoDraw ?? true),
+            ballotDrawTime: event.ballotConfig?.ballotDrawTime || null,
         }
         : null;
 
@@ -189,11 +223,14 @@ export async function deleteEvent(eventId: string): Promise<void> {
 /**
  * Subscribes to active events that are relevant to the current user's role.
  */
-export function subscribeToActiveEvents(userRole: string, isTestUser: boolean = false, callback?: (events: Event[]) => void): () => void {
+export function subscribeToActiveEvents(
+    user: { role: string; isTestAccount?: boolean; uid: string },
+    callback?: (events: Event[]) => void
+): () => void {
     const q = query(
         collection(db, 'events'),
         where('status', '==', 'active'),
-        // where('eligibleRoles', 'array-contains', userRole), // This line is commented out to show all active events for now.
+        where('startAt', '<=', Timestamp.now()),
         where('endAt', '>', Timestamp.now())
     );
 
@@ -201,12 +238,29 @@ export function subscribeToActiveEvents(userRole: string, isTestUser: boolean = 
     const unsubscribe = onSnapshot(q, (snapshot) => {
         const events = snapshot.docs
             .map(doc => normalizeEventDoc(doc.id, doc.data()))
-            .filter(event => (event.eligibleRoles || []).length === 0 || (event.eligibleRoles || []).includes(userRole as any))
+            .filter(event => {
+                // Check eligibility:
+                // 1. If both roles and specific users are empty -> Everyone (fallback, though usually at least one role is set)
+                // 2. If user is in targetUserIds -> Eligible
+                // 3. If user has one of eligibleRoles -> Eligible
+                
+                const hasEligibleRoles = (event.eligibleRoles || []).length > 0;
+                const hasTargetUsers = (event.targetUserIds || []).length > 0;
+                
+                // If no restrictions, everyone can join
+                if (!hasEligibleRoles && !hasTargetUsers) return true;
+
+                const isRoleEligible = (event.eligibleRoles || []).includes(user.role as any);
+                const isUserTargeted = (event.targetUserIds || []).includes(user.uid);
+
+                return isRoleEligible || isUserTargeted;
+            })
             .filter(event => {
                 // hide test events from non-test users
-                if (event.isTest) return Boolean(isTestUser);
+                if (event.isTest) return Boolean(user.isTestAccount);
                 return true;
             });
+        
         cb(events);
     }, (error) => {
         console.error("Error subscribing to active events:", error);
@@ -249,7 +303,7 @@ export async function getUserVote(eventId: string, userId: string): Promise<Even
 /**
  * Runs a prize draw for a ballot-type event.
  */
-export async function runPrizeDraw(eventId: string, winnerCount: number, owner: AuthUser): Promise<string[]> {
+export async function runPrizeDraw(eventId: string, winnerCount: number, owner: AuthUser): Promise<PrizeDrawResult> {
     const votesQuery = query(collection(db, `events/${eventId}/votes`));
     const votesSnapshot = await getDocs(votesQuery);
     
@@ -272,9 +326,9 @@ export async function runPrizeDraw(eventId: string, winnerCount: number, owner: 
         drawnAt: serverTimestamp() as Timestamp,
         winners: winners,
     };
-    await addDoc(collection(db, `events/${eventId}/draws`), drawResult);
+    const docRef = await addDoc(collection(db, `events/${eventId}/draws`), drawResult);
     
-    return winners.map(w => w.userName);
+    return { id: docRef.id, ...drawResult } as PrizeDrawResult;
 }
 
 export async function getEventVotes(eventId: string): Promise<EventVote[]> {

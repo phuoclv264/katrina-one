@@ -1,6 +1,6 @@
 'use client';
 
-import type { CashHandoverReport, FinalHandoverDetails, MonthlySalarySheet, WhistleblowingReport } from './types';
+import type { BonusRecord, SalaryAdvanceRecord, CashHandoverReport, FinalHandoverDetails, MonthlySalarySheet, WhistleblowingReport, SimpleUser } from './types';
 import { db, auth, storage } from './firebase';
 import {
   collection,
@@ -326,6 +326,10 @@ export const dataStore = {
         if (existingSheet.salaryRecords[userId]?.salaryAdvance) {
           updatedRecords[userId].salaryAdvance = existingSheet.salaryRecords[userId].salaryAdvance;
         }
+        // Preserve existing advances list
+        if (existingSheet.salaryRecords[userId]?.advances) {
+          updatedRecords[userId].advances = existingSheet.salaryRecords[userId].advances;
+        }
         // Preserve existing bonus
         if (existingSheet.salaryRecords[userId]?.bonus) {
           updatedRecords[userId].bonus = existingSheet.salaryRecords[userId].bonus;
@@ -347,14 +351,221 @@ export const dataStore = {
     }
   },
 
-  async updateSalaryAdvance(monthId: string, userId: string, advanceAmount: number): Promise<void> {
+  async addSalaryAdvance(monthId: string, userId: string, amount: number, note: string, createdBy: SimpleUser): Promise<string> {
     const docRef = doc(db, 'monthly_salaries', monthId);
-    await updateDoc(docRef, { [`salaryRecords.${userId}.salaryAdvance`]: advanceAmount });
+    const advanceId = uuidv4();
+    const newAdvance: SalaryAdvanceRecord = {
+      id: advanceId,
+      amount,
+      note,
+      createdBy,
+      createdAt: new Date().toISOString()
+    };
+
+    await runTransaction(db, async (transaction) => {
+        const docSnap = await transaction.get(docRef);
+        if (!docSnap.exists()) {
+             throw new Error("Salary sheet not found");
+        }
+        const sheet = docSnap.data() as MonthlySalarySheet;
+        const record = sheet.salaryRecords[userId];
+        if (!record) {
+             throw new Error("User record not found in salary sheet");
+        }
+
+        const currentAdvances = record.advances || [];
+        const currentTotalAdvance = record.salaryAdvance || 0;
+
+        const updatedAdvances = [...currentAdvances, newAdvance];
+        const updatedTotalAdvance = currentTotalAdvance + amount;
+
+        transaction.update(docRef, {
+            [`salaryRecords.${userId}.advances`]: updatedAdvances,
+            [`salaryRecords.${userId}.salaryAdvance`]: updatedTotalAdvance
+        });
+    });
+
+    // Send notification
+    try {
+        const notification: Omit<Notification, 'id'> = {
+            type: 'salary_update',
+            createdAt: serverTimestamp() as Timestamp,
+            recipientUids: [userId],
+            messageTitle: 'Bạn nhận được khoản tạm ứng mới',
+            messageBody: `Bạn đã được tạm ứng ${amount.toLocaleString('vi-VN')}đ. Lý do: ${note}`,
+            payload: { monthId, advanceId },
+            isRead: { [userId]: false }
+        };
+        await addDoc(collection(db, 'notifications'), notification);
+    } catch (e) {
+        console.error("Failed to send notification for advance", e);
+    }
+
+    return advanceId;
+  },
+
+  async deleteSalaryAdvance(monthId: string, userId: string, advanceId: string): Promise<void> {
+    const docRef = doc(db, 'monthly_salaries', monthId);
+    let deletedAmount = 0;
+    let deletedNote = '';
+
+    await runTransaction(db, async (transaction) => {
+        const docSnap = await transaction.get(docRef);
+        if (!docSnap.exists()) {
+             throw new Error("Salary sheet not found");
+        }
+        const sheet = docSnap.data() as MonthlySalarySheet;
+        const record = sheet.salaryRecords[userId];
+        if (!record) {
+             throw new Error("User record not found in salary sheet");
+        }
+
+        const currentAdvances = record.advances || [];
+        const advanceToDelete = currentAdvances.find(a => a.id === advanceId);
+
+        if (!advanceToDelete) {
+            return;
+        }
+        deletedAmount = advanceToDelete.amount;
+        deletedNote = advanceToDelete.note;
+
+        const updatedAdvances = currentAdvances.filter(a => a.id !== advanceId);
+        const updatedTotalAdvance = (record.salaryAdvance || 0) - advanceToDelete.amount;
+
+        transaction.update(docRef, {
+            [`salaryRecords.${userId}.advances`]: updatedAdvances,
+            [`salaryRecords.${userId}.salaryAdvance`]: updatedTotalAdvance
+        });
+    });
+
+    if (deletedAmount > 0) {
+        // Send notification
+        try {
+            const notification: Omit<Notification, 'id'> = {
+                type: 'salary_update',
+                createdAt: serverTimestamp() as Timestamp,
+                recipientUids: [userId],
+                messageTitle: 'Hủy khoản tạm ứng',
+                messageBody: `Khoản tạm ứng ${deletedAmount.toLocaleString('vi-VN')}đ đã bị hủy. Lý do hủy: ${deletedNote}`,
+                payload: { monthId, advanceId },
+                isRead: { [userId]: false }
+            };
+            await addDoc(collection(db, 'notifications'), notification);
+        } catch (e) {
+            console.error("Failed to send notification for advance deletion", e);
+        }
+    }
   },
 
   async updateSalaryBonus(monthId: string, userId: string, bonusAmount: number): Promise<void> {
     const docRef = doc(db, 'monthly_salaries', monthId);
     await updateDoc(docRef, { [`salaryRecords.${userId}.bonus`]: bonusAmount });
+  },
+
+  async addSalaryBonus(monthId: string, userId: string, amount: number, note: string, createdBy: SimpleUser): Promise<string> {
+    const docRef = doc(db, 'monthly_salaries', monthId);
+    const bonusId = uuidv4();
+    const newBonus: BonusRecord = {
+      id: bonusId,
+      amount,
+      note,
+      createdBy,
+      createdAt: new Date().toISOString()
+    };
+
+    await runTransaction(db, async (transaction) => {
+        const docSnap = await transaction.get(docRef);
+        if (!docSnap.exists()) {
+             throw new Error("Salary sheet not found");
+        }
+        const sheet = docSnap.data() as MonthlySalarySheet;
+        const record = sheet.salaryRecords[userId];
+        if (!record) {
+             throw new Error("User record not found in salary sheet");
+        }
+
+        const currentBonuses = record.bonuses || [];
+        const currentTotalBonus = record.bonus || 0;
+
+        const updatedBonuses = [...currentBonuses, newBonus];
+        const updatedTotalBonus = currentTotalBonus + amount;
+
+        transaction.update(docRef, {
+            [`salaryRecords.${userId}.bonuses`]: updatedBonuses,
+            [`salaryRecords.${userId}.bonus`]: updatedTotalBonus
+        });
+    });
+
+    // Send notification
+    try {
+        const notification: Omit<Notification, 'id'> = {
+            type: 'salary_update',
+            createdAt: serverTimestamp() as Timestamp,
+            recipientUids: [userId],
+            messageTitle: 'Bạn nhận được tiền thưởng mới',
+            messageBody: `Bạn đã được thưởng ${amount.toLocaleString('vi-VN')}đ. Lý do: ${note}`,
+            payload: { monthId, bonusId },
+            isRead: { [userId]: false }
+        };
+        await addDoc(collection(db, 'notifications'), notification);
+    } catch (e) {
+        console.error("Failed to send notification for bonus", e);
+    }
+    
+    return bonusId;
+  },
+
+  async deleteSalaryBonus(monthId: string, userId: string, bonusId: string): Promise<void> {
+    const docRef = doc(db, 'monthly_salaries', monthId);
+    let deletedAmount = 0;
+    let deletedNote = '';
+
+    await runTransaction(db, async (transaction) => {
+        const docSnap = await transaction.get(docRef);
+        if (!docSnap.exists()) {
+             throw new Error("Salary sheet not found");
+        }
+        const sheet = docSnap.data() as MonthlySalarySheet;
+        const record = sheet.salaryRecords[userId];
+        if (!record) {
+             throw new Error("User record not found in salary sheet");
+        }
+
+        const currentBonuses = record.bonuses || [];
+        const bonusToDelete = currentBonuses.find(b => b.id === bonusId);
+
+        if (!bonusToDelete) {
+            return;
+        }
+        deletedAmount = bonusToDelete.amount;
+        deletedNote = bonusToDelete.note;
+
+        const updatedBonuses = currentBonuses.filter(b => b.id !== bonusId);
+        const updatedTotalBonus = (record.bonus || 0) - bonusToDelete.amount;
+
+        transaction.update(docRef, {
+            [`salaryRecords.${userId}.bonuses`]: updatedBonuses,
+            [`salaryRecords.${userId}.bonus`]: updatedTotalBonus
+        });
+    });
+
+    if (deletedAmount > 0) {
+        // Send notification
+        try {
+            const notification: Omit<Notification, 'id'> = {
+                type: 'salary_update',
+                createdAt: serverTimestamp() as Timestamp,
+                recipientUids: [userId],
+                messageTitle: 'Điều chỉnh tiền thưởng',
+                messageBody: `Khoản thưởng ${deletedAmount.toLocaleString('vi-VN')}đ đã bị hủy. Lý do hủy: ${deletedNote}`,
+                payload: { monthId, bonusId },
+                isRead: { [userId]: false }
+            };
+            await addDoc(collection(db, 'notifications'), notification);
+        } catch (e) {
+            console.error("Failed to send notification for bonus deletion", e);
+        }
+    }
   },
 
   /**

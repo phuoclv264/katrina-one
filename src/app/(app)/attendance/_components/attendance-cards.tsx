@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { UserAvatar } from '@/components/user-avatar';
 
 export default function AttendanceCards({
     records,
@@ -107,12 +108,13 @@ export default function AttendanceCards({
                             <CardHeader className="pb-2">
                                 <div className="flex justify-between items-start">
                                     <div className="flex items-center gap-3">
-                                        <Avatar className="h-10 w-10 border border-border">
-                                            <AvatarImage src={user?.photoURL || ''} />
-                                            <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                                                {getInitials(user?.displayName)}
-                                            </AvatarFallback>
-                                        </Avatar>
+                                        <UserAvatar
+                                            user={user}
+                                            nameOverride={user?.displayName}
+                                            size="h-10 w-10"
+                                            className="border border-border"
+                                            fallbackClassName="text-xs bg-primary/10 text-primary"
+                                        />
                                         <div>
                                             <CardTitle className="text-base">{user?.displayName || 'Không rõ'}</CardTitle>
                                             <div className="text-xs text-muted-foreground flex items-center">

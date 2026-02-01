@@ -22,7 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { cn } from '@/lib/utils';
+import { cn, advancedSearch } from '@/lib/utils';
 
 
 type ItemStatus = 'ok' | 'low' | 'out';
@@ -142,13 +142,16 @@ function InventoryReportView() {
             }
         });
 
-        const filtered = checked.filter(item => {
+        let filtered = checked.filter(item => {
             const status = getItemStatus(item, reportToView.stockLevels[item.id]?.stock);
-            const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesStatus = statusFilter === 'all' || status === statusFilter;
             const matchesCategory = categoryFilter === 'all' || item.category === categoryFilter;
-            return matchesSearch && matchesStatus && matchesCategory;
+            return matchesStatus && matchesCategory;
         });
+
+        if (searchTerm) {
+            filtered = advancedSearch(filtered, searchTerm, ['name']);
+        }
 
         return { checkedItems: checked, uncheckedItems: unchecked, filteredCheckedItems: filtered };
     }, [inventoryList, reportToView, searchTerm, statusFilter, categoryFilter]);

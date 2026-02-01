@@ -34,7 +34,7 @@ import type {
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from '@/components/ui/pro-toast';
 import { setBusyReportRecipients, addStaffToShift } from '@/lib/schedule-store';
-import { cn, normalizeSearchString } from '@/lib/utils';
+import { cn, advancedSearch } from '@/lib/utils';
 import { 
   getRoleColor, 
   getEligibleAndPendingUsers, 
@@ -112,11 +112,19 @@ export function ShiftDetailView({
   const [isWheelOpen, setIsWheelOpen] = useState(false);
 
   const filteredUsers = useMemo(() => {
-    return allUsers.filter(u => {
-      const matchesName = normalizeSearchString(u.displayName).includes(normalizeSearchString(userSearch));
-      const matchesRole = userRoleFilter === 'All' || u.role === userRoleFilter;
-      return matchesName && matchesRole;
-    });
+    let users = allUsers;
+    
+    // Apply role filter first
+    if (userRoleFilter !== 'All') {
+      users = users.filter(u => u.role === userRoleFilter);
+    }
+
+    // Apply search
+    if (userSearch) {
+      users = advancedSearch(users, userSearch, ['displayName', 'role']);
+    }
+
+    return users;
   }, [allUsers, userSearch, userRoleFilter]);
 
   // Sync state with active request when shift or busyRequests change

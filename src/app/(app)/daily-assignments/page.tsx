@@ -61,7 +61,7 @@ import TaskCard from './_components/TaskCard';
 import { DateStrip } from './_components/DateStrip';
 import CreateTaskDialog from './_components/CreateTaskDialog';
 import { motion, AnimatePresence } from "framer-motion";
-const ROLES: UserRole[] = ["Phục vụ", "Pha chế", "Quản lý", "Thu ngân"];
+const ROLES: UserRole[] = ["Phục vụ", "Pha chế", "Quản lý"];
 
 const formatDateInput = (date: Date) => format(date, "yyyy-MM-dd");
 

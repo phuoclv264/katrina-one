@@ -59,7 +59,7 @@ const formatReportTime = (date: any) => {
     }
 };
 
-const ROLES: UserRole[] = ["Phục vụ", "Pha chế", "Quản lý", "Thu ngân"];
+const ROLES: UserRole[] = ["Phục vụ", "Pha chế", "Quản lý"];
 
 const formatDateInput = (date: Date) => format(date, "yyyy-MM-dd");
 

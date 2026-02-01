@@ -435,6 +435,15 @@ export default function AutoScheduleDialog({
                   >
                     <Plus className="h-5 w-5" />
                   </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSaveConstraints}
+                    disabled={!canSaveStructuredConstraints || !hasUnsavedChanges}
+                    className="shrink-0 h-10 px-4 rounded-xl border-primary/20 text-primary font-bold"
+                  >
+                    Lưu
+                  </Button>
                 </div>
               </div>
 

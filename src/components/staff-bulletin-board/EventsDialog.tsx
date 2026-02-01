@@ -23,8 +23,9 @@ import { formatDistanceToNow, format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import VoteModal from "@/components/events/VoteModal";
+import EventParticipationView from "@/components/events/EventParticipationView";
 import type { AuthUser, Event } from "@/lib/types";
+import { getEffectiveStatus, getStatusConfig } from "@/lib/events-utils";
 
 const getEventTypeLabel = (type: string): string => {
   const typeMap: Record<string, string> = {
@@ -62,22 +63,29 @@ export type EventsDialogProps = {
 };
 
 export default function EventsDialog({ open, onOpenChange, events, currentUser, joinedEventIds = new Set() }: EventsDialogProps) {
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [isVoteModalOpen, setIsVoteModalOpen] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+
+  const selectedEvent = useMemo(() => 
+    selectedEventId ? events.find(e => e.id === selectedEventId) || null : null
+  , [events, selectedEventId]);
 
   const orderedEvents = useMemo(() => {
-    return [...events].sort((a, b) => a.endAt.toDate().getTime() - b.endAt.toDate().getTime());
+    return [...events].sort((a, b) => {
+      const timeA = a.endAt?.toDate?.()?.getTime() || 0;
+      const timeB = b.endAt?.toDate?.()?.getTime() || 0;
+      return timeA - timeB;
+    });
   }, [events]);
 
   const handleBack = () => {
-    setSelectedEvent(null);
+    setSelectedEventId(null);
   };
 
   return (
     <>
       <Dialog open={open} onOpenChange={(val) => {
         onOpenChange(val);
-        if (!val) setSelectedEvent(null);
+        if (!val) setSelectedEventId(null);
       }} dialogTag="events-list-dialog" parentDialogTag="root">
         <DialogContent className="max-w-lg p-0 overflow-hidden flex flex-col bg-zinc-50 dark:bg-zinc-950">          <DialogTitle className="sr-only">
             {selectedEvent ? selectedEvent.title : "Sự kiện & Thông báo"}
@@ -106,67 +114,125 @@ export default function EventsDialog({ open, onOpenChange, events, currentUser, 
                     <p className="text-xs text-zinc-400 mt-1 italic">Tất cả thông báo đã được xem hết</p>
                   </div>
                 ) : (
-                  orderedEvents.map((event) => {
-                    const isJoined = joinedEventIds.has(event.id);
-                    return (
-                      <motion.button
-                        key={event.id}
-                        whileHover={{ scale: 1.01 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => setSelectedEvent(event)}
-                        className={cn(
-                          "w-full text-left rounded-[2rem] p-5 transition-all relative border bg-white dark:bg-zinc-900 shadow-sm hover:shadow-md group overflow-hidden",
-                          isJoined 
-                            ? "border-zinc-200 dark:border-zinc-800 opacity-80" 
-                            : "border-emerald-200 dark:border-emerald-800 ring-2 ring-emerald-500/10 shadow-emerald-500/5"
-                        )}
-                      >
-                        <div className="flex flex-col gap-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2.5">
-                              <div className={cn(
-                                "h-9 w-9 rounded-2xl flex items-center justify-center transition-all duration-300",
-                                isJoined ? "bg-zinc-100/50 dark:bg-zinc-800/50 text-zinc-400" : "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 shadow-sm shadow-emerald-500/10"
-                              )}>
-                                {getEventIcon(event.type)}
+                  <div className="grid gap-4 sm:gap-6">
+                    {orderedEvents.map((event) => {
+                      const isJoined = joinedEventIds.has(event.id);
+                      const effectiveStatus = getEffectiveStatus(event.status, event.endAt, event);
+                      const statusConfig = getStatusConfig(effectiveStatus);
+                      const isWaiting = effectiveStatus === "waiting";
+                      const isExpired = effectiveStatus === "expired" || effectiveStatus === "closed";
+
+                      return (
+                        <motion.button
+                          key={event.id}
+                          whileHover={{ scale: 1.01, y: -2 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => setSelectedEventId(event.id)}
+                          className={cn(
+                            "w-full text-left rounded-[2.5rem] p-6 sm:p-7 transition-all relative border bg-white dark:bg-zinc-900 shadow-sm hover:shadow-xl group overflow-hidden",
+                            isJoined 
+                              ? "border-zinc-100 dark:border-zinc-800 opacity-90" 
+                              : isWaiting
+                              ? "border-sky-100 dark:border-sky-900/30 bg-sky-50/10"
+                              : isExpired && !isJoined
+                              ? "border-zinc-200 dark:border-zinc-800 grayscale opacity-60"
+                              : "border-emerald-100 dark:border-emerald-900/30 ring-1 ring-emerald-500/5 shadow-emerald-500/5"
+                          )}
+                        >
+                          {/* Background Glow for Active Items */}
+                          {!isJoined && !isWaiting && !isExpired && (
+                            <div className="absolute top-0 right-0 -mr-16 -mt-16 w-48 h-48 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none group-hover:bg-emerald-500/10 transition-colors" />
+                          )}
+
+                          <div className="flex flex-col gap-5 sm:gap-6 relative z-10">
+                            {/* Header Section */}
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex items-center gap-3">
+                                <div className={cn(
+                                  "h-12 w-12 sm:h-14 sm:w-14 rounded-[1.25rem] flex items-center justify-center transition-all duration-500 group-hover:rotate-6",
+                                  isJoined 
+                                    ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-400" 
+                                    : isWaiting
+                                    ? "bg-sky-50 dark:bg-sky-900/30 text-sky-600 shadow-sm shadow-sky-500/10"
+                                    : "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 shadow-sm shadow-emerald-500/10"
+                                )}>
+                                  {getEventIcon(event.type)}
+                                </div>
+                                <div className="flex flex-col gap-0.5">
+                                  <span className={cn(
+                                    "text-[10px] sm:text-[11px] font-black uppercase tracking-[0.15em]",
+                                    isJoined ? "text-zinc-400" : isWaiting ? "text-sky-600" : "text-emerald-600"
+                                  )}>
+                                    {getEventTypeLabel(event.type)}
+                                  </span>
+                                  <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold text-zinc-400 max-w-[120px] sm:max-w-none">
+                                    <Clock3 className="h-3.5 w-3.5 shrink-0" />
+                                    {isWaiting ? (
+                                      <span>Bắt đầu {event.startAt ? formatDistanceToNow((event.startAt as any).toDate ? (event.startAt as any).toDate() : new Date(event.startAt as any), { addSuffix: true, locale: vi }) : "..."}</span>
+                                    ) : (
+                                      <span>{event.endAt ? formatDistanceToNow((event.endAt as any).toDate ? (event.endAt as any).toDate() : new Date(event.endAt as any), { addSuffix: true, locale: vi }) : "..."}</span>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
-                              <span className={cn(
-                                "text-[11px] font-black uppercase tracking-[0.12em]",
-                                isJoined ? "text-zinc-400/80" : "text-emerald-600"
-                              )}>
-                                {getEventTypeLabel(event.type)}
-                              </span>
+
+                              <div className="flex items-center gap-2 shrink-0">
+                                {isJoined ? (
+                                  <Badge variant="outline" className="h-6 px-3 text-[9px] font-black border-zinc-200 text-zinc-400 uppercase tracking-widest rounded-xl bg-zinc-50/50 dark:bg-zinc-800/50">
+                                    Hoàn thành
+                                  </Badge>
+                                ) : isWaiting ? (
+                                  <Badge className="h-6 px-3 text-[9px] font-black bg-sky-500 text-white border-none uppercase tracking-widest rounded-xl shadow-md shadow-sky-500/20">
+                                    Sắp có
+                                  </Badge>
+                                ) : isExpired ? (
+                                  <Badge className="h-6 px-3 text-[9px] font-black bg-zinc-400 text-white border-none uppercase tracking-widest rounded-xl">
+                                    Hết hạn
+                                  </Badge>
+                                ) : (
+                                  <Badge className="h-6 px-3 text-[9px] font-black bg-emerald-500 text-white border-none uppercase tracking-widest rounded-xl animate-pulse shadow-md shadow-emerald-500/20">
+                                    Cần làm
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
 
-                            <div className="flex items-center gap-3 shrink-0">
-                              {isJoined ? (
-                                <Badge variant="outline" className="h-4.5 px-2 text-[8px] font-black border-zinc-200 text-zinc-400 uppercase tracking-widest rounded-md bg-zinc-50/50 dark:bg-zinc-800/50">Đã xong</Badge>
-                              ) : (
-                                <Badge className="h-4.5 px-2 text-[8px] font-black bg-emerald-500 text-white border-none uppercase tracking-widest rounded-md animate-pulse whitespace-nowrap shadow-md shadow-emerald-500/20">Cần làm</Badge>
-                              )}
-                              <div className="flex items-center gap-1.5 text-[10px] font-bold text-zinc-400 uppercase tracking-tight opacity-70">
-                                <Clock3 className="h-3.5 w-3.5" />
-                                {formatDistanceToNow(event.endAt.toDate(), { addSuffix: true, locale: vi })}
-                              </div>
+                            {/* Content Section */}
+                            <div className="space-y-2 prose-sm">
+                              <h4 className={cn(
+                                "text-[16px] sm:text-[18px] font-black leading-tight transition-colors group-hover:text-emerald-600 dark:group-hover:text-emerald-400",
+                                isExpired && !isJoined ? "text-zinc-500" : "text-zinc-900 dark:text-zinc-100"
+                              )}>
+                                {event.title}
+                              </h4>
+                              <p className="text-xs sm:text-[13px] text-zinc-500 dark:text-zinc-400 line-clamp-3 leading-relaxed opacity-80">
+                                {event.description}
+                              </p>
+                            </div>
+
+                            {/* Footer/Action indicator for mobile */}
+                            <div className="flex items-center justify-between sm:hidden">
+                               <div className="flex items-center gap-1.5 py-1 px-3 rounded-full bg-zinc-100 dark:bg-zinc-800">
+                                  <Users className="h-3 w-3 text-zinc-400" />
+                                  <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-tighter">Nhóm mục tiêu</span>
+                               </div>
+                               <div className="flex items-center gap-1 text-emerald-500 font-black text-[10px] uppercase tracking-wider">
+                                  <span>Xem chi tiết</span>
+                                  <ArrowRight className="h-3 w-3" />
+                               </div>
                             </div>
                           </div>
 
-                        <div className="space-y-1.5">
-                          <h4 className="text-[15px] font-black leading-tight text-zinc-900 dark:text-zinc-100 group-hover:text-emerald-600 transition-colors">
-                            {event.title}
-                          </h4>
-                          <p className="text-xs text-zinc-500 line-clamp-2 leading-relaxed italic opacity-70">
-                            {event.description}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300">
-                        <ChevronRight className="h-6 w-6 text-emerald-500" />
-                      </div>
-                      </motion.button>
-                    );
-                  })
+                          {/* Desktop Arrow */}
+                          <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300 hidden sm:block">
+                            <div className="h-10 w-10 rounded-full bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600">
+                              <ChevronRight className="h-6 w-6" />
+                            </div>
+                          </div>
+                        </motion.button>
+                      );
+                    })}
+                  </div>
                 )}
               </DialogBody>
 
@@ -202,77 +268,18 @@ export default function EventsDialog({ open, onOpenChange, events, currentUser, 
                 </div>
               </div>
 
-              <DialogBody className="space-y-8 pt-6 pb-20">
-                <div className="space-y-4">
-                  <div className="bg-emerald-50/40 dark:bg-emerald-950/20 rounded-[1.5rem] p-6 border border-emerald-100/50 space-y-3 relative overflow-hidden">
-                    <div className="absolute -right-6 -top-6 h-24 w-24 bg-emerald-500/5 rounded-full blur-2xl" />
-                    <div className="flex items-center gap-2 text-[11px] font-black text-emerald-600 uppercase tracking-widest relative">
-                      <MessageSquare className="h-4 w-4" />
-                      Chi tiết thông báo
-                    </div>
-                    <p className="text-sm font-medium leading-relaxed text-zinc-700 dark:text-zinc-200 relative whitespace-pre-wrap">
-                      {selectedEvent.description}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-white dark:bg-zinc-900 rounded-2xl p-4 border border-zinc-200 dark:border-zinc-800 flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500 shadow-sm shrink-0">
-                        <Clock3 className="h-5 w-5" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">Trạng thái</p>
-                        <p className="text-xs font-black text-zinc-700 dark:text-zinc-300">
-                          {formatDistanceToNow(selectedEvent.endAt.toDate(), { addSuffix: true, locale: vi })}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="bg-white dark:bg-zinc-900 rounded-2xl p-4 border border-zinc-200 dark:border-zinc-800 flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500 shadow-sm shrink-0">
-                        <Calendar className="h-5 w-5" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">Hết hạn</p>
-                        <p className="text-xs font-black text-zinc-700 dark:text-zinc-300">
-                          {format(selectedEvent.endAt.toDate(), "dd/MM/yyyy")}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-amber-50/50 dark:bg-amber-950/20 rounded-2xl p-4 border border-amber-100/50 flex gap-3">
-                  <Info className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
-                  <p className="text-[11px] text-amber-800 dark:text-amber-200 leading-relaxed font-medium">
-                    Vui lòng tham gia hoạt động trước thời hạn nêu trên để đảm bảo quyền lợi và trách nhiệm tại Katrina Coffee.
-                  </p>
-                </div>
-              </DialogBody>
-
-              <DialogFooter className="p-6 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 mt-auto">
-                <Button
-                  size="lg"
-                  className="w-full h-14 rounded-[1.5rem] font-black text-sm uppercase tracking-widest bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl shadow-emerald-500/20 active:scale-[0.98] transition-all"
-                  onClick={() => setIsVoteModalOpen(true)}
-                >
-                  Bắt đầu tham gia
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </DialogFooter>
+              <div className="flex-1 overflow-y-auto">
+                {currentUser && (
+                  <EventParticipationView
+                    event={selectedEvent}
+                    currentUser={currentUser}
+                  />
+                )}
+              </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
-
-      {selectedEvent && currentUser && (
-        <VoteModal
-          isOpen={isVoteModalOpen}
-          onClose={() => setIsVoteModalOpen(false)}
-          event={selectedEvent}
-          currentUser={currentUser}
-          parentDialogTag="events-list-dialog"
-        />
-      )}
     </>
   );
 }

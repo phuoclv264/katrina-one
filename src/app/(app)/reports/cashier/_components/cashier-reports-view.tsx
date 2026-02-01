@@ -18,114 +18,17 @@ import { toast } from '@/components/ui/pro-toast';
 
 import UnpaidSlipsDialog from './unpaid-slips-dialog';
 import OwnerCashierDialogs from './owner-cashier-dialogs';
+import AddDocumentDialog from './add-document-dialog';
+import QuickExpenseDialog from './quick-expense-dialog';
 import IncidentCategoryDialog from '../../../cashier/_components/incident-category-dialog';
 import OtherCostCategoryDialog from '../../../cashier/_components/other-cost-category-dialog';
 import MonthlySummary from './MonthlySummary';
 import IncidentDetailsDialog from './IncidentDetailsDialog';
 import DailyReportAccordionItem from './DailyReportAccordionItem';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { useLightbox } from '@/contexts/lightbox-context';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { useIsMobile } from '@/hooks/use-mobile';
-
-
-function AddDocumentDialog({
-  isOpen,
-  onOpenChange,
-  onConfirm,
-  parentDialogTag
-}: {
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
-  onConfirm: (date: Date, action: 'revenue' | 'expense' | 'incident' | 'handover') => void;
-  parentDialogTag: string;
-}) {
-  const [date, setDate] = useState<Date | undefined>(new Date());
-  const [action, setAction] = useState<'revenue' | 'expense' | 'incident' | 'handover'>('revenue');
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-
-  const handleConfirm = () => {
-    if (date) {
-      onConfirm(date, action);
-      // Keep the AddDocumentDialog open so the child dialog opens with
-      // parentDialogTag="add-document-dialog" (caller will set activeParentDialogTag).
-      // Do NOT close here.
-    } else {
-      toast.error("Vui lòng chọn một ngày.");
-    }
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange} dialogTag="add-document-dialog" parentDialogTag={parentDialogTag}>
-      <DialogContent className="bg-white dark:bg-card">
-        <DialogHeader iconkey="layout">
-          <DialogTitle>Bổ sung chứng từ</DialogTitle>
-          <DialogDescription>Chọn ngày và loại chứng từ bạn muốn thêm vào hệ thống.</DialogDescription>
-        </DialogHeader>
-        <div className="grid grid-cols-1 gap-4 py-4">
-          <div className="space-y-2">
-            <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Ngày chứng từ</Label>
-            <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn(
-                    "w-full justify-start text-left font-normal h-11",
-                    !date && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {date ? format(date, "PPP", { locale: vi }) : <span>Chọn ngày</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={(selectedDate) => {
-                    setDate(selectedDate);
-                    setIsCalendarOpen(false);
-                  }}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Loại chứng từ</Label>
-            <RadioGroup value={action} onValueChange={(value) => setAction(value as any)} className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <Label htmlFor="action-revenue" className="flex items-center justify-between rounded-lg border p-3 cursor-pointer [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5 transition-colors">
-                <span className="font-medium text-sm">Doanh thu</span>
-                <RadioGroupItem value="revenue" id="action-revenue" />
-              </Label>
-              <Label htmlFor="action-expense" className="flex items-center justify-between rounded-lg border p-3 cursor-pointer [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5 transition-colors">
-                <span className="font-medium text-sm">Phiếu chi</span>
-                <RadioGroupItem value="expense" id="action-expense" />
-              </Label>
-              <Label htmlFor="action-incident" className="flex items-center justify-between rounded-lg border p-3 cursor-pointer [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5 transition-colors">
-                <span className="font-medium text-sm">Sự cố</span>
-                <RadioGroupItem value="incident" id="action-incident" />
-              </Label>
-              <Label htmlFor="action-handover" className="flex items-center justify-between rounded-lg border p-3 cursor-pointer [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5 transition-colors">
-                <span className="font-medium text-sm">Bàn giao</span>
-                <RadioGroupItem value="handover" id="action-handover" />
-              </Label>
-            </RadioGroup>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
-          <Button onClick={handleConfirm} disabled={!date}>Xác nhận</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 interface CashierReportsViewProps {
   isStandalone?: boolean;
@@ -166,6 +69,7 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
   const [isUnpaidSlipsDialogOpen, setIsUnpaidSlipsDialogOpen] = useState(false);
   const [isCashHandoverDialogOpen, setIsCashHandoverDialogOpen] = useState(false);
   const [isAddDocumentDialogOpen, setIsAddDocumentDialogOpen] = useState(false);
+  const [isQuickExpenseDialogOpen, setIsQuickExpenseDialogOpen] = useState(false);
   const [isIncidentDetailsDialogOpen, setIsIncidentDetailsDialogOpen] = useState(false);
 
   // Track which dialog should be treated as the parent when opening child dialogs.
@@ -647,6 +551,7 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
                   </CardHeader>
                   <CardContent className="p-2 px-3 pt-0 flex flex-row sm:flex-col gap-2 overflow-x-auto no-scrollbar">
                     <Button variant="outline" size="sm" onClick={() => setIsAddDocumentDialogOpen(true)} className="whitespace-nowrap h-8 text-xs flex-1 sm:flex-none"><FilePlus className="mr-2 h-3.5 w-3.5" />Bổ sung</Button>
+                    <Button variant="outline" size="sm" onClick={() => setIsQuickExpenseDialogOpen(true)} className="whitespace-nowrap h-8 text-xs flex-1 sm:flex-none"><Banknote className="mr-2 h-3.5 w-3.5" />Chi phí nhanh</Button>
                     <Button variant="outline" size="sm" onClick={() => setIsOtherCostCategoryDialogOpen(true)} className="whitespace-nowrap h-8 text-xs flex-1 sm:flex-none">Chi phí khác</Button>
                     <Button variant="outline" size="sm" onClick={() => setIsIncidentCategoryDialogOpen(true)} className="whitespace-nowrap h-8 text-xs flex-1 sm:flex-none">Loại sự cố</Button>
                   </CardContent>
@@ -666,10 +571,14 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
                 <Button variant="tile" size="icon" onClick={() => handleMonthChange('next')} disabled={isNextMonthButtonDisabled}><ChevronRight className="h-4 w-4" /></Button>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-2 pb-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pb-2">
               <Button variant="tile" size="sm" onClick={() => setIsAddDocumentDialogOpen(true)} className="h-auto py-2 px-1 text-xs flex flex-col gap-1 items-center justify-center whitespace-normal text-center">
                 <FilePlus className="h-4 w-4" />
                 <span>Bổ sung</span>
+              </Button>
+              <Button variant="tile" size="sm" onClick={() => setIsQuickExpenseDialogOpen(true)} className="h-auto py-2 px-1 text-xs flex flex-col gap-1 items-center justify-center whitespace-normal text-center">
+                <Banknote className="h-4 w-4" />
+                <span>Chi phí nhanh</span>
               </Button>
               <Button variant="tile" size="sm" onClick={() => setIsOtherCostCategoryDialogOpen(true)} className="h-auto py-2 px-1 text-xs flex flex-col gap-1 items-center justify-center whitespace-normal text-center">
                 <Settings className="h-4 w-4" />
@@ -740,6 +649,15 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
         onOpenChange={setIsAddDocumentDialogOpen}
         onConfirm={handleAddDocumentConfirm}
         parentDialogTag='root'
+      />
+      <QuickExpenseDialog
+        isOpen={isQuickExpenseDialogOpen}
+        onOpenChange={setIsQuickExpenseDialogOpen}
+        otherCostCategories={otherCostCategories}
+        user={user}
+        dateForNewEntry={dateForNewEntry}
+        initialMonth={currentMonth}
+        parentDialogTag="root"
       />
 
       <UnpaidSlipsDialog

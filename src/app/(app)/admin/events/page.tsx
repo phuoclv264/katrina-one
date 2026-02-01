@@ -198,7 +198,7 @@ function EventsPageComponent() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {events.map(event => {
-            const effectiveStatus = getEffectiveStatus(event.status, event.endAt);
+            const effectiveStatus = getEffectiveStatus(event.status, event.endAt, event as any);
             const statusCfg = getStatusConfig(effectiveStatus);
             return (
               <Card 
@@ -284,6 +284,20 @@ function EventsPageComponent() {
                       </div>
                     </div>
                     
+                    {event.type === 'ballot' && event.ballotConfig?.ballotDrawTime && (
+                      <div className="flex items-center text-sm text-muted-foreground gap-2">
+                        <div className="h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                          <Trophy className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[11px] uppercase font-medium text-muted-foreground/70">Rút thăm</span>
+                          <span className="font-medium text-foreground">
+                            {formatTimestamp(event.ballotConfig.ballotDrawTime)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    
                     <div className="flex items-center text-sm text-muted-foreground gap-2">
                       <div className="h-8 w-8 rounded-full bg-muted/50 flex items-center justify-center shrink-0">
                         <Users className="h-4 w-4" />
@@ -293,6 +307,11 @@ function EventsPageComponent() {
                         <span className="font-medium text-foreground">
                           {event.eligibleRoles.length === 5 ? 'Toàn bộ nhân viên' : event.eligibleRoles.join(', ')}
                         </span>
+                        {event.targetUserIds && event.targetUserIds.length > 0 && (
+                          <span className="text-xs text-muted-foreground mt-1">
+                            Người dùng cụ thể: {event.targetUserIds.length} người
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

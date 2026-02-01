@@ -589,7 +589,6 @@ function StaffingForm({ selectedTemplate, setSelectedTemplate, shiftTemplates, s
               { value: "Bất kỳ", label: "Bất kỳ" },
               { value: "Phục vụ", label: "Phục vụ" },
               { value: "Pha chế", label: "Pha chế" },
-              { value: "Thu ngân", label: "Thu ngân" },
               { value: "Quản lý", label: "Quản lý" },
             ]}
             compact

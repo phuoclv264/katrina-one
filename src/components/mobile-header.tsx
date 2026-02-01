@@ -4,8 +4,9 @@
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useMemo, useState, useEffect } from 'react';
 import { NotificationBell } from './notification-bell';
-import { ChevronLeft, Coffee } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { UserAvatar } from '@/components/user-avatar';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { isHomeRoute } from '@/lib/navigation';
 import { cn } from '@/lib/utils';
@@ -150,10 +151,13 @@ export function MobileHeader() {
                                 "h-6 w-6 stroke-[2.5px] text-zinc-900 dark:text-zinc-50 transition-all duration-500 absolute",
                                 showBackButton ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 -rotate-90"
                             )} />
-                            <Coffee className={cn(
-                                "h-5 w-5 text-zinc-400 dark:text-zinc-500 transition-all duration-500 absolute",
-                                !showBackButton ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 rotate-90"
-                            )} />
+                            <UserAvatar 
+                                user={user}
+                                className={cn(
+                                    "transition-all duration-500 absolute",
+                                    !showBackButton ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 rotate-90"
+                                )}
+                            />
                         </div>
                     </Button>
                 </div>
