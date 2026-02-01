@@ -8,12 +8,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Combobox } from '@/components/combobox';
 import type { Event, EventCandidate, EventType, UserRole, ManagedUser } from '@/lib/types';
-import { Loader2, Plus, Trash2, Calendar, Users, Settings, Info, CheckCircle2, ListFilter, UserCheck, MessageSquare, EyeOff, Clock, Trophy, Star, Sparkles, LayoutGrid } from 'lucide-react';
+import { Loader2, Plus, Trash2, Calendar, Users, Settings, Info, CheckCircle2, ListFilter, UserCheck, MessageSquare, EyeOff, Clock, Trophy, Star, Sparkles, LayoutGrid, Briefcase, User } from 'lucide-react';
 import { toast } from '@/components/ui/pro-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Timestamp } from 'firebase/firestore';
 import { timestampToString, toDateSafe, toDatetimeLocalInput } from '@/lib/utils';
 import { cn } from '@/lib/utils';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface EditEventDialogProps {
     isOpen: boolean;
@@ -35,6 +36,7 @@ export default function EditEventDialog({ isOpen, onClose, eventToEdit, onSave, 
     const [eventData, setEventData] = useState<Partial<Event>>({});
     const [isSaving, setIsSaving] = useState(false);
     const [newOption, setNewOption] = useState('');
+    const [targetMode, setTargetMode] = useState<'roles' | 'users'>('roles');
     const isEditing = !!eventToEdit;
     const currentType = (eventData.type || 'vote') as EventType;
     const isVote = currentType === 'vote';
@@ -49,6 +51,11 @@ export default function EditEventDialog({ isOpen, onClose, eventToEdit, onSave, 
                 // show stored timestamps in the user's local timezone for editing
                 startAt: toDatetimeLocalInput(eventToEdit.startAt),
                 endAt: toDatetimeLocalInput(eventToEdit.endAt),
+                // Keep ballotDrawTime as Timestamp (if present) to avoid re-saving string values
+                ballotConfig: eventToEdit.ballotConfig ? {
+                    ...eventToEdit.ballotConfig,
+                    ballotDrawTime: eventToEdit.ballotConfig.ballotDrawTime ?? undefined,
+                } : undefined,
                 isTest: eventToEdit.isTest ?? false,
             } : {
                 title: '',
@@ -56,6 +63,7 @@ export default function EditEventDialog({ isOpen, onClose, eventToEdit, onSave, 
                 type: 'vote' as EventType,
                 status: 'draft' as Event['status'],
                 eligibleRoles: [],
+                targetUserIds: [],
                 candidates: [],
                 options: [],
                 // default times shown in user's local timezone
@@ -65,8 +73,19 @@ export default function EditEventDialog({ isOpen, onClose, eventToEdit, onSave, 
                 allowComments: true,
                 maxVotesPerUser: 1,
                 isTest: false,
+                // Default ballot config for new ballot events
+                ballotConfig: {
+                    winnerCount: 1,
+                    resultMessage: 'Chúc mừng bạn đã trúng thưởng! 🎉',
+                    loserMessage: 'Cảm ơn bạn đã tham gia! Lần sau may mắn hơn nhé! 💪',
+                    autoDraw: true,
+                },
             };
             setEventData(initialData as any);
+            
+            // Determine initial target mode based on data
+            const hasTargetUsers = eventToEdit ? (eventToEdit.targetUserIds || []).length > 0 : false;
+            setTargetMode(hasTargetUsers ? 'users' : 'roles');
         }
     }, [isOpen, eventToEdit]);
 
@@ -100,7 +119,12 @@ export default function EditEventDialog({ isOpen, onClose, eventToEdit, onSave, 
             return;
         }
 
-        if ((currentType === 'vote' || currentType === 'multi-vote' || currentType === 'ballot') && totalChoices === 0) {
+        if (currentType === 'ballot') {
+            if (!eventData.prize?.name) {
+                toast.error('Vui lòng nhập tên giải thưởng cho phần rút thăm.');
+                return;
+            }
+        } else if ((currentType === 'vote' || currentType === 'multi-vote') && totalChoices === 0) {
             toast.error('Vui lòng thêm ít nhất một ứng viên hoặc lựa chọn cho sự kiện.');
             return;
         }
@@ -128,6 +152,7 @@ export default function EditEventDialog({ isOpen, onClose, eventToEdit, onSave, 
                 startAt: Timestamp.fromDate(startDate),
                 endAt: Timestamp.fromDate(endDate),
                 eligibleRoles: eventData.eligibleRoles || [],
+                targetUserIds: eventData.targetUserIds || [],
                 candidates: eventData.candidates || [],
                 allowComments: eventData.allowComments ?? true,
                 anonymousResults: eventData.anonymousResults ?? false,
@@ -141,11 +166,22 @@ export default function EditEventDialog({ isOpen, onClose, eventToEdit, onSave, 
                 finalData.maxVotesPerUser = null;
             }
 
+            if (currentType === 'ballot') {
+                finalData.prize = eventData.prize;
+                const ballotDrawDate = eventData.ballotConfig?.ballotDrawTime
+                    ? toDateSafe(eventData.ballotConfig.ballotDrawTime)
+                    : null;
+                finalData.ballotConfig = {
+                    ...eventData.ballotConfig,
+                    ballotDrawTime: ballotDrawDate ? Timestamp.fromDate(ballotDrawDate) : undefined,
+                };
+            }
+
             // Add options only for types that use them
-            if (currentType === 'vote' || currentType === 'multi-vote' || currentType === 'ballot') {
+            if (currentType === 'vote' || currentType === 'multi-vote') {
                 finalData.options = eventData.options || [];
             } else {
-                // For review, don't include options
+                // For review and ballot, don't include options
                 finalData.options = [];
             }
 
@@ -323,74 +359,258 @@ export default function EditEventDialog({ isOpen, onClose, eventToEdit, onSave, 
                                 </div>
 
                                 <div className="space-y-8 ml-0 sm:ml-11">
-                                    <div className="space-y-3">
-                                        <Label htmlFor="eligibleRoles" className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">Vai trò được tham gia</Label>
-                                        <Combobox
-                                            options={ROLES_OPTIONS}
-                                            multiple
-                                            value={eventData.eligibleRoles || []}
-                                            onChange={(vals) => handleFieldChange('eligibleRoles', vals)}
-                                            placeholder="Chọn các vai trò..."
-                                            className="bg-white dark:bg-gray-900 rounded-2xl border-none shadow-soft min-h-12 px-4 py-2 font-bold"
-                                        />
-                                    </div>
+                                    <Tabs 
+                                        value={targetMode} 
+                                        onValueChange={(v) => {
+                                            const newMode = v as 'roles' | 'users';
+                                            setTargetMode(newMode);
+                                            // Enforce mutual exclusivity
+                                            if (newMode === 'roles') {
+                                                handleFieldChange('targetUserIds', []);
+                                            } else {
+                                                handleFieldChange('eligibleRoles', []);
+                                            }
+                                        }}
+                                        className="w-full"
+                                    >
+                                        <TabsList className="grid w-full grid-cols-2 mb-4 bg-muted/30 p-1 rounded-2xl">
+                                            <TabsTrigger value="roles" className="rounded-xl font-bold text-xs uppercase tracking-wider data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                                                <Briefcase className="h-3.5 w-3.5 mr-2" />
+                                                Theo vai trò
+                                                {(eventData.eligibleRoles || []).length > 0 && (
+                                                    <span className="ml-2 bg-primary/10 text-primary text-[9px] px-1.5 py-0.5 rounded-full">{(eventData.eligibleRoles || []).length}</span>
+                                                )}
+                                            </TabsTrigger>
+                                            <TabsTrigger value="users" className="rounded-xl font-bold text-xs uppercase tracking-wider data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                                                <User className="h-3.5 w-3.5 mr-2" />
+                                                Theo nhân viên
+                                                {(eventData.targetUserIds || []).length > 0 && (
+                                                    <span className="ml-2 bg-primary/10 text-primary text-[9px] px-1.5 py-0.5 rounded-full">{(eventData.targetUserIds || []).length}</span>
+                                                )}
+                                            </TabsTrigger>
+                                        </TabsList>
+                                        
+                                        <TabsContent value="roles" className="space-y-3 mt-0">
+                                            <Label htmlFor="eligibleRoles" className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">Vai trò được tham gia</Label>
+                                            <Combobox
+                                                options={ROLES_OPTIONS}
+                                                multiple
+                                                value={eventData.eligibleRoles || []}
+                                                onChange={(vals) => handleFieldChange('eligibleRoles', vals)}
+                                                placeholder="Chọn các vai trò..."
+                                                className="bg-white dark:bg-gray-900 rounded-2xl border-none shadow-soft min-h-12 px-4 py-2 font-bold"
+                                            />
+                                            <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-tight ml-1">
+                                                Tất cả nhân viên thuộc vai trò được chọn sẽ thấy sự kiện này.
+                                            </p>
+                                        </TabsContent>
+
+                                        <TabsContent value="users" className="space-y-3 mt-0">
+                                            <Label htmlFor="targetUserIds" className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">
+                                                Chọn nhân viên cụ thể
+                                            </Label>
+                                            <Combobox
+                                                options={allUsers.map(u => ({ value: u.uid, label: u.displayName }))}
+                                                multiple
+                                                value={eventData.targetUserIds || []}
+                                                onChange={(vals) => handleFieldChange('targetUserIds', vals)}
+                                                placeholder="Chọn nhân viên..."
+                                                className="bg-white dark:bg-gray-900 rounded-2xl border-none shadow-soft min-h-12 px-4 py-2 font-bold"
+                                            />
+                                            <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-tight ml-1">
+                                                Các nhân viên được chọn ở đây sẽ được tham gia, bất kể vai trò của họ.
+                                            </p>
+                                        </TabsContent>
+                                    </Tabs>
 
                                     <div className="space-y-6 bg-white/50 dark:bg-gray-900/50 p-4 sm:p-8 rounded-3xl sm:rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm transition-all">
-                                        <div className="flex items-center justify-between">
-                                            <Label className="text-sm font-black flex items-center gap-2">
-                                                <UserCheck className="h-4 w-4 text-primary" />
-                                                Ứng viên / Lựa chọn
-                                            </Label>
-                                        </div>
-
-                                        {(isReview || isVote || isMultiVote) && (
-                                            <div className="space-y-3">
-                                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/70">Chọn từ nhân viên hệ thống</Label>
-                                                <Combobox
-                                                    options={allUsers.map(u => ({ value: u.uid, label: u.displayName }))}
-                                                    multiple
-                                                    value={(eventData.candidates || []).map(c => c.id)}
-                                                    onChange={(ids) => handleFieldChange('candidates', (ids as string[]).map(id => {
-                                                        const user = allUsers.find(u => u.uid === id);
-                                                        return { id: user!.uid, name: user!.displayName, avatarUrl: user!.photoURL, meta: { role: user!.role } };
-                                                    }))}
-                                                    placeholder="Chọn nhân viên..."
-                                                    className="bg-white dark:bg-gray-900 rounded-2xl border-none shadow-soft min-h-12 px-4 py-2 font-bold"
-                                                />
-                                            </div>
-                                        )}
-
-                                        {(isVote || isMultiVote || isBallot) && (
-                                            <div className="space-y-5 pt-4 border-t border-dashed border-gray-200 dark:border-gray-800">
-                                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/70">Hoặc thêm lựa chọn tuỳ chỉnh</Label>
-                                                <div className="flex gap-2">
-                                                    <Input
-                                                        value={newOption}
-                                                        onChange={e => setNewOption(e.target.value)}
-                                                        placeholder="Tên lựa chọn mới..."
-                                                        className="h-11 bg-white dark:bg-gray-900 rounded-xl border-none shadow-soft font-bold px-4 flex-1 text-sm"
-                                                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddOption())}
-                                                    />
-                                                    <Button size="icon" onClick={handleAddOption} className="h-11 w-11 rounded-xl shrink-0 bg-primary/10 hover:bg-primary/20 text-primary border-none"><Plus className="h-5 w-5" /></Button>
+                                        {isBallot ? (
+                                            <div className="space-y-6">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <Label className="text-sm font-black flex items-center gap-2">
+                                                        <Trophy className="h-4 w-4 text-primary" />
+                                                        Thông tin giải thưởng
+                                                    </Label>
                                                 </div>
                                                 
-                                                <div className="flex flex-wrap gap-2 min-h-[40px]">
-                                                    {(eventData.options || []).map(opt => (
-                                                        <div key={opt.id} className="group flex items-center gap-1.5 pl-3 pr-1 py-1 bg-primary/10 text-primary rounded-xl text-[10px] font-black border border-primary/10 transition-all hover:bg-primary/20">
-                                                            <span className="uppercase tracking-tight truncate max-w-[120px]">{opt.name}</span>
-                                                            <button 
-                                                                onClick={() => handleDeleteOption(opt.id)} 
-                                                                className="opacity-40 group-hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-600 rounded-lg p-1 transition-all"
-                                                            >
-                                                                <Trash2 className="h-3 w-3" />
-                                                            </button>
+                                                {/* Prize Information */}
+                                                <div className="space-y-4 p-4 bg-white/30 dark:bg-gray-900/30 rounded-2xl">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="prizeName" className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">Tên giải thưởng</Label>
+                                                        <Input
+                                                            id="prizeName"
+                                                            placeholder="Ví dụ: Thưởng tiền mặt 500k"
+                                                            value={eventData.prize?.name || ''}
+                                                            onChange={(e) => handleFieldChange('prize', { ...eventData.prize, name: e.target.value })}
+                                                            className="h-11 sm:h-12 bg-white dark:bg-gray-900 rounded-xl border-none shadow-soft px-4 text-sm font-bold"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="prizeDesc" className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">Mô tả giải thưởng</Label>
+                                                        <Input
+                                                            id="prizeDesc"
+                                                            placeholder="Mô tả chi tiết..."
+                                                            value={eventData.prize?.description || ''}
+                                                            onChange={(e) => handleFieldChange('prize', { ...eventData.prize, description: e.target.value })}
+                                                            className="h-11 sm:h-12 bg-white dark:bg-gray-900 rounded-xl border-none shadow-soft px-4 text-sm font-bold"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Ballot Configuration */}
+                                                <div className="space-y-4 p-4 bg-amber-50/30 dark:bg-amber-900/20 rounded-2xl border border-amber-200/30 dark:border-amber-800/30">
+                                                    <div className="flex items-center gap-2 mb-3">
+                                                        <Sparkles className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                                                        <Label className="text-sm font-black text-amber-800 dark:text-amber-400">Cấu hình rút thăm</Label>
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="winnerCount" className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">Số người chiến thắng</Label>
+                                                        <Input
+                                                            id="winnerCount"
+                                                            type="number"
+                                                            min={1}
+                                                            max={50}
+                                                            placeholder="1"
+                                                            value={eventData.ballotConfig?.winnerCount || ''}
+                                                            onChange={(e) => handleFieldChange('ballotConfig', { 
+                                                                ...eventData.ballotConfig, 
+                                                                winnerCount: parseInt(e.target.value) || 1 
+                                                            })}
+                                                            className="h-11 bg-white dark:bg-gray-900 rounded-xl border-none shadow-soft px-4 text-sm font-bold w-24"
+                                                        />
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="ballotDrawTime" className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">Thời gian rút thăm</Label>
+                                                        <Input
+                                                            id="ballotDrawTime"
+                                                            type="datetime-local"
+                                                            value={eventData.ballotConfig?.ballotDrawTime ? toDatetimeLocalInput(eventData.ballotConfig.ballotDrawTime) : ''}
+                                                            onChange={(e) => {
+                                                                const date = new Date(e.target.value);
+                                                                const timestamp = Timestamp.fromDate(date);
+                                                                handleFieldChange('ballotConfig', { 
+                                                                    ...eventData.ballotConfig, 
+                                                                    ballotDrawTime: timestamp 
+                                                                });
+                                                            }}
+                                                            className="h-11 bg-white dark:bg-gray-900 rounded-xl border-none shadow-soft px-4 text-sm font-bold"
+                                                        />
+                                                        <p className="text-[9px] text-muted-foreground/60">
+                                                            {eventData.ballotConfig?.ballotDrawTime 
+                                                                ? `Rút thăm lúc: ${timestampToString(eventData.ballotConfig.ballotDrawTime, 'dd/MM/yyyy HH:mm')}`
+                                                                : 'Chọn thời gian rút thăm (mặc định: khi sự kiện kết thúc)'
+                                                            }
+                                                        </p>
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="resultMessage" className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">Tin nhắn cho người chiến thắng</Label>
+                                                        <Textarea
+                                                            id="resultMessage"
+                                                            placeholder="Chúc mừng bạn đã trúng thưởng! 🎉"
+                                                            value={eventData.ballotConfig?.resultMessage || ''}
+                                                            onChange={(e) => handleFieldChange('ballotConfig', { 
+                                                                ...eventData.ballotConfig, 
+                                                                resultMessage: e.target.value 
+                                                            })}
+                                                            className="bg-white dark:bg-gray-900 min-h-[80px] rounded-xl border-none shadow-soft px-4 py-3 text-sm font-medium resize-none"
+                                                        />
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="loserMessage" className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">Tin nhắn cho người không trúng</Label>
+                                                        <Textarea
+                                                            id="loserMessage"
+                                                            placeholder="Cảm ơn bạn đã tham gia! Lần sau may mắn hơn nhé! 💪"
+                                                            value={eventData.ballotConfig?.loserMessage || ''}
+                                                            onChange={(e) => handleFieldChange('ballotConfig', { 
+                                                                ...eventData.ballotConfig, 
+                                                                loserMessage: e.target.value 
+                                                            })}
+                                                            className="bg-white dark:bg-gray-900 min-h-[80px] rounded-xl border-none shadow-soft px-4 py-3 text-sm font-medium resize-none"
+                                                        />
+                                                    </div>
+
+                                                    <div className="flex items-center justify-between p-3 bg-white/50 dark:bg-gray-900/50 rounded-xl border border-amber-200/50 dark:border-amber-800/50">
+                                                        <div className="space-y-1">
+                                                            <Label htmlFor="autoDraw" className="text-sm font-black flex items-center gap-2">
+                                                                <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                                                                Tự động rút thăm
+                                                            </Label>
+                                                            <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-tight">Rút thăm tự động khi sự kiện kết thúc</p>
                                                         </div>
-                                                    ))}
-                                                    {(eventData.options || []).length === 0 && (eventData.candidates || []).length === 0 && (
-                                                        <span className="text-[10px] text-muted-foreground/50 italic ml-1 font-bold uppercase tracking-wider leading-none mt-2">Chưa có ứng viên hoặc lựa chọn nào.</span>
-                                                    )}
+                                                        <Switch
+                                                            id="autoDraw"
+                                                            checked={eventData.ballotConfig?.autoDraw ?? true}
+                                                            onCheckedChange={(checked) => handleFieldChange('ballotConfig', { 
+                                                                ...eventData.ballotConfig, 
+                                                                autoDraw: checked 
+                                                            })}
+                                                        />
+                                                    </div>
                                                 </div>
                                             </div>
+                                        ) : (
+                                            <>
+                                                <div className="flex items-center justify-between">
+                                                    <Label className="text-sm font-black flex items-center gap-2">
+                                                        <UserCheck className="h-4 w-4 text-primary" />
+                                                        Ứng viên / Lựa chọn
+                                                    </Label>
+                                                </div>
+
+                                                {(isReview || isVote || isMultiVote) && (
+                                                    <div className="space-y-3">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/70">Chọn từ nhân viên hệ thống</Label>
+                                                        <Combobox
+                                                            options={allUsers.map(u => ({ value: u.uid, label: u.displayName }))}
+                                                            multiple
+                                                            value={(eventData.candidates || []).map(c => c.id)}
+                                                            onChange={(ids) => handleFieldChange('candidates', (ids as string[]).map(id => {
+                                                                const user = allUsers.find(u => u.uid === id);
+                                                                return { id: user!.uid, name: user!.displayName, avatarUrl: user!.photoURL, meta: { role: user!.role } };
+                                                            }))}
+                                                            placeholder="Chọn nhân viên..."
+                                                            className="bg-white dark:bg-gray-900 rounded-2xl border-none shadow-soft min-h-12 px-4 py-2 font-bold"
+                                                        />
+                                                    </div>
+                                                )}
+
+                                                {(isVote || isMultiVote) && (
+                                                    <div className="space-y-5 pt-4 border-t border-dashed border-gray-200 dark:border-gray-800">
+                                                        <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/70">Hoặc thêm lựa chọn tuỳ chỉnh</Label>
+                                                        <div className="flex gap-2">
+                                                            <Input
+                                                                value={newOption}
+                                                                onChange={e => setNewOption(e.target.value)}
+                                                                placeholder="Tên lựa chọn mới..."
+                                                                className="h-11 bg-white dark:bg-gray-900 rounded-xl border-none shadow-soft font-bold px-4 flex-1 text-sm"
+                                                                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddOption())}
+                                                            />
+                                                            <Button size="icon" onClick={handleAddOption} className="h-11 w-11 rounded-xl shrink-0 bg-primary/10 hover:bg-primary/20 text-primary border-none"><Plus className="h-5 w-5" /></Button>
+                                                        </div>
+                                                        
+                                                        <div className="flex flex-wrap gap-2 min-h-[40px]">
+                                                            {(eventData.options || []).map(opt => (
+                                                                <div key={opt.id} className="group flex items-center gap-1.5 pl-3 pr-1 py-1 bg-primary/10 text-primary rounded-xl text-[10px] font-black border border-primary/10 transition-all hover:bg-primary/20">
+                                                                    <span className="uppercase tracking-tight truncate max-w-[120px]">{opt.name}</span>
+                                                                    <button 
+                                                                        onClick={() => handleDeleteOption(opt.id)} 
+                                                                        className="opacity-40 group-hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-600 rounded-lg p-1 transition-all"
+                                                                    >
+                                                                        <Trash2 className="h-3 w-3" />
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                            {(eventData.options || []).length === 0 && (eventData.candidates || []).length === 0 && (
+                                                                <span className="text-[10px] text-muted-foreground/50 italic ml-1 font-bold uppercase tracking-wider leading-none mt-2">Chưa có ứng viên hoặc lựa chọn nào.</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </>
                                         )}
 
                                         {isMultiVote && (

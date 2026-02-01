@@ -554,6 +554,7 @@ export type NotificationType =
   | 'new_violation'
   | 'new_incident_report'
   | 'new_cash_handover_report'
+  | 'new_ballot_draw'
   | 'salary_update';
 
 export type PassRequestPayload = {
@@ -1208,7 +1209,7 @@ export type MonthlyTaskAssignment = {
 
 // --- Event Feature Types ---
 export type EventType = 'vote' | 'multi-vote' | 'review' | 'ballot';
-export type EventStatus = 'draft' | 'active' | 'closed';
+export type EventStatus = 'draft' | 'waiting' | 'active' | 'closed';
 
 export type EventCandidate = {
   id: string; // Can be userId or a custom ID for an option
@@ -1229,6 +1230,7 @@ export type Event = {
   
   // Eligibility
   eligibleRoles: UserRole[];
+  targetUserIds?: string[]; // Specific users targeted for this event
   
   // Content
   candidates: EventCandidate[]; // For staff-based events
@@ -1242,6 +1244,14 @@ export type Event = {
     name: string;
     description: string;
     imageUrl?: string;
+  };
+  // Ballot-specific configuration
+  ballotConfig?: {
+    winnerCount: number;
+    resultMessage: string; // Message to show to winners
+    loserMessage: string; // Message to show to non-winners
+    autoDraw: boolean; // Whether to run automatically at end time
+    ballotDrawTime?: Timestamp; // Specific time for ballot draw (separate from event end time)
   };
   /** Mark event as test-only — only visible to users with `isTestAccount` */
   isTest?: boolean;

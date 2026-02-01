@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { format, endOfToday, startOfToday } from "date-fns";
 import { vi } from "date-fns/locale";
 import { Megaphone, Clock3, ClipboardList, ListChecks, AlertCircle, TimerReset, Zap, ChevronRight, Sparkles } from "lucide-react";
@@ -16,11 +17,13 @@ import { useAuth } from "@/hooks/use-auth";
 import { useCheckInCardPlacement } from "@/hooks/useCheckInCardPlacement";
 import { useAppNavigation } from "@/contexts/app-navigation-context";
 import { dataStore } from "@/lib/data-store";
-import { subscribeToActiveEvents } from "@/lib/events-store";
+import { subscribeToActiveEvents, getEvent } from "@/lib/events-store";
+import { getQueryParamWithMobileHashFallback } from "@/lib/url-params";
 import type { AttendanceRecord, DailyTask, DailyTaskReport, Event, MediaItem, MonthlyTaskAssignment, SimpleUser, UserRole, ManagedUser } from "@/lib/types";
 import MonthlyTasksDialog from "@/components/staff-bulletin-board/MonthlyTasksDialog";
 import DailyAssignmentsDialog from "@/components/staff-bulletin-board/DailyAssignmentsDialog";
 import EventsDialog from "@/components/staff-bulletin-board/EventsDialog";
+import VoteModal from "@/components/events/VoteModal";
 import { cn } from "@/lib/utils";
 
 const todayKey = format(new Date(), "yyyy-MM-dd");
@@ -60,6 +63,8 @@ export type StaffBulletinBoardProps = {
 export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardProps) {
   const { user, users, isOnActiveShift, activeShifts } = useAuth();
   const nav = useAppNavigation();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const { isCheckedIn } = useCheckInCardPlacement();
 
   const [dailyTasks, setDailyTasks] = useState<DailyTask[]>([]);
@@ -70,6 +75,29 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
   const [eventsListOpen, setEventsListOpen] = useState(false);
   const [activeEvents, setActiveEvents] = useState<Event[]>([]);
   const [joinedEventIds, setJoinedEventIds] = useState<Set<string>>(new Set());
+  const [directEvent, setDirectEvent] = useState<Event | null>(null);
+
+  // Handle deep-linking to specific event results from notifications
+  useEffect(() => {
+    const openId = getQueryParamWithMobileHashFallback({
+      param: "openBallotResult",
+      searchParams: searchParams,
+      hash: typeof window !== "undefined" ? window.location.hash : ""
+    });
+
+    if (openId) {
+      getEvent(openId).then((event) => {
+        if (event) {
+          setDirectEvent(event);
+          // Remove the param from URL without reloading
+          const params = new URLSearchParams(window.location.search);
+          params.delete("openBallotResult");
+          const query = params.toString();
+          router.replace(`${window.location.pathname}${query ? `?${query}` : ""}`);
+        }
+      });
+    }
+  }, [searchParams, router]);
 
   // Determine whether work-related items should be shown/subscribed to
   const showWorkStuff = isCheckedIn || user?.role === "Chủ nhà hàng";
@@ -150,7 +178,7 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
   // Keep active events relevant to the user
   useEffect(() => {
     if (!user) return;
-    const unsub = subscribeToActiveEvents(user.role, Boolean(user.isTestAccount), setActiveEvents);
+    const unsub = subscribeToActiveEvents({ role: user.role, isTestAccount: Boolean(user.isTestAccount), uid: user.uid }, setActiveEvents);
     return () => unsub();
   }, [user]);
 
@@ -519,6 +547,15 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
         currentUser={user}
         joinedEventIds={joinedEventIds}
       />
+      {directEvent && user && (
+        <VoteModal
+          event={directEvent}
+          isOpen={true}
+          onClose={() => setDirectEvent(null)}
+          currentUser={user}
+          parentDialogTag="root"
+        />
+      )}
     </>
   );
 }

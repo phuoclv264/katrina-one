@@ -13,7 +13,7 @@ import {
     DialogCancel
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, Users, Star, MessageSquareText, Trophy, BarChart3, List, RefreshCw, Trash2, CheckCircle2, AlertCircle, Clock, Search, Filter } from 'lucide-react';
+import { Loader2, Users, Star, MessageSquareText, Trophy, BarChart3, List, RefreshCw, Trash2, CheckCircle2, AlertCircle, Clock, Search, Filter, UserX } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { getEventVotes, getEventDraws, deleteVote, runPrizeDraw } from '@/lib/events-store';
@@ -41,6 +41,7 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
     const [draws, setDraws] = useState<PrizeDrawResult[]>([]);
     const [winnerCount, setWinnerCount] = useState<number>(1);
     const [isLoading, setIsLoading] = useState(true);
+    const [latestDraw, setLatestDraw] = useState<PrizeDrawResult | null>(null);
     const { user } = useAuth();
     const [selectedVoters, setSelectedVoters] = useState<string[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -86,6 +87,27 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
 
     const allCandidates = useMemo(() => [...(event.candidates || []), ...(event.options || [])], [event]);
 
+    const unjoinedUsers = useMemo(() => {
+        const votedUserIds = new Set(votes.map(v => v.userId || v.id));
+        
+        return allUsers.filter(u => {
+            // Check eligibility
+            const hasEligibleRoles = (event.eligibleRoles || []).length > 0;
+            const hasTargetUsers = (event.targetUserIds || []).length > 0;
+            
+            // If no restrictions, everyone is eligible (unless event logic implies otherwise, but usually meant for all)
+            if (!hasEligibleRoles && !hasTargetUsers) return !votedUserIds.has(u.uid);
+
+            const isRoleEligible = (event.eligibleRoles || []).includes(u.role);
+            const isUserTargeted = (event.targetUserIds || []).includes(u.uid);
+
+            if (isRoleEligible || isUserTargeted) {
+                return !votedUserIds.has(u.uid);
+            }
+            return false;
+        });
+    }, [allUsers, votes, event]);
+
     const results = useMemo<EventResult[]>(() => {
         if (event.type === 'vote' || event.type === 'multi-vote' || event.type === 'ballot') {
             const voteCounts: { [key: string]: number } = {};
@@ -116,7 +138,7 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
                                 text,
                                 author: event.anonymousResults ? 'Ẩn danh' : vote.userDisplay.name,
                                 userId,
-                                date: vote.createdAt.toDate()
+                                date: vote.createdAt?.toDate?.() || new Date()
                             });
                         }
                     });
@@ -224,7 +246,7 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
                         text,
                         author: event.anonymousResults ? 'Ẩn danh' : vote.userDisplay.name,
                         candidateName: key === 'general' ? 'Nhận xét chung' : (candidate?.name || 'Về: ' + key),
-                        date: vote.createdAt.toDate(),
+                        date: vote.createdAt?.toDate?.() || new Date(),
                         userId: vote.userId || vote.id,
                         avatar: allUsers.find(u => u.uid === vote.userId)?.photoURL || undefined
                     });
@@ -277,23 +299,47 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
             );
         }
 
+        const isBallot = event.type === 'ballot';
+
         return (
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <div className="px-6 mb-4 sticky top-0 z-20 pt-2 pb-4 bg-background/80 backdrop-blur-md">
-                    <TabsList className="grid w-full grid-cols-3 h-12 p-1 bg-muted/30 rounded-2xl border border-primary/5">
+                    <TabsList className={cn(
+                        "grid w-full h-12 p-1 bg-muted/30 rounded-2xl border border-primary/5",
+                        isBallot ? "grid-cols-5" : "grid-cols-4"
+                    )}>
                         <TabsTrigger value="overview" className="rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-soft font-black text-[10px] uppercase tracking-wider">
-                            <BarChart3 className="h-3.5 w-3.5 mr-2" />
-                            Tổng quan
+                            <BarChart3 className="h-3.5 w-3.5 sm:mr-2" />
+                            <span className="hidden sm:inline">Tổng quan</span>
                         </TabsTrigger>
+                        {isBallot && (
+                            <TabsTrigger value="lucky-draw" className="rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-soft font-black text-[10px] uppercase tracking-wider relative">
+                                <Trophy className="h-3.5 w-3.5 sm:mr-2 text-amber-500" />
+                                <span className="hidden sm:inline text-amber-600">Rút thăm</span>
+                                {draws.length > 0 && (
+                                    <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                                    </span>
+                                )}
+                            </TabsTrigger>
+                        )}
                         <TabsTrigger value="details" className="rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-soft font-black text-[10px] uppercase tracking-wider">
-                            <List className="h-3.5 w-3.5 mr-2" />
-                            Danh sách
+                            <List className="h-3.5 w-3.5 sm:mr-2" />
+                            <span className="hidden sm:inline">Danh sách</span>
+                        </TabsTrigger>
+                        <TabsTrigger value="unjoined" className="rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-soft font-black text-[10px] uppercase tracking-wider whitespace-nowrap">
+                            <UserX className="h-3.5 w-3.5 sm:mr-2" />
+                            <span className="hidden sm:inline">Chưa tham gia</span>
+                            {unjoinedUsers.length > 0 && (
+                                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 text-[9px]">{unjoinedUsers.length}</span>
+                            )}
                         </TabsTrigger>
                         <TabsTrigger value="comments" className="rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-soft font-black text-[10px] uppercase tracking-wider whitespace-nowrap">
-                            <MessageSquareText className="h-3.5 w-3.5 mr-2" />
-                            Bình luận
+                            <MessageSquareText className="h-3.5 w-3.5 sm:mr-2" />
+                            <span className="hidden sm:inline">Bình luận</span>
                             {allComments.length > 0 && (
-                                <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-[9px]">{allComments.length}</span>
+                                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-[9px]">{allComments.length}</span>
                             )}
                         </TabsTrigger>
                     </TabsList>
@@ -329,7 +375,29 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
                         </div>
                         
                         <div className="p-5 bg-gradient-to-br from-amber-500/10 to-transparent rounded-[2.5rem] border border-amber-500/5 relative overflow-hidden group">
-                            {results.length > 0 ? (
+                            {isBallot && latestDraw ? (
+                                <div className="h-full flex flex-col justify-between" onClick={() => setActiveTab('lucky-draw')}>
+                                    <div>
+                                        <p className="text-[10px] font-black text-amber-600/60 uppercase tracking-[0.15em] mb-1">Trúng giải</p>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm font-black text-amber-600 truncate">{latestDraw.winners[0].userName}</span>
+                                            {latestDraw.winners.length > 1 && <span className="text-[9px] font-bold text-amber-600/40">+{latestDraw.winners.length - 1}</span>}
+                                        </div>
+                                    </div>
+                                    <div className="flex -space-x-2 mt-2">
+                                        {latestDraw.winners.slice(0, 3).map((w, i) => (
+                                            <UserAvatar
+                                                key={i}
+                                                avatarUrl={allUsers.find(u => u.uid === w.userId)?.photoURL}
+                                                nameOverride={w.userName}
+                                                size="h-6 w-6"
+                                                className="border-2 border-white shadow-sm"
+                                            />
+                                        ))}
+                                    </div>
+                                    <Trophy className="absolute -right-2 -bottom-2 h-16 w-16 text-amber-500/5 rotate-12 group-hover:scale-110 transition-transform" />
+                                </div>
+                            ) : results.length > 0 ? (
                                 <>
                                     <Trophy className="absolute -right-2 -bottom-2 h-16 w-16 text-amber-500/5 rotate-12 group-hover:scale-110 transition-transform" />
                                     <p className="text-[10px] font-black text-amber-600/60 uppercase tracking-[0.15em] mb-1">Dẫn đầu</p>
@@ -637,11 +705,13 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
                             </div>
                         </div>
                     )}
+                </TabsContent>
 
-                    {event.type === 'ballot' && (
-                        <div className="space-y-6 pt-4">
-                            <div className="p-8 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent rounded-[3rem] border border-primary/10 relative overflow-hidden">
-                                <Trophy className="absolute -right-8 -bottom-8 h-48 w-48 text-primary/5 -rotate-12" />
+                {isBallot && (
+                    <TabsContent value="lucky-draw" className="px-6 pb-6 space-y-6 outline-none animate-in slide-in-from-left-2 duration-300">
+                        <div className="space-y-6 pt-2">
+                            <div className="p-8 bg-gradient-to-br from-amber-500/15 via-amber-500/5 to-transparent rounded-[3rem] border border-amber-500/10 relative overflow-hidden">
+                                <Trophy className="absolute -right-8 -bottom-8 h-48 w-48 text-amber-500/5 -rotate-12" />
                                 <div className="relative z-10 space-y-6">
                                     <div className="space-y-2">
                                         <h4 className="text-2xl font-black flex items-center gap-3">
@@ -669,7 +739,8 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
                                                 onClick={async () => {
                                                     if (votes.length === 0) { toast.error('Chưa có người tham gia để rút thăm.'); return; }
                                                     try {
-                                                        await runPrizeDraw(event.id, winnerCount, user as any);
+                                                        const result = await runPrizeDraw(event.id, winnerCount, user as any);
+                                                        setLatestDraw(result);
                                                         await fetchResults();
                                                         toast.success(`Đã rút ${winnerCount} người thắng.`);
                                                     } catch (e) {
@@ -677,7 +748,7 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
                                                         toast.error('Rút thăm thất bại.');
                                                     }
                                                 }}
-                                                className="w-full sm:w-auto h-16 rounded-[1.5rem] px-10 font-black text-md shadow-2xl shadow-primary/30 bg-primary hover:scale-[1.02] active:scale-[0.98] transition-all"
+                                                className="w-full sm:w-auto h-16 rounded-[1.5rem] px-10 font-black text-md shadow-2xl shadow-amber-500/30 bg-amber-500 hover:bg-amber-600 border-none text-white hover:scale-[1.02] active:scale-[0.98] transition-all"
                                             >
                                                 BẮT ĐẦU RÚT THĂM
                                             </Button>
@@ -686,11 +757,74 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
                                 </div>
                             </div>
 
+                            {latestDraw && (
+                                <div className="animate-in zoom-in-95 duration-500 fade-in slide-in-from-bottom-4">
+                                    <div className="bg-gradient-to-br from-amber-400 to-orange-500 p-[1px] rounded-[2.5rem] shadow-xl shadow-amber-500/20">
+                                        <div className="bg-white dark:bg-zinc-900 rounded-[2.5rem] p-6 sm:p-8 relative overflow-hidden">
+                                            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.03] mix-blend-multiply" />
+                                            <div className="absolute -right-12 -top-12 h-40 w-40 bg-amber-500/10 rounded-full blur-3xl" />
+                                            
+                                            <div className="relative z-10 flex flex-col items-center text-center space-y-6">
+                                                <div className="space-y-2">
+                                                    <Badge variant="outline" className="bg-amber-100/50 text-amber-600 border-amber-200 px-3 py-1 text-[10px] font-black uppercase tracking-widest mx-auto">
+                                                        Kết quả vừa rút
+                                                    </Badge>
+                                                    <h3 className="text-2xl sm:text-3xl font-black text-amber-600 dark:text-amber-500">
+                                                        Xin chúc mừng!
+                                                    </h3>
+                                                    <p className="text-sm font-medium text-muted-foreground">
+                                                        Đã tìm thấy <span className="text-foreground font-bold">{latestDraw.winners.length}</span> người may mắn trúng giải.
+                                                    </p>
+                                                </div>
+
+                                                <div className="flex flex-wrap justify-center gap-4">
+                                                    {latestDraw.winners.map((winner, idx) => (
+                                                        <div 
+                                                            key={idx} 
+                                                            className="flex flex-col items-center gap-3 p-4 bg-amber-50/50 dark:bg-amber-900/10 rounded-3xl border-2 border-amber-100 dark:border-amber-500/20 min-w-[120px]"
+                                                        >
+                                                            <div className="relative">
+                                                                <UserAvatar
+                                                                    avatarUrl={allUsers.find(u => u.uid === winner.userId)?.photoURL}
+                                                                    nameOverride={winner.userName}
+                                                                    size="h-16 w-16"
+                                                                    className="border-4 border-white shadow-lg"
+                                                                />
+                                                                <div className="absolute -bottom-2 -right-2 bg-amber-500 text-white p-1.5 rounded-full border-2 border-white shadow-sm">
+                                                                    <Trophy className="h-3 w-3" />
+                                                                </div>
+                                                            </div>
+                                                            <span className="text-sm font-black text-foreground">{winner.userName}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="sm"
+                                                    onClick={() => setLatestDraw(null)}
+                                                    className="text-xs font-bold text-muted-foreground hover:text-foreground"
+                                                >
+                                                    Đóng kết quả này
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="space-y-4">
-                                <h4 className="text-sm font-black uppercase tracking-widest flex items-center gap-2 px-2">
-                                    <Clock className="h-4 w-4 text-primary" />
-                                    Lịch sử kết quả
-                                </h4>
+                                <div className="flex items-center justify-between px-2">
+                                    <h4 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                                        <Clock className="h-4 w-4 text-amber-500" />
+                                        Lịch sử kết quả
+                                    </h4>
+                                    {draws.length > 0 && (
+                                        <Badge variant="outline" className="text-[10px] font-black uppercase bg-amber-50 text-amber-600 border-amber-100">
+                                            {draws.length} lượt rút
+                                        </Badge>
+                                    )}
+                                </div>
                                 {draws.length > 0 ? (
                                     <div className="grid gap-4">
                                         {draws.map((draw, idx) => (
@@ -698,13 +832,13 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
                                                 <div className="bg-muted/30 px-6 py-3 border-b border-black/5 flex items-center justify-between">
                                                     <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Lượt #{draws.length - idx}</span>
                                                     <Badge variant="outline" className="text-[10px] font-bold bg-white/50 border-black/5">
-                                                        {format(draw.drawnAt.toDate(), 'HH:mm • dd/MM')}
+                                                        {draw.drawnAt ? format(draw.drawnAt.toDate(), 'HH:mm • dd/MM') : '...'}
                                                     </Badge>
                                                 </div>
                                                 <CardContent className="p-6">
                                                     <div className="flex flex-wrap gap-3">
                                                         {draw.winners.map(winner => (
-                                                            <div key={winner.userId} className="flex items-center gap-2 bg-primary/5 border border-primary/10 pl-1 pr-4 py-1 rounded-2xl">
+                                                            <div key={winner.userId} className="flex items-center gap-2 bg-amber-500/5 border border-amber-500/10 pl-1 pr-4 py-1 rounded-2xl">
                                                                 <UserAvatar
                                                                     avatarUrl={allUsers.find(u => u.uid === winner.userId)?.photoURL}
                                                                     nameOverride={winner.userName}
@@ -712,7 +846,7 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
                                                                     className="shadow-sm"
                                                                     fallbackClassName="text-[10px]"
                                                                 />
-                                                                <span className="text-sm font-black text-primary">{winner.userName}</span>
+                                                                <span className="text-sm font-black text-amber-600">{winner.userName}</span>
                                                             </div>
                                                         ))}
                                                     </div>
@@ -721,14 +855,15 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="p-12 text-center border-2 border-dashed rounded-[3rem] border-primary/10">
+                                    <div className="p-12 text-center border-2 border-dashed rounded-[3rem] border-amber-500/10 bg-amber-50/10">
+                                        <Trophy className="h-10 w-10 text-amber-500/20 mx-auto mb-3" />
                                         <p className="text-sm text-muted-foreground font-bold italic">Chưa thực hiện lượt rút nào.</p>
                                     </div>
                                 )}
                             </div>
                         </div>
-                    )}
-                </TabsContent>
+                    </TabsContent>
+                )}
 
                 <TabsContent value="details" className="px-6 pb-6 outline-none animate-in slide-in-from-bottom-2 duration-300">
                     <div className="space-y-4">
@@ -881,6 +1016,46 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
                     </div>
                 </TabsContent>
 
+                <TabsContent value="unjoined" className="px-6 pb-6 outline-none animate-in slide-in-from-right-2 duration-300">
+                    <div className="space-y-4">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 px-2 text-muted-foreground/60">
+                            <UserX className="h-4 w-4 text-red-500" />
+                            Danh sách chưa tham gia ({unjoinedUsers.length})
+                        </h4>
+                        
+                        {unjoinedUsers.length > 0 ? (
+                            <div className="grid gap-2.5">
+                                {unjoinedUsers.map((u: ManagedUser) => (
+                                    <div key={u.uid} className="flex items-center justify-between p-3.5 rounded-2xl bg-white dark:bg-black/20 border border-primary/5 hover:border-red-200 dark:hover:border-red-900/30 transition-all group">
+                                        <div className="flex items-center gap-3">
+                                            <UserAvatar
+                                                avatarUrl={u.photoURL}
+                                                nameOverride={u.displayName}
+                                                size="h-10 w-10"
+                                                className="border-2 border-white shadow-sm grayscale group-hover:grayscale-0 transition-all"
+                                                fallbackClassName="font-bold bg-muted"
+                                            />
+                                            <div>
+                                                <p className="font-black text-sm text-muted-foreground group-hover:text-foreground transition-colors">{u.displayName}</p>
+                                                <p className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-widest">{u.role}</p>
+                                            </div>
+                                        </div>
+                                        <div className="px-3 py-1 rounded-full bg-red-50 dark:bg-red-900/10 text-red-600 text-[10px] font-black uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
+                                            Chưa tham gia
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="py-12 flex flex-col items-center justify-center border-2 border-dashed rounded-[3rem] border-green-500/20 bg-green-50/30 text-center px-4">
+                                <CheckCircle2 className="h-12 w-12 text-green-500 mb-4" />
+                                <h3 className="text-lg font-black text-green-700">Tuyệt vời!</h3>
+                                <p className="text-sm text-green-600/80 font-bold">Tất cả nhân viên đủ điều kiện đã tham gia.</p>
+                            </div>
+                        )}
+                    </div>
+                </TabsContent>
+
                 <TabsContent value="comments" className="px-6 pb-6 outline-none animate-in slide-in-from-right-2 duration-300">
                     <div className="space-y-6">
                         <div className="relative group">
@@ -943,7 +1118,7 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }} dialogTag="event-results-dialog" parentDialogTag={parentDialogTag}>
-            <DialogContent className="max-w-2xl p-0 overflow-hidden border-none shadow-2xl flex flex-col sm:rounded-[2rem] h-full sm:h-[90vh]">
+            <DialogContent className="max-w-2xl p-0 overflow-hidden border-none shadow-2xl flex flex-col sm:rounded-[2rem]">
                 <DialogHeader iconkey="layout" variant="premium" className="max-sm:px-4 max-sm:py-3 shrink-0">
                     <div className="flex items-center justify-between w-full">
                         <div className="text-left space-y-1">
@@ -964,7 +1139,7 @@ export default function EventResultsDialog({ isOpen, onClose, event, allUsers, p
                     </div>
                 </DialogHeader>
 
-                <DialogBody className="p-0 flex-1 overflow-hidden">
+                <DialogBody className="p-0 flex-1">
                     <div className="h-full overflow-y-auto custom-scrollbar">
                         {renderContent()}
                     </div>
