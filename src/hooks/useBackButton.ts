@@ -47,23 +47,11 @@ export function useBackButton(
         // `canGoBack` represents the webview history state; if it's true we
         // perform a back navigation. Otherwise fall back to sending the user
         // to their role-specific home page.
-        if (canGoBack) {
-          try {
+         try {
             nav.back();
           } catch {
             // If nav.back throws for any reason, fall through to role fallback
           }
-        } else {
-          if (userRole === "Phục vụ") {
-            nav.push("/shifts");
-          } else if (userRole === "Pha chế") {
-            nav.push("/bartender");
-          } else if (userRole === "Quản lý") {
-            nav.push("/manager");
-          } else if (userRole === "Chủ nhà hàng") {
-            nav.push("/admin");
-          }
-        }
       } else {
         App.minimizeApp();
       }
