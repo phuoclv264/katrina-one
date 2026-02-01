@@ -120,7 +120,6 @@ export default function BulkSalaryDialog({
                   <option value="">Tất cả vai trò</option>
                   <option value="Chủ nhà hàng">Chủ nhà hàng</option>
                   <option value="Quản lý">Quản lý</option>
-                  <option value="Thu ngân">Thu ngân</option>
                   <option value="Pha chế">Pha chế</option>
                   <option value="Phục vụ">Phục vụ</option>
                 </select>

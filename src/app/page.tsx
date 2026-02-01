@@ -204,7 +204,6 @@ export default function AuthPage() {
                       options={[
                         { value: "Phục vụ", label: "Phục vụ" },
                         { value: "Pha chế", label: "Pha chế" },
-                        { value: "Thu ngân", label: "Thu ngân" },
                         { value: "Quản lý", label: "Quản lý" },
                       ]}
                       value={registerRole}

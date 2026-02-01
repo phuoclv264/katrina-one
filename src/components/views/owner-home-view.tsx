@@ -685,6 +685,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
 
             {/* Right column: Quick access + Tasks (1 col) */}
             <div className="flex flex-col gap-4 md:gap-6">
+              <RecurringTasksCard monthlyTasks={monthlyTasks} taskAssignments={taskAssignments} staffDirectory={allUsers} />
               <QuickAccessToolsSection onNavigate={(path) => {
                 if (path === 'create-monthly-report') {
                   setIsMonthlyReportOpen(true);
@@ -696,7 +697,6 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
               }} />
               <MonthlyStaffReportDialog isOpen={isMonthlyReportOpen} onOpenChange={(open: boolean) => setIsMonthlyReportOpen(open)} parentDialogTag="root" />
               <SalaryManagementDialog isOpen={isSalaryDialogOpen} onClose={() => setIsSalaryDialogOpen(false)} allUsers={allUsers} parentDialogTag="root" />
-              <RecurringTasksCard monthlyTasks={monthlyTasks} taskAssignments={taskAssignments} staffDirectory={allUsers} />
             </div>
           </div>
 

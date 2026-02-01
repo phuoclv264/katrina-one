@@ -115,17 +115,7 @@ function MonthlyTaskReportsView() {
 
   const taskEntries = useMemo(() => {
     const entries = Object.entries(assignmentsByTask) as [string, DailyAssignment[]][]
-    return entries.sort((a, b) => {
-      const aLatest = Math.max(
-        0,
-        ...a[1].map((d) => new Date(d.date).getTime()),
-      )
-      const bLatest = Math.max(
-        0,
-        ...b[1].map((d) => new Date(d.date).getTime()),
-      )
-      return bLatest - aLatest
-    })
+    return entries.sort((a, b) => a[0].localeCompare(b[0], 'vi'))
   }, [assignmentsByTask])
 
   const hasAnyData = useMemo(() => {
@@ -133,7 +123,7 @@ function MonthlyTaskReportsView() {
   }, [assignmentsByTask])
 
   const userRanking = useMemo(() => {
-    const map = new Map<string, { userId: string; userName: string; count: number }>()
+    const map = new Map<string, { userId: string; userName: string; count: number; role?: string }>()
     completions.forEach((rec) => {
       if (!rec.completedBy) return
       const { userId, userName } = rec.completedBy
@@ -141,11 +131,39 @@ function MonthlyTaskReportsView() {
       if (existing) {
         existing.count += 1
       } else {
-        map.set(userId, { userId, userName, count: 1 })
+        const fullUser = allUsers.find(u => u.uid === userId)
+        map.set(userId, { userId, userName, count: 1, role: fullUser?.role })
       }
     })
     return Array.from(map.values()).sort((a, b) => b.count - a.count)
-  }, [completions])
+  }, [completions, allUsers])
+
+  const roleOrder = ["Phục vụ", "Pha chế", "Quản lý", "Tất cả"]
+
+  const groupedTasks = useMemo(() => {
+    const groups: Record<string, typeof taskEntries> = {}
+    taskEntries.forEach(entry => {
+      const taskObj = monthlyTasks.find(t => t.name === entry[0])
+      const role = taskObj?.appliesToRole || "Tất cả"
+      if (!groups[role]) groups[role] = []
+      groups[role].push(entry)
+    })
+    return roleOrder
+      .filter(role => groups[role])
+      .map(role => ({ role, entries: groups[role] }))
+  }, [taskEntries, monthlyTasks])
+
+  const groupedStaff = useMemo(() => {
+    const groups: Record<string, typeof userRanking> = {}
+    userRanking.forEach(entry => {
+      const role = entry.role || "Chủ nhà hàng"
+      if (!groups[role]) groups[role] = []
+      groups[role].push(entry)
+    })
+    return roleOrder
+      .filter(role => groups[role])
+      .map(role => ({ role, entries: groups[role] }))
+  }, [userRanking])
 
   const completionsByUser = useMemo(() => {
     const map = new Map<string, { userId: string; userName: string; records: TaskCompletionRecord[] }>()
@@ -307,36 +325,32 @@ function MonthlyTaskReportsView() {
         <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] -translate-y-1/2 pointer-events-none" />
         <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-blue-500/5 rounded-full blur-[100px] translate-y-1/2 pointer-events-none" />
 
-        <div className="container mx-auto max-w-6xl px-4 py-12 sm:px-6 md:px-8 relative z-10">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-12">
-            <div className="space-y-4">
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20">
-                <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-                <span className="text-[11px] font-black text-primary uppercase tracking-[0.2em]">Management System</span>
-              </div>
-              <h1 className="text-5xl md:text-6xl font-black text-slate-900 dark:text-white tracking-tight leading-[1.1]">
+        <div className="container mx-auto max-w-6xl px-4 py-8 sm:px-6 md:px-8 relative z-10">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
+            <div className="space-y-3">
+              <h1 className="text-4xl md:text-5xl font-black text-slate-900 dark:text-white tracking-tight leading-[1.1]">
                 Báo cáo <br />
                 <span className="text-primary italic">Định kỳ</span>
               </h1>
-              <p className="text-slate-500 dark:text-zinc-400 text-lg max-w-md font-medium leading-relaxed">
+              <p className="text-slate-500 dark:text-zinc-400 text-base max-w-md font-medium leading-relaxed">
                 Hệ thống truy xuất dữ liệu hoàn thành công việc theo phân ca hàng ngày.
               </p>
             </div>
 
-            <div className="flex flex-col items-end gap-4">
-              <div className="flex items-center gap-2 bg-white dark:bg-zinc-900/80 backdrop-blur-xl p-2 rounded-[2rem] border border-slate-200/60 dark:border-zinc-800/60 shadow-xl shadow-slate-200/40 dark:shadow-none">
+            <div className="flex flex-col items-end gap-3">
+              <div className="flex items-center gap-2 bg-white dark:bg-zinc-900/80 backdrop-blur-xl p-1.5 rounded-3xl border border-slate-200/60 dark:border-zinc-800/60 shadow-xl shadow-slate-200/40 dark:shadow-none">
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-                  className="h-14 w-14 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all text-slate-600 dark:text-zinc-400"
+                  className="h-10 w-10 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all text-slate-600 dark:text-zinc-400"
                 >
-                  <ChevronLeft className="h-6 w-6" />
+                  <ChevronLeft className="h-4 w-4" />
                 </Button>
                 
-                <div className="px-6 text-center min-w-[160px]">
-                  <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em] mb-1">Tháng công tác</p>
-                  <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">
+                <div className="px-4 text-center min-w-[140px]">
+                  <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em] mb-0.5">Tháng công tác</p>
+                  <span className="text-xl font-black text-slate-900 dark:text-white tracking-tighter">
                     {format(currentMonth, "MM")} / {format(currentMonth, "yyyy")}
                   </span>
                 </div>
@@ -345,88 +359,102 @@ function MonthlyTaskReportsView() {
                   variant="ghost"
                   size="icon"
                   onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-                  className="h-14 w-14 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all text-slate-600 dark:text-zinc-400"
+                  className="h-10 w-10 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all text-slate-600 dark:text-zinc-400"
                 >
-                  <ChevronRight className="h-6 w-6" />
+                  <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
               <Button
                 variant="outline"
                 onClick={() => setCurrentMonth(new Date())}
-                className="rounded-full px-8 h-10 border-slate-200/60 dark:border-zinc-800/60 bg-white/50 dark:bg-zinc-900/50 backdrop-blur-md text-[11px] font-black uppercase tracking-[0.2em] hover:bg-primary hover:text-white hover:border-primary transition-all duration-300"
+                className="rounded-full px-6 h-8 border-slate-200/60 dark:border-zinc-800/60 bg-white/50 dark:bg-zinc-900/50 backdrop-blur-md text-[10px] font-black uppercase tracking-[0.1em] hover:bg-primary hover:text-white hover:border-primary transition-all duration-300"
               >
                 Về hiện tại
               </Button>
             </div>
           </div>
 
-          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="w-full space-y-12">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 border-b border-slate-200/60 dark:border-zinc-800/60 pb-8">
-              <TabsList className="flex h-14 p-1.5 bg-slate-200/30 dark:bg-zinc-900/50 rounded-[1.5rem] border border-slate-200/60 dark:border-zinc-800/60 w-full sm:w-auto">
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="w-full space-y-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/60 dark:border-zinc-800/60 pb-6">
+              <TabsList className="flex h-12 p-1 bg-slate-200/30 dark:bg-zinc-900/50 rounded-2xl border border-slate-200/60 dark:border-zinc-800/60 w-full sm:w-auto">
                 <TabsTrigger 
                   value="tasks" 
-                  className="px-10 rounded-[1.1rem] font-black text-xs uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-primary data-[state=active]:shadow-lg shadow-slate-200/50 transition-all duration-300 flex-1 sm:flex-none"
+                  className="px-8 rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-primary data-[state=active]:shadow-lg shadow-slate-200/50 transition-all duration-300 flex-1 sm:flex-none"
                 >
                   Nhiệm vụ
                 </TabsTrigger>
                 <TabsTrigger 
                   value="staffs" 
-                  className="px-10 rounded-[1.1rem] font-black text-xs uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-primary data-[state=active]:shadow-lg shadow-slate-200/50 transition-all duration-300 flex-1 sm:flex-none"
+                  className="px-8 rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-primary data-[state=active]:shadow-lg shadow-slate-200/50 transition-all duration-300 flex-1 sm:flex-none"
                 >
                   Nhân sự
                 </TabsTrigger>
               </TabsList>
-
-              <div className="flex items-center gap-3">
-                <div className="hidden md:flex flex-col items-end">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Trạng thái</span>
-                  <span className="text-xs font-bold text-emerald-500">Dữ liệu thời gian thực</span>
-                </div>
-                <div className="h-10 w-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
-                  <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                </div>
-              </div>
             </div>
 
             <div className="min-h-[400px]">
               {isLoading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {[...Array(6)].map((_, i) => (
-                    <div key={i} className="h-48 w-full rounded-[2.5rem] bg-slate-100 dark:bg-zinc-900/50 animate-pulse border border-slate-200/50 dark:border-zinc-800/50" />
+                    <div key={i} className="h-32 w-full rounded-2xl bg-slate-100 dark:bg-zinc-900/50 animate-pulse border border-slate-200/50 dark:border-zinc-800/50" />
                   ))}
                 </div>
               ) : (
                 viewMode === "tasks" ? (
-                  hasAnyData ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                      {taskEntries.map(([taskName, dailyAssignments]) => {
-                        const totalReports = dailyAssignments.reduce((sum, a) => sum + a.completions.length, 0)
-                        return (
-                          <TaskItemCard
-                            key={taskName}
-                            name={taskName}
-                            reportCount={totalReports}
-                            onClick={() => setSelectedTaskName(taskName)}
-                          />
-                        )
-                      })}
+                  groupedTasks.length > 0 ? (
+                    <div className="space-y-12">
+                      {groupedTasks.map(({ role, entries }) => (
+                        <div key={role} className="space-y-6">
+                          <div className="flex items-center gap-4">
+                            <h2 className="text-sm font-black uppercase tracking-[0.2em] text-primary whitespace-nowrap">
+                              Vai trò: {role}
+                            </h2>
+                            <div className="h-px w-full bg-slate-200 dark:bg-zinc-800/60" />
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {entries.map(([taskName, dailyAssignments]) => {
+                              const totalReports = dailyAssignments.reduce((sum, a) => sum + a.completions.length, 0)
+                              return (
+                                <TaskItemCard
+                                  key={taskName}
+                                  name={taskName}
+                                  reportCount={totalReports}
+                                  onClick={() => setSelectedTaskName(taskName)}
+                                />
+                              )
+                            })}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   ) : (
                     <EmptyState message="Không có báo cáo công việc nào được gửi trong tháng này." />
                   )
                 ) : (
-                  userRanking.length === 0 ? (
+                  groupedStaff.length === 0 ? (
                     <EmptyState message="Chưa có nhân viên nào gửi báo cáo trong tháng này." />
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                      {userRanking.map((entry, idx) => (
-                        <StaffItemCard
-                          key={entry.userId}
-                          userName={entry.userName}
-                          rank={idx + 1}
-                          reportCount={entry.count}
-                          onClick={() => setSelectedUserId(entry.userId)}
-                        />
+                    <div className="space-y-12">
+                      {groupedStaff.map(({ role, entries }) => (
+                        <div key={role} className="space-y-6">
+                          <div className="flex items-center gap-4">
+                            <h2 className="text-sm font-black uppercase tracking-[0.2em] text-primary whitespace-nowrap">
+                              Bộ phận: {role}
+                            </h2>
+                            <div className="h-px w-full bg-slate-200 dark:bg-zinc-800/60" />
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {entries.map((entry, idx) => (
+                              <StaffItemCard
+                                key={entry.userId}
+                                userName={entry.userName}
+                                rank={userRanking.findIndex(r => r.userId === entry.userId) + 1}
+                                reportCount={entry.count}
+                                onClick={() => setSelectedUserId(entry.userId)}
+                              />
+                            ))}
+                          </div>
+                        </div>
                       ))}
                     </div>
                   )
