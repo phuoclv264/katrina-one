@@ -101,23 +101,25 @@ export default function ConditionSummary({
   }, [filtered]);
 
   return (
-    <div className="flex flex-col gap-6 p-1">
-      <div className="flex items-center justify-between px-1">
+    <div className="flex flex-col gap-6 p-0 sm:p-1">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
         <div className="flex flex-col">
           <h3 className="font-black text-sm uppercase tracking-tighter text-muted-foreground/80 flex items-center gap-2">
-            <LayoutGrid className="h-4 w-4" />
-            Điều kiện đang áp dụng
+            <LayoutGrid className="h-4 w-4 shrink-0" />
+            <span className="break-words">Điều kiện đang áp dụng</span>
           </h3>
           <p className="text-[10px] text-muted-foreground font-medium">Tìm thấy {filtered.length} ràng buộc phù hợp</p>
         </div>
         
         {employeeFilterUserId && (
-          <div className="flex items-center gap-1.5 bg-primary/5 pl-3 pr-1 py-1 rounded-2xl border border-primary/10">
-            <span className="text-[10px] font-black text-primary uppercase">{allUsers.find(u => u.uid === employeeFilterUserId)?.displayName || '—'}</span>
+          <div className="flex items-center gap-1.5 bg-primary/5 pl-3 pr-1 py-1 rounded-2xl border border-primary/10 w-fit max-w-full">
+            <span className="text-[10px] font-black text-primary uppercase max-w-[120px] sm:max-w-[200px]">
+              {allUsers.find(u => u.uid === employeeFilterUserId)?.displayName || '—'}
+            </span>
             <Button 
               variant="ghost" 
               size="icon" 
-              className="h-6 w-6 rounded-xl hover:bg-primary/10 text-primary" 
+              className="h-6 w-6 rounded-xl hover:bg-primary/10 text-primary shrink-0" 
               onClick={onClearEmployeeFilter}
             >
               <X className="h-3 w-3" />
@@ -130,12 +132,12 @@ export default function ConditionSummary({
         <div className="space-y-6">
           <AnimatePresence initial={false}>
             {Object.entries(groupedByType).length === 0 ? (
-              <div className="text-center py-16 bg-muted/20 rounded-[2.5rem] border-2 border-dashed border-primary/5">
-                 <div className="w-12 h-12 bg-background rounded-2xl border border-primary/5 flex items-center justify-center mx-auto mb-3 opacity-20">
-                   <AlertCircle className="h-6 w-6" />
+              <div className="text-center py-12 sm:py-16 bg-muted/20 rounded-[2rem] sm:rounded-[2.5rem] border-2 border-dashed border-primary/5 px-4">
+                 <div className="w-10 h-10 sm:w-12 sm:h-12 bg-background rounded-2xl border border-primary/5 flex items-center justify-center mx-auto mb-3 opacity-20">
+                   <AlertCircle className="h-5 w-5 sm:h-6 w-6" />
                  </div>
-                 <p className="text-muted-foreground font-bold text-sm">Chưa có điều kiện nào</p>
-                 <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1 opacity-50">Vui lòng thêm điều kiện mới</p>
+                 <p className="text-muted-foreground font-bold text-xs sm:text-sm">Chưa có điều kiện nào</p>
+                 <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1 opacity-50">Vui lòng thêm điều kiện mới</p>
               </div>
             ) : (
               Object.entries(groupedByType).map(([type, items]) => (
@@ -162,12 +164,12 @@ export default function ConditionSummary({
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         className={cn(
-                          'group relative bg-background border rounded-2xl p-4 transition-all duration-300 hover:shadow-md hover:border-primary/20',
+                          'group relative bg-background border rounded-2xl p-3 sm:p-4 transition-all duration-300 hover:shadow-md hover:border-primary/20',
                           !c.enabled ? 'grayscale opacity-60 bg-muted/10 border-dashed' : 'border-primary/10'
                         )}
                       >
-                        <div className="flex items-start gap-4">
-                          <div className="pt-1">
+                        <div className="flex items-start gap-3 sm:gap-4">
+                          <div className="pt-1.5 shrink-0">
                             <Checkbox
                               checked={c.enabled}
                               onCheckedChange={() => onToggleEnabled(c.id)}
@@ -175,34 +177,36 @@ export default function ConditionSummary({
                             />
                           </div>
 
-                          <div className="flex-1 min-w-0 flex flex-col gap-1">
+                          <div className="flex-1 min-w-0 flex flex-col gap-1.5">
                             <div className="flex items-center gap-2 flex-wrap">
                               <div className={cn(
-                                "flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-tight",
+                                "flex items-center flex-wrap gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-tight",
                                 c.enabled ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                               )}>
-                                {typeIcons[type] || <Info className="h-3 w-3" />}
-                                {getConditionLabel(c, shiftTemplates, allUsers)}
+                                {typeIcons[type] || <Info className="h-3.5 w-3.5 shrink-0" />}
+                                <span className="break-words line-clamp-2 md:line-clamp-none">
+                                  {getConditionLabel(c, shiftTemplates, allUsers)}
+                                </span>
                               </div>
 
                               {c.mandatory && (
-                                <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-none px-2 py-0.5 rounded-lg text-[10px] font-black uppercase shadow-none">
+                                <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-none px-2 py-0.5 rounded-lg text-[10px] font-black uppercase shadow-none shrink-0">
                                   Bắt buộc
                                 </Badge>
                               )}
                             </div>
 
-                            <div className="text-[12px] font-medium text-muted-foreground leading-snug">
+                            <div className="text-[12px] font-medium text-muted-foreground leading-snug break-words">
                               {getConditionDetails(c, shiftTemplates, allUsers)}
                             </div>
                           </div>
 
-                          <div className="shrink-0 flex items-center gap-1">
+                          <div className="shrink-0 flex items-center gap-0.5 sm:gap-1">
                             {onEdit && (
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-10 w-10 p-0 rounded-xl hover:bg-primary/5 text-muted-foreground hover:text-primary transition-colors"
+                                className="h-9 w-9 sm:h-10 sm:w-10 p-0 rounded-xl hover:bg-primary/5 text-muted-foreground hover:text-primary transition-colors"
                                 onClick={() => onEdit(c)}
                               >
                                 <Edit2 className="h-4 w-4" />
@@ -211,7 +215,7 @@ export default function ConditionSummary({
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-10 w-10 p-0 rounded-xl hover:bg-destructive/5 text-muted-foreground hover:text-destructive transition-colors"
+                              className="h-9 w-9 sm:h-10 sm:w-10 p-0 rounded-xl hover:bg-destructive/5 text-muted-foreground hover:text-destructive transition-colors"
                               onClick={() => onDelete(c.id)}
                             >
                               <Trash2 className="h-4 w-4" />

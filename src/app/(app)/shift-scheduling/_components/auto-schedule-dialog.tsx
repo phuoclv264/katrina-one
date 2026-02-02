@@ -19,22 +19,25 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import type { Availability, ManagedUser, Schedule, ScheduleCondition, ScheduleRunResult, UserRole, ShiftTemplate } from '@/lib/types';
 import { schedule as runSchedule } from '@/lib/scheduler';
 import { format, getDay } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { toast } from '@/components/ui/pro-toast';
-import { cn } from '@/lib/utils';
+import { cn, generateShortName } from '@/lib/utils';
 import { updateStructuredConstraints } from '@/lib/schedule-store';
 import { useAuth } from '@/hooks/use-auth';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Undo2, Redo2, Plus, AlertTriangle, User, Clock, Calculator, LayoutGrid, Check } from 'lucide-react';
+import { Undo2, Redo2, Plus, AlertTriangle, User, Clock, Calculator, LayoutGrid, Check, X } from 'lucide-react';
 import ConditionSummary from './condition-summary';
 import AddConditionSheet from './add-condition-sheet';
 import { Combobox } from '@/components/combobox';
+import { UserCombobox } from '@/components/user-combobox';
+import { UserAvatar } from '@/components/user-avatar';
 
 type TabConfig = { value: string; label: string; types?: string[] };
 
@@ -81,6 +84,8 @@ export default function AutoScheduleDialog({
   const [result, setResult] = useState<ScheduleRunResult | null>(null);
   const [editableAssignments, setEditableAssignments] = useState<EditableAssignment[]>([]);
   const [activeTab, setActiveTab] = useState('preview');
+  const [includeBusyUsers, setIncludeBusyUsers] = useState(false);
+  const [busyExclusionIds, setBusyExclusionIds] = useState<string[]>([]);
   const [filterTab, setFilterTab] = useState<string | string[]>('');
   const [showAddCondition, setShowAddCondition] = useState(false);
   const [editCondition, setEditCondition] = useState<ScheduleCondition | null>(null);
@@ -305,7 +310,7 @@ export default function AutoScheduleDialog({
       toast.error(`Không thể chạy do lỗi: ${validationErrors[0]}`);
       return;
     }
-    const r = runSchedule(shifts, allUsers, availability, editableConstraints);
+    const r = runSchedule(shifts, allUsers, availability, editableConstraints, { includeBusyUsers, busyExclusionIds });
     setResult(r);
     setEditableAssignments(r.assignments.map(a => ({ shiftId: a.shiftId, userId: a.userId, selected: true, assignedRole: a.role ?? 'Bất kỳ' })));
     if (r.warnings.length) {
@@ -595,6 +600,10 @@ export default function AutoScheduleDialog({
                         dayUserShiftCounts={dayUserShiftCounts}
                         scheduledHoursByUser={scheduledHoursByUser}
                         availableHoursByUser={availableHoursByUser}
+                        includeBusyUsers={includeBusyUsers}
+                        setIncludeBusyUsers={setIncludeBusyUsers}
+                        busyExclusionIds={busyExclusionIds}
+                        setBusyExclusionIds={setBusyExclusionIds}
                       />
                     </TabsContent>
                   </div>
@@ -896,6 +905,10 @@ function PreviewTab({
   dayUserShiftCounts,
   scheduledHoursByUser,
   availableHoursByUser,
+  includeBusyUsers,
+  setIncludeBusyUsers,
+  busyExclusionIds,
+  setBusyExclusionIds,
 }: {
   result: ScheduleRunResult | null;
   editableAssignments: EditableAssignment[];
@@ -911,29 +924,97 @@ function PreviewTab({
   dayUserShiftCounts: Map<string, number>;
   scheduledHoursByUser: Map<string, number>;
   availableHoursByUser: Map<string, number>;
+  includeBusyUsers: boolean;
+  setIncludeBusyUsers: (v: boolean) => void;
+  busyExclusionIds: string[];
+  setBusyExclusionIds: React.Dispatch<React.SetStateAction<string[]>>;
 }) {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
 
   return (
     <div className="space-y-6">
-      <div className="bg-gradient-to-br from-primary/5 via-primary/[0.02] to-transparent p-6 rounded-[2rem] border border-primary/10 shadow-sm transition-all hover:shadow-md">
-        <div className="flex flex-col sm:flex-row items-center gap-4">
-          <div className="shrink-0 p-4 rounded-2xl bg-background shadow-sm border border-primary/5 flex items-center justify-center">
+      <div className="bg-gradient-to-br from-primary/5 via-primary/[0.02] to-transparent p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] border border-primary/10 shadow-sm transition-all hover:shadow-md">
+        <div className="flex flex-col lg:flex-row items-center gap-4">
+          <div className="hidden sm:flex shrink-0 p-4 rounded-2xl bg-background shadow-sm border border-primary/5 items-center justify-center">
             <Calculator className="h-8 w-8 text-primary" />
           </div>
-          <div className="flex-1 text-center sm:text-left">
+          <div className="flex-1 text-center lg:text-left">
             <h4 className="text-lg font-bold">Trình xếp lịch AI</h4>
-            <p className="text-xs text-muted-foreground font-medium">Bấm để bắt đầu tính toán phân bổ ca tối ưu</p>
+            <p className="text-xs text-muted-foreground font-medium">Xếp lịch thông minh dựa trên dữ liệu thật</p>
           </div>
-          <Button
-            size="lg"
-            onClick={handleRun}
-            disabled={validationErrors.length > 0}
-            className="w-full sm:w-auto h-14 px-8 rounded-2xl font-black text-base shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
-          >
-            Chạy Xếp Lịch
-          </Button>
+          
+          <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
+            <div className="flex items-center gap-3 px-4 py-3 bg-background/50 rounded-2xl border border-primary/10 w-full sm:w-auto justify-between sm:justify-start">
+              <div className="text-left sm:text-right">
+                <Label htmlFor="include-busy" className="text-xs font-bold block">Ép chạy ca bận</Label>
+                <span className="text-[10px] text-muted-foreground font-medium hidden sm:block">Lấy cả nhân viên không đăng ký rảnh</span>
+                <span className="text-[10px] text-muted-foreground font-medium sm:hidden">Lấy nhân viên ko rảnh</span>
+              </div>
+              <Switch
+                id="include-busy"
+                checked={includeBusyUsers}
+                onCheckedChange={setIncludeBusyUsers}
+              />
+            </div>
+
+            <Button
+              size="lg"
+              onClick={handleRun}
+              disabled={validationErrors.length > 0}
+              className="w-full sm:w-auto h-14 px-8 rounded-2xl font-black text-base shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+            >
+              Chạy Xếp Lịch
+            </Button>
+          </div>
         </div>
+
+        <AnimatePresence>
+          {includeBusyUsers && (
+            <motion.div 
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="mt-4 pt-4 border-t border-primary/5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+                  <div>
+                    <h5 className="text-[11px] font-black uppercase tracking-widest text-primary/70">Danh sách nhân viên bận thực sự</h5>
+                    <p className="text-[10px] text-muted-foreground font-medium">Những người này sẽ không bị ép ca kể cả khi bật chế độ "Ép chạy ca bận"</p>
+                  </div>
+                  <UserCombobox 
+                    users={allUsers.filter(u => u.role !== 'Chủ nhà hàng')}
+                    selectedUids={busyExclusionIds}
+                    onSelect={(u) => setBusyExclusionIds(prev => [...prev, u.uid])}
+                    className="w-full sm:w-64"
+                    placeholder="Loại trừ nhân viên..."
+                  />
+                </div>
+
+                {busyExclusionIds.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {busyExclusionIds.map(uid => {
+                      const u = allUsers.find(x => x.uid === uid);
+                      return (
+                        <Badge key={uid} variant="secondary" className="pl-1 pr-2 py-1 gap-2 bg-background border border-primary/10 rounded-xl group transition-all hover:border-primary/30">
+                          <UserAvatar user={u!} size="h-6 w-6" rounded="lg" />
+                          <span className="text-xs font-bold">{u?.displayName}</span>
+                          <button 
+                            onClick={() => setBusyExclusionIds(prev => prev.filter(x => x !== uid))}
+                            className="text-muted-foreground hover:text-destructive"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {validationErrors.length > 0 && (
           <div className="mt-4 p-3 rounded-xl bg-destructive/10 border border-destructive/20 flex items-start gap-2 text-xs text-destructive font-bold">
             <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -987,15 +1068,15 @@ function PreviewTab({
               <p className="text-[10px] font-bold text-muted-foreground">Click vào tên để bật/tắt phân công</p>
             </div>
 
-            <div className="bg-background border border-primary/10 rounded-[2rem] overflow-hidden shadow-sm">
+            <div className="bg-background border border-primary/10 rounded-2xl sm:rounded-[2rem] overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
                 <Table className="text-xs">
                   <TableHeader className="bg-primary/[0.02]">
                     <TableRow className="border-primary/5 hover:bg-transparent">
-                      <TableHead className="w-[120px] font-black text-primary/80 uppercase text-[10px] px-6 py-4">Ngày</TableHead>
-                      <TableHead className="w-[150px] font-black text-primary/80 uppercase text-[10px] px-4 py-4">Ca làm việc</TableHead>
-                      <TableHead className="font-black text-primary/80 uppercase text-[10px] px-4 py-4">Nhân sự đề xuất</TableHead>
-                      <TableHead className="w-[80px] font-black text-primary/80 uppercase text-[10px] px-4 py-4 text-center">Trống</TableHead>
+                      <TableHead className="w-[80px] sm:w-[100px] font-black text-primary/80 uppercase text-[9px] sm:text-[10px] px-3 sm:px-6 py-3 sm:py-4">Ngày</TableHead>
+                      <TableHead className="w-[110px] sm:w-[140px] font-black text-primary/80 uppercase text-[9px] sm:text-[10px] px-2 sm:px-4 py-3 sm:py-4">Ca làm việc</TableHead>
+                      <TableHead className="font-black text-primary/80 uppercase text-[9px] sm:text-[10px] px-2 sm:px-4 py-3 sm:py-4">Nhân sự đề xuất</TableHead>
+                      <TableHead className="w-[60px] sm:w-[80px] font-black text-primary/80 uppercase text-[9px] sm:text-[10px] px-2 sm:px-4 py-3 sm:py-4 text-center">Trống</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1008,66 +1089,82 @@ function PreviewTab({
                       return (
                         <TableRow key={shift.id} className={cn("border-primary/5 transition-colors", unfilled > 0 && 'bg-destructive/[0.02] hover:bg-destructive/[0.04]')}>
                           {isFirstOfDay && (
-                            <TableCell rowSpan={dateRowSpanMap[dateKey]} className="font-black whitespace-nowrap px-6 py-4 align-top border-r border-primary/5">
+                            <TableCell rowSpan={dateRowSpanMap[dateKey]} className="font-black whitespace-nowrap px-3 sm:px-5 py-3 sm:py-4 align-top border-r border-primary/5">
                               <div className="flex flex-col items-start gap-0.5">
-                                <span className="text-primary text-[10px] uppercase font-black">{format(new Date(shift.date), 'eeee', { locale: vi })}</span>
-                                <span className="text-lg leading-none">{format(new Date(shift.date), 'dd/MM')}</span>
+                                <span className="text-[8px] sm:text-[9px] text-muted-foreground uppercase font-black tracking-widest leading-none mb-0.5">
+                                  {format(new Date(shift.date), 'EEE', { locale: vi })}
+                                </span>
+                                <span className="text-xs sm:text-sm font-black text-primary leading-none">
+                                  {format(new Date(shift.date), 'dd/MM')}
+                                </span>
                               </div>
                             </TableCell>
                           )}
-                          <TableCell className="px-4 py-4 font-bold text-foreground/80">
-                            {shift.label}
-                            <div className="text-[10px] text-muted-foreground font-medium">{shift.timeSlot.start} - {shift.timeSlot.end}</div>
+                          <TableCell className="px-2 sm:px-4 py-2 sm:py-3 font-bold text-foreground/80 min-w-[90px]">
+                            <div className="text-[11px] sm:text-xs line-clamp-1">{shift.label}</div>
+                            <div className="text-[9px] sm:text-[10px] text-muted-foreground font-medium">{shift.timeSlot.start} - {shift.timeSlot.end}</div>
                           </TableCell>
-                          <TableCell className="px-4 py-4">
-                            <div className="flex flex-wrap gap-1.5 min-h-[32px]">
-                              {dayAssignments.map((a: any) => {
-                                const userName = allUsers.find((u: any) => u.uid === a.userId)?.displayName || a.userId;
-                                const role = roleByUserId.get(a.userId);
-                                const roleCls = getRoleClasses(role);
-                                const dayCount = dayUserShiftCounts.get(`${a.userId}:${dateKey}`) || 0;
-                                return (
-                                  <TooltipProvider key={`${a.shiftId}_${a.userId}`}>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <motion.button
-                                          onClick={() => handleToggleAssignment(a.shiftId, a.userId)}
-                                          className={cn(
-                                            'rounded-xl px-2.5 py-1 text-[11px] font-bold border-2 transition-all', 
-                                            roleCls, 
-                                            a.selected 
-                                              ? 'border-primary shadow-sm scale-1 target:border-primary' 
-                                              : 'opacity-40 grayscale-[0.5] border-transparent scale-[0.95]'
-                                          )}
-                                          initial={{ scale: 0.98 }}
-                                          whileHover={{ scale: 1.05 }}
-                                          whileTap={{ scale: 0.95 }}
-                                          aria-pressed={a.selected}
-                                        >
-                                          {userName}
-                                          {dayCount >= 2 && <span className="ml-1 text-[10px] opacity-80">×{dayCount}</span>}
-                                        </motion.button>
-                                      </TooltipTrigger>
-                                      <TooltipContent className="text-xs font-bold rounded-xl border-primary/10 shadow-lg">
-                                        <div className="flex flex-col gap-0.5">
-                                          <span>Vai trò: {role || 'Bất kỳ'}</span>
-                                          <span className="text-[10px] opacity-70">Nhân viên này làm {dayCount} ca trong ngày này</span>
-                                        </div>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                );
-                              })}
+                          <TableCell className="px-2 sm:px-4 py-2 sm:py-3">
+                            <div className="flex flex-wrap gap-1 min-h-[28px]">
+                              {dayAssignments.length > 0 ? (
+                                dayAssignments.map((a: any) => {
+                                  const user = allUsers.find(u => u.uid === a.userId);
+                                  const role = roleByUserId.get(a.userId);
+                                  const dayCount = dayUserShiftCounts.get(`${a.userId}:${dateKey}`) || 0;
+                                  
+                                  return (
+                                    <TooltipProvider key={`${a.shiftId}_${a.userId}`}>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Badge
+                                            onClick={() => handleToggleAssignment(a.shiftId, a.userId)}
+                                            className={cn(
+                                              "cursor-pointer transition-all border shadow-none font-bold text-[9px] sm:text-[11px] py-0.5 sm:py-1 pl-0.5 sm:pl-1 pr-1.5 sm:pr-2 rounded-lg gap-1",
+                                              a.selected 
+                                                ? getRoleClasses(role) 
+                                                : 'bg-muted/30 text-muted-foreground border-transparent opacity-40 grayscale strike-through'
+                                            )}
+                                          >
+                                            <UserAvatar 
+                                              user={user!} 
+                                              size="h-4 w-4 sm:h-5 sm:w-5" 
+                                              rounded="lg" 
+                                            />
+                                            <div className="flex items-baseline gap-1">
+                                              <span className={cn(a.selected ? "" : "line-through")}>
+                                                {generateShortName(user?.displayName || 'Người dùng')}
+                                              </span>
+                                              {dayCount >= 2 && a.selected && (
+                                                <span className="text-[7px] sm:text-[8px] opacity-70">×{dayCount}</span>
+                                              )}
+                                            </div>
+                                          </Badge>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="text-xs font-bold rounded-xl border-primary/10 shadow-lg">
+                                          <div className="flex flex-col gap-0.5">
+                                            <span>{user?.displayName} ({role || 'Bất kỳ'})</span>
+                                            {dayCount >= 2 && (
+                                              <span className="text-[10px] text-amber-500">Làm {dayCount} ca trong ngày</span>
+                                            )}
+                                          </div>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  );
+                                })
+                              ) : (
+                                <span className="text-[9px] font-medium text-muted-foreground/30 italic">Trống</span>
+                              )}
                             </div>
                           </TableCell>
-                          <TableCell className="px-4 py-4 text-center">
+                          <TableCell className="px-2 sm:px-4 py-2 sm:py-3 text-center">
                             {unfilled > 0 ? (
-                              <Badge variant="destructive" className="h-6 w-6 rounded-lg p-0 flex items-center justify-center font-black shadow-sm">
+                              <div className="inline-flex items-center justify-center w-5 h-5 sm:w-7 sm:h-7 rounded-md bg-destructive/10 text-destructive font-black text-[9px] sm:text-xs border border-destructive/20 animate-pulse">
                                 {unfilled}
-                              </Badge>
+                              </div>
                             ) : (
-                              <div className="p-1 rounded-lg bg-emerald-50 text-emerald-600 inline-flex">
-                                <Check className="h-4 w-4" />
+                              <div className="inline-flex items-center justify-center w-5 h-5 sm:w-7 sm:h-7 rounded-md bg-emerald-500/10 text-emerald-600 font-bold border border-emerald-500/20">
+                                <Check className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5" />
                               </div>
                             )}
                           </TableCell>
@@ -1088,14 +1185,14 @@ function PreviewTab({
                 </h5>
              </div>
 
-             <div className="bg-background border border-primary/10 rounded-[2rem] overflow-hidden shadow-sm">
-                <Table className="text-xs">
+             <div className="bg-background border border-primary/10 rounded-2xl sm:rounded-[2rem] overflow-hidden shadow-sm">
+                <Table className="text-[11px] sm:text-xs">
                   <TableHeader className="bg-primary/[0.02]">
                     <TableRow className="border-primary/5 hover:bg-transparent">
-                      <TableHead className="px-6 py-4 font-black text-primary/80 uppercase text-[10px]">Nhân viên</TableHead>
-                      <TableHead className="px-4 py-4 font-black text-primary/80 uppercase text-[10px] text-right">Dự kiến</TableHead>
-                      <TableHead className="px-4 py-4 font-black text-primary/80 uppercase text-[10px] text-right">Rảnh</TableHead>
-                      <TableHead className="px-6 py-4 font-black text-primary/80 uppercase text-[10px] text-right">Chênh lệch</TableHead>
+                      <TableHead className="px-4 sm:px-6 py-4 font-black text-primary/80 uppercase text-[9px] sm:text-[10px]">Nhân viên</TableHead>
+                      <TableHead className="px-2 sm:px-4 py-4 font-black text-primary/80 uppercase text-[9px] sm:text-[10px] text-right">Dự kiến</TableHead>
+                      <TableHead className="px-2 sm:px-4 py-4 font-black text-primary/80 uppercase text-[9px] sm:text-[10px] text-right">Rảnh</TableHead>
+                      <TableHead className="px-4 sm:px-6 py-4 font-black text-primary/80 uppercase text-[9px] sm:text-[10px] text-right">+/-</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1104,13 +1201,15 @@ function PreviewTab({
                       const sched = scheduledHoursByUser.get(uid) || 0;
                       const avail = availableHoursByUser.get(uid) || 0;
                       const diff = sched - avail;
-                      const exceed = diff > 0.0001;
+                      const exceed = diff > 0.1; // Small threshold
                       return (
                         <TableRow key={`sum_${uid}`} className={cn("border-primary/5 transition-colors", exceed && 'bg-destructive/[0.02] hover:bg-destructive/[0.04]')}>
-                          <TableCell className="px-6 py-4 font-bold text-foreground/80">{u?.displayName || uid}</TableCell>
-                          <TableCell className="px-4 py-4 text-right font-black text-primary">{sched.toFixed(1)}h</TableCell>
-                          <TableCell className="px-4 py-4 text-right font-bold text-muted-foreground">{avail.toFixed(1)}h</TableCell>
-                          <TableCell className={cn('px-6 py-4 text-right font-black', exceed ? 'text-destructive' : 'text-emerald-600')}>
+                          <TableCell className="px-4 sm:px-6 py-4 font-bold text-foreground/80 lowercase first-letter:uppercase">
+                            {u?.displayName || uid}
+                          </TableCell>
+                          <TableCell className="px-2 sm:px-4 py-4 text-right font-black text-primary">{sched.toFixed(1)}h</TableCell>
+                          <TableCell className="px-2 sm:px-4 py-4 text-right font-bold text-muted-foreground">{avail.toFixed(1)}h</TableCell>
+                          <TableCell className={cn('px-4 sm:px-6 py-4 text-right font-black', exceed ? 'text-destructive' : 'text-emerald-600')}>
                             {(diff >= 0 ? '+' : '') + diff.toFixed(1)}h
                           </TableCell>
                         </TableRow>
@@ -1122,12 +1221,12 @@ function PreviewTab({
           </div>
         </div>
       ) : (
-        <div className="text-center py-20 bg-muted/20 rounded-[3rem] border-2 border-dashed border-primary/10">
-          <div className="w-16 h-16 bg-background rounded-2xl border border-primary/5 shadow-sm flex items-center justify-center mx-auto mb-4">
-            <Calculator className="h-8 w-8 text-primary/30" />
+        <div className="text-center py-12 sm:py-20 bg-muted/20 rounded-3xl sm:rounded-[3rem] border-2 border-dashed border-primary/10">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-background rounded-2xl border border-primary/5 shadow-sm flex items-center justify-center mx-auto mb-4">
+            <Calculator className="h-6 w-6 sm:h-8 sm:w-8 text-primary/30" />
           </div>
-          <p className="text-muted-foreground font-bold">Chưa có kết quả xếp lịch</p>
-          <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Vui lòng bấm nút Chạy Xếp Lịch bên trên</p>
+          <p className="text-muted-foreground font-bold text-sm sm:text-base px-6">Chưa có kết quả xếp lịch</p>
+          <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Vui lòng bấm nút Chạy Xếp Lịch bên trên</p>
         </div>
       )}
     </div>
