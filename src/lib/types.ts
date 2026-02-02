@@ -371,6 +371,8 @@ export type AssignedShift = {
   minUsers: number;
   requiredRoles?: { role: UserRole; count: number }[];
   employees?: EmployeeAttendance[]; // Augmented with attendance info on admin page
+  /** Flag to indicate if absences in this shift have been processed for penalty/bonus */
+  isPenaltyProcessed?: boolean;
 };
 
 export type EmployeeAttendance = {

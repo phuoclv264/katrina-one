@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'nextjs-toploader/app';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { ArrowLeft, UserCheck, RefreshCw, Loader2, DollarSign, LayoutGrid, GanttChartSquare, X, Calendar as CalendarIcon, Calculator } from 'lucide-react';
+import { ArrowLeft, UserCheck, RefreshCw, Loader2, DollarSign, LayoutGrid, GanttChartSquare, X, Calendar as CalendarIcon, Calculator, UserX } from 'lucide-react';
 import { dataStore } from '@/lib/data-store';
 import type { AttendanceRecord, ManagedUser, Schedule, ShiftTemplate, UserRole, SpecialPeriod } from '@/lib/types';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, isSameMonth, startOfToday, endOfToday, getISOWeek, getISOWeekYear, getYear, getDay, parse, differenceInMinutes } from 'date-fns';
@@ -27,6 +27,7 @@ import AttendanceTimeline from './attendance-timeline';
 import SpecialPeriodsDialog from './special-periods-dialog';
 import { Combobox } from '@/components/combobox';
 import { Timestamp } from 'firebase/firestore';
+import AbsencePenaltyDialog from './absence-penalty-dialog';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useLightbox } from '@/contexts/lightbox-context';
 import { AlertDialog } from '@/components/ui/alert-dialog';
@@ -50,6 +51,7 @@ export default function AttendancePageComponent() {
     const [isSalaryManagementDialogOpen, setIsSalaryManagementDialogOpen] = useState(false);
     const [isManualAttendanceDialogOpen, setIsManualAttendanceDialogOpen] = useState(false);
     const [isSpecialPeriodsDialogOpen, setIsSpecialPeriodsDialogOpen] = useState(false);
+    const [isAbsencePenaltyDialogOpen, setIsAbsencePenaltyDialogOpen] = useState(false);
     const [isSavingSalaries, setIsSavingSalaries] = useState(false);
 
     const handleCreateSpecialPeriod = useCallback(
@@ -360,6 +362,10 @@ export default function AttendancePageComponent() {
                             <CalendarIcon className="mr-2 h-4 w-4" />
                             Giai đoạn đặc biệt
                         </Button>
+                        <Button variant="outline" onClick={() => setIsAbsencePenaltyDialogOpen(true)}>
+                            <UserX className="mr-2 h-4 w-4" />
+                            Phạt vắng mặt
+                        </Button>
                         <Button variant="outline" onClick={() => setIsBulkSalaryDialogOpen(true)}>
                             <DollarSign className="mr-2 h-4 w-4" />
                             Quản lý Lương
@@ -579,6 +585,16 @@ export default function AttendancePageComponent() {
                 users={allUsers}
                 onCreateSpecialPeriod={handleCreateSpecialPeriod}
                 onDeleteSpecialPeriod={handleDeleteSpecialPeriod}
+                parentDialogTag="root"
+            />
+
+            <AbsencePenaltyDialog
+                isOpen={isAbsencePenaltyDialogOpen}
+                onClose={() => setIsAbsencePenaltyDialogOpen(false)}
+                schedules={schedules}
+                attendanceRecords={attendanceRecords}
+                users={allUsers}
+                currentUser={user}
                 parentDialogTag="root"
             />
         </>
