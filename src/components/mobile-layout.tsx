@@ -81,6 +81,7 @@ const CashierPage = dynamic(() => import('@/app/(app)/cashier/page'), { ssr: fal
 const ManagerPage = dynamic(() => import('@/app/(app)/manager/page'), { ssr: false, loading: () => <LoadingPage /> });
 const AdminPage = dynamic(() => import('@/app/(app)/admin/page'), { ssr: false, loading: () => <LoadingPage /> });
 const AdminEventsPage = dynamic(() => import('@/app/(app)/admin/events/page'), { ssr: false, loading: () => <LoadingPage /> });
+const RecruitmentManagementPage = dynamic(() => import('@/app/(app)/admin/recruitment/page'), { ssr: false, loading: () => <LoadingPage /> });
 const ReportsPage = dynamic(() => import('@/app/(app)/reports/page'), { ssr: false, loading: () => <LoadingPage /> });
 const FinancialReportPage = dynamic(() => import('@/app/(app)/financial-report/page'), { ssr: false, loading: () => <LoadingPage /> });
 const ShiftSchedulingPage = dynamic(() => import('@/app/(app)/shift-scheduling/page'), { ssr: false, loading: () => <LoadingPage /> });
@@ -443,6 +444,8 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
         return <AdminPage />;
       case '/admin/events':
         return <AdminEventsPage />;
+      case '/admin/recruitment':
+        return <RecruitmentManagementPage />;
       case '/schedule':
         return <ScheduleView />;
       case '/reports':
