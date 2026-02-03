@@ -1339,6 +1339,7 @@ export type JobApplication = {
   position: UserRole;
   experience: string;
   note?: string;
+  adminNote?: string;
   photoUrl?: string;
   customAnswers?: Record<string, string>;
   status: 'pending' | 'reviewed' | 'rejected' | 'hired';

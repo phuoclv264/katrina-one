@@ -38,7 +38,6 @@ import CameraDialog from './camera-dialog';
 
 export function RecruitmentForm({ onSuccess }: { onSuccess?: () => void }) {
   const [loading, setLoading] = useState(false);
-  const [showCamera, setShowCamera] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [selectedBlob, setSelectedBlob] = useState<Blob | null>(null);
   const [questions, setQuestions] = useState<RecruitmentQuestion[]>([]);
@@ -90,7 +89,6 @@ export function RecruitmentForm({ onSuccess }: { onSuccess?: () => void }) {
         setSelectedBlob(blob);
       }
     }
-    setShowCamera(false);
   };
 
   const removePhoto = () => {
@@ -247,14 +245,6 @@ export function RecruitmentForm({ onSuccess }: { onSuccess?: () => void }) {
                 </div>
 
                 <div className="flex gap-3 mt-6 w-full max-w-[280px] lg:max-w-none">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    className="flex-1 rounded-2xl h-11 gap-2 border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs shadow-sm active:scale-95 transition-all"
-                    onClick={() => setShowCamera(true)}
-                  >
-                    <Camera className="h-4 w-4 text-blue-600" /> Chụp Ảnh
-                  </Button>
                   <Button 
                     type="button" 
                     variant="outline" 
@@ -566,16 +556,6 @@ export function RecruitmentForm({ onSuccess }: { onSuccess?: () => void }) {
           </div>
         </form>
       </motion.div>
-
-      <CameraDialog 
-        isOpen={showCamera}
-        onClose={() => setShowCamera(false)}
-        onSubmit={handleCameraCapture}
-        singlePhotoMode={true}
-        captureMode="photo"
-        parentDialogTag="recruitment"
-        contextText="Vui lòng chụp ảnh chân dung rõ nét để hoàn tất hồ sơ."
-      />
     </div>
   );
 }
