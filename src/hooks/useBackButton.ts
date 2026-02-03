@@ -42,7 +42,7 @@ export function useBackButton(
         currentLightbox.closeLightbox();
       } else if (currentDialog?.isAnyDialogOpen) {
         currentDialog.closeDialog();
-      } else if (pathname !== "/shifts" && pathname !== "/bartender" && pathname !== "/manager" && pathname !== "/admin") {
+      } else {
         // Prefer navigating back in the app/navigation history when possible.
         // `canGoBack` represents the webview history state; if it's true we
         // perform a back navigation. Otherwise fall back to sending the user
@@ -51,9 +51,8 @@ export function useBackButton(
             nav.back();
           } catch {
             // If nav.back throws for any reason, fall through to role fallback
+            App.minimizeApp();
           }
-      } else {
-        App.minimizeApp();
       }
     },
     [nav, userRole, pathname]
