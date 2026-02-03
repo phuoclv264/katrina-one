@@ -28,7 +28,23 @@ export type SimpleUser = {
   userName: string;
 };
 
-export type AppSettings = { isRegistrationEnabled: boolean; lastIssueNoteScan?: string | Timestamp; managerApprovalEnabled?: boolean; };
+export type AppSettings = {
+  isRegistrationEnabled: boolean;
+  isRecruitmentEnabled?: boolean;
+  lastIssueNoteScan?: string | Timestamp;
+  managerApprovalEnabled?: boolean;
+  recruitmentQuestions?: RecruitmentQuestion[];
+};
+
+export type RecruitmentQuestionType = 'text' | 'yes_no' | 'multiple_choice';
+
+export type RecruitmentQuestion = {
+  id: string;
+  question: string;
+  type: RecruitmentQuestionType;
+  options?: string[];
+  required?: boolean;
+};
 
 export type Task = {
   id: string;
@@ -371,6 +387,8 @@ export type AssignedShift = {
   minUsers: number;
   requiredRoles?: { role: UserRole; count: number }[];
   employees?: EmployeeAttendance[]; // Augmented with attendance info on admin page
+  /** Flag to indicate if absences in this shift have been processed for penalty/bonus */
+  isPenaltyProcessed?: boolean;
 };
 
 export type EmployeeAttendance = {
@@ -1308,4 +1326,23 @@ export type ReviewResult = {
 };
 
 export type EventResult = VoteResult | ReviewResult;
+
+// --- Recruitment Feature Types ---
+
+export type JobApplication = {
+  id: string;
+  fullName: string;
+  phone: string;
+  email: string;
+  birthYear: number;
+  gender: 'Nam' | 'Nữ' | 'Khác';
+  position: UserRole;
+  experience: string;
+  note?: string;
+  photoUrl?: string;
+  customAnswers?: Record<string, string>;
+  status: 'pending' | 'reviewed' | 'rejected' | 'hired';
+  createdAt: string;
+  updatedAt: string;
+};
 

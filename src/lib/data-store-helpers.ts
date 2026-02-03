@@ -1,7 +1,8 @@
 'use client';
 
-import { storage } from '@/lib/firebase';
+import { storage, auth } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { signInAnonymously } from 'firebase/auth';
 import { MediaItem, MediaAttachment } from './types';
 import { photoStore } from './photo-store';
 
@@ -12,6 +13,17 @@ import { photoStore } from './photo-store';
  * @returns URL của file đã tải lên.
  */
 export async function uploadFile(fileBlob: Blob, path: string): Promise<string> {
+  // Ensure we have an authenticated user (anonymous allowed) so storage rules that
+  // require request.auth != null will permit the upload.
+  if (!auth.currentUser) {
+    try {
+      await signInAnonymously(auth);
+    } catch (e) {
+      console.error('Failed to sign in anonymously before upload:', e);
+      // Let the upload attempt proceed; if auth is required the subsequent
+      // uploadBytes will fail and the caller will receive the error.
+    }
+  }
     const storageRef = ref(storage, path);
     const metadata = {
         cacheControl: 'public,max-age=31536000,immutable',
@@ -27,6 +39,9 @@ export async function uploadFile(fileBlob: Blob, path: string): Promise<string> 
 export async function deleteFileByUrl(fileUrl: string): Promise<void> {
     if (typeof window === 'undefined' || !fileUrl.includes('firebasestorage.googleapis.com')) return;
     try {
+    if (!auth.currentUser) {
+      try { await signInAnonymously(auth); } catch (e) { console.error('Failed to sign in anonymously before delete:', e); }
+    }
         const fileRef = ref(storage, fileUrl);
         await deleteObject(fileRef);
     } catch (error: any) {
@@ -37,6 +52,10 @@ export async function deleteFileByUrl(fileUrl: string): Promise<void> {
 }
 
 export async function uploadMedia(mediaItems: MediaItem[], path: string): Promise<MediaAttachment[]> {
+  // Ensure anonymous auth before batch uploads so storage rules allow writes
+  if (!auth.currentUser) {
+    try { await signInAnonymously(auth); } catch (e) { console.error('Failed to sign in anonymously before media upload:', e); }
+  }
   const uploadPromises = mediaItems.map(async (item) => {
     const fileBlob = await photoStore.getPhoto(item.id);
     

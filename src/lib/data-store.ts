@@ -32,7 +32,7 @@ import {
 } from 'firebase/firestore';
 import { DateRange } from 'react-day-picker';
 import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebase/storage'; // WhistleblowingReport is imported here
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission, ViolationUserCost, MediaAttachment, CashCount, ExtractHandoverDataOutput, AttendanceRecord, MonthlyTask, MonthlyTaskAssignment } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission, ViolationUserCost, MediaAttachment, CashCount, ExtractHandoverDataOutput, AttendanceRecord, MonthlyTask, MonthlyTaskAssignment, JobApplication } from './types';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
 import { getISOWeek, getISOWeekYear, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, addDays, parseISO, isPast, isWithinInterval, isSameMonth } from 'date-fns';
@@ -239,6 +239,51 @@ export const dataStore = {
   async updateMonthlyTasks(tasks: MonthlyTask[]): Promise<void> {
     const docRef = doc(db, 'app-data', 'monthlyTasks');
     await setDoc(docRef, { tasks });
+  },
+
+  // --- Job Applications ---
+  async submitJobApplication(application: Omit<JobApplication, 'id' | 'createdAt' | 'updatedAt' | 'status'>): Promise<void> {
+    const appRef = collection(db, 'jobApplications');
+    const now = new Date().toISOString();
+    await addDoc(appRef, {
+      ...application,
+      status: 'pending',
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+
+  subscribeToJobApplications(callback: (applications: JobApplication[]) => void): () => void {
+    const q = query(collection(db, 'jobApplications'), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, (snapshot) => {
+      const applications = snapshot.docs.map(docSnap => ({
+        id: docSnap.id,
+        ...docSnap.data()
+      } as JobApplication));
+      callback(applications);
+    });
+  },
+
+  async updateJobApplicationStatus(applicationId: string, status: JobApplication['status']): Promise<void> {
+    const docRef = doc(db, 'jobApplications', applicationId);
+    await updateDoc(docRef, {
+      status,
+      updatedAt: new Date().toISOString()
+    });
+  },
+
+  async deleteJobApplication(applicationId: string): Promise<void> {
+    const docRef = doc(db, 'jobApplications', applicationId);
+    await deleteDoc(docRef);
+  },
+
+  async bulkDeleteJobApplications(applicationIds: string[]): Promise<void> {
+    const batch = writeBatch(db);
+    applicationIds.forEach((id) => {
+      const docRef = doc(db, 'jobApplications', id);
+      batch.delete(docRef);
+    });
+    await batch.commit();
   },
 
   // --- Salary Management ---

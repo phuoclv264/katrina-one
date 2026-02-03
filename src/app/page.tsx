@@ -1,9 +1,8 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import Image from '@/components/ui/image';
-import { KeyRound, Loader2, Eye, EyeOff } from 'lucide-react';
+import { KeyRound, Loader2, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -17,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { dataStore } from '@/lib/data-store';
 import type { AppSettings } from '@/lib/types';
 import { LoadingPage } from '@/components/loading/LoadingPage';
+import Link from 'next/link';
 
 
 export default function AuthPage() {
@@ -24,7 +24,7 @@ export default function AuthPage() {
 
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-  
+
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
   const [registerName, setRegisterName] = useState('');
@@ -33,9 +33,9 @@ export default function AuthPage() {
 
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
-  
+
   const [isProcessingAuth, setIsProcessingAuth] = useState(false);
-  
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginEmail || !loginPassword) {
@@ -52,32 +52,32 @@ export default function AuthPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-     if (!registerEmail || !registerPassword || !registerName || !registerRole) {
+
+    if (!registerEmail || !registerPassword || !registerName || !registerRole) {
       toast.error('Vui lòng điền đầy đủ thông tin, bao gồm cả vai trò.');
       return;
     }
     setIsProcessingAuth(true);
 
     try {
-        const settings = await dataStore.getAppSettings();
-        if (settings.isRegistrationEnabled === false) {
-          toast.error('Tính năng đăng ký đã tắt. Vui lòng liên hệ chủ nhà hàng để được hỗ trợ tạo tài khoản.', { duration: 5000 });
-          setIsProcessingAuth(false);
-          return;
-        }
-
-        const success = await register(registerEmail, registerPassword, registerName, registerRole);
-        if (!success) {
-            setIsProcessingAuth(false);
-        }
-    } catch (error) {
-        console.error("Registration check failed", error);
-        toast.error('Không thể kiểm tra cài đặt đăng ký. Vui lòng thử lại.');
+      const settings = await dataStore.getAppSettings();
+      if (settings.isRegistrationEnabled === false) {
+        toast.error('Tính năng đăng ký đã tắt. Vui lòng liên hệ chủ nhà hàng để được hỗ trợ tạo tài khoản.', { duration: 5000 });
         setIsProcessingAuth(false);
+        return;
+      }
+
+      const success = await register(registerEmail, registerPassword, registerName, registerRole);
+      if (!success) {
+        setIsProcessingAuth(false);
+      }
+    } catch (error) {
+      console.error("Registration check failed", error);
+      toast.error('Không thể kiểm tra cài đặt đăng ký. Vui lòng thử lại.');
+      setIsProcessingAuth(false);
     }
   };
-  
+
   if (loading && !user) {
     return <LoadingPage />;
   }
@@ -98,11 +98,11 @@ export default function AuthPage() {
           <TabsTrigger value="login">Đăng nhập</TabsTrigger>
           <TabsTrigger value="register">Đăng ký</TabsTrigger>
         </TabsList>
-        
+
         {/* Login Tab */}
         <TabsContent value="login">
           <Card className="relative">
-             {isProcessing && (
+            {isProcessing && (
               <div className="absolute inset-0 z-10 bg-white/70 dark:bg-black/70 flex items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
@@ -120,26 +120,26 @@ export default function AuthPage() {
                 <div className="space-y-2">
                   <Label htmlFor="login-password">Mật khẩu</Label>
                   <div className="relative">
-                     <Input 
-                        id="login-password" 
-                        type={showLoginPassword ? "text" : "password"} 
-                        value={loginPassword} 
-                        onChange={(e) => setLoginPassword(e.target.value)} 
-                        required 
-                        disabled={isProcessing} 
-                        className="pr-10"
-                      />
-                      <Button 
-                        type="button" 
-                        variant="ghost" 
-                        size="icon" 
-                        className="absolute inset-y-0 right-0 h-full px-3"
-                        onClick={() => setShowLoginPassword(prev => !prev)}
-                        disabled={isProcessing}
-                      >
-                        {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        <span className="sr-only">{showLoginPassword ? "Ẩn" : "Hiện"} mật khẩu</span>
-                      </Button>
+                    <Input
+                      id="login-password"
+                      type={showLoginPassword ? "text" : "password"}
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      required
+                      disabled={isProcessing}
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute inset-y-0 right-0 h-full px-3"
+                      onClick={() => setShowLoginPassword(prev => !prev)}
+                      disabled={isProcessing}
+                    >
+                      {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      <span className="sr-only">{showLoginPassword ? "Ẩn" : "Hiện"} mật khẩu</span>
+                    </Button>
                   </div>
                 </div>
                 <Button type="submit" className="w-full" disabled={isProcessing}>
@@ -164,54 +164,54 @@ export default function AuthPage() {
               <CardDescription>Điền thông tin bên dưới để tạo tài khoản.</CardDescription>
             </CardHeader>
             <CardContent>
-               <form onSubmit={handleRegister} className="space-y-4">
+              <form onSubmit={handleRegister} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="register-name">Tên hiển thị</Label>
-                  <Input id="register-name" placeholder="Ví dụ: Phước" value={registerName} onChange={(e) => setRegisterName(e.target.value)} required disabled={isProcessing}/>
+                  <Input id="register-name" placeholder="Ví dụ: Phước" value={registerName} onChange={(e) => setRegisterName(e.target.value)} required disabled={isProcessing} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="register-email">Email</Label>
-                  <Input id="register-email" type="email" placeholder="email@example.com" value={registerEmail} onChange={(e) => setRegisterEmail(e.target.value)} required disabled={isProcessing}/>
+                  <Input id="register-email" type="email" placeholder="email@example.com" value={registerEmail} onChange={(e) => setRegisterEmail(e.target.value)} required disabled={isProcessing} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="register-password">Mật khẩu</Label>
-                   <div className="relative">
-                      <Input 
-                          id="register-password" 
-                          type={showRegisterPassword ? "text" : "password"} 
-                          value={registerPassword} 
-                          onChange={(e) => setRegisterPassword(e.target.value)} 
-                          required 
-                          disabled={isProcessing}
-                          className="pr-10"
-                      />
-                       <Button 
-                        type="button" 
-                        variant="ghost" 
-                        size="icon" 
-                        className="absolute inset-y-0 right-0 h-full px-3"
-                        onClick={() => setShowRegisterPassword(prev => !prev)}
-                        disabled={isProcessing}
-                      >
-                        {showRegisterPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        <span className="sr-only">{showRegisterPassword ? "Ẩn" : "Hiện"} mật khẩu</span>
-                      </Button>
-                   </div>
+                  <div className="relative">
+                    <Input
+                      id="register-password"
+                      type={showRegisterPassword ? "text" : "password"}
+                      value={registerPassword}
+                      onChange={(e) => setRegisterPassword(e.target.value)}
+                      required
+                      disabled={isProcessing}
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute inset-y-0 right-0 h-full px-3"
+                      onClick={() => setShowRegisterPassword(prev => !prev)}
+                      disabled={isProcessing}
+                    >
+                      {showRegisterPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      <span className="sr-only">{showRegisterPassword ? "Ẩn" : "Hiện"} mật khẩu</span>
+                    </Button>
+                  </div>
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="register-role">Vai trò</Label>
-                    <Combobox
-                      options={[
-                        { value: "Phục vụ", label: "Phục vụ" },
-                        { value: "Pha chế", label: "Pha chế" },
-                        { value: "Quản lý", label: "Quản lý" },
-                      ]}
-                      value={registerRole}
-                      onChange={(value) => setRegisterRole(value as UserRole)}
-                      placeholder="Chọn vai trò của bạn"
-                      disabled={isProcessing}
-                      compact={false}
-                    />
+                  <Label htmlFor="register-role">Vai trò</Label>
+                  <Combobox
+                    options={[
+                      { value: "Phục vụ", label: "Phục vụ" },
+                      { value: "Pha chế", label: "Pha chế" },
+                      { value: "Quản lý", label: "Quản lý" },
+                    ]}
+                    value={registerRole}
+                    onChange={(value) => setRegisterRole(value as UserRole)}
+                    placeholder="Chọn vai trò của bạn"
+                    disabled={isProcessing}
+                    compact={false}
+                  />
                 </div>
                 <Button type="submit" className="w-full" disabled={isProcessing}>
                   {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -222,6 +222,19 @@ export default function AuthPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Link href="/recruitment" className="w-full pt-6 sm:w-auto">
+        <Button
+          variant="link"
+          className="w-full sm:w-auto justify-center sm:justify-start px-3 py-2 sm:px-0 sm:py-0 font-medium text-blue-600 hover:text-blue-700 hover:no-underline flex items-center gap-2 group text-sm sm:text-base whitespace-normal"
+          aria-label="Ứng tuyển gia nhập đội ngũ Katrina"
+        >
+          <Sparkles className="h-5 w-5 sm:h-4 sm:w-4 transition-transform group-hover:rotate-12" aria-hidden />
+          <span className="text-center break-words">
+            Bạn muốn gia nhập đội ngũ Katrina? Ứng tuyển ngay!
+          </span>
+        </Button>
+      </Link>
     </main>
   );
 }
