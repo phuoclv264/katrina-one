@@ -1313,25 +1313,33 @@ export default function ScheduleView() {
                 onApplyAssignments={(assignments, strategy) => {
                     setLocalSchedule(prev => {
                         const base = prev ?? { weekId, status: 'draft' as const, shifts: [] };
+                        
+                        // Clear assignments of all shifts first before applying new ones as requested
                         const updatedShifts = base.shifts.map(s => {
                             const adds = assignments.filter(a => a.shiftId === s.id);
-                            if (adds.length === 0) return s;
-                            const unique = new Map<string, any>();
-                            for (const a of adds) unique.set(a.userId, a);
+                            
+                            // Rebuild assignedUsers list from scratch for this shift (clearing old ones)
+                            const newAssignedUsers = adds.map(a => {
+                                const userRole = allUsers.find(u => u.uid === a.userId)?.role;
+                                const resolvedRole: UserRole = (a.assignedRole && a.assignedRole !== 'Bất kỳ')
+                                    ? a.assignedRole as UserRole
+                                    : (userRole ?? 'Phục vụ');
 
-                            const newAssignedUsers = Array.from(unique.values()).map(a => ({
-                                userId: a.userId,
-                                userName: a.userName ?? (allUsers.find(u => u.uid === a.userId)?.displayName || a.userId),
-                                assignedRole: a.assignedRole ?? allUsers.find(u => u.uid === a.userId)?.role ?? 'Bất kỳ',
-                            }));
+                                return {
+                                    userId: a.userId,
+                                    userName: a.userName ?? (allUsers.find(u => u.uid === a.userId)?.displayName || a.userId),
+                                    assignedRole: resolvedRole,
+                                };
+                            });
 
                             return { ...s, assignedUsers: newAssignedUsers };
                         });
+                        
                         const newSchedule = { ...base, shifts: updatedShifts };
                         setHasUnsavedChanges(!isEqual(newSchedule.shifts, serverSchedule?.shifts || []));
                         return newSchedule;
                     });
-                    toast.success('Đã áp dụng phân công từ xem trước. Hãy lưu hoặc công bố.');
+                    toast.success('Đã làm mới và áp dụng phân công từ trình xếp lịch. Hãy lưu hoặc công bố.');
                 }}
                 parentDialogTag='root'
             />
