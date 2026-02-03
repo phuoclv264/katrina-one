@@ -3,13 +3,67 @@
 import { RecruitmentForm } from '@/components/recruitment-form';
 import { LightboxProvider } from '@/contexts/lightbox-context';
 import { DialogProvider } from '@/contexts/dialog-context';
-import { motion } from 'framer-motion';
-import { ArrowRight, CheckCircle2, Heart, ShieldCheck, Sparkles, Star, Users, Zap, XCircle, AlertCircle } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowRight, CheckCircle2, Heart, ShieldCheck, Sparkles, Star, Users, Zap, XCircle, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
 import { dataStore } from '@/lib/data-store';
+import { cn } from '@/lib/utils';
+import useEmblaCarousel from 'embla-carousel-react';
 
 export default function RecruitmentPage() {
   const [isRecruitmentEnabled, setIsRecruitmentEnabled] = useState<boolean | null>(null);
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, duration: 30 });
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const onSelect = useCallback(() => {
+    if (!emblaApi) return;
+    setSelectedIndex(emblaApi.selectedScrollSnap());
+  }, [emblaApi]);
+
+  useEffect(() => {
+    if (!emblaApi) return;
+    emblaApi.on('select', onSelect);
+    onSelect();
+
+    const intervalId = setInterval(() => {
+      if (emblaApi) emblaApi.scrollNext();
+    }, 5000);
+
+    return () => clearInterval(intervalId);
+  }, [emblaApi, onSelect]);
+
+  const scrollPrev = useCallback(() => emblaApi && emblaApi.scrollPrev(), [emblaApi]);
+  const scrollNext = useCallback(() => emblaApi && emblaApi.scrollNext(), [emblaApi]);
+
+  const features = [
+    {
+      icon: <Users className="w-8 h-8" />,
+      title: "Môi trường hoà đồng",
+      desc: "Chúng mình coi trọng từng thành viên và luôn hỗ trợ nhau để cùng phát triển mỗi ngày trong một đại gia đình.",
+      color: "orange",
+      bgClass: "bg-orange-100",
+      textClass: "text-orange-600",
+      accentClass: "from-orange-500/20 to-orange-500/0"
+    },
+    {
+      icon: <Zap className="w-8 h-8" />,
+      title: "Lương & Thưởng",
+      desc: "Mức lương cạnh tranh, xét tăng lương theo từng tháng dựa trên trách nhiệm với công việc.",
+      color: "blue",
+      bgClass: "bg-blue-100",
+      textClass: "text-blue-600",
+      accentClass: "from-blue-500/20 to-blue-500/0"
+    },
+    {
+      icon: <ShieldCheck className="w-8 h-8" />,
+      title: "Giờ giấc linh hoạt",
+      desc: "Dễ dàng đăng ký ca làm phù hợp với lịch học và lịch cá nhân, hỗ trợ tối đa cho các bạn sinh viên.",
+      color: "green",
+      bgClass: "bg-green-100",
+      textClass: "text-green-600",
+      accentClass: "from-green-500/20 to-green-500/0"
+    }
+  ];
 
   useEffect(() => {
     document.title = 'Tuyển dụng | Katrina Coffee';
@@ -127,38 +181,85 @@ export default function RecruitmentPage() {
                   </div>
                 </section>
 
-                {/* Why Join Us Section */}
-                <section className="py-24 bg-white relative">
+                {/* Why Join Us Slider Section */}
+                <section className="py-24 bg-white relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-slate-50 rounded-full blur-[100px] -z-10 opacity-60" />
+                  
                   <div className="container mx-auto px-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-                      <div className="group p-10 rounded-[2.5rem] bg-slate-50 border border-slate-100 hover:border-primary/20 hover:bg-white transition-all duration-500 hover:shadow-2xl hover:shadow-slate-200/50 hover:-translate-y-2">
-                        <div className="w-14 h-14 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-600 mb-8 group-hover:scale-110 group-hover:rotate-3 transition-all">
-                          <Users className="w-7 h-7" />
-                        </div>
-                        <h3 className="text-2xl font-black mb-4 text-slate-900 tracking-tight">Môi trường hoà đồng</h3>
-                        <p className="text-slate-500 leading-relaxed font-medium">
-                          Chúng mình coi trọng từng thành viên và luôn hỗ trợ nhau để cùng phát triển mỗi ngày trong một đại gia đình.
-                        </p>
-                      </div>
+                    <div className="max-w-4xl mx-auto">
+                      <div className="relative group">
+                        <div className="overflow-hidden cursor-grab active:cursor-grabbing" ref={emblaRef}>
+                          <div className="flex">
+                            {features.map((feature, index) => (
+                              <div key={index} className="flex-[0_0_100%] min-w-0 px-4">
+                                <motion.div 
+                                  initial={{ opacity: 0, x: 20 }}
+                                  animate={selectedIndex === index ? { opacity: 1, x: 0 } : { opacity: 0.3, scale: 0.95 }}
+                                  transition={{ duration: 0.6, ease: "easeOut" }}
+                                  className="relative group p-8 md:p-16 rounded-[3rem] bg-slate-50 border border-slate-100 flex flex-col items-center text-center overflow-hidden"
+                                >
+                                  {/* Decorative Accent */}
+                                  <div className={cn(
+                                    "absolute top-0 inset-x-0 h-2 bg-gradient-to-b opacity-20",
+                                    feature.accentClass
+                                  )} />
+                                  
+                                  <motion.div 
+                                    initial={{ scale: 0.8 }}
+                                    animate={selectedIndex === index ? { scale: 1, rotate: [0, 5, -5, 0] } : { scale: 0.8 }}
+                                    transition={{ delay: 0.2, duration: 0.5 }}
+                                    className={cn(
+                                      "w-20 h-20 rounded-3xl flex items-center justify-center mb-10 shadow-lg ring-4 ring-white transition-all",
+                                      feature.bgClass,
+                                      feature.textClass
+                                    )}
+                                  >
+                                    {feature.icon}
+                                  </motion.div>
+                                  
+                                  <h3 className="text-3xl md:text-5xl font-black mb-6 text-slate-900 tracking-tight leading-tight">
+                                    {feature.title}
+                                  </h3>
+                                  
+                                  <p className="text-lg md:text-xl text-slate-500 leading-relaxed font-medium max-w-2xl">
+                                    {feature.desc}
+                                  </p>
 
-                      <div className="group p-10 rounded-[2.5rem] bg-slate-50 border border-slate-100 hover:border-blue-200 hover:bg-white transition-all duration-500 hover:shadow-2xl hover:shadow-slate-200/50 hover:-translate-y-2">
-                        <div className="w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 mb-8 group-hover:scale-110 group-hover:-rotate-3 transition-all">
-                          <Zap className="w-7 h-7" />
+                                  <div className="mt-12 flex items-center gap-2">
+                                    {features.map((_, i) => (
+                                      <div 
+                                        key={i} 
+                                        className={cn(
+                                          "h-1.5 rounded-full transition-all duration-500",
+                                          selectedIndex === i ? "w-8 bg-primary" : "w-1.5 bg-slate-200"
+                                        )}
+                                      />
+                                    ))}
+                                  </div>
+                                </motion.div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                        <h3 className="text-2xl font-black mb-4 text-slate-900 tracking-tight">Lương & Thưởng</h3>
-                        <p className="text-slate-500 leading-relaxed font-medium">
-                          Mức lương cạnh tranh, xét tăng lương theo từng tháng dựa trên trách nhiệm với công việc.
-                        </p>
-                      </div>
 
-                      <div className="group p-10 rounded-[2.5rem] bg-slate-50 border border-slate-100 hover:border-green-200 hover:bg-white transition-all duration-500 hover:shadow-2xl hover:shadow-slate-200/50 hover:-translate-y-2">
-                        <div className="w-14 h-14 bg-green-100 rounded-2xl flex items-center justify-center text-green-600 mb-8 group-hover:scale-110 group-hover:rotate-3 transition-all">
-                          <ShieldCheck className="w-7 h-7" />
+                        {/* Navigation Buttons */}
+                        <div className="absolute top-1/2 -translate-y-1/2 -left-4 sm:-left-12 lg:-left-20">
+                          <button 
+                            onClick={scrollPrev}
+                            className="bg-white/80 backdrop-blur shadow-lg border border-slate-100 hover:bg-white hover:border-primary/50 text-slate-400 hover:text-primary p-4 rounded-2xl transition-all active:scale-95 group"
+                          >
+                            <ChevronLeft className="w-6 h-6 group-hover:-translate-x-0.5 transition-transform" />
+                          </button>
                         </div>
-                        <h3 className="text-2xl font-black mb-4 text-slate-900 tracking-tight">Giờ giấc linh hoạt</h3>
-                        <p className="text-slate-500 leading-relaxed font-medium">
-                          Dễ dàng đăng ký ca làm phù hợp với lịch học và lịch cá nhân, hỗ trợ tối đa cho các bạn sinh viên.
-                        </p>
+                        
+                        <div className="absolute top-1/2 -translate-y-1/2 -right-4 sm:-right-12 lg:-right-20">
+                          <button 
+                            onClick={scrollNext}
+                            className="bg-white/80 backdrop-blur shadow-lg border border-slate-100 hover:bg-white hover:border-primary/50 text-slate-400 hover:text-primary p-4 rounded-2xl transition-all active:scale-95 group"
+                          >
+                            <ChevronRight className="w-6 h-6 group-hover:translate-x-0.5 transition-transform" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
