@@ -31,7 +31,9 @@ import {
   Copy,
   Check,
   Image as ImageIcon,
-  Maximize2
+  Maximize2,
+  FileText,
+  Save
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { dataStore } from '@/lib/data-store';
@@ -39,12 +41,14 @@ import type { RecruitmentQuestion } from '@/lib/types';
 import { useState, useEffect } from 'react';
 import { toast } from '@/components/ui/pro-toast';
 import { useLightbox } from '@/contexts/lightbox-context';
+import { Textarea } from '@/components/ui/textarea';
 
 interface ApplicationDetailDialogProps {
   application: JobApplication | null;
   isOpen: boolean;
   onClose: () => void;
   onUpdateStatus: (id: string, status: JobApplication['status']) => Promise<void>;
+  onUpdateAdminNote: (id: string, adminNote: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   getStatusBadge: (status: JobApplication['status']) => React.ReactNode;
 }
@@ -54,12 +58,21 @@ export function ApplicationDetailDialog({
   isOpen,
   onClose,
   onUpdateStatus,
+  onUpdateAdminNote,
   onDelete,
   getStatusBadge,
 }: ApplicationDetailDialogProps) {
   const [questions, setQuestions] = useState<RecruitmentQuestion[]>([]);
   const [isCopying, setIsCopying] = useState<string | null>(null);
+  const [adminNote, setAdminNote] = useState('');
+  const [isSavingNote, setIsSavingNote] = useState(false);
   const { openLightbox } = useLightbox();
+
+  useEffect(() => {
+    if (application) {
+      setAdminNote(application.adminNote || '');
+    }
+  }, [application]);
 
   useEffect(() => {
     if (isOpen) {
@@ -72,6 +85,19 @@ export function ApplicationDetailDialog({
   }, [isOpen]);
 
   if (!application) return null;
+
+  const handleSaveNote = async () => {
+    if (!application) return;
+    setIsSavingNote(true);
+    try {
+      await onUpdateAdminNote(application.id, adminNote);
+      toast.success('Đã lưu ghi chú.');
+    } catch (error) {
+      toast.error('Không thể lưu ghi chú.');
+    } finally {
+      setIsSavingNote(false);
+    }
+  };
 
   const handleCopy = (text: string, type: 'phone' | 'email') => {
     navigator.clipboard.writeText(text).then(() => {
@@ -241,13 +267,51 @@ export function ApplicationDetailDialog({
                   <section className="space-y-3">
                     <h3 className="flex items-center gap-2 text-[11px] font-bold text-slate-800 uppercase tracking-widest">
                       <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                      Ghi chú bổ sung
+                      Ghi chú ứng viên
                     </h3>
                     <div className="p-4 bg-indigo-50/20 rounded-2xl border border-indigo-100 text-slate-600 text-sm italic leading-relaxed">
                       "{application.note}"
                     </div>
                   </section>
                 )}
+
+                {/* Admin Note Section */}
+                <section className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="flex items-center gap-2 text-[11px] font-bold text-slate-800 uppercase tracking-widest">
+                      <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                      Ghi chú quản lý
+                    </h3>
+                    {adminNote !== (application.adminNote || '') && (
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-7 px-2 text-[10px] font-black uppercase tracking-widest text-blue-600 hover:bg-blue-50 gap-1.5"
+                        onClick={handleSaveNote}
+                        disabled={isSavingNote}
+                      >
+                        <Save className="h-3 w-3" />
+                        {isSavingNote ? 'Đang lưu...' : 'Lưu ghi chú'}
+                      </Button>
+                    )}
+                  </div>
+                  <div className="relative group">
+                    <Textarea
+                      placeholder="Nhập ghi chú hoặc đánh giá về ứng viên này..."
+                      className="min-h-[100px] rounded-2xl border-slate-100 focus:border-rose-200 focus:ring-rose-500/10 transition-all text-sm leading-relaxed"
+                      value={adminNote}
+                      onChange={(e) => setAdminNote(e.target.value)}
+                    />
+                    <div className="absolute top-3 right-3 opacity-20 group-focus-within:opacity-100 transition-opacity">
+                      <FileText className="h-4 w-4 text-slate-400" />
+                    </div>
+                  </div>
+                  {application.adminNote && adminNote === application.adminNote && (
+                    <p className="text-[9px] text-slate-400 font-medium px-1">
+                      Đã lưu lúc {format(new Date(application.updatedAt), 'HH:mm - dd/MM/yyyy', { locale: vi })}
+                    </p>
+                  )}
+                </section>
 
                 {/* Custom User Answers */}
                 {application.customAnswers && Object.keys(application.customAnswers).length > 0 && (

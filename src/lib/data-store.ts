@@ -230,6 +230,14 @@ export const dataStore = {
     });
   },
 
+  async updateJobApplicationAdminNote(applicationId: string, adminNote: string): Promise<void> {
+    const docRef = doc(db, 'jobApplications', applicationId);
+    await updateDoc(docRef, {
+      adminNote,
+      updatedAt: new Date().toISOString()
+    });
+  },
+
   async deleteJobApplication(applicationId: string): Promise<void> {
     const docRef = doc(db, 'jobApplications', applicationId);
     await deleteDoc(docRef);
