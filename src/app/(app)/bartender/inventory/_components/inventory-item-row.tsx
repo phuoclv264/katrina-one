@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useRef, useState, useEffect } from 'react';
@@ -10,7 +9,8 @@ import { useDebouncedCallback } from 'use-debounce';
 import { Camera, X, AlertTriangle } from 'lucide-react';
 import Image from '@/components/ui/image';
 import { Combobox } from "@/components/combobox";
-
+import { Badge } from '@/components/ui/badge';
+import { Star } from 'lucide-react';
 
 type ItemStatus = 'ok' | 'low' | 'out';
 
@@ -107,26 +107,87 @@ const InventoryItemRowComponent = ({
     return (
         <div 
             ref={rowRef}
-            tabIndex={-1}
-            className={`rounded-lg border p-3 grid grid-cols-2 gap-4 items-start ${showBackground ? getStatusColorClass(status) : ''} cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2`}
+            className={cn(
+                "p-4 rounded-2xl border transition-all duration-300 flex flex-col gap-4 shadow-sm",
+                showBackground ? getStatusColorClass(status) : "bg-card hover:border-primary/40 hover:shadow-md"
+            )}
             onClick={handleContainerClick}
         >
-            <div className="col-span-1">
-                <p className="font-semibold flex items-center gap-2">
-                    {item.name}
-                </p>
-                <p className="text-sm text-muted-foreground">Đơn vị: {item.baseUnit}</p>
-                {item.requiresPhoto && (
-                    <div className="flex gap-2 items-center flex-wrap mt-2">
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-9 w-9"
-                            onClick={(e) => { e.stopPropagation(); onOpenCamera(item.id); }}
-                            disabled={isProcessing}
-                        >
-                            <Camera className="h-4 w-4" />
-                        </Button>
+            <div className="flex justify-between items-start gap-3">
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-base font-bold text-card-foreground leading-tight">{item.name}</h3>
+                        {item.isImportant && (
+                            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 shrink-0" />
+                        )}
+                        {item.requiresPhoto && (
+                            <Camera className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        )}
+                    </div>
+                    <div className="flex flex-wrap gap-2 items-center">
+                        <Badge variant="outline" className="text-[10px] uppercase font-black tracking-widest bg-background/50 border-primary/10 py-0 h-5">
+                            {item.baseUnit || item.unit}
+                        </Badge>
+                        {item.dataType === 'number' && (
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                                Định mức: {item.minStock}
+                            </span>
+                        )}
+                    </div>
+                </div>
+
+                <div className="flex flex-col items-end gap-2">
+                    {item.dataType === 'number' ? (
+                        <div className="relative group/input">
+                            <Input
+                                ref={localInputRef}
+                                type="text"
+                                inputMode="decimal"
+                                value={localStockValue}
+                                onChange={handleNumericChange}
+                                placeholder="0"
+                                disabled={isProcessing}
+                                className="w-24 h-11 text-right text-lg font-black bg-background/80 border-primary/20 focus:ring-primary focus:border-primary transition-all rounded-xl shadow-inner group-hover/input:border-primary/40"
+                            />
+                            {localStockValue !== '' && status !== 'ok' && (
+                                <div className="absolute -top-1.5 -left-1.5 bg-background rounded-full p-0.5 shadow-sm border">
+                                    <AlertTriangle className={cn(
+                                        "h-3.5 w-3.5",
+                                        status === 'out' ? "text-red-500" : "text-yellow-500"
+                                    )} />
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <Combobox
+                            options={(item.listOptions || ['Hết', 'Gần hết', 'Còn đủ', 'Dư xài']).map(opt => ({ label: opt, value: opt }))}
+                            value={String(localStockValue)}
+                            onChange={(val) => {
+                                const newVal = Array.isArray(val) ? val[0] : val;
+                                setLocalStockValue(newVal);
+                                onStockChange(item.id, newVal);
+                            }}
+                            placeholder="Chọn..."
+                            className="w-32 h-11 font-bold rounded-xl border-primary/20 bg-background/80 shadow-sm"
+                        />
+                    )}
+                </div>
+            </div>
+
+            {/* Photos Section - Only show if important or already has photos */}
+            {(item.requiresPhoto || photoUrls.length > 0) && (
+                <div className="pt-2 border-t border-primary/5 flex flex-wrap gap-2 items-center">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => { e.stopPropagation(); onOpenCamera(item.id); }}
+                        className="h-8 rounded-lg bg-primary/5 text-primary hover:bg-primary hover:text-white border-primary/10 transition-all text-[11px] font-bold px-3 gap-2"
+                    >
+                        <Camera className="h-3.5 w-3.5" />
+                        Ảnh thực tế
+                    </Button>
+                    
+                    <div className="flex flex-wrap gap-1.5 ml-auto">
                         {photoUrls.map((photoUrl, index) => (
                             <div key={`${item.id}-photo-${index}`} className="relative aspect-square rounded-md overflow-hidden w-9 h-9">
                                 <Image src={photoUrl} alt="Inventory photo" fill className="object-cover" />
@@ -141,38 +202,8 @@ const InventoryItemRowComponent = ({
                             </div>
                         ))}
                     </div>
-                )}
-            </div>
-            <div className="col-span-1 flex flex-col items-end gap-2">
-               {item.dataType === 'number' ? (
-                     <Input
-                        ref={localInputRef}
-                        type="text" // Use text to allow for intermediate states like '.' or '-'
-                        inputMode="decimal" // Better for mobile keyboards
-                        value={localStockValue}
-                        onChange={handleNumericChange}
-                        onBlur={() => debouncedOnStockChange.flush()}
-                        className="text-center h-9 w-20"
-                        placeholder="Số lượng..."
-                        disabled={isProcessing}
-                        onClick={(e) => e.stopPropagation()}
-                    />
-               ) : (
-                    <Combobox
-                        value={String(localStockValue)}
-                        onChange={(v) => handleSelectChange(v === '_clear_' ? '' : v)}
-                        disabled={isProcessing}
-                        options={[
-                            { value: "_clear_", label: "Bỏ chọn" },
-                            ...(item.listOptions || ['hết', 'gần hết', 'còn đủ', 'dư xài']).map(option => ({ value: option, label: option }))
-                        ]}
-                        className="w-full h-auto min-h-9 whitespace-normal"
-                        placeholder="Chọn..."
-                        compact
-                        searchable={false}
-                    />
-               )}
-            </div>
+                </div>
+            )}
         </div>
     );
 }

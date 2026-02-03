@@ -1,9 +1,9 @@
-
 'use client';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useAuth } from '@/hooks/use-auth';
+import { cn } from '@/lib/utils';
 import { useRouter } from 'nextjs-toploader/app';
 import { dataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
@@ -12,18 +12,43 @@ import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import type { InventoryItem, InventoryReport, InventoryOrderSuggestion, InventoryStockRecord, OrderBySupplier, OrderItem } from '@/lib/types';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { toast } from '@/components/ui/pro-toast';
-import { ArrowLeft, Loader2, Send, ShoppingCart, ChevronsDownUp, Copy } from 'lucide-react';
+import { ArrowLeft, Loader2, Send, ShoppingCart, ChevronsDownUp, Copy, Search, Filter, Star, AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
 import { photoStore } from '@/lib/photo-store';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { InventoryItemRow } from './_components/inventory-item-row';
+import { InventorySectionView, getCategoryIcon } from './_components/inventory-section-view';
 import { SuggestionsDialog } from './_components/suggestions-dialog';
 import WorkShiftGuard from '@/components/work-shift-guard';
 import { UncheckedItemsDialog } from './_components/unchecked-items-dialog';
+import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { ChevronLeft, ChevronRight, LayoutGrid, ListChecks, Package, UtensilsCrossed, GlassWater } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 
 type ItemStatus = 'ok' | 'low' | 'out';
+
+const getItemStatus = (item: InventoryItem, stockValue: number | string | undefined): ItemStatus => {
+    if (stockValue === undefined || stockValue === '') return 'ok';
+    if (item.dataType === 'number') {
+        const stock = typeof stockValue === 'number' ? stockValue : parseFloat(String(stockValue));
+        if (isNaN(stock)) return 'ok';
+        if (stock < item.minStock * 0.3) return 'out';
+        if (stock < item.minStock) return 'low';
+        return 'ok';
+    } else { // 'list' type
+        const stockString = String(stockValue).toLowerCase();
+        if (stockString.includes('hết')) return 'out';
+        if (stockString.includes('còn đủ') || stockString.includes('gần hết')) return 'low';
+        if (stockString.includes('dư')) return 'ok';
+        return 'ok';
+    }
+};
 
 type CategorizedList = {
     category: string;
@@ -43,7 +68,6 @@ function InventoryPageComponent() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
     const [suggestions, setSuggestions] = useState<InventoryOrderSuggestion | null>(null);
-    const [openCategories, setOpenCategories] = useState<string[]>([]);
     const [isSuggestionsDialogOpen, setIsSuggestionsDialogOpen] = useState(false);
     const [initialSuggestions, setInitialSuggestions] = useState<InventoryOrderSuggestion | null>(null);
 
@@ -53,6 +77,10 @@ function InventoryPageComponent() {
     const [activeItemId, setActiveItemId] = useState<string | null>(null);
     const [showUncheckedWarning, setShowUncheckedWarning] = useState(false);
     const [uncheckedItems, setUncheckedItems] = useState<InventoryItem[]>([]);
+
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filterTab, setFilterTab] = useState('all');
+    const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
     useEffect(() => {
         if (!authLoading && user && (user.role !== 'Pha chế' && !user.secondaryRoles?.includes('Pha chế'))) {
@@ -70,10 +98,37 @@ function InventoryPageComponent() {
     const categorizedList = useMemo((): CategorizedList => {
         if (!inventoryList) return [];
 
+        let filteredItems = inventoryList;
+
+        // Apply Search
+        if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase();
+            filteredItems = filteredItems.filter(item => 
+                item.name.toLowerCase().includes(query) || 
+                (item.category && item.category.toLowerCase().includes(query))
+            );
+        }
+
+        // Apply Tab Filter
+        if (filterTab === 'important') {
+            filteredItems = filteredItems.filter(item => item.isImportant);
+        } else if (report && filterTab === 'missing') {
+            filteredItems = filteredItems.filter(item => {
+                const stock = report.stockLevels[item.id]?.stock;
+                return stock === undefined || stock === '';
+            });
+        } else if (report && filterTab === 'low') {
+            filteredItems = filteredItems.filter(item => {
+                const stock = report.stockLevels[item.id]?.stock;
+                const status = getItemStatus(item, stock);
+                return status === 'low' || status === 'out';
+            });
+        }
+
         const categoryOrder: string[] = [];
         const grouped: { [key: string]: InventoryItem[] } = {};
 
-        inventoryList.forEach(item => {
+        filteredItems.forEach(item => {
             const category = item.category || 'CHƯA PHÂN LOẠI';
             if (!grouped[category]) {
                 grouped[category] = [];
@@ -84,14 +139,28 @@ function InventoryPageComponent() {
 
         return categoryOrder.map(category => ({ category, items: grouped[category] }));
 
-    }, [inventoryList]);
+    }, [inventoryList, searchQuery, filterTab, report]);
 
-    // Set accordion to open all by default
+    // Cleanup active category if it's no longer in the list (e.g. filtered out)
     useEffect(() => {
-        if (categorizedList.length > 0) {
-            setOpenCategories(categorizedList.map(c => c.category));
+        if (activeCategory && !categorizedList.find(c => c.category === activeCategory)) {
+            setActiveCategory(null);
         }
-    }, [categorizedList]);
+    }, [categorizedList, activeCategory]);
+
+    const stats = useMemo(() => {
+        if (!inventoryList || !report) return { total: 0, checked: 0, percentage: 0 };
+        const total = inventoryList.length;
+        const checked = inventoryList.filter(item => {
+            const stock = report.stockLevels[item.id]?.stock;
+            return stock !== undefined && stock !== '';
+        }).length;
+        return {
+            total,
+            checked,
+            percentage: total > 0 ? Math.round((checked / total) * 100) : 0
+        };
+    }, [inventoryList, report]);
 
     const [localPhotoUrls, setLocalPhotoUrls] = useState<Map<string, string>>(new Map());
 
@@ -251,23 +320,6 @@ function InventoryPageComponent() {
     const handleOpenCamera = useCallback((itemId: string) => {
         setActiveItemId(itemId); setIsCameraOpen(true);
     }, []);
-
-    const getItemStatus = (item: InventoryItem, stockValue: number | string | undefined): ItemStatus => {
-        if (stockValue === undefined || stockValue === '') return 'ok';
-        if (item.dataType === 'number') {
-            const stock = typeof stockValue === 'number' ? stockValue : parseFloat(String(stockValue));
-            if (isNaN(stock)) return 'ok';
-            if (stock < item.minStock * 0.3) return 'out';
-            if (stock < item.minStock) return 'low';
-            return 'ok';
-        } else { // 'list' type
-            const stockString = String(stockValue).toLowerCase();
-            if (stockString.includes('hết')) return 'out';
-            if (stockString.includes('còn đủ') || stockString.includes('gần hết')) return 'low';
-            if (stockString.includes('dư')) return 'ok';
-            return 'ok';
-        }
-    };
 
     const generateSuggestionsFromLogic = (): InventoryOrderSuggestion => {
         if (!report) return { summary: 'Không có báo cáo để xử lý.', ordersBySupplier: [] };
@@ -457,76 +509,172 @@ function InventoryPageComponent() {
     }
 
     const isSubmitted = report.status === 'submitted';
-    const handleToggleAll = () => {
-        if (openCategories.length === categorizedList.length) {
-            setOpenCategories([]);
-        } else {
-            setOpenCategories(categorizedList.map(c => c.category));
-        }
-    };
-    const areAllCategoriesOpen = categorizedList.length > 0 && openCategories.length === categorizedList.length;
     const isProcessing = isSubmitting || isGenerating;
     const hasSuggestions = suggestions && suggestions.ordersBySupplier && suggestions.ordersBySupplier.length > 0;
+
+    const handleBackToOverview = () => {
+        setActiveCategory(null);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handlePrevCategory = () => {
+        const currentIndex = categorizedList.findIndex(c => c.category === activeCategory);
+        if (currentIndex > 0) {
+            setActiveCategory(categorizedList[currentIndex - 1].category);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    };
+
+    const handleNextCategory = () => {
+        const currentIndex = categorizedList.findIndex(c => c.category === activeCategory);
+        if (currentIndex < categorizedList.length - 1) {
+            setActiveCategory(categorizedList[currentIndex + 1].category);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    };
 
 
     return (
         <TooltipProvider>
             <div className="container mx-auto p-4 sm:p-6 md:p-8 pb-32">
-                <header className="mb-8">
+                <header className="mb-6">
                     <div className="flex flex-col md:flex-row gap-4 justify-between md:items-center">
-                        <div>
-                            <h1 className="text-3xl font-bold font-headline">Báo cáo Kiểm kê Tồn kho</h1>
-                            <p className="text-muted-foreground">Nhập số lượng tồn kho thực tế. Mọi thay đổi sẽ được tự động lưu.</p>
+                        <div className="flex items-center gap-4">
+                            {activeCategory && (
+                                <Button variant="ghost" size="icon" onClick={handleBackToOverview} className="rounded-full h-10 w-10 shrink-0">
+                                    <ArrowLeft className="h-6 w-6" />
+                                </Button>
+                            )}
+                            <div>
+                                <h1 className="text-2xl md:text-3xl font-bold font-headline">Báo cáo Kiểm kê</h1>
+                                <p className="text-muted-foreground text-sm">Nhập số lượng thực tế. Dữ liệu tự động lưu.</p>
+                            </div>
                         </div>
                     </div>
                 </header>
 
+                <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <Card className="md:col-span-1 border-primary/20 bg-primary/5">
+                        <CardContent className="pt-6">
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-sm font-medium">Tiến độ tổng</span>
+                                <span className="text-sm font-bold text-primary">{stats.checked}/{stats.total}</span>
+                            </div>
+                            <Progress value={stats.percentage} className="h-2" />
+                        </CardContent>
+                    </Card>
+
+                    <div className="md:col-span-3 space-y-4 sticky top-0 z-20 bg-background/95 backdrop-blur-sm pb-4 pt-1">
+                        <div className="relative group">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                            <Input
+                                placeholder="Tìm kiếm tên món..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="pl-10 h-10 shadow-sm border-primary/20"
+                            />
+                            {searchQuery && (
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                                    onClick={() => setSearchQuery('')}
+                                >
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            )}
+                        </div>
+
+                        <Tabs value={filterTab} onValueChange={setFilterTab} className="w-full">
+                            <TabsList className="grid grid-cols-4 w-full h-10">
+                                <TabsTrigger value="all" className="text-xs sm:text-sm">Tất cả</TabsTrigger>
+                                <TabsTrigger value="missing" className="text-xs sm:text-sm">Thiếu</TabsTrigger>
+                                <TabsTrigger value="important" className="text-xs sm:text-sm">Sao</TabsTrigger>
+                                <TabsTrigger value="low" className="text-xs sm:text-sm">Hết</TabsTrigger>
+                            </TabsList>
+                        </Tabs>
+                    </div>
+                </div>
+
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
                     <div className="lg:col-span-2">
-                        <Card>
-                            <CardHeader className="flex-row items-center justify-between">
-                                <div>
-                                    <CardTitle>Danh sách nguyên vật liệu</CardTitle>
-                                    <CardDescription>
-                                        Nhập số lượng tồn kho thực tế của các mặt hàng.
-                                    </CardDescription>
-                                </div>
-                                {categorizedList.length > 0 && (
-                                    <Button variant="outline" onClick={handleToggleAll} size="sm">
-                                        <ChevronsDownUp className="mr-2 h-4 w-4" />
-                                        {areAllCategoriesOpen ? "Thu gọn" : "Mở rộng"}
-                                    </Button>
-                                )}
-                            </CardHeader>
-                            <CardContent>
-                                <Accordion type="multiple" value={openCategories} onValueChange={setOpenCategories} className="w-full space-y-4">
-                                    {categorizedList.map(({ category, items }) => (
-                                        <AccordionItem value={category} key={category} className="border-2 rounded-lg border-primary/50">
-                                            <AccordionTrigger className="text-lg font-semibold flex-1 hover:no-underline p-4">
-                                                {category}
-                                            </AccordionTrigger>
-                                            <AccordionContent className="p-4 border-t">
-                                                <div className="space-y-3">
-                                                    {items.map(item => (
-                                                        <InventoryItemRow
-                                                            key={item.id}
-                                                            item={item}
-                                                            record={report.stockLevels[item.id]}
-                                                            localPhotoUrls={localPhotoUrls}
-                                                            isProcessing={isProcessing} // This will change, but it's a primitive
-                                                            onStockChange={handleStockChange}
-                                                            onOpenCamera={handleOpenCamera}
-                                                            onDeletePhoto={handleDeletePhoto}
-                                                            rowRef={(el) => setItemRowRef(item.id, el)}
-                                                        />
-                                                    ))}
+                        {!activeCategory || (searchQuery.trim() && !categorizedList.find(c => c.category === activeCategory)) ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {categorizedList.length === 0 ? (
+                                    <Card className="col-span-full py-12">
+                                        <CardContent className="text-center space-y-3">
+                                            <div className="bg-muted w-12 h-12 rounded-full flex items-center justify-center mx-auto">
+                                                <Search className="h-6 w-6 text-muted-foreground" />
+                                            </div>
+                                            <p className="text-muted-foreground font-medium">Không tìm thấy món nào.</p>
+                                            <Button variant="outline" size="sm" onClick={() => {setSearchQuery(''); setFilterTab('all');}}>Xóa lọc</Button>
+                                        </CardContent>
+                                    </Card>
+                                ) : (
+                                    categorizedList.map(({ category, items }) => {
+                                        const categoryCheckedCount = items.filter(item => report.stockLevels[item.id]?.stock !== undefined && report.stockLevels[item.id]?.stock !== '').length;
+                                        const categoryTotalCount = items.length;
+                                        const categoryProgress = categoryTotalCount > 0 ? Math.round((categoryCheckedCount / categoryTotalCount) * 100) : 0;
+                                        const missingCount = categoryTotalCount - categoryCheckedCount;
+
+                                        return (
+                                            <motion.div
+                                                key={category}
+                                                whileTap={{ scale: 0.98 }}
+                                                onClick={() => setActiveCategory(category)}
+                                                className="group relative p-4 rounded-2xl border bg-card shadow-sm cursor-pointer hover:border-primary/50 hover:shadow-md transition-all flex flex-col gap-3"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className="p-2.5 rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+                                                        {getCategoryIcon(category)}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <h3 className="text-sm font-black uppercase tracking-tight text-card-foreground group-hover:text-primary transition-colors flex items-center justify-between">
+                                                            <span className="truncate">{category}</span>
+                                                            {missingCount > 0 && (
+                                                                <Badge variant="secondary" className="bg-orange-100 text-orange-700 border-none px-1.5 h-5 shrink-0">
+                                                                    {missingCount}
+                                                                </Badge>
+                                                            )}
+                                                        </h3>
+                                                        <p className="text-[10px] text-muted-foreground font-bold tracking-widest uppercase mt-0.5">
+                                                            {categoryCheckedCount} / {categoryTotalCount} món
+                                                        </p>
+                                                    </div>
+                                                    <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                                                 </div>
-                                            </AccordionContent>
-                                        </AccordionItem>
-                                    ))}
-                                </Accordion>
-                            </CardContent>
-                        </Card>
+                                                <div className="mt-auto">
+                                                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                                                        <motion.div 
+                                                            className="h-full bg-primary"
+                                                            initial={{ width: 0 }}
+                                                            animate={{ width: `${categoryProgress}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </motion.div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        ) : (
+                            <InventorySectionView 
+                                category={activeCategory}
+                                items={categorizedList.find(c => c.category === activeCategory)?.items || []}
+                                report={report}
+                                localPhotoUrls={localPhotoUrls}
+                                isProcessing={isProcessing}
+                                onStockChange={handleStockChange}
+                                onOpenCamera={handleOpenCamera}
+                                onDeletePhoto={handleDeletePhoto}
+                                onBack={handleBackToOverview}
+                                onPrev={handlePrevCategory}
+                                onNext={handleNextCategory}
+                                canPrev={categorizedList.findIndex(c => c.category === activeCategory) > 0}
+                                canNext={categorizedList.findIndex(c => c.category === activeCategory) < categorizedList.length - 1}
+                                setItemRowRef={setItemRowRef}
+                            />
+                        )}
                     </div>
                     <div className="lg:col-span-1 space-y-8 sticky top-4" ref={suggestionsCardRef}>
                         <Card>
