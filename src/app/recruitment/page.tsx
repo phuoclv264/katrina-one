@@ -169,15 +169,15 @@ export default function RecruitmentPage() {
                   {/* Artistic Background decoration */}
                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/5 rounded-full blur-[120px] -z-10" />
                   
-                  <div className="container mx-auto px-6">
-                    <div className="max-w-5xl mx-auto">
-                      <div className="mb-16 text-center">
+                  <div className="container mx-auto px-3 sm:px-6">
+                    <div className="max-w-6xl mx-auto">
+                      <div className="mb-16 text-center px-4">
                         <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-4 tracking-tight">Sẵn sàng bắt đầu?</h2>
                         <p className="text-slate-500 font-medium text-lg">Hãy dành 2 phút để hoàn thiện hồ sơ ứng tuyển của bạn.</p>
                       </div>
 
                       <div className="relative">
-                        <div className="absolute -inset-4 bg-gradient-to-tr from-primary/10 to-indigo-500/10 rounded-[3rem] blur-2xl -z-10 opacity-50" />
+                        <div className="absolute -inset-2 sm:-inset-4 bg-gradient-to-tr from-primary/10 to-indigo-500/10 rounded-[2rem] sm:rounded-[3rem] blur-2xl -z-10 opacity-50" />
                         <div className="relative">
                           <RecruitmentForm />
                         </div>

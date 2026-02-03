@@ -31,7 +31,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
+import { cn, advancedSearch } from '@/lib/utils';
 import { 
   Search, 
   Filter, 
@@ -183,15 +183,16 @@ export default function RecruitmentManagementPage() {
     }
   };
 
-  const filteredApplications = applications.filter((app) => {
-    const matchesSearch =
-      app.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.phone.includes(searchQuery) ||
-      app.email.toLowerCase().includes(searchQuery.toLowerCase());
+  // Use advancedSearch for more robust, accent-insensitive, tokenized searching
+  let filteredApplications = searchQuery.trim()
+    ? advancedSearch(applications, searchQuery, ['fullName', 'phone', 'email'])
+    : applications;
+
+  filteredApplications = filteredApplications.filter((app) => {
     const matchesGender = filterGender === 'all' || app.gender === filterGender;
     const matchesStatus = filterStatus === 'all' || app.status === filterStatus;
     const matchesPosition = filterPosition === 'all' || app.position === filterPosition;
-    return matchesSearch && matchesGender && matchesStatus && matchesPosition;
+    return matchesGender && matchesStatus && matchesPosition;
   });
 
   const getStatusBadge = (status: JobApplication['status']) => {

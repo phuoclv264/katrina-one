@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useAuth } from '@/hooks/use-auth';
-import { cn } from '@/lib/utils';
+import { cn, advancedSearch } from '@/lib/utils';
 import { useRouter } from 'nextjs-toploader/app';
 import { dataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
@@ -61,6 +61,7 @@ function InventoryPageComponent() {
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const suggestionsCardRef = useRef<HTMLDivElement>(null);
     const itemRowRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
+    const categoryRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
 
     const [inventoryList, setInventoryList] = useState<InventoryItem[]>([]);
     const [report, setReport] = useState<InventoryReport | null>(null);
@@ -100,13 +101,9 @@ function InventoryPageComponent() {
 
         let filteredItems = inventoryList;
 
-        // Apply Search
+        // Apply Search using advancedSearch util (accent-insensitive, tokenized, relevance-sorted)
         if (searchQuery.trim()) {
-            const query = searchQuery.toLowerCase();
-            filteredItems = filteredItems.filter(item => 
-                item.name.toLowerCase().includes(query) || 
-                (item.category && item.category.toLowerCase().includes(query))
-            );
+            filteredItems = advancedSearch(filteredItems, searchQuery, ['name', 'category']);
         }
 
         // Apply Tab Filter
@@ -513,8 +510,20 @@ function InventoryPageComponent() {
     const hasSuggestions = suggestions && suggestions.ordersBySupplier && suggestions.ordersBySupplier.length > 0;
 
     const handleBackToOverview = () => {
+        const lastCategory = activeCategory;
         setActiveCategory(null);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        
+        // Use a slight timeout to allow the transition/render to occur before scrolling
+        if (lastCategory) {
+            setTimeout(() => {
+                const element = categoryRefs.current.get(lastCategory);
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 50);
+        } else {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
     };
 
     const handlePrevCategory = () => {
@@ -620,6 +629,9 @@ function InventoryPageComponent() {
                                         return (
                                             <motion.div
                                                 key={category}
+                                                ref={(el) => {
+                                                    if (el) categoryRefs.current.set(category, el);
+                                                }}
                                                 whileTap={{ scale: 0.98 }}
                                                 onClick={() => setActiveCategory(category)}
                                                 className="group relative p-4 rounded-2xl border bg-card shadow-sm cursor-pointer hover:border-primary/50 hover:shadow-md transition-all flex flex-col gap-3"

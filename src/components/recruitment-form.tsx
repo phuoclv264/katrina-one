@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -59,7 +59,7 @@ export function RecruitmentForm({ onSuccess }: { onSuccess?: () => void }) {
     email: '',
     birthYear: new Date().getFullYear() - 20,
     gender: 'Nam' as 'Nam' | 'Nữ' | 'Khác',
-    position: 'Phục vụ' as UserRole,
+    position: '' as UserRole | '',
     experience: '',
     note: '',
   });
@@ -101,7 +101,8 @@ export function RecruitmentForm({ onSuccess }: { onSuccess?: () => void }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.fullName || !formData.phone || !formData.email) {
+    // Now includes formData.position check
+    if (!formData.fullName || !formData.phone || !formData.email || !formData.position) {
       toast.error('Vui lòng điền đầy đủ thông tin bắt buộc.');
       return;
     }
@@ -121,6 +122,7 @@ export function RecruitmentForm({ onSuccess }: { onSuccess?: () => void }) {
 
       await dataStore.submitJobApplication({
         ...formData,
+        position: formData.position as UserRole,
         photoUrl,
         customAnswers,
       });
@@ -134,7 +136,7 @@ export function RecruitmentForm({ onSuccess }: { onSuccess?: () => void }) {
         email: '',
         birthYear: new Date().getFullYear() - 20,
         gender: 'Nam',
-        position: 'Phục vụ',
+        position: '',
         experience: '',
         note: '',
       });
@@ -151,12 +153,33 @@ export function RecruitmentForm({ onSuccess }: { onSuccess?: () => void }) {
     }
   };
 
+  const adjustTextareaHeight = (element: HTMLTextAreaElement) => {
+    element.style.height = 'inherit';
+    // If empty, we want it to be at least big enough for the placeholder
+    // but scrollHeight with value='' doesn't always reflect placeholder height.
+    const currentVal = element.value;
+    if (!currentVal && element.placeholder) {
+      // Temporarily set value to placeholder to measure
+      element.value = element.placeholder;
+      element.style.height = `${element.scrollHeight}px`;
+      element.value = '';
+    } else {
+      element.style.height = `${element.scrollHeight}px`;
+    }
+  };
+
+  useEffect(() => {
+    // Initial height adjustment for all textareas
+    const textareas = document.querySelectorAll('textarea');
+    textareas.forEach((ta) => adjustTextareaHeight(ta as HTMLTextAreaElement));
+  }, [questions]); // Re-run when questions are loaded from settings
+
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="max-w-6xl mx-auto px-1 sm:px-4 py-8">
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="bg-white rounded-[2rem] shadow-2xl shadow-blue-900/10 overflow-hidden border border-slate-100"
+        className="bg-white rounded-[1.5rem] sm:rounded-[2rem] shadow-2xl shadow-blue-900/10 overflow-hidden border border-slate-100"
       >
         <form onSubmit={handleSubmit} className="flex flex-col">
           {/* Header Banner - Responsive Padding */}
@@ -182,11 +205,11 @@ export function RecruitmentForm({ onSuccess }: { onSuccess?: () => void }) {
             </div>
           </div>
 
-          <div className="p-4 sm:p-10 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+          <div className="p-3 sm:p-10 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
             {/* Left Column: Photo & Brief Info - Responsive Alignment */}
-            <div className="lg:col-span-4 flex flex-col items-center gap-6">
-              <div className="w-full flex flex-col items-center sm:items-start">
-                <Label className="text-slate-500 font-bold text-xs uppercase tracking-wider mb-4 block text-center lg:text-left">
+            <div className="lg:col-span-3 flex flex-col items-center gap-6">
+              <div className="w-full flex flex-col items-center sm:items-start text-center sm:text-left">
+                <Label className="text-slate-500 font-bold text-xs uppercase tracking-wider mb-4 block">
                   Ảnh Chân Dung <span className="text-rose-500 font-black">*</span>
                 </Label>
                 <div className="relative group">
@@ -262,7 +285,7 @@ export function RecruitmentForm({ onSuccess }: { onSuccess?: () => void }) {
             </div>
 
             {/* Right Column: Form Fields */}
-            <div className="lg:col-span-8 flex flex-col gap-8">
+            <div className="lg:col-span-9 flex flex-col gap-8">
               <section className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="h-8 w-1.5 bg-blue-500 rounded-full" />
@@ -270,22 +293,20 @@ export function RecruitmentForm({ onSuccess }: { onSuccess?: () => void }) {
                 </div>
                 
                 <div className="grid gap-5">
-                  <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
-                    <div>
-                      <Label htmlFor="fullName" className="text-slate-500 font-bold text-[11px] uppercase ml-1 mb-2 block">Họ và tên <span className="text-rose-500 font-black">*</span></Label>
-                      <div className="relative group">
-                        <div className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 flex items-center justify-center text-slate-400 group-focus-within:text-blue-500 transition-colors">
-                          <User className="h-4 w-4" />
-                        </div>
-                        <Input 
-                          id="fullName" 
-                          placeholder="Nguyễn Văn A" 
-                          value={formData.fullName} 
-                          onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} 
-                          className="pl-11 h-12 bg-white border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 rounded-2xl transition-all font-bold text-slate-700" 
-                          required 
-                        />
+                  <div>
+                    <Label htmlFor="fullName" className="text-slate-500 font-bold text-[11px] uppercase ml-1 mb-2 block">Họ và tên <span className="text-rose-500 font-black">*</span></Label>
+                    <div className="relative group">
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 flex items-center justify-center text-slate-400 group-focus-within:text-blue-500 transition-colors">
+                        <User className="h-4 w-4" />
                       </div>
+                      <Input 
+                        id="fullName" 
+                        placeholder="Nguyễn Văn A" 
+                        value={formData.fullName} 
+                        onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} 
+                        className="pl-11 h-12 bg-white border-slate-200 hover:border-blue-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 rounded-2xl transition-all font-bold text-slate-700" 
+                        required 
+                      />
                     </div>
                   </div>
 
@@ -302,7 +323,7 @@ export function RecruitmentForm({ onSuccess }: { onSuccess?: () => void }) {
                           placeholder="09xx xxx xxx" 
                           value={formData.phone} 
                           onChange={(e) => setFormData({ ...formData, phone: e.target.value })} 
-                          className="pl-11 h-12 bg-white border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 rounded-2xl transition-all font-bold text-slate-700" 
+                          className="pl-11 h-12 bg-white border-slate-200 hover:border-blue-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 rounded-2xl transition-all font-bold text-slate-700" 
                           required 
                         />
                       </div>
@@ -320,7 +341,7 @@ export function RecruitmentForm({ onSuccess }: { onSuccess?: () => void }) {
                           placeholder="example@gmail.com" 
                           value={formData.email} 
                           onChange={(e) => setFormData({ ...formData, email: e.target.value })} 
-                          className="pl-11 h-12 bg-white border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 rounded-2xl transition-all font-bold text-slate-700" 
+                          className="pl-11 h-12 bg-white border-slate-200 hover:border-blue-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 rounded-2xl transition-all font-bold text-slate-700" 
                           required 
                         />
                       </div>
@@ -339,7 +360,7 @@ export function RecruitmentForm({ onSuccess }: { onSuccess?: () => void }) {
                           type="number" 
                           value={formData.birthYear} 
                           onChange={(e) => setFormData({ ...formData, birthYear: parseInt(e.target.value) })} 
-                          className="pl-11 h-12 bg-white border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 rounded-2xl transition-all font-bold text-slate-700" 
+                          className="pl-11 h-12 bg-white border-slate-200 hover:border-blue-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 rounded-2xl transition-all font-bold text-slate-700" 
                         />
                       </div>
                     </div>
@@ -347,7 +368,7 @@ export function RecruitmentForm({ onSuccess }: { onSuccess?: () => void }) {
                     <div>
                       <Label htmlFor="gender" className="text-slate-500 font-bold text-[11px] uppercase ml-1 mb-2 block text-xs">Giới tính</Label>
                       <Select value={formData.gender} onValueChange={(value: any) => setFormData({ ...formData, gender: value })}>
-                        <SelectTrigger className="h-12 bg-white border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 rounded-2xl transition-all font-bold text-slate-700">
+                        <SelectTrigger className="h-12 bg-white border-slate-200 hover:border-blue-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 rounded-2xl transition-all font-bold text-slate-700">
                           <SelectValue placeholder="Chọn giới tính" />
                         </SelectTrigger>
                         <SelectContent className="rounded-2xl">
@@ -369,9 +390,11 @@ export function RecruitmentForm({ onSuccess }: { onSuccess?: () => void }) {
 
                 <div className="grid gap-5">
                   <div>
-                    <Label htmlFor="position" className="text-slate-500 font-bold text-[11px] uppercase ml-1 mb-2 block">Vị trí ứng tuyển</Label>
+                    <Label htmlFor="position" className="text-slate-500 font-bold text-[11px] uppercase ml-1 mb-2 block">
+                      Vị trí ứng tuyển <span className="text-rose-500 font-black">*</span>
+                    </Label>
                     <Select value={formData.position} onValueChange={(value: any) => setFormData({ ...formData, position: value })}>
-                      <SelectTrigger className="h-14 bg-blue-50/50 border-blue-100 focus:ring-blue-500/10 rounded-2xl transition-all px-4 group">
+                      <SelectTrigger className="h-14 bg-blue-50/50 border-blue-100 hover:border-blue-300 focus:ring-blue-500/10 rounded-2xl transition-all px-4 group">
                         <div className="flex items-center justify-between w-full">
                           <div className="flex items-center gap-3">
                             <div className="h-8 w-8 rounded-lg bg-white shadow-sm flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform">
@@ -379,7 +402,6 @@ export function RecruitmentForm({ onSuccess }: { onSuccess?: () => void }) {
                             </div>
                             <div className="text-left">
                               <SelectValue placeholder="Chọn vị trí" />
-                              <p className="text-[10px] text-blue-600/60 font-medium">Chọn vị trí bạn cảm thấy phù hợp nhất</p>
                             </div>
                           </div>
                         </div>
@@ -398,8 +420,11 @@ export function RecruitmentForm({ onSuccess }: { onSuccess?: () => void }) {
                       id="experience" 
                       placeholder="Hãy chia sẻ chi tiết về những công việc liên quan mà bạn đã từng làm..." 
                       value={formData.experience} 
-                      onChange={(e) => setFormData({ ...formData, experience: e.target.value })} 
-                      className="min-h-[140px] bg-white border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 rounded-2xl transition-all font-bold p-4 resize-none text-slate-700 shadow-sm" 
+                      onChange={(e) => {
+                        setFormData({ ...formData, experience: e.target.value });
+                        adjustTextareaHeight(e.target);
+                      }} 
+                      className="min-h-[48px] bg-white border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 rounded-2xl transition-all font-bold p-4 resize-none text-slate-700 shadow-sm overflow-hidden" 
                     />
                   </div>
 
@@ -424,18 +449,21 @@ export function RecruitmentForm({ onSuccess }: { onSuccess?: () => void }) {
                             </Label>
                             
                             {q.type === 'text' && (
-                              <Input 
+                              <Textarea 
                                 placeholder="Câu trả lời của bạn..."
                                 value={customAnswers[q.id] || ''}
-                                onChange={(e) => setCustomAnswers({ ...customAnswers, [q.id]: e.target.value })}
-                                className="h-12 bg-white border-slate-200 focus:border-blue-500 rounded-xl font-bold text-slate-700 shadow-sm"
+                                onChange={(e) => {
+                                  setCustomAnswers({ ...customAnswers, [q.id]: e.target.value });
+                                  adjustTextareaHeight(e.target);
+                                }}
+                                className="min-h-[48px] bg-white border-slate-200 focus:border-blue-500 rounded-xl font-bold text-slate-700 shadow-sm resize-none overflow-hidden"
                                 required={q.required}
                               />
                             )}
 
                             {q.type === 'yes_no' && (
                               <div className="flex gap-3">
-                                {['Có', 'Không'].map((opt) => (
+                                {['Có', 'Không'].map((opt: string) => (
                                   <Button
                                     key={opt}
                                     type="button"
@@ -490,33 +518,36 @@ export function RecruitmentForm({ onSuccess }: { onSuccess?: () => void }) {
 
                   <div>
                     <Label htmlFor="note" className="text-slate-500 font-bold text-[11px] uppercase ml-1 mb-2 block text-xs">Ghi chú thêm (Tùy chọn)</Label>
-                    <Input 
+                    <Textarea 
                       id="note" 
                       placeholder="Ưu điểm, năng khiếu, hoặc mong muốn riêng..." 
                       value={formData.note} 
-                      onChange={(e) => setFormData({ ...formData, note: e.target.value })} 
-                      className="h-12 bg-white border-slate-200 focus:border-blue-500 rounded-xl transition-all font-bold text-slate-700" 
+                      onChange={(e) => {
+                        setFormData({ ...formData, note: e.target.value });
+                        adjustTextareaHeight(e.target);
+                      }} 
+                      className="min-h-[48px] bg-white border-slate-200 focus:border-blue-500 rounded-xl transition-all font-bold text-slate-700 resize-none overflow-hidden" 
                     />
                   </div>
                 </div>
               </section>
 
-              <div className="mt-4 flex items-center justify-end gap-3">
+              <div className="mt-8 flex flex-col-reverse sm:flex-row items-center justify-end gap-3">
                 <Button 
                   type="button" 
                   variant="ghost" 
                   onClick={() => {
-                    setFormData({ fullName: '', phone: '', email: '', birthYear: new Date().getFullYear() - 20, gender: 'Nam', position: 'Phục vụ', experience: '', note: '' });
+                    setFormData({ fullName: '', phone: '', email: '', birthYear: new Date().getFullYear() - 20, gender: 'Nam', position: '', experience: '', note: '' });
                     removePhoto();
                   }}
-                  className="rounded-xl px-6 h-12 text-slate-500 font-bold hover:bg-slate-50"
+                  className="w-full sm:w-auto rounded-xl px-6 h-12 text-slate-500 font-bold hover:bg-slate-50"
                 >
                   Làm Mới
                 </Button>
                 <Button 
                   type="submit" 
                   disabled={loading}
-                  className="rounded-xl px-8 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold shadow-lg shadow-blue-500/25 transition-all active:scale-95 disabled:opacity-70"
+                  className="w-full sm:w-auto rounded-xl px-8 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold shadow-lg shadow-blue-500/25 transition-all active:scale-95 disabled:opacity-70"
                 >
                   {loading ? (
                     <div className="flex items-center gap-2">

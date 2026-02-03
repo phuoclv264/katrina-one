@@ -56,7 +56,7 @@ export const InventorySectionView = ({
     return (
         <Card className="border-primary/20 shadow-md overflow-visible">
             {/* Sticky Header - Adjusted top for possible parent headers */}
-            <CardHeader className="sticky top-[100px] sm:top-[120px] z-30 border-b bg-background/95 backdrop-blur-sm py-4 rounded-t-xl px-4 sm:px-6">
+            <CardHeader className="sticky top-[56px] sm:top-[120px] z-30 border-b bg-background/95 backdrop-blur-sm py-4 rounded-t-xl px-4 sm:px-6">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <Button 
