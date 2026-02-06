@@ -52,7 +52,8 @@ import {
   X,
   SlidersHorizontal,
   LayoutGrid,
-  List as ListIcon
+  List as ListIcon,
+  FileText
 } from 'lucide-react';
 import { toast } from '@/components/ui/pro-toast';
 import { useAuth } from '@/hooks/use-auth';
@@ -130,6 +131,17 @@ export default function RecruitmentManagementPage() {
       }
     } catch (error) {
       toast.error('Không thể cập nhật trạng thái.');
+    }
+  };
+
+  const handleUpdateAdminNote = async (id: string, adminNote: string) => {
+    try {
+      await dataStore.updateJobApplicationAdminNote(id, adminNote);
+      if (selectedApp?.id === id) {
+        setSelectedApp({ ...selectedApp, adminNote });
+      }
+    } catch (error) {
+      toast.error('Không thể cập nhật ghi chú.');
     }
   };
 
@@ -532,7 +544,12 @@ export default function RecruitmentManagementPage() {
                             )}
                           </div>
                           <div onClick={() => setSelectedApp(app)}>
-                            <h3 className="font-black text-slate-900 leading-tight">{app.fullName}</h3>
+                            <h3 className="font-black text-slate-900 leading-tight flex items-center gap-2">
+                              {app.fullName}
+                              {app.adminNote && (
+                                <FileText className="h-4 w-4 text-rose-500 shrink-0" />
+                              )}
+                            </h3>
                             <p className="text-xs text-slate-400 font-bold mt-0.5">{app.gender}</p>
                           </div>
                         </div>
@@ -670,7 +687,12 @@ export default function RecruitmentManagementPage() {
                                 )}
                               </div>
                               <div>
-                                <h4 className="font-black text-slate-900 text-lg">{app.fullName}</h4>
+                                <h4 className="font-black text-slate-900 text-lg flex items-center gap-2">
+                                  {app.fullName}
+                                  {app.adminNote && (
+                                    <FileText className="h-4 w-4 text-rose-500 shrink-0" />
+                                  )}
+                                </h4>
                                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{app.phone}</p>
                               </div>
                             </div>
@@ -736,6 +758,7 @@ export default function RecruitmentManagementPage() {
         application={selectedApp}
         onClose={() => setSelectedApp(null)}
         onUpdateStatus={handleUpdateStatus}
+        onUpdateAdminNote={handleUpdateAdminNote}
         getStatusBadge={getStatusBadge}
         onDelete={handleDelete}
       />

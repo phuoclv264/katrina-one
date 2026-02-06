@@ -507,7 +507,7 @@ export async function getExpenseSlipsForDateRange({ from, to }: { from: string, 
     } as ExpenseSlip));
 }
 
-export async function addOrUpdateExpenseSlip(data: any, id?: string): Promise<void> {
+export async function addOrUpdateExpenseSlip(data: any, id?: string): Promise<string> {
     const docRef = id ? doc(db, 'expense_slips', id) : doc(collection(db, 'expense_slips'));
     const { existingPhotos, photosToDelete, newPhotoIds, ...slipData } = data;
 
@@ -568,6 +568,8 @@ export async function addOrUpdateExpenseSlip(data: any, id?: string): Promise<vo
     }
 
     await setDoc(docRef, finalData, { merge: true });
+    // Return the document id so callers can link this slip to related objects
+    return docRef.id;
 }
 
 export async function deleteExpenseSlip(slip: ExpenseSlip): Promise<void> {

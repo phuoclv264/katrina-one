@@ -254,14 +254,32 @@ function ScheduleViewComponent() {
     const handleSaveAvailability = useCallback(async (date: Date, slots: TimeSlot[]) => {
         if (!user) return;
         try {
-            await dataStore.saveUserAvailability(user.uid, user.displayName, date, slots);
+            let finalSlots = slots;
+            // If the schedule is already published, we allow adding more availability but
+            // should not remove what the user already set. Merge existing slots with new ones.
+            const published = schedule?.status === 'published';
+            if (published) {
+                const dateKey = format(date, 'yyyy-MM-dd');
+                const existingEntry = availability.find(a => a.userId === user.uid && a.date === dateKey);
+                const existing: TimeSlot[] = existingEntry ? existingEntry.availableSlots : [];
+
+                // Merge while preserving original entries
+                finalSlots = [...existing];
+                slots.forEach(s => {
+                    if (!finalSlots.some(fs => isEqual(fs, s))) {
+                        finalSlots.push(s);
+                    }
+                });
+            }
+
+            await dataStore.saveUserAvailability(user.uid, user.displayName, date, finalSlots);
             toast.success('Đã cập nhật thời gian rảnh của bạn.');
             setIsAvailabilityDialogOpen(false);
         } catch (error) {
             console.error("Failed to save availability:", error);
             toast.error('Không thể lưu thời gian rảnh.');
         }
-    }, [user]);
+    }, [user, availability, schedule]);
 
     const handlePassShift = async (shift: AssignedShift) => {
         if (!user || !schedule) return;
@@ -490,6 +508,8 @@ function ScheduleViewComponent() {
     const today = startOfToday();
     const canRegisterAvailability = isBefore(today, endOfWeek(currentDate, { weekStartsOn: 1 }));
     const isSchedulePublished = schedule?.status === 'published';
+    // We allow adding availability even when the schedule is published, but disallow removing already-saved slots
+    const canUpdateAvailability = canRegisterAvailability || isSchedulePublished;
 
     const getShiftIcon = (startTime: string) => {
         const hour = parseInt(startTime.split(':')[0]);
@@ -656,48 +676,40 @@ function ScheduleViewComponent() {
                                     </div>
 
                                     <div className="flex items-center justify-end">
-                                        {!isSchedulePublished ? (
-                                            canRegisterAvailability && (
-                                                <div className="flex items-center gap-2">
-                                                    {availabilityForDay.length > 0 ? (
-                                                        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-1.5 max-w-full">
-                                                            {availabilityForDay.map((slot, i) => (
-                                                                <div
-                                                                    key={i}
-                                                                    className="inline-flex items-center px-2 py-1 sm:px-2.5 sm:py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg sm:rounded-xl text-[10px] sm:text-[11px] font-semibold sm:font-black gap-1 shadow-sm text-slate-700 dark:text-slate-200 whitespace-nowrap"
-                                                                >
-                                                                    <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-primary" />
-                                                                    {slot.start} – {slot.end}
-                                                                </div>
-                                                            ))}
-
-                                                            <Button
-                                                                size="sm"
-                                                                variant="ghost"
-                                                                className="rounded-xl h-7 px-2 sm:h-8 sm:px-3 text-[9px] sm:text-[10px] font-black hover:bg-primary/5 text-primary transition-all w-full sm:w-auto mt-2 sm:mt-0 flex-shrink-0"
-                                                                onClick={() => openAvailabilityDialog(day)}
-                                                            >
-                                                                SỬA GIỜ
-                                                            </Button>
-                                                        </div>
-                                                    ) : (
-                                                        <button
-                                                            onClick={() => openAvailabilityDialog(day)}
-                                                            className="group/btn h-8 px-3 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-800 text-slate-400 hover:border-primary/40 hover:text-primary transition-all inline-flex items-center gap-1.5 font-black text-[10px] uppercase tracking-wider"
+                                        {(canUpdateAvailability) && (
+                                        <div className="flex items-center gap-2">
+                                            {availabilityForDay.length > 0 ? (
+                                                <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-1.5 max-w-full">
+                                                    {availabilityForDay.map((slot, i) => (
+                                                        <div
+                                                            key={i}
+                                                            className="inline-flex items-center px-2 py-1 sm:px-2.5 sm:py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg sm:rounded-xl text-[10px] sm:text-[11px] font-semibold sm:font-black gap-1 shadow-sm text-slate-700 dark:text-slate-200 whitespace-nowrap"
                                                         >
-                                                            <CalendarIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                                                            Đăng ký giờ rảnh
-                                                        </button>
-                                                    )}
+                                                            <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-primary" />
+                                                            {slot.start} – {slot.end}
+                                                        </div>
+                                                    ))}
+
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="rounded-xl h-7 px-2 sm:h-8 sm:px-3 text-[9px] sm:text-[10px] font-black hover:bg-primary/5 text-primary transition-all w-full sm:w-auto mt-2 sm:mt-0 flex-shrink-0"
+                                                        onClick={() => openAvailabilityDialog(day)}
+                                                    >
+                                                        {isSchedulePublished ? 'THÊM GIỜ' : 'SỬA GIỜ'}
+                                                    </Button> 
                                                 </div>
-                                            )
-                                        ) : (
-                                            shiftsForDay.length === 0 && (
-                                                <span className="text-[11px] font-black text-slate-300 dark:text-slate-700 uppercase tracking-widest flex items-center gap-2">
-                                                    <ShieldCheck className="h-3.5 w-3.5" /> NGHỈ
-                                                </span>
-                                            )
-                                        )}
+                                            ) : (
+                                                <button
+                                                    onClick={() => openAvailabilityDialog(day)}
+                                                    className={cn("group/btn h-8 px-3 rounded-xl text-[10px] uppercase tracking-wider font-black", isSchedulePublished ? "bg-muted/5 text-primary hover:bg-primary/5" : "border-2 border-dashed border-slate-200 dark:border-slate-800 text-slate-400 hover:border-primary/40 hover:text-primary")}
+                                                >
+                                                    <CalendarIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                                                    {isSchedulePublished ? 'THÊM GIỜ' : 'Đăng ký giờ rảnh'}
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
                                     </div>
                                 </div>
 
@@ -837,6 +849,7 @@ function ScheduleViewComponent() {
                 selectedDate={selectedDateForAvailability}
                 existingAvailability={selectedDateForAvailability ? userAvailability.get(format(selectedDateForAvailability, 'yyyy-MM-dd')) || [] : []}
                 shiftTemplates={shiftTemplates}
+                lockExistingSlots={isSchedulePublished}
                 parentDialogTag='root'
             />
 

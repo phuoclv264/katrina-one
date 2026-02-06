@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -20,7 +20,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from '@/lib/utils';
 import isEqual from 'lodash.isequal';
 import { Badge } from '@/components/ui/badge';
-import { X, Loader2, CalendarCheck2, Clock, CheckCircle2 } from 'lucide-react';
+import { X, Loader2, CalendarCheck2, Clock, CheckCircle2, Lock, Info, MessageSquare } from 'lucide-react';
 import { vi } from 'date-fns/locale';
 
 type AvailabilityDialogProps = {
@@ -31,83 +31,91 @@ type AvailabilityDialogProps = {
   existingAvailability: TimeSlot[];
   shiftTemplates: ShiftTemplate[];
   parentDialogTag: string;
+  /** When true, slots that already existed when the dialog opened cannot be removed */
+  lockExistingSlots?: boolean;
 };
 
-export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDate, existingAvailability, shiftTemplates, parentDialogTag }: AvailabilityDialogProps) {
+export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDate, existingAvailability, shiftTemplates, parentDialogTag, lockExistingSlots }: AvailabilityDialogProps) {
   const [selectedSlots, setSelectedSlots] = useState<TimeSlot[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   const quickSelectSlots = useMemo(() => {
     // Add the two special full-day slots
-    const specialSlots: TimeSlot[] = [
-      { start: '06:00', end: '17:00' },
-      { start: '06:00', end: '22:30' },
+    const timeSlot: TimeSlot[] = [
+      // { start: '06:00', end: '17:00' },
+      // { start: '06:00', end: '22:30' },
+      { start: '06:00', end: '12:00' },
+      { start: '12:00', end: '17:00' },
+      { start: '17:00', end: '22:30' },
     ];
-
-    const uniqueSlots: TimeSlot[] = [];
-    const seen = new Set<string>();
-
-    shiftTemplates.forEach(template => {
-      const key = `${template.timeSlot.start}-${template.timeSlot.end}`;
-      if (!seen.has(key)) {
-        uniqueSlots.push(template.timeSlot);
-        seen.add(key);
-      }
-    });
-
-    // Sort the slots by start time
-    uniqueSlots.sort((a, b) => a.start.localeCompare(b.start));
 
     // Prepend the special slots
     return {
-      special: specialSlots,
-      regular: uniqueSlots
+      special: timeSlot
     };
 
   }, [shiftTemplates]);
 
+  const originalSlotsRef = useRef<TimeSlot[]>([]);
+
   useEffect(() => {
     if (isOpen) {
       // Deep copy to prevent mutation issues
-      setSelectedSlots(JSON.parse(JSON.stringify(existingAvailability || [])));
+      const copied = JSON.parse(JSON.stringify(existingAvailability || []));
+      setSelectedSlots(copied);
+      // Keep a snapshot of original slots so we can prevent their removal if locked
+      originalSlotsRef.current = copied;
     }
   }, [isOpen, existingAvailability]);
 
   const handleToggleSlot = (slot: TimeSlot) => {
-    const mergedSlots: TimeSlot[] = [];
+    // Determine whether the clicked slot is covered by any original (pre-existing) slot
+    const isCoveredByOriginal = originalSlotsRef.current.some(o => o.start <= slot.start && o.end >= slot.end);
 
-    // Sort slots by start time
-    const sortedSlots = [...selectedSlots, slot].sort((a, b) => a.start.localeCompare(b.start));
+    // Exact match present?
+    const isExactSelected = selectedSlots.some(s => isEqual(s, slot));
 
-    let currentMergedSlot = { ...sortedSlots[0] };
+    // Is there a selected slot that fully covers this one (needs splitting on unselect)
+    const coveringIndex = selectedSlots.findIndex(s => s.start <= slot.start && s.end >= slot.end);
 
-    for (let i = 1; i < sortedSlots.length; i++) {
-      const nextSlot = sortedSlots[i];
-
-      // Convert times to a comparable format (e.g., minutes from midnight)
-      const currentEndMinutes = parseInt(currentMergedSlot.end.split(':')[0]) * 60 + parseInt(currentMergedSlot.end.split(':')[1]);
-      const nextStartMinutes = parseInt(nextSlot.start.split(':')[0]) * 60 + parseInt(nextSlot.start.split(':')[1]);
-      const nextEndMinutes = parseInt(nextSlot.end.split(':')[0]) * 60 + parseInt(nextSlot.end.split(':')[1]);
-
-      // Check for overlap or adjacency (within a few minutes tolerance)
-      // If next slot starts before or at the current merged slot's end, they overlap or are adjacent
-      if (nextStartMinutes <= currentEndMinutes) {
-        // Merge by extending the end time if the next slot's end is later
-        if (nextEndMinutes > currentEndMinutes) {
-          currentMergedSlot.end = nextSlot.end;
-        }
-      } else {
-        // No overlap, push the current merged slot and start a new one
-        mergedSlots.push(currentMergedSlot);
-        currentMergedSlot = { ...nextSlot };
+    // If exact selected -> attempt to remove exact entry
+    if (isExactSelected) {
+      if ((lockExistingSlots || false) && isCoveredByOriginal) {
+        // Locked: cannot remove
+        return;
       }
+      setSelectedSlots(prev => prev.filter(s => !isEqual(s, slot)));
+      return;
     }
-    mergedSlots.push(currentMergedSlot); // Push the last merged slot
 
-    setSelectedSlots(mergedSlots);
+    // If covered by a larger selected slot -> split it when unselecting; here we treat click as 'unselect'
+    if (coveringIndex !== -1) {
+      if ((lockExistingSlots || false) && isCoveredByOriginal) {
+        return;
+      }
+      const covering = selectedSlots[coveringIndex];
+      const newSlots: TimeSlot[] = [];
+      // left piece
+      if (covering.start < slot.start) newSlots.push({ start: covering.start, end: slot.start });
+      // right piece
+      if (slot.end < covering.end) newSlots.push({ start: slot.end, end: covering.end });
+      setSelectedSlots(prev => [...prev.slice(0, coveringIndex), ...newSlots, ...prev.slice(coveringIndex + 1)]);
+      return;
+    }
+
+    // Otherwise add the exact slot (toggle on)
+    setSelectedSlots(prev => {
+      if (prev.some(s => isEqual(s, slot))) return prev;
+      return [...prev, slot];
+    });
   };
 
   const handleRemoveSlot = (slotToRemove: TimeSlot) => {
+    const isOriginal = originalSlotsRef.current.some(s => isEqual(s, slotToRemove));
+    if ((lockExistingSlots || false) && isOriginal) {
+      // When locked (schedule published), do not allow removing original slots
+      return;
+    }
     setSelectedSlots(prevSelected => prevSelected.filter(s => !isEqual(s, slotToRemove)));
   };
 
@@ -136,93 +144,78 @@ export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDa
         </DialogHeader>
 
         <DialogBody className="space-y-6 pt-6">
+          {/* Owner Note */}
+          <div className="p-4 rounded-[24px] bg-blue-500/5 border border-blue-500/10 flex items-start gap-3.5 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.05] transition-opacity">
+              <MessageSquare className="h-16 w-16 -rotate-12" />
+            </div>
+            <div className="p-2 bg-blue-500/15 rounded-xl shrink-0">
+              <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div className="space-y-1.5 pt-0.5">
+              <h4 className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-[0.15em]">Lưu ý từ chủ quán</h4>
+              <p className="text-[11px] font-medium leading-[1.6] text-blue-900/80 dark:text-blue-200/70">
+                Các em đăng ký <span className="font-bold text-blue-700 dark:text-blue-300">khung thời gian rảnh</span>, không phải là đăng ký lịch làm việc nhé. Việc đăng ký càng nhiều khung giờ rảnh sẽ giúp quán dễ sắp xếp lịch hơn và các em cũng có cơ hội được xếp nhiều ca hơn. Nếu các em muốn giới hạn số ca mong muốn, có thể trao đổi trực tiếp với chủ quán.
+              </p>
+            </div>
+          </div>
+
           {/* Quick Select Section */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 px-1">
               <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
                 <Clock className="w-3.5 h-3.5" />
               </div>
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Chọn nhanh theo ca</Label>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Chọn khung thời gian</Label>
             </div>
 
             <div className="grid grid-cols-2 gap-2.5">
               {quickSelectSlots.special.map((slot, index) => {
-                const isSelected = selectedSlots.some(s => isEqual(s, slot));
+                // Determine if this specific quick-select slot is covered by an original entry
+                const isCoveredByOriginal = originalSlotsRef.current.some(o => o.start <= slot.start && o.end >= slot.end);
+                const isCurrentlySelected = selectedSlots.some(s => s.start <= slot.start && s.end >= slot.end);
+                const isSelected = isCurrentlySelected || isCoveredByOriginal;
+                const isLocked = lockExistingSlots && isCoveredByOriginal;
+
                 return (
                   <Button
                     key={`special-${index}`}
                     variant="outline"
                     className={cn(
-                      "h-12 rounded-[20px] font-bold text-[11px] sm:text-xs transition-all border-2",
+                      "h-12 rounded-3xl font-bold text-[11px] sm:text-xs transition-all border-2 relative overflow-hidden min-w-[92px] sm:min-w-[140px] px-2",
                       isSelected
                         ? "bg-primary border-primary text-primary-foreground shadow-md shadow-primary/10 scale-[0.98]"
-                        : "bg-muted/5 border-muted-foreground/10 text-muted-foreground hover:border-primary/20 hover:bg-primary/5"
+                        : "bg-muted/5 border-muted-foreground/10 text-muted-foreground hover:border-primary/20 hover:bg-primary/5",
+                      isLocked && "cursor-default opacity-95 active:scale-100" // No click feedback for locked slots
                     )}
                     onClick={() => handleToggleSlot(slot)}
                   >
-                    {isSelected && <CheckCircle2 className="w-3.5 h-3.5 mr-1" />}
-                    {slot.start} - {slot.end}
-                  </Button>
-                )
-              })}
-              {quickSelectSlots.regular.map((slot, index) => {
-                const isSelected = selectedSlots.some(s => isEqual(s, slot));
-                return (
-                  <Button
-                    key={index}
-                    variant="outline"
-                    className={cn(
-                      "h-12 rounded-[20px] font-bold text-[11px] sm:text-xs transition-all border-2",
-                      isSelected
-                        ? "bg-primary border-primary text-primary-foreground shadow-md shadow-primary/10 scale-[0.98]"
-                        : "bg-muted/5 border-muted-foreground/10 text-muted-foreground hover:border-primary/20 hover:bg-primary/5"
-                    )}
-                    onClick={() => handleToggleSlot(slot)}
-                  >
-                    {isSelected && <CheckCircle2 className="w-3.5 h-3.5 mr-1" />}
-                    {slot.start} - {slot.end}
+                    <div className="flex flex-col items-center justify-center gap-1">
+                      {isLocked ? (
+                        <Lock className="w-3.5 h-3.5 animate-in fade-in zoom-in duration-300" />
+                      ) : isSelected ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 animate-in fade-in zoom-in duration-300" />
+                      ) : null}
+                      <span className="tabular-nums whitespace-normal text-center break-words leading-tight">{slot.start} - {slot.end}</span>
+                    </div>
                   </Button>
                 )
               })}
             </div>
-          </div>
 
-          {/* Selection List Section */}
-          <div className="space-y-4 p-5 bg-muted/30 rounded-[32px] border border-muted-foreground/5">
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Khung giờ đã chọn</Label>
-            </div>
-
-            {selectedSlots.length === 0 ? (
-              <div className="py-8 flex flex-col items-center justify-center text-center">
-                <div className="w-12 h-12 rounded-2xl bg-muted/50 flex items-center justify-center mb-3">
-                  <Clock className="w-6 h-6 text-muted-foreground/30" />
+            {lockExistingSlots && (
+              <div className="mt-4 p-4 rounded-[20px] bg-orange-500/5 border border-orange-500/10 flex items-start gap-3 animate-in slide-in-from-bottom-2 duration-500">
+                <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-500 shrink-0">
+                  <Lock className="h-3.5 w-3.5" />
                 </div>
-                <p className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-widest">Chưa chọn khung giờ</p>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-orange-600 dark:text-orange-400 uppercase tracking-widest">Lịch đã công bố</p>
+                  <p className="text-[11px] text-orange-600/70 dark:text-orange-400/70 font-bold leading-relaxed">
+                    Bạn chỉ có thể đăng ký thêm khung giờ mới, không thể xóa khung giờ đã được lưu trước đó.
+                  </p>
+                </div>
               </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {selectedSlots.map((slot, index) => (
-                  <Badge 
-                    key={index} 
-                    variant="secondary" 
-                    className="bg-background border border-muted-foreground/10 text-foreground text-[11px] font-bold h-10 px-3 pl-4 rounded-[14px] flex items-center gap-2 group transition-all hover:border-primary/20"
-                  >
-                    <span>{slot.start} - {slot.end}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/5"
-                      onClick={() => handleRemoveSlot(slot)}
-                    >
-                      <X className="h-3.5 h-3.5" />
-                      <span className="sr-only">Xóa</span>
-                    </Button>
-                  </Badge>
-                ))}
-              </div>
-            )}
+            )} 
           </div>
         </DialogBody>
 

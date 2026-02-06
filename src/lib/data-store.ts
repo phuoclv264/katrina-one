@@ -272,6 +272,14 @@ export const dataStore = {
     });
   },
 
+  async updateJobApplicationAdminNote(applicationId: string, adminNote: string): Promise<void> {
+    const docRef = doc(db, 'jobApplications', applicationId);
+    await updateDoc(docRef, {
+      adminNote,
+      updatedAt: new Date().toISOString()
+    });
+  },
+
   async deleteJobApplication(applicationId: string): Promise<void> {
     const docRef = doc(db, 'jobApplications', applicationId);
     await deleteDoc(docRef);
@@ -446,6 +454,56 @@ export const dataStore = {
         console.error("Failed to send notification for advance", e);
     }
 
+    // Create linked expense slip
+    try {
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      const recipientName = userDoc.exists() ? ((userDoc.data() as any).displayName || userId) : userId;
+      // Set slip date to the first day of the current month (respecting getTodaysDateKey timezone)
+      const todayKey = getTodaysDateKey();
+      const [year, month] = todayKey.split('-');
+      const dateStr = `${year}-${month}-01`;
+
+      const slipData: Partial<ExpenseSlip> = {
+        date: dateStr,
+        expenseType: 'other_cost',
+        items: [{
+          itemId: 'other_cost',
+          name: 'Tạm ứng lương',
+          description: `Tạm ứng cho ${recipientName}. Lý do: ${note}. AdvanceId:${advanceId}`,
+          supplier: recipientName,
+          quantity: 1,
+          unitPrice: amount,
+          unit: 'cái'
+        }],
+        paymentMethod: 'cash',
+        notes: `Tạm ứng lương cho ${recipientName}`,
+        createdBy: { userId: createdBy.userId, userName: createdBy.userName },
+        associatedSalaryAdvanceId: advanceId,
+        associatedMonthId: monthId,
+        associatedUserId: userId
+      } as Partial<ExpenseSlip>;
+
+      const slipId = await cashierStore.addOrUpdateExpenseSlip(slipData as any);
+
+      // Link expense slip id back to the advance in the salary sheet in a new transaction
+      await runTransaction(db, async (transaction) => {
+        const docSnap = await transaction.get(docRef);
+        if (!docSnap.exists()) throw new Error('Salary sheet not found when linking slip');
+        const sheet = docSnap.data() as MonthlySalarySheet;
+        const record = sheet.salaryRecords[userId];
+        if (!record) throw new Error('User record not found when linking slip');
+
+        const currentAdvances = record.advances || [];
+        const updatedAdvances = currentAdvances.map(a => a.id === advanceId ? { ...a, expenseSlipId: slipId } : a);
+
+        transaction.update(docRef, {
+          [`salaryRecords.${userId}.advances`]: updatedAdvances
+        });
+      });
+    } catch (slipErr) {
+      console.error('Failed to create or link expense slip for salary advance:', slipErr);
+    }
+
     return advanceId;
   },
 
@@ -498,6 +556,18 @@ export const dataStore = {
             await addDoc(collection(db, 'notifications'), notification);
         } catch (e) {
             console.error("Failed to send notification for advance deletion", e);
+        }
+
+        // Remove linked expense slip(s)
+        try {
+          const slipsQuery = query(collection(db, 'expense_slips'), where('associatedSalaryAdvanceId', '==', advanceId));
+          const slipsSnapshot = await getDocs(slipsQuery);
+          for (const slipDoc of slipsSnapshot.docs) {
+            const slip = { id: slipDoc.id, ...slipDoc.data() } as ExpenseSlip;
+            await cashierStore.deleteExpenseSlip(slip);
+          }
+        } catch (err) {
+          console.error('Failed to remove linked expense slip for deleted advance:', err);
         }
     }
   },

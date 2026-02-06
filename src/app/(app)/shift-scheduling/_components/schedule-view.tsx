@@ -28,6 +28,7 @@ import {
     FileX2,
     AlertTriangle,
     Calendar,
+    Users,
 } from 'lucide-react';
 import {
     getISOWeek,
@@ -51,7 +52,7 @@ import { dataStore } from '@/lib/data-store';
 import { toast } from '@/components/ui/pro-toast';
 import ShiftAssignmentDialog from './shift-assignment-popover'; // Renaming this import for clarity, but it's the right file
 import ShiftTemplatesDialog from './shift-templates-dialog';
-import TotalHoursTracker from './total-hours-tracker';
+import TotalHoursDialog from './total-hours-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, AlertDialogIcon } from '@/components/ui/alert-dialog';
 import HistoryAndReportsDialog from './history-reports-dialog';
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -61,7 +62,6 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import isEqual from 'lodash.isequal';
 import { Badge } from '@/components/ui/badge';
 import PassRequestsDialog from '../../schedule/_components/pass-requests-dialog';
-import UserDetailsDialog from './user-details-dialog';
 import { isUserAvailable, hasTimeConflict } from '@/lib/schedule-utils';
 import { getRelevantUnderstaffedShifts } from './understaffed-evidence-utils';
 import { useSearchParams } from 'next/navigation';
@@ -181,8 +181,7 @@ export default function ScheduleView() {
     const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
     const [isPassRequestsDialogOpen, setIsPassRequestsDialogOpen] = useState(false);
 
-    const [isUserDetailsDialogOpen, setIsUserDetailsDialogOpen] = useState(false);
-    const [selectedUserForDetails, setSelectedUserForDetails] = useState<ManagedUser | null>(null);
+    const [isTotalHoursDialogOpen, setIsTotalHoursDialogOpen] = useState(false);
 
     const [isHandlingConflict, setIsHandlingConflict] = useState(false);
     const [conflictDialog, setConflictDialog] = useState<{ isOpen: boolean; oldRequest: Notification | null; newRequestFn: () => void }>({ isOpen: false, oldRequest: null, newRequestFn: () => { } });
@@ -675,11 +674,6 @@ export default function ScheduleView() {
         ).length;
     }, [notifications, weekInterval, user, canManage]);
 
-    const handleUserClick = (user: ManagedUser) => {
-        setSelectedUserForDetails(user);
-        setIsUserDetailsDialogOpen(true);
-    };
-
     const getRoleColor = (role: UserRole | 'Bất kỳ'): string => {
         switch (role) {
             case 'Phục vụ': return 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700';
@@ -822,25 +816,134 @@ export default function ScheduleView() {
             <div className="flex flex-col xl:flex-row gap-8">
                 {/* Main Schedule View */}
                 <div className="flex-1">
-                    {/* Professional summary card that opens a dialog with full details */}
-                    <Card className="mb-8 overflow-hidden border-amber-200 dark:border-amber-900/50 bg-gradient-to-br from-white to-amber-50/30 dark:from-background dark:to-amber-950/10 shadow-md">
-                        <div className="flex flex-col sm:flex-row items-center p-4 sm:p-6 gap-6">
-                            <div className="size-16 rounded-2xl bg-amber-500 shadow-lg shadow-amber-500/20 flex items-center justify-center shrink-0">
-                                <AlertTriangle className="h-9 w-9 text-white" />
-                            </div>
-                            <div className="flex-1 text-center sm:text-left space-y-1">
-                                <h3 className="text-xl font-bold tracking-tight">Tình trạng nhân sự</h3>
-                                <p className="text-muted-foreground text-sm leading-relaxed">
-                                    Có <span className="font-bold text-amber-600 dark:text-amber-400">{getRelevantUnderstaffedShifts(localSchedule ?? serverSchedule, allUsers, { currentUser: null, roleAware: false }).length} ca</span> chưa đủ người theo định mức. Vui lòng kiểm tra báo bận của nhân viên.
-                                </p>
-                            </div>
-                            <div className="shrink-0 w-full sm:w-auto">
+                    {/* Integrated Control Hub Section - Compact Design */}
+                    <Card className="mb-3 overflow-hidden shadow-lg border-none ring-1 ring-slate-200/50 dark:ring-slate-800/50 bg-gradient-to-b from-white to-slate-50 dark:from-slate-950 dark:to-slate-900/50">
+                        <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y divide-slate-100 dark:divide-slate-800/50 lg:divide-y-0">
+                            {/* Personnel Status Section */}
+                            <div className="p-3 transition-all hover:bg-amber-50/20 dark:hover:bg-amber-900/5 flex flex-col justify-between border-t-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <div className="size-8 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0 ring-1 ring-amber-200 dark:ring-amber-500/20">
+                                        <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <h4 className="text-[9px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">Nhân sự</h4>
+                                        <p className="text-xs text-muted-foreground leading-tight">
+                                            <span className="font-bold text-amber-600 dark:text-amber-400">{getRelevantUnderstaffedShifts(localSchedule ?? serverSchedule, allUsers, { currentUser: null, roleAware: false }).length} ca</span> thiếu
+                                        </p>
+                                    </div>
+                                </div>
                                 <Button
                                     onClick={() => setIsUnderstaffedDialogOpen(true)}
-                                    className="w-full sm:w-auto rounded-xl px-8 font-bold shadow-lg h-12"
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full h-6 border-amber-200 dark:border-amber-900/50 hover:bg-amber-100 dark:hover:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-bold rounded-lg text-[10px]"
                                 >
-                                    Xem báo cáo bận
+                                    Xem thiếu
                                 </Button>
+                            </div>
+
+                            {/* Pass Requests Section */}
+                            <div 
+                                className="p-3 transition-all cursor-pointer hover:bg-blue-50/20 dark:hover:bg-blue-900/5 group flex flex-col justify-between"
+                                onClick={() => setIsPassRequestsDialogOpen(true)}
+                            >
+                                <div className="flex items-center gap-2 mb-1">
+                                    <div className="size-8 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0 ring-1 ring-blue-200 dark:ring-blue-500/20 relative">
+                                        <MailQuestion className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                        {pendingRequestCount > 0 && (
+                                            <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                                <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500 border border-white dark:border-slate-950 flex items-center justify-center">
+                                                    <span className="text-[7px] font-bold text-white">{pendingRequestCount}</span>
+                                                </span>
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <h4 className="text-[9px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">Pass ca</h4>
+                                        <p className="text-xs text-muted-foreground leading-tight">
+                                            {pendingRequestCount > 0 ? `${pendingRequestCount} chờ duyệt` : "Hoàn thành"}
+                                        </p>
+                                    </div>
+                                </div>
+                                <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="w-full h-6 border-blue-200 dark:border-blue-900/50 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-bold rounded-lg text-[10px]"
+                                >
+                                    Chi tiết
+                                </Button>
+                            </div>
+
+                            {/* Workload Section (Total Hours) */}
+                            <div 
+                                className="p-3 transition-all cursor-pointer hover:bg-indigo-50/20 dark:hover:bg-indigo-900/5 group flex flex-col justify-between lg:border-t-0"
+                                onClick={() => setIsTotalHoursDialogOpen(true)}
+                            >
+                                <div className="flex items-center gap-2 mb-1">
+                                    <div className="size-8 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0 ring-1 ring-indigo-200 dark:ring-indigo-500/20">
+                                        <Users className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <h4 className="text-[9px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">Thống kê</h4>
+                                        <p className="text-xs text-muted-foreground leading-tight">Tổng giờ làm</p>
+                                    </div>
+                                </div>
+                                <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="w-full h-6 border-indigo-200 dark:border-indigo-900/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-bold rounded-lg text-[10px]"
+                                >
+                                    Xem lịch rảnh
+                                </Button>
+                            </div>
+
+                            {/* Schedule Control Section */}
+                            <div className="p-3 bg-slate-50/50 dark:bg-slate-900/10 transition-all flex flex-col justify-between lg:border-t-0">
+                                {user?.role === 'Chủ nhà hàng' && localSchedule?.status === 'published' && !hasUnsavedChanges ? (
+                                    <AlertDialog open={showRevertConfirm} onOpenChange={setShowRevertConfirm} dialogTag="alert-dialog" parentDialogTag="root" variant="warning">
+                                        <AlertDialogTrigger asChild>
+                                            <div className="contents cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <div className="size-8 rounded-xl bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center shrink-0 ring-1 ring-orange-200 dark:ring-orange-500/20">
+                                                        <FileSignature className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <h4 className="text-[9px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">Phát hành</h4>
+                                                        <p className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-tight">Đã công bố</p>
+                                                    </div>
+                                                </div>
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="sm"
+                                                    className="w-full h-6 hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-700 dark:text-orange-300 font-bold border border-orange-200/50 dark:border-orange-500/20 rounded-lg text-[10px]"
+                                                >
+                                                    Thu hồi
+                                                </Button>
+                                            </div>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogIcon icon={History} />
+                                                <div className="space-y-2 text-center sm:text-left">
+                                                    <AlertDialogTitle>Thu hồi lịch đã công bố?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        Hành động này sẽ thu hồi lịch, ẩn nó khỏi trang của nhân viên và chuyển về trạng thái 'Bản nháp' để bạn có thể tiếp tục chỉnh sửa.
+                                                    </AlertDialogDescription>
+                                                </div>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleUpdateStatus('draft')}>Xác nhận thu hồi</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                ) : (
+                                    <div className="flex h-full items-center justify-center gap-2 opacity-30">
+                                        <Settings className="h-4 w-4 text-muted-foreground" />
+                                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Bị khóa</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </Card>
@@ -853,18 +956,60 @@ export default function ScheduleView() {
                         evidences={busyEvidences}
                         parentDialogTag='root'
                     />
-                    <Card>
-                        <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                            <div>
-                                <CardTitle>Lịch tuần: {format(weekInterval.start, 'dd/MM')} - {format(weekInterval.end, 'dd/MM/yyyy')}</CardTitle>
-                                <CardDescription>Trạng thái: <span className="font-semibold">{localSchedule?.status || 'Chưa có lịch'}</span></CardDescription>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Button variant="outline" size="icon" onClick={() => handleDateChange('prev')}>
+                    <Card className="border-none shadow-sm pb-6">
+                        <CardHeader className="sticky top-[3.5rem] z-30 flex items-center justify-center sm:justify-end bg-background/95 backdrop-blur-md border-b mb-0 rounded-t-2xl px-4 py-1.5 transition-all duration-300">
+                            <div className="flex items-center gap-1 p-1 bg-zinc-100/50 dark:bg-zinc-900/50 rounded-xl border border-zinc-200/60 dark:border-zinc-800/60 w-full sm:w-auto shadow-inner overflow-hidden">
+                                <div className="px-2.5 py-1 bg-white/50 dark:bg-zinc-800/50 rounded-lg flex items-center gap-2 border border-zinc-200/50 dark:border-zinc-700/50 mr-1">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 hidden xs:inline">Trạng thái:</span>
+                                    <Badge 
+                                        variant="outline" 
+                                        className={cn(
+                                            "uppercase text-[9px] font-black px-1.5 py-0 rounded-md tracking-wider border-none ring-1 ring-inset shadow-sm",
+                                            localSchedule?.status === 'published' 
+                                                ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-500/20" 
+                                                : localSchedule?.status === 'proposed'
+                                                ? "bg-indigo-50 text-indigo-700 ring-indigo-600/20 dark:bg-indigo-500/10 dark:text-indigo-400 dark:ring-indigo-500/20"
+                                                : "bg-zinc-100 text-zinc-700 ring-zinc-600/10 dark:bg-zinc-800 dark:text-zinc-400 dark:ring-zinc-700"
+                                        )}
+                                    >
+                                        {localSchedule?.status === 'published' ? 'Đã công bố' : (localSchedule?.status === 'proposed' ? 'Đã đề xuất' : (localSchedule?.status === 'draft' ? 'Bản nháp' : 'Chưa có lịch'))}
+                                    </Badge>
+                                </div>
+
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={() => handleDateChange('prev')}
+                                    className="h-8 w-8 rounded-lg hover:bg-white dark:hover:bg-zinc-800 hover:shadow-md transition-all active:scale-95"
+                                >
                                     <ChevronLeft className="h-4 w-4" />
                                 </Button>
-                                <Button variant={isCurrentWeek ? "secondary" : "outline"} size="sm" onClick={() => setCurrentDate(new Date())}>Tuần này</Button>
-                                <Button variant="outline" size="icon" onClick={() => handleDateChange('next')}>
+                                
+                                <div className="flex items-center gap-2 px-1">
+                                    <div className="flex flex-col items-center justify-center min-w-[90px] px-2">
+                                        <span className="text-primary font-black text-[10px] whitespace-nowrap leading-none tracking-tight">
+                                            {format(weekInterval.start, 'dd/MM')} - {format(weekInterval.end, 'dd/MM/yyyy')}
+                                        </span>
+                                        <Button 
+                                            variant="link" 
+                                            size="sm" 
+                                            onClick={() => setCurrentDate(new Date())}
+                                            className={cn(
+                                                "h-auto p-0 font-black text-[9px] uppercase tracking-[0.1em] hover:no-underline opacity-60 hover:opacity-100 transition-all",
+                                                isCurrentWeek && "text-primary opacity-100"
+                                            )}
+                                        >
+                                            Tuần này
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={() => handleDateChange('next')}
+                                    className="h-8 w-8 rounded-lg hover:bg-white dark:hover:bg-zinc-800 hover:shadow-md transition-all active:scale-95"
+                                >
                                     <ChevronRight className="h-4 w-4" />
                                 </Button>
                             </div>
@@ -1082,17 +1227,6 @@ export default function ScheduleView() {
                                     <History className="mr-2 h-4 w-4" /> Lịch sử
                                 </Button>
                             </div>
-                            <div className="w-full sm:w-auto relative">
-                                <Button variant="secondary" onClick={() => setIsPassRequestsDialogOpen(true)} className="w-full">
-                                    <MailQuestion className="mr-2 h-4 w-4" />
-                                    Yêu cầu Pass ca
-                                    {pendingRequestCount > 0 && (
-                                        <Badge variant="destructive" className="ml-2">
-                                            {pendingRequestCount}
-                                        </Badge>
-                                    )}
-                                </Button>
-                            </div>
                             <div className="flex-1" />
                             <div className="flex items-center justify-end gap-4 flex-wrap">
                                 {user?.role === 'Chủ nhà hàng' && (!localSchedule || !localSchedule.status || localSchedule.status === 'proposed') && !hasUnsavedChanges && (
@@ -1133,45 +1267,24 @@ export default function ScheduleView() {
                                         </AlertDialogContent>
                                     </AlertDialog>
                                 )}
-                                {user?.role === 'Chủ nhà hàng' && localSchedule?.status === 'published' && !hasUnsavedChanges && (
-                                    <AlertDialog open={showRevertConfirm} onOpenChange={setShowRevertConfirm} dialogTag="alert-dialog" parentDialogTag="root" variant="warning">
-                                        <AlertDialogTrigger asChild>
-                                            <Button variant="secondary" disabled={isSubmitting}>
-                                                <FileSignature className="mr-2 h-4 w-4" /> Thu hồi lịch
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogIcon icon={History} />
-                                                <div className="space-y-2 text-center sm:text-left">
-                                                    <AlertDialogTitle>Thu hồi lịch đã công bố?</AlertDialogTitle>
-                                                    <AlertDialogDescription>
-                                                        Hành động này sẽ thu hồi lịch, ẩn nó khỏi trang của nhân viên và chuyển về trạng thái 'Bản nháp' để bạn có thể tiếp tục chỉnh sửa.
-                                                    </AlertDialogDescription>
-                                                </div>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleUpdateStatus('draft')}>Xác nhận thu hồi</AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                )}
                             </div>
                         </CardFooter>
                     </Card>
                 </div>
-                {/* Side Panel */}
-                <div className="w-full xl:w-80 xl:sticky xl:top-4">
-                    <TotalHoursTracker
-                        schedule={localSchedule}
-                        availability={availability}
-                        allUsers={allUsers}
-                        onUserClick={handleUserClick}
-                        currentUserRole={user?.role || null}
-                    />
-                </div>
             </div>
+
+            <TotalHoursDialog
+                open={isTotalHoursDialogOpen}
+                onOpenChange={setIsTotalHoursDialogOpen}
+                schedule={localSchedule}
+                availability={availability}
+                allUsers={allUsers}
+                currentUserRole={user?.role || null}
+                onUpdateSchedule={handleLocalScheduleUpdate}
+                daysOfWeek={daysOfWeek}
+                dialogTag="total-hours"
+                parentDialogTag="root"
+            />
 
             {isFabVisible && (
                 <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6">
@@ -1275,16 +1388,6 @@ export default function ScheduleView() {
                 processingNotificationId={processingNotificationId}
                 schedule={localSchedule}
             />
-
-            {selectedUserForDetails && (
-                <UserDetailsDialog
-                    isOpen={isUserDetailsDialogOpen}
-                    onClose={() => setSelectedUserForDetails(null)}
-                    user={selectedUserForDetails}
-                    weekAvailability={availability.filter(a => a.userId === selectedUserForDetails.uid)}
-                    parentDialogTag="root"
-                />
-            )}
 
             {user?.role === 'Chủ nhà hàng' && (
                 <>
