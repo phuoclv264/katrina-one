@@ -14,7 +14,8 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
+import { Separator } from '@/components/ui/separator'
+import { UserAvatar } from '@/components/user-avatar';
 import type { Schedule, ManagedUser, UserRole, Availability, AssignedShift, AssignedUser } from '@/lib/types';
 import { calculateTotalHours } from '@/lib/schedule-utils';
 import { Users, Search, AlertCircle, Clock, ChevronLeft, ChevronRight, Loader2, Calendar, History as HistoryIcon, Hourglass, CalendarDays, LayoutGrid, User, TrendingUp, Filter, ArrowRight, Plus, Trash2, CalendarCheck, Check } from 'lucide-react';
@@ -610,12 +611,7 @@ export default function TotalHoursDialog({ open, onOpenChange, schedule, availab
                                         >
                                             <div className="flex justify-between items-start mb-2">
                                                 <div className="flex items-center gap-3">
-                                                    <div className={cn(
-                                                        "h-8.5 w-8.5 rounded-lg flex items-center justify-center font-black text-[10px] shadow-inner border bg-gradient-to-br transition-transform group-hover:scale-105 duration-300", 
-                                                        roleStyles
-                                                    )}>
-                                                        {user.displayName.charAt(0)}
-                                                    </div>
+                                                    <UserAvatar user={user} rounded="xl" className={cn("shadow-inner border bg-gradient-to-br transition-transform group-hover:scale-105 duration-300", roleStyles)} />
                                                     <div className="space-y-0 text-left">
                                                         <p className="font-bold text-xs text-foreground group-hover:text-primary transition-colors leading-tight">{user.displayName}</p>
                                                         <Badge variant="outline" className={cn("text-[7px] px-1 py-0 h-3.5 border-none font-black uppercase tracking-wider rounded-md bg-gradient-to-r mt-0.5", roleStyles)}>
@@ -669,7 +665,7 @@ export default function TotalHoursDialog({ open, onOpenChange, schedule, availab
                     key="user-detail"
                     className="flex flex-col h-full max-h-[85vh]"
                 >
-                    <DialogHeader className="p-4 space-y-4 relative" hideicon>
+                    <DialogHeader className="space-y-4 relative" hideicon>
                         <div className="flex items-center gap-3">
                             <Button 
                                 variant="secondary" 
@@ -680,12 +676,7 @@ export default function TotalHoursDialog({ open, onOpenChange, schedule, availab
                                 <ChevronLeft className="h-4 w-4" />
                             </Button>
                             <div className="flex items-center gap-3">
-                                <div className={cn(
-                                    "h-10 w-10 rounded-xl flex items-center justify-center font-black text-lg shadow-md bg-gradient-to-br", 
-                                    getRoleColors(selectedUser.role)
-                                )}>
-                                    {selectedUser.displayName.charAt(0)}
-                                </div>
+                                <UserAvatar user={selectedUser} size="h-10 w-10 text-lg" rounded="xl" className={cn("shadow-md bg-gradient-to-br", getRoleColors(selectedUser.role))} />
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-2">
                                         <DialogTitle className="text-lg font-black tracking-tight leading-none">{selectedUser.displayName}</DialogTitle>

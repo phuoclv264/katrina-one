@@ -817,17 +817,17 @@ export default function ScheduleView() {
                 {/* Main Schedule View */}
                 <div className="flex-1">
                     {/* Integrated Control Hub Section - Compact Design */}
-                    <Card className="mb-6 overflow-hidden shadow-lg border-none ring-1 ring-slate-200/50 dark:ring-slate-800/50 bg-gradient-to-b from-white to-slate-50 dark:from-slate-950 dark:to-slate-900/50">
+                    <Card className="mb-3 overflow-hidden shadow-lg border-none ring-1 ring-slate-200/50 dark:ring-slate-800/50 bg-gradient-to-b from-white to-slate-50 dark:from-slate-950 dark:to-slate-900/50">
                         <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y divide-slate-100 dark:divide-slate-800/50 lg:divide-y-0">
                             {/* Personnel Status Section */}
-                            <div className="p-4 transition-all hover:bg-amber-50/20 dark:hover:bg-amber-900/5 flex flex-col justify-between border-t-0">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <div className="size-9 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0 ring-1 ring-amber-200 dark:ring-amber-500/20">
-                                        <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                            <div className="p-3 transition-all hover:bg-amber-50/20 dark:hover:bg-amber-900/5 flex flex-col justify-between border-t-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <div className="size-8 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0 ring-1 ring-amber-200 dark:ring-amber-500/20">
+                                        <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">Nhân sự</h4>
-                                        <p className="text-sm text-muted-foreground leading-tight">
+                                        <h4 className="text-[9px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">Nhân sự</h4>
+                                        <p className="text-xs text-muted-foreground leading-tight">
                                             <span className="font-bold text-amber-600 dark:text-amber-400">{getRelevantUnderstaffedShifts(localSchedule ?? serverSchedule, allUsers, { currentUser: null, roleAware: false }).length} ca</span> thiếu
                                         </p>
                                     </div>
@@ -836,7 +836,7 @@ export default function ScheduleView() {
                                     onClick={() => setIsUnderstaffedDialogOpen(true)}
                                     variant="outline"
                                     size="sm"
-                                    className="w-full h-7 border-amber-200 dark:border-amber-900/50 hover:bg-amber-100 dark:hover:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-bold rounded-lg text-xs"
+                                    className="w-full h-6 border-amber-200 dark:border-amber-900/50 hover:bg-amber-100 dark:hover:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-bold rounded-lg text-[10px]"
                                 >
                                     Xem thiếu
                                 </Button>
@@ -844,24 +844,24 @@ export default function ScheduleView() {
 
                             {/* Pass Requests Section */}
                             <div 
-                                className="p-4 transition-all cursor-pointer hover:bg-blue-50/20 dark:hover:bg-blue-900/5 group flex flex-col justify-between"
+                                className="p-3 transition-all cursor-pointer hover:bg-blue-50/20 dark:hover:bg-blue-900/5 group flex flex-col justify-between"
                                 onClick={() => setIsPassRequestsDialogOpen(true)}
                             >
-                                <div className="flex items-center gap-3 mb-2">
-                                    <div className="size-9 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0 ring-1 ring-blue-200 dark:ring-blue-500/20 relative">
-                                        <MailQuestion className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                                <div className="flex items-center gap-2 mb-1">
+                                    <div className="size-8 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0 ring-1 ring-blue-200 dark:ring-blue-500/20 relative">
+                                        <MailQuestion className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                                         {pendingRequestCount > 0 && (
-                                            <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
+                                            <span className="absolute -top-1 -right-1 flex h-3 w-3">
                                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                                                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-blue-500 border-2 border-white dark:border-slate-950 flex items-center justify-center">
-                                                    <span className="text-[8px] font-bold text-white">{pendingRequestCount}</span>
+                                                <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500 border border-white dark:border-slate-950 flex items-center justify-center">
+                                                    <span className="text-[7px] font-bold text-white">{pendingRequestCount}</span>
                                                 </span>
                                             </span>
                                         )}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">Pass ca</h4>
-                                        <p className="text-sm text-muted-foreground leading-tight">
+                                        <h4 className="text-[9px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">Pass ca</h4>
+                                        <p className="text-xs text-muted-foreground leading-tight">
                                             {pendingRequestCount > 0 ? `${pendingRequestCount} chờ duyệt` : "Hoàn thành"}
                                         </p>
                                     </div>
@@ -869,7 +869,7 @@ export default function ScheduleView() {
                                 <Button 
                                     variant="outline" 
                                     size="sm"
-                                    className="w-full h-7 border-blue-200 dark:border-blue-900/50 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-bold rounded-lg text-xs"
+                                    className="w-full h-6 border-blue-200 dark:border-blue-900/50 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-bold rounded-lg text-[10px]"
                                 >
                                     Chi tiết
                                 </Button>
@@ -877,46 +877,46 @@ export default function ScheduleView() {
 
                             {/* Workload Section (Total Hours) */}
                             <div 
-                                className="p-4 transition-all cursor-pointer hover:bg-indigo-50/20 dark:hover:bg-indigo-900/5 group flex flex-col justify-between lg:border-t-0"
+                                className="p-3 transition-all cursor-pointer hover:bg-indigo-50/20 dark:hover:bg-indigo-900/5 group flex flex-col justify-between lg:border-t-0"
                                 onClick={() => setIsTotalHoursDialogOpen(true)}
                             >
-                                <div className="flex items-center gap-3 mb-2">
-                                    <div className="size-9 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0 ring-1 ring-indigo-200 dark:ring-indigo-500/20">
-                                        <Users className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                                <div className="flex items-center gap-2 mb-1">
+                                    <div className="size-8 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0 ring-1 ring-indigo-200 dark:ring-indigo-500/20">
+                                        <Users className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">Thống kê</h4>
-                                        <p className="text-sm text-muted-foreground leading-tight">Tổng giờ làm</p>
+                                        <h4 className="text-[9px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">Thống kê</h4>
+                                        <p className="text-xs text-muted-foreground leading-tight">Tổng giờ làm</p>
                                     </div>
                                 </div>
                                 <Button 
                                     variant="outline" 
                                     size="sm"
-                                    className="w-full h-7 border-indigo-200 dark:border-indigo-900/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-bold rounded-lg text-xs"
+                                    className="w-full h-6 border-indigo-200 dark:border-indigo-900/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-bold rounded-lg text-[10px]"
                                 >
                                     Xem lịch rảnh
                                 </Button>
                             </div>
 
                             {/* Schedule Control Section */}
-                            <div className="p-4 bg-slate-50/50 dark:bg-slate-900/10 transition-all flex flex-col justify-between lg:border-t-0">
+                            <div className="p-3 bg-slate-50/50 dark:bg-slate-900/10 transition-all flex flex-col justify-between lg:border-t-0">
                                 {user?.role === 'Chủ nhà hàng' && localSchedule?.status === 'published' && !hasUnsavedChanges ? (
                                     <AlertDialog open={showRevertConfirm} onOpenChange={setShowRevertConfirm} dialogTag="alert-dialog" parentDialogTag="root" variant="warning">
                                         <AlertDialogTrigger asChild>
                                             <div className="contents cursor-pointer" onClick={(e) => e.stopPropagation()}>
-                                                <div className="flex items-center gap-3 mb-2">
-                                                    <div className="size-9 rounded-xl bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center shrink-0 ring-1 ring-orange-200 dark:ring-orange-500/20">
-                                                        <FileSignature className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <div className="size-8 rounded-xl bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center shrink-0 ring-1 ring-orange-200 dark:ring-orange-500/20">
+                                                        <FileSignature className="h-4 w-4 text-orange-600 dark:text-orange-400" />
                                                     </div>
                                                     <div className="flex-1 min-w-0">
-                                                        <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">Phát hành</h4>
+                                                        <h4 className="text-[9px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">Phát hành</h4>
                                                         <p className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-tight">Đã công bố</p>
                                                     </div>
                                                 </div>
                                                 <Button 
                                                     variant="ghost" 
                                                     size="sm"
-                                                    className="w-full h-7 hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-700 dark:text-orange-300 font-bold border border-orange-200/50 dark:border-orange-500/20 rounded-lg text-xs"
+                                                    className="w-full h-6 hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-700 dark:text-orange-300 font-bold border border-orange-200/50 dark:border-orange-500/20 rounded-lg text-[10px]"
                                                 >
                                                     Thu hồi
                                                 </Button>
@@ -956,18 +956,60 @@ export default function ScheduleView() {
                         evidences={busyEvidences}
                         parentDialogTag='root'
                     />
-                    <Card>
-                        <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                            <div>
-                                <CardTitle>Lịch tuần: {format(weekInterval.start, 'dd/MM')} - {format(weekInterval.end, 'dd/MM/yyyy')}</CardTitle>
-                                <CardDescription>Trạng thái: <span className="font-semibold">{localSchedule?.status || 'Chưa có lịch'}</span></CardDescription>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Button variant="outline" size="icon" onClick={() => handleDateChange('prev')}>
+                    <Card className="border-none shadow-sm pb-6">
+                        <CardHeader className="sticky top-[3.5rem] z-30 flex items-center justify-center sm:justify-end bg-background/95 backdrop-blur-md border-b mb-0 rounded-t-2xl px-4 py-1.5 transition-all duration-300">
+                            <div className="flex items-center gap-1 p-1 bg-zinc-100/50 dark:bg-zinc-900/50 rounded-xl border border-zinc-200/60 dark:border-zinc-800/60 w-full sm:w-auto shadow-inner overflow-hidden">
+                                <div className="px-2.5 py-1 bg-white/50 dark:bg-zinc-800/50 rounded-lg flex items-center gap-2 border border-zinc-200/50 dark:border-zinc-700/50 mr-1">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 hidden xs:inline">Trạng thái:</span>
+                                    <Badge 
+                                        variant="outline" 
+                                        className={cn(
+                                            "uppercase text-[9px] font-black px-1.5 py-0 rounded-md tracking-wider border-none ring-1 ring-inset shadow-sm",
+                                            localSchedule?.status === 'published' 
+                                                ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-500/20" 
+                                                : localSchedule?.status === 'proposed'
+                                                ? "bg-indigo-50 text-indigo-700 ring-indigo-600/20 dark:bg-indigo-500/10 dark:text-indigo-400 dark:ring-indigo-500/20"
+                                                : "bg-zinc-100 text-zinc-700 ring-zinc-600/10 dark:bg-zinc-800 dark:text-zinc-400 dark:ring-zinc-700"
+                                        )}
+                                    >
+                                        {localSchedule?.status === 'published' ? 'Đã công bố' : (localSchedule?.status === 'proposed' ? 'Đã đề xuất' : (localSchedule?.status === 'draft' ? 'Bản nháp' : 'Chưa có lịch'))}
+                                    </Badge>
+                                </div>
+
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={() => handleDateChange('prev')}
+                                    className="h-8 w-8 rounded-lg hover:bg-white dark:hover:bg-zinc-800 hover:shadow-md transition-all active:scale-95"
+                                >
                                     <ChevronLeft className="h-4 w-4" />
                                 </Button>
-                                <Button variant={isCurrentWeek ? "secondary" : "outline"} size="sm" onClick={() => setCurrentDate(new Date())}>Tuần này</Button>
-                                <Button variant="outline" size="icon" onClick={() => handleDateChange('next')}>
+                                
+                                <div className="flex items-center gap-2 px-1">
+                                    <div className="flex flex-col items-center justify-center min-w-[90px] px-2">
+                                        <span className="text-primary font-black text-[10px] whitespace-nowrap leading-none tracking-tight">
+                                            {format(weekInterval.start, 'dd/MM')} - {format(weekInterval.end, 'dd/MM/yyyy')}
+                                        </span>
+                                        <Button 
+                                            variant="link" 
+                                            size="sm" 
+                                            onClick={() => setCurrentDate(new Date())}
+                                            className={cn(
+                                                "h-auto p-0 font-black text-[9px] uppercase tracking-[0.1em] hover:no-underline opacity-60 hover:opacity-100 transition-all",
+                                                isCurrentWeek && "text-primary opacity-100"
+                                            )}
+                                        >
+                                            Tuần này
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={() => handleDateChange('next')}
+                                    className="h-8 w-8 rounded-lg hover:bg-white dark:hover:bg-zinc-800 hover:shadow-md transition-all active:scale-95"
+                                >
                                     <ChevronRight className="h-4 w-4" />
                                 </Button>
                             </div>

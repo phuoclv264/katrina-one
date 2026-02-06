@@ -20,7 +20,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from '@/lib/utils';
 import isEqual from 'lodash.isequal';
 import { Badge } from '@/components/ui/badge';
-import { X, Loader2, CalendarCheck2, Clock, CheckCircle2, Lock } from 'lucide-react';
+import { X, Loader2, CalendarCheck2, Clock, CheckCircle2, Lock, Info, MessageSquare } from 'lucide-react';
 import { vi } from 'date-fns/locale';
 
 type AvailabilityDialogProps = {
@@ -144,13 +144,29 @@ export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDa
         </DialogHeader>
 
         <DialogBody className="space-y-6 pt-6">
+          {/* Owner Note */}
+          <div className="p-4 rounded-[24px] bg-blue-500/5 border border-blue-500/10 flex items-start gap-3.5 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.05] transition-opacity">
+              <MessageSquare className="h-16 w-16 -rotate-12" />
+            </div>
+            <div className="p-2 bg-blue-500/15 rounded-xl shrink-0">
+              <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div className="space-y-1.5 pt-0.5">
+              <h4 className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-[0.15em]">Lưu ý từ chủ quán</h4>
+              <p className="text-[11px] font-medium leading-[1.6] text-blue-900/80 dark:text-blue-200/70">
+                Các em đăng ký <span className="font-bold text-blue-700 dark:text-blue-300">khung thời gian rảnh</span>, không phải là đăng ký lịch làm việc nhé. Việc đăng ký càng nhiều khung giờ rảnh sẽ giúp quán dễ sắp xếp lịch hơn và các em cũng có cơ hội được xếp nhiều ca hơn. Nếu các em muốn giới hạn số ca mong muốn, có thể trao đổi trực tiếp với chủ quán.
+              </p>
+            </div>
+          </div>
+
           {/* Quick Select Section */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 px-1">
               <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
                 <Clock className="w-3.5 h-3.5" />
               </div>
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Chọn nhanh theo ca</Label>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Chọn khung thời gian</Label>
             </div>
 
             <div className="grid grid-cols-2 gap-2.5">
