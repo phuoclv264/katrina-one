@@ -145,7 +145,7 @@ export function UnderstaffedEvidenceDialog({
       >
         <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-primary/30 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
         
-        <div className="px-5 sm:px-8 py-5 sm:py-7 flex items-center justify-between gap-4">
+        <div className="px-6 sm:px-8 py-5 sm:py-7 flex items-center justify-between gap-4">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2.5">
               <span className="font-black text-lg sm:text-xl tracking-tight text-foreground/90 leading-tight">{shift.label}</span>
@@ -201,7 +201,7 @@ export function UnderstaffedEvidenceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} dialogTag="understaffed-evidence-dialog" parentDialogTag={parentDialogTag}>
-      <DialogContent className="max-w-5xl max-h-[92vh] flex flex-col min-h-0 p-0 overflow-hidden sm:rounded-[2.5rem] border-none shadow-2xl">
+      <DialogContent className="max-w-5xl lg:max-w-5xl max-h-[92vh] flex flex-col min-h-0 p-0 overflow-hidden sm:rounded-[2.5rem] border-none shadow-2xl">
         {currentShiftId && currentShift ? (
           <ShiftDetailView
             shift={currentShift}

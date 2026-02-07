@@ -356,7 +356,7 @@ export default function AutoScheduleDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose} dialogTag="auto-schedule-dialog" parentDialogTag={parentDialogTag}>
-      <DialogContent className="max-w-6xl h-[95vh] sm:h-[90vh]">
+      <DialogContent className="max-w-5xl lg:max-w-6xl h-[95vh] sm:h-[90vh]">
         <DialogHeader iconkey="calculator">
           <DialogTitle>Xếp lịch tự động</DialogTitle>
           <DialogDescription>

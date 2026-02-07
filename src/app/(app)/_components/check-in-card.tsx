@@ -268,7 +268,22 @@ export default function CheckInCard() {
         setIsCameraOpen(true);
     };
 
+    const isCheckedIn = !!latestInProgressRecord && latestInProgressRecord.status === 'in-progress';
+    const isOnBreak = latestInProgressRecord?.onBreak;
+    const mainButtonText = isCheckedIn ? 'Chấm công ra' : 'Chấm công vào';
+
     const hasPendingLateRequest = attendanceRecords[0]?.status === 'pending_late';
+
+    // Determine if the next (earliest) shift has already started. If it has, we should not allow late requests.
+    const nextShift = todaysShifts.length > 0 ? todaysShifts[0] : null;
+    const hasShiftStarted = (shift: AssignedShift | null) => {
+        if (!shift) return false;
+        const [h, m] = shift.timeSlot.start.split(':').map(Number);
+        const shiftDate = new Date(shift.date);
+        shiftDate.setHours(h, m, 0, 0);
+        return currentTime.getTime() >= shiftDate.getTime();
+    };
+    const showLateRequestButton = !isCheckedIn && !!nextShift && !hasShiftStarted(nextShift);
 
     // Calculate duration if checked in
     const getDuration = () => {
@@ -281,10 +296,6 @@ export default function CheckInCard() {
         }
         return '--';
     };
-
-    const isCheckedIn = !!latestInProgressRecord && latestInProgressRecord.status === 'in-progress';
-    const isOnBreak = latestInProgressRecord?.onBreak;
-    const mainButtonText = isCheckedIn ? 'Chấm công ra' : 'Chấm công vào';
 
     if (authLoading || isLoading) {
         return null;
@@ -416,7 +427,7 @@ export default function CheckInCard() {
                                 </Button>
                             )}
 
-                            {!isCheckedIn && todaysShifts.length > 0 && (
+                            {showLateRequestButton && (
                                 <Button
                                     variant="ghost"
                                     className="w-full h-10 sm:h-12 rounded-xl text-zinc-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
