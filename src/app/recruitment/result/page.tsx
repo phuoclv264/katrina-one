@@ -336,52 +336,6 @@ export default function RecruitmentResultPage() {
                             </p>
                           </div>
                         </div>
-
-                        {/* Contact & Info */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
-                          <div className="space-y-4">
-                            <h4 className="flex items-center gap-2 text-sm font-black text-slate-900 uppercase tracking-widest">
-                              <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />
-                              Thông tin liên lạc
-                            </h4>
-                            <div className="space-y-3">
-                              <div className="flex items-center gap-4 group">
-                                <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors shrink-0">
-                                  <Phone className="h-5 w-5" />
-                                </div>
-                                <span className="font-bold text-slate-700 truncate">{selected.phone || 'Chưa cung cấp'}</span>
-                              </div>
-                              <div className="flex items-center gap-4 group">
-                                <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors shrink-0">
-                                  <Mail className="h-5 w-5" />
-                                </div>
-                                <span className="font-bold text-slate-700 truncate">{selected.email || 'Chưa cung cấp'}</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {selected.adminNote && (
-                            <div className="space-y-4">
-                              <h4 className="flex items-center gap-2 text-sm font-black text-slate-900 uppercase tracking-widest text-rose-600">
-                                <span className="h-1.5 w-1.5 rounded-full bg-rose-600" />
-                                Ghi chú từ tuyển dụng
-                              </h4>
-                              <div className="p-4 rounded-2xl bg-rose-50/50 border border-rose-100/50 relative">
-                                <FileText className="absolute top-4 right-4 h-4 w-4 text-rose-200" />
-                                <p className="text-sm font-medium text-rose-800 leading-relaxed italic">
-                                  "{selected.adminNote}"
-                                </p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="pt-6 border-t border-slate-100 flex items-center justify-between">
-                          <p className="text-xs text-slate-400 font-medium italic">Cập nhật lần cuối: {format(new Date(selected.updatedAt), 'HH:mm dd/MM', { locale: vi })}</p>
-                          <Button variant="ghost" className="text-blue-600 font-black gap-2 hover:bg-blue-50 rounded-xl" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-                            Quay lại <ChevronRight className="h-4 w-4" />
-                          </Button>
-                        </div>
                       </div>
                     </motion.div>
                   )}
