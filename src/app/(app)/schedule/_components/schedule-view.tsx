@@ -65,7 +65,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import isEqual from 'lodash.isequal';
 import { useSearchParams } from 'next/navigation';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { hasTimeConflict } from '@/lib/schedule-utils';
+import { hasTimeConflict, mergeTimeSlots } from '@/lib/schedule-utils';
 import ShiftInfoDialog from './shift-info-dialog';
 import WeekScheduleDialog from './week-schedule-dialog';
 import { getQueryParamWithMobileHashFallback } from '@/lib/url-params';
@@ -637,7 +637,7 @@ export default function ScheduleView() {
                         const isToday = isSameDay(day, today);
                         const isPastDay = isBefore(day, today) && !isToday;
 
-                        const availabilityForDay = userAvailability.get(dateKey) || [];
+                        const availabilityForDay = mergeTimeSlots(userAvailability.get(dateKey) || []);
                         const shiftsForDay = (schedule?.shifts || []).filter(s =>
                             s.date === dateKey && s.assignedUsers.some(u => u.userId === user?.uid)
                         ).sort((a, b) => a.timeSlot.start.localeCompare(b.timeSlot.start));

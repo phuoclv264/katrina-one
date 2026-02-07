@@ -81,13 +81,65 @@ export function isUserAvailable(
   const shiftStart = parseTime(shiftSlot.start);
   const shiftEnd = parseTime(shiftSlot.end);
 
-  // Check if any of the user's available slots contain the entire shift duration.
-  return userAvailability.availableSlots.some(availableSlot => {
-    const availableStart = parseTime(availableSlot.start);
-    const availableEnd = parseTime(availableSlot.end);
-    
-    return availableStart <= shiftStart && availableEnd >= shiftEnd;
-  });
+    // Merge overlapping and adjacent available slots first so that sequences like
+    // [07:00-12:00, 12:00-17:00] become [07:00-17:00] which allows a shift
+    // spanning the full range to be recognized as available.
+    const merged = mergeTimeSlots(userAvailability.availableSlots);
+
+    // Check if any merged slot fully contains the entire shift duration.
+    return merged.some(slot => {
+        const availableStart = parseTime(slot.start);
+        const availableEnd = parseTime(slot.end);
+
+        return availableStart <= shiftStart && availableEnd >= shiftEnd;
+    });
+}
+
+/**
+ * Merge overlapping or adjacent time slots (same-day only).
+ * Examples:
+ *  - [07:00-12:00, 12:00-17:00] -> [07:00-17:00]
+ *  - [07:00-10:00, 06:00-12:00] -> [06:00-12:00]
+ * Slots with end <= start (overnight or invalid) are ignored.
+ */
+export function mergeTimeSlots(slots: TimeSlot[]): TimeSlot[] {
+    if (!slots || slots.length === 0) return [];
+
+    // Convert to numeric ranges and filter invalid/overnight slots (end must be > start)
+    const ranges = slots
+        .map(s => ({ start: parseTime(s.start), end: parseTime(s.end), raw: s }))
+        .filter(r => r.end > r.start)
+        .sort((a, b) => a.start - b.start || b.end - a.end);
+
+    const merged: { start: number; end: number }[] = [];
+    for (const r of ranges) {
+        if (merged.length === 0) {
+            merged.push({ start: r.start, end: r.end });
+            continue;
+        }
+
+        const last = merged[merged.length - 1];
+
+        // If overlapping or adjacent (no gap), merge them
+        // Use a small epsilon to avoid floating point equality issues
+        const EPS = 1e-9;
+        if (r.start <= last.end + EPS) {
+            last.end = Math.max(last.end, r.end);
+        } else {
+            merged.push({ start: r.start, end: r.end });
+        }
+    }
+
+    // Convert back to TimeSlot[] using HH:mm formatting
+    return merged.map(m => ({ start: formatTime(m.start), end: formatTime(m.end) }));
+}
+
+function formatTime(timeNum: number): string {
+    const hours = Math.floor(timeNum);
+    const minutes = Math.round((timeNum - hours) * 60);
+    const hh = String(hours).padStart(2, '0');
+    const mm = String(minutes).padStart(2, '0');
+    return `${hh}:${mm}`;
 }
 
 /**
