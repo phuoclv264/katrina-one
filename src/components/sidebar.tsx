@@ -27,14 +27,17 @@ import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
 
 export function AppSidebar() {
   const { user, logout, loading, isOnActiveShift, activeShifts } = useAuth();
-  const { setOpenMobile, state: sidebarState } = useSidebar();
+  const { setOpenMobile, state: sidebarState, setOpen } = useSidebar();
   const { isCheckedIn } = useCheckInCardPlacement();
   const pathname = usePathname();
   const nav = useAppNavigation();
   const [profileOpen, setProfileOpen] = useState(false);
 
   const handleLinkClick = () => {
+    // Close mobile sheet
     setOpenMobile(false);
+    // Also close desktop off-canvas overlay
+    setOpen(false);
   }
 
   const navigate = (href: string) => {
@@ -162,6 +165,20 @@ export function AppSidebar() {
       <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} parentDialogTag="root" />
       <SidebarContent className="flex-1">
         <SidebarMenu>
+          {/* Homepage link (role-aware) */}
+          <SidebarMenuItem className="group-data-[collapsible=icon]:justify-center">
+            <SidebarMenuButton
+              isActive={pathname === getHomeLink()}
+              tooltip="Trang chủ"
+              onClick={() => navigateHome()}
+            >
+              <div className="flex items-center gap-2">
+                {getRoleIcon()}
+                <span className="group-data-[collapsible=icon]:hidden">Trang chủ</span>
+              </div>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+
           {primaryItems.map((item) => (
             <SidebarMenuItem key={item.href} className="group-data-[collapsible=icon]:justify-center">
               <SidebarMenuButton
@@ -180,7 +197,7 @@ export function AppSidebar() {
           {/* Render grouped access-links as accordions (if any) */}
           {Object.entries(groupedLinks).map(([groupLabel, links]) => (
             <React.Fragment key={groupLabel}>
-              <SidebarMenuItem className="px-3 py-2 group-data-[collapsible=icon]:hidden">
+              <div className="px-3 py-2 group-data-[collapsible=icon]:hidden">
                 <Accordion type="single" collapsible className="w-full">
                   <AccordionItem value={groupLabel}>
                     <AccordionTrigger className="text-xs font-semibold text-muted-foreground uppercase flex items-center justify-between">{groupLabel}</AccordionTrigger>
@@ -198,7 +215,7 @@ export function AppSidebar() {
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>
-              </SidebarMenuItem>
+              </div>
             </React.Fragment>
           ))}
 

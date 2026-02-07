@@ -221,6 +221,10 @@ const Sidebar = React.forwardRef<
       )
     }
 
+    // Desktop: render as overlay when using `offcanvas` collapsible mode. We render a backdrop
+    // and place the sidebar above it so it doesn't push page content.
+    const { setOpen } = useSidebar();
+
     return (
       <div
         ref={ref}
@@ -230,10 +234,22 @@ const Sidebar = React.forwardRef<
         data-variant={variant}
         data-side={side}
       >
-        {/* This is what handles the sidebar gap on desktop */}
+        {/* Backdrop for offcanvas mode */}
+        {collapsible === "offcanvas" && (
+          <div
+            onClick={() => setOpen(false)}
+            className={cn(
+              "fixed inset-0 z-[900] hidden md:block bg-black/30 transition-opacity",
+              state === "expanded" ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+            )}
+          />
+        )}        {/* This is what handles the sidebar gap on desktop. For `offcanvas` collapsible mode we never reserve layout space. */}
         <div
           className={cn(
-            "duration-200 relative h-svh w-[--sidebar-width] bg-transparent transition-[width] ease-in-out",
+            "duration-200 relative h-svh bg-transparent transition-[width] ease-in-out",
+            // If this is the offcanvas collapsible mode we always keep the gap width at 0 so
+            // the sidebar overlays the page instead of pushing content.
+            collapsible === "offcanvas" ? "w-0" : "w-[--sidebar-width]",
             "group-data-[collapsible=offcanvas]:w-0",
             "group-data-[side=right]:rotate-180",
             variant === "floating" || variant === "inset"
@@ -243,7 +259,7 @@ const Sidebar = React.forwardRef<
         />
         <div
           className={cn(
-            "duration-200 fixed inset-y-0 z-10 hidden h-svh w-[--sidebar-width] transition-[left,right,width] ease-in-out md:flex",
+            "duration-200 fixed inset-y-0 z-[1000] hidden h-svh w-[--sidebar-width] transition-[left,right,width] ease-in-out md:flex",
             side === "left"
               ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
               : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",

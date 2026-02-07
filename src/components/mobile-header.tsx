@@ -6,6 +6,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { NotificationBell } from './notification-bell';
 import { ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 import { UserAvatar } from '@/components/user-avatar';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { isHomeRoute } from '@/lib/navigation';
@@ -135,31 +136,36 @@ export function MobileHeader() {
         <div className="flex items-center justify-between w-full h-full gap-2 px-1">
             <div className="flex items-center flex-1 min-w-0">
                 <div className="flex items-center w-10 shrink-0">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className={cn(
-                            "h-10 w-10 relative flex items-center justify-center transition-all duration-300",
-                            "rounded-2xl active:scale-90",
-                            "bg-white/50 dark:bg-zinc-900/50 backdrop-blur-md border border-zinc-200/50 dark:border-zinc-800/50 shadow-sm",
-                            showBackButton ? "hover:bg-zinc-100 dark:hover:bg-zinc-800" : "cursor-default"
-                        )}
-                        onClick={handleBack}
-                    >
-                        <div className="relative h-6 w-6 flex items-center justify-center">
-                            <ChevronLeft className={cn(
-                                "h-6 w-6 stroke-[2.5px] text-zinc-900 dark:text-zinc-50 transition-all duration-500 absolute",
-                                showBackButton ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 -rotate-90"
-                            )} />
-                            <UserAvatar 
-                                user={user}
-                                className={cn(
-                                    "transition-all duration-500 absolute",
-                                    !showBackButton ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 rotate-90"
-                                )}
-                            />
-                        </div>
-                    </Button>
+                    <div className="hidden md:inline-flex">
+                        <SidebarTrigger className="h-10 w-10 relative flex items-center justify-center mr-2" tooltip="Mở Menu" />
+                    </div>
+                    <div className="md:hidden">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className={cn(
+                                "h-10 w-10 relative flex items-center justify-center transition-all duration-300",
+                                "rounded-2xl active:scale-90",
+                                "bg-white/50 dark:bg-zinc-900/50 backdrop-blur-md border border-zinc-200/50 dark:border-zinc-800/50 shadow-sm",
+                                showBackButton ? "hover:bg-zinc-100 dark:hover:bg-zinc-800" : "cursor-default"
+                            )}
+                            onClick={handleBack}
+                        >
+                            <div className="relative h-6 w-6 flex items-center justify-center">
+                                <ChevronLeft className={cn(
+                                    "h-6 w-6 stroke-[2.5px] text-zinc-900 dark:text-zinc-50 transition-all duration-500 absolute",
+                                    showBackButton ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 -rotate-90"
+                                )} />
+                                <UserAvatar 
+                                    user={user}
+                                    className={cn(
+                                        "transition-all duration-500 absolute",
+                                        !showBackButton ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 rotate-90"
+                                    )}
+                                />
+                            </div>
+                        </Button>
+                    </div>
                 </div>
                 
                 <div className="flex flex-col min-w-0 ml-3 transition-all duration-300">

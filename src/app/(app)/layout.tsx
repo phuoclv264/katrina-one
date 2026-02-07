@@ -24,8 +24,8 @@ export default function AppLayout({
 
   return (
     <LightboxProvider>
-      <SidebarProvider>
-        <Sidebar collapsible="icon">
+      <SidebarProvider defaultOpen={false}>
+        <Sidebar collapsible="offcanvas">
           <AppSidebar />
         </Sidebar>
         <BackButtonHandler />

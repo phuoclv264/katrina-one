@@ -238,7 +238,7 @@ export function ShiftDetailView({
           </div>
         </div>
         {isActuallyUnderstaffed && (
-          <Badge variant="destructive" className="hidden sm:flex h-8 px-4 text-xs font-black rounded-full animate-pulse shadow-soft border-2 border-background">
+          <Badge variant="destructive" className="hidden sm:flex h-8 px-4 lg:mr-8 text-xs font-black rounded-full animate-pulse shadow-soft border-2 border-background">
             {missingDetails.text}
           </Badge>
         )}
