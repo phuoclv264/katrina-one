@@ -213,13 +213,54 @@ export const dataStore = {
 
   subscribeToJobApplications(callback: (applications: JobApplication[]) => void): () => void {
     const q = query(collection(db, 'jobApplications'), orderBy('createdAt', 'desc'));
-    return onSnapshot(q, (snapshot) => {
-      const applications = snapshot.docs.map(docSnap => ({
-        id: docSnap.id,
-        ...docSnap.data()
-      } as JobApplication));
-      callback(applications);
-    });
+
+    // Try to open a real-time subscription first. Some browsers or environments
+    // (older WebViews, restricted browsers) may fail to setup onSnapshot. In
+    // that case fall back to a one-time getDocs() so the page still receives
+    // application data.
+    try {
+      const unsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          const applications = snapshot.docs.map(docSnap => ({
+            id: docSnap.id,
+            ...docSnap.data()
+          } as JobApplication));
+          callback(applications);
+        },
+        (error) => {
+          // If onSnapshot emits an error, fall back to a single fetch.
+          console.warn('[Firestore] onSnapshot error for jobApplications, falling back to getDocs():', error);
+          getDocs(q)
+            .then((snapshot) => {
+              const applications = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as JobApplication));
+              callback(applications);
+            })
+            .catch((err) => {
+              console.error('Failed to fetch jobApplications via getDocs fallback:', err);
+              callback([]);
+            });
+        }
+      );
+
+      return unsubscribe;
+    } catch (e) {
+      // Subscription setup threw synchronously (e.g., unsupported environment).
+      // Perform one-time fetch to ensure the UI receives data and return a
+      // no-op unsubscribe function.
+      console.warn('[Firestore] Could not subscribe to jobApplications, performing one-time fetch:', e);
+      getDocs(q)
+        .then((snapshot) => {
+          const applications = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as JobApplication));
+          callback(applications);
+        })
+        .catch((err) => {
+          console.error('Failed to fetch jobApplications via one-time getDocs:', err);
+          callback([]);
+        });
+
+      return () => { /* no-op unsubscribe */ };
+    }
   },
 
   async updateJobApplicationStatus(applicationId: string, status: JobApplication['status']): Promise<void> {
