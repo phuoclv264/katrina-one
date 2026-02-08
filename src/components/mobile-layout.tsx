@@ -24,7 +24,7 @@ import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
 import { AppNavigationProvider, useAppNavigation } from '@/contexts/app-navigation-context';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import WorkShiftGuard from '@/components/work-shift-guard';
-import { getActiveShiftKeys, DEFAULT_MAIN_SHIFT_TIMEFRAMES, type ShiftKey } from '@/lib/shift-utils';
+import { getActiveShiftKeys, DEFAULT_MAIN_SHIFT_TIMEFRAMES, type ShiftKey, getExactShiftKey } from '@/lib/shift-utils';
 
 // Lazy-load heavy screens to keep initial JS + compile work small.
 // This file acts like an SPA shell (no routing), so we prefer client-only loading.
@@ -188,11 +188,11 @@ function getCurrentShift(): ShiftKey {
   // Use the shared shift-utils to determine which shifts are active.
   // - beforeHours=1 includes the 05:30 early-morning boundary used historically
   // - afterHours=0 keeps end bounds strict to the configured end hour
-  const active = getActiveShiftKeys(DEFAULT_MAIN_SHIFT_TIMEFRAMES);
+  const active = getExactShiftKey(DEFAULT_MAIN_SHIFT_TIMEFRAMES);
 
-  if (active.length === 0) return 'sang'; // fallback to legacy default
+  if (!active) return 'sang'; // fallback to legacy default
 
-  return active[active.length - 1];
+  return active;
 }
 
 const HOME_PATHS = ['/shifts', '/bartender', '/manager', '/admin'];

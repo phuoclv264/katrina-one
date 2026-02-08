@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Star, ArrowUp, ArrowDown, Image as ImageIcon } from 'lucide-react';
+import { Plus, Star, ArrowUp, ArrowDown, Image as ImageIcon, Trash2, Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Task } from '@/lib/types';
+import { useLightbox } from '@/contexts/lightbox-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -41,8 +42,48 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
   // instruction fields
   const [instructionText, setInstructionText] = useState('');
   const [instructionImages, setInstructionImages] = useState<string[]>([]);
+  const [isCompressing, setIsCompressing] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const instructionRef = useRef<HTMLTextAreaElement | null>(null);
+  const { openLightbox } = useLightbox();
+
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 1000;
+          const MAX_HEIGHT = 1000;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return reject('No ctx');
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.6));
+        };
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -87,20 +128,25 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
     requestAnimationFrame(() => adjustInstructionHeight());
   }, [instructionText]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files) return;
+    if (!files || files.length === 0) return;
+    
+    setIsCompressing(true);
     const arr = Array.from(files);
-    arr.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        setInstructionImages(prev => [...prev, result]);
-      };
-      reader.readAsDataURL(file);
-    });
-    // clear input to allow re-upload of same file
-    e.currentTarget.value = '';
+    
+    try {
+      const compressedResults = await Promise.all(
+        arr.map(file => compressImage(file))
+      );
+      setInstructionImages(prev => [...prev, ...compressedResults]);
+    } catch (error) {
+      console.error('Error compressing images:', error);
+    } finally {
+      setIsCompressing(false);
+      // clear input to allow re-upload of same file
+      if (fileRef.current) fileRef.current.value = '';
+    }
   };
 
   const removeImage = (index: number) => {
@@ -174,27 +220,85 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Hướng dẫn (tuỳ chọn)</Label>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground ml-1">Cẩm nang chuẩn (Theo dòng)</Label>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                disabled={isCompressing}
+                onClick={() => fileRef.current?.click()} 
+                className="h-8 text-[11px] font-bold text-indigo-600 hover:bg-indigo-50 rounded-xl"
+              >
+                {isCompressing ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <ImageIcon className="h-3 w-3 mr-2" />}
+                Thêm minh họa
+              </Button>
+            </div>
+            
             <Textarea
               ref={instructionRef}
-              placeholder="Mô tả chi tiết hoặc lưu ý cho người thực hiện."
+              placeholder="Mô tả chi tiết hoặc lưu ý cho người thực hiện..."
               value={instructionText}
               onChange={(e) => { setInstructionText(e.target.value); adjustInstructionHeight(); }}
-              onInput={() => adjustInstructionHeight()}
-              className="min-h-[80px] rounded-xl bg-muted/10 p-3 resize-none overflow-hidden"
+              className="min-h-[100px] rounded-2xl bg-muted/10 border-transparent focus:bg-background focus:ring-indigo-500/20 transition-all resize-none overflow-hidden p-4 text-[13px] leading-relaxed"
             />
-            <div className="flex items-center gap-3">
+
+            <div className="space-y-2">
               <input ref={fileRef} id="instruction-images" type="file" accept="image/*" multiple onChange={handleFileChange} className="hidden" />
-              <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} className="flex items-center gap-2"><ImageIcon className="h-4 w-4" /> Thêm ảnh hướng dẫn</Button>
-              <div className="flex gap-2 flex-wrap">
-                {instructionImages.map((img, idx) => (
-                  <div key={idx} className="relative rounded-md overflow-hidden w-20 h-20 border">
-                    <img src={img} className="object-cover w-full h-full" alt={`instruction-${idx}`} />
-                    <button type="button" onClick={() => removeImage(idx)} className="absolute -top-1 -right-1 bg-white rounded-full p-1 text-xs shadow">✕</button>
+              
+              {instructionImages.length > 0 ? (
+                <div className="grid grid-cols-1 gap-2.5">
+                  {instructionImages.map((img, idx) => (
+                    <div key={idx} className="flex items-center gap-3 p-2.5 bg-muted/20 rounded-2xl border border-transparent hover:border-indigo-100 transition-all group">
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => openLightbox(instructionImages.map(src => ({ src })), idx)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            openLightbox(instructionImages.map(src => ({ src })), idx);
+                          }
+                        }}
+                        className="relative h-14 w-20 rounded-xl overflow-hidden shadow-sm border border-white/50 bg-white cursor-zoom-in"
+                      >
+                        <img src={img} className="object-cover w-full h-full" alt={`instruction-${idx}`} />
+                        <div className="absolute inset-0 bg-black/5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <ImageIcon className="h-3 w-3 text-white shadow-sm" />
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">Ảnh minh họa {idx + 1}</div>
+                        <div className="text-[9px] text-indigo-500/60 font-bold uppercase tracking-tighter">Optimized & ready</div>
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={(e) => { e.stopPropagation(); removeImage(idx); }} 
+                        className="p-2.5 rounded-xl text-muted-foreground/30 hover:text-red-500 hover:bg-red-50 active:scale-90 transition-all"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : !isCompressing && (
+                <button 
+                  onClick={() => fileRef.current?.click()}
+                  className="w-full py-8 rounded-2xl border-2 border-dashed border-muted-foreground/10 bg-muted/5 flex flex-col items-center justify-center gap-2 hover:bg-indigo-50/30 hover:border-indigo-200/50 transition-all group"
+                >
+                  <div className="p-3 bg-white rounded-2xl shadow-sm transform group-hover:scale-110 transition-transform">
+                    <ImageIcon className="h-5 w-5 text-indigo-400" />
                   </div>
-                ))}
-              </div>
+                  <span className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-widest">Nhấn để thêm ảnh đồ uống/món ăn mẫu</span>
+                </button>
+              )}
+
+              {isCompressing && (
+                <div className="w-full py-8 rounded-2xl border-2 border-dashed border-indigo-200 bg-indigo-50/30 flex flex-col items-center justify-center gap-3">
+                  <Loader2 className="h-6 w-6 text-indigo-500 animate-spin" />
+                  <span className="text-[10px] font-bold text-indigo-600 animate-pulse uppercase tracking-widest">Đang tối ưu dung lượng ảnh...</span>
+                </div>
+              )}
             </div>
           </div>
 

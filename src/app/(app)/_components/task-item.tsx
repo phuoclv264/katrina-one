@@ -7,12 +7,28 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Camera, Clock, X, Trash2, AlertCircle, FilePlus2, ThumbsDown, ThumbsUp, FilePen, ChevronDown, ChevronUp, Star, MapPin, CheckCircle2, MessageSquareText, Image as ImageIcon } from 'lucide-react';
+import { 
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  PopoverClose,
+} from '@/components/ui/popover';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTrigger,
+  DialogClose,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { Camera, Clock, X, Trash2, AlertCircle, FilePlus2, ThumbsDown, ThumbsUp, FilePen, ChevronDown, ChevronUp, Star, MapPin, CheckCircle2, MessageSquareText, Image as ImageIcon, Info, HelpCircle } from 'lucide-react';
 import CompletionsDialog from '@/components/completions-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Task, CompletionRecord, ShiftReport } from '@/lib/types';
 import { cn, generateShortName } from '@/lib/utils';
 import { photoStore } from '@/lib/photo-store';
+import { useLightbox } from '@/contexts/lightbox-context';
 import { differenceInMinutes } from 'date-fns';
 // Avatar not needed for flattened other-staff completions
 import { Users } from 'lucide-react';
@@ -74,6 +90,7 @@ const TaskItemComponent = ({
   }, [completions, otherStaffCompletions]);
 
   const [localPhotoUrls, setLocalPhotoUrls] = useState<Map<string, string>>(new Map());
+  const { isLightboxOpen } = useLightbox();
 
   useEffect(() => {
     let isMounted = true;
@@ -157,6 +174,92 @@ const TaskItemComponent = ({
               isCompleted ? "text-green-700" : "text-slate-900"
             )}>
               {task.text}
+              <Dialog dialogTag={`instruction-${task.id}`} parentDialogTag="root">
+                <DialogTrigger asChild>
+                  <button
+                    onClick={(e) => e.stopPropagation()}
+                    className={cn(
+                      "ml-1.5 inline-flex items-center justify-center h-5 w-5 rounded-full transition-transform active:scale-95",
+                      task.instruction 
+                        ? "bg-indigo-50 text-indigo-600 shadow-sm border border-indigo-100/50 hover:bg-indigo-100" 
+                        : "text-slate-300 hover:text-slate-400"
+                    )}
+                    aria-label="Xem hướng dẫn"
+                  >
+                    <HelpCircle className="w-3 h-3" />
+                  </button>
+                </DialogTrigger>
+                <DialogContent 
+                  className="w-[340px] p-0 rounded-[2.5rem] overflow-hidden border-0 shadow-[0_20px_50px_rgba(0,0,0,0.25)] z-[60] bg-white" 
+                  hideClose
+                  onInteractOutside={(e) => {
+                    // Prevent closing if the lightbox is opening or open
+                    if (isLightboxOpen) e.preventDefault();
+                  }}
+                >
+                  <DialogHeader 
+                    variant="premium"
+                    icon={<HelpCircle className="w-5 h-5" />}
+                  >
+                    <DialogTitle className="text-[17px] font-extrabold tracking-tight leading-none">Cẩm nang tiêu chuẩn</DialogTitle>
+                    <DialogDescription className="text-[12px] font-medium">Hướng dẫn thực hiện và báo cáo</DialogDescription>
+                  </DialogHeader>
+
+                  <div className="p-6 space-y-6 max-h-[60vh] overflow-y-auto outline-none">
+                    {task.instruction?.text ? (
+                      <div className="relative">
+                        <div className="absolute -left-2 top-0 bottom-0 w-1 bg-indigo-500 rounded-full opacity-50" />
+                        <p className="text-slate-600 text-[14px] leading-[1.6] whitespace-pre-wrap font-medium lowercase first-letter:uppercase pl-3">
+                          {task.instruction.text}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="bg-slate-50 rounded-2xl p-6 border border-dashed border-slate-200 text-center">
+                        <p className="text-slate-400 text-[12px] font-bold leading-relaxed tracking-wide italic uppercase">
+                          Chưa cập nhật hướng dẫn
+                        </p>
+                        <p className="text-slate-400 text-[11px] mt-1 font-medium">Vui lòng thông báo cho chủ quán để bổ sung</p>
+                      </div>
+                    )}
+
+                    {task.instruction?.images && task.instruction.images.length > 0 && (
+                      <div className="space-y-4 border-t border-slate-50 pt-5">
+                        <div className="flex items-center gap-2 px-1">
+                          <ImageIcon className="w-3.5 h-3.5 text-indigo-400" />
+                          <h4 className="text-slate-400 text-[11px] font-black uppercase tracking-[0.1em]">Hình ảnh minh họa</h4>
+                        </div>
+                        <div className="flex flex-wrap gap-3 px-1 text-center">
+                          {task.instruction.images.map((img, i) => (
+                            <div 
+                              key={i} 
+                              className="relative h-24 w-[calc(50%-6px)] rounded-2xl overflow-hidden shadow-sm border border-slate-100 bg-slate-100 shrink-0 cursor-zoom-in active:scale-[0.98] transition-all group hover:border-indigo-200"
+                              onClick={() => onOpenLightbox(task.instruction!.images!.map(src => ({ src })), i)}
+                            >
+                              <Image 
+                                src={img} 
+                                alt={`HD ${i + 1}`} 
+                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+                              />
+                              <div className="absolute top-2 right-2 bg-black/40 px-2 py-0.5 backdrop-blur-md rounded-lg border border-white/20">
+                                <span className="text-[9px] font-black text-white uppercase tracking-tighter">Mẫu {i + 1}</span>
+                              </div>
+                              <div className="absolute inset-0 bg-indigo-600/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="px-6 pb-6 mt-auto">
+                    <div className="h-px w-full bg-slate-100 mb-5" />
+                    <DialogClose asChild>
+                      <button className="w-full py-4 rounded-2xl bg-slate-50 text-slate-500 text-[13px] font-bold hover:bg-indigo-50 hover:text-indigo-600 transition-all active:scale-[0.98]">
+                        Đã hiểu
+                      </button>
+                    </DialogClose>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </h3>
           </div>
         </div>
