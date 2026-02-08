@@ -281,6 +281,9 @@ export default function CheckInCard() {
         const [h, m] = shift.timeSlot.start.split(':').map(Number);
         const shiftDate = new Date(shift.date);
         shiftDate.setHours(h, m, 0, 0);
+        if (user?.role === 'Quản lý' && h === 6) {
+            shiftDate.setHours(7, m, 0, 0);
+        }
         return currentTime.getTime() >= shiftDate.getTime();
     };
     const showLateRequestButton = !isCheckedIn && !!nextShift && !hasShiftStarted(nextShift);
@@ -566,12 +569,12 @@ export default function CheckInCard() {
             <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen} dialogTag="history-dialog" parentDialogTag="root">
                 <DialogContent className="max-w-md">
                     <DialogHeader variant="premium" iconkey="history">
-                            <div>
-                                <DialogTitle>Lịch sử chấm công hôm nay</DialogTitle>
-                                <DialogDescription>
-                                    Xem lại các lượt vào/ra của bạn trong ngày.
-                                </DialogDescription>
-                            </div>
+                        <div>
+                            <DialogTitle>Lịch sử chấm công hôm nay</DialogTitle>
+                            <DialogDescription>
+                                Xem lại các lượt vào/ra của bạn trong ngày.
+                            </DialogDescription>
+                        </div>
                     </DialogHeader>
                     <DialogBody>
                         {attendanceRecords.length === 0 ? (

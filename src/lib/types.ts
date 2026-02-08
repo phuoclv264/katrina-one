@@ -52,6 +52,10 @@ export type Task = {
   isCritical?: boolean;
   type: 'photo' | 'boolean' | 'opinion';
   minCompletions?: number; // Minimum number of completions required to mark task as done (default: 1)
+  instruction?: {
+    text?: string;
+    images?: string[]; // data URIs or storage URLs
+  };
 };
 
 // Type for AI-parsed server tasks
