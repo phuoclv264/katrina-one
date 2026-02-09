@@ -4,7 +4,6 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import { useEffect } from 'react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
-import Underline from '@tiptap/extension-underline';
 import { Markdown } from 'tiptap-markdown';
 import { cn } from '@/lib/utils';
 import { Button } from './button';
@@ -42,7 +41,6 @@ const RichTextEditor = ({
         // StarterKit includes bold, italic, history etc by default.
         // We only need to configure specific aspects if they differ from defaults.
       }),
-      Underline,
       Placeholder.configure({
         placeholder,
       }),
