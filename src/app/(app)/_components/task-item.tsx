@@ -23,6 +23,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Camera, Clock, X, Trash2, AlertCircle, FilePlus2, ThumbsDown, ThumbsUp, FilePen, ChevronDown, ChevronUp, Star, MapPin, CheckCircle2, MessageSquareText, Image as ImageIcon, Info, HelpCircle } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import CompletionsDialog from '@/components/completions-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Task, CompletionRecord, ShiftReport } from '@/lib/types';
@@ -169,11 +170,11 @@ const TaskItemComponent = ({
       <div className="flex-1">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <h3 className={cn(
-              "text-[12.5px] font-bold leading-[1.3] transition-colors",
+            <div className={cn(
+              "text-[12.5px] font-bold leading-[1.3] transition-colors inline-flex items-center flex-wrap gap-x-1",
               isCompleted ? "text-green-700" : "text-slate-900"
             )}>
-              {task.text}
+              <ReactMarkdown components={{ p: 'span' }}>{task.text}</ReactMarkdown>
               <Dialog dialogTag={`instruction-${task.id}`} parentDialogTag="root">
                 <DialogTrigger asChild>
                   <button
@@ -209,9 +210,9 @@ const TaskItemComponent = ({
                     {task.instruction?.text ? (
                       <div className="relative">
                         <div className="absolute -left-2 top-0 bottom-0 w-1 bg-indigo-500 rounded-full opacity-50" />
-                        <p className="text-slate-600 text-[14px] leading-[1.6] whitespace-pre-wrap font-medium lowercase first-letter:uppercase pl-3">
-                          {task.instruction.text}
-                        </p>
+                        <div className="text-slate-600 text-[14px] leading-[1.6] font-medium pl-3 prose prose-slate prose-sm max-w-none prose-p:my-0 prose-headings:mb-2 prose-headings:mt-4 first:prose-headings:mt-0">
+                          <ReactMarkdown>{task.instruction.text}</ReactMarkdown>
+                        </div>
                       </div>
                     ) : (
                       <div className="bg-slate-50 rounded-2xl p-6 border border-dashed border-slate-200 text-center">
@@ -260,7 +261,7 @@ const TaskItemComponent = ({
                   </div>
                 </DialogContent>
               </Dialog>
-            </h3>
+            </div>
           </div>
         </div>
 
