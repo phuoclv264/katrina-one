@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Star, ArrowUp, ArrowDown, Image as ImageIcon, Trash2, Loader2, X } from 'lucide-react';
+import { Plus, Star, ArrowUp, ArrowDown, Image as ImageIcon, Trash2, Loader2, X, Bold, Heading2, Type } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Task } from '@/lib/types';
 import { useLightbox } from '@/contexts/lightbox-context';
@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Combobox } from '@/components/combobox';
+
 import {
   Dialog,
   DialogContent,
@@ -33,6 +34,37 @@ interface TaskDialogProps {
   parentDialogTag?: string;
 }
 
+function FormattingToolbar({ 
+  onFormat, 
+  className 
+}: { 
+  onFormat: (type: 'bold' | 'header') => void;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex items-center gap-1 p-1 bg-muted/30 rounded-t-xl border-b border-muted-foreground/10", className)}>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={(e) => { e.preventDefault(); onFormat('bold'); }}
+        className="h-8 w-8 p-0 hover:bg-background rounded-lg shadow-sm"
+        title="In đậm"
+      >
+        <Bold className="h-4 w-4" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={(e) => { e.preventDefault(); onFormat('header'); }}
+        className="h-8 w-8 p-0 hover:bg-background rounded-lg shadow-sm"
+        title="Tiêu đề"
+      >
+        <Heading2 className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+}
+
 export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', sectionTitle = '', initialData = null, parentDialogTag = 'root' }: TaskDialogProps) {
   const [text, setText] = useState('');
   const [isCritical, setIsCritical] = useState(false);
@@ -44,6 +76,7 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
   const [instructionImages, setInstructionImages] = useState<string[]>([]);
   const [isCompressing, setIsCompressing] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const mainTextRef = useRef<HTMLTextAreaElement | null>(null);
   const instructionRef = useRef<HTMLTextAreaElement | null>(null);
   const { openLightbox } = useLightbox();
 
@@ -168,6 +201,55 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
     onClose();
   };
 
+  const handleFormat = (ref: React.RefObject<HTMLTextAreaElement | null>, stateSetter: (val: string) => void, formatType: 'bold' | 'header') => {
+    const el = ref.current;
+    if (!el) return;
+
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const val = el.value;
+    const selectedText = val.substring(start, end);
+
+    let newText = val;
+    let newCursorPos = end;
+
+    if (formatType === 'bold') {
+      const isAlreadyBold = selectedText.startsWith('**') && selectedText.endsWith('**');
+      if (isAlreadyBold) {
+        const unwrapped = selectedText.substring(2, selectedText.length - 2);
+        newText = val.substring(0, start) + unwrapped + val.substring(end);
+        newCursorPos = start + unwrapped.length;
+      } else {
+        const wrapped = `**${selectedText}**`;
+        newText = val.substring(0, start) + wrapped + val.substring(end);
+        newCursorPos = start + wrapped.length;
+      }
+    } else if (formatType === 'header') {
+      // Find the start of the current line
+      const lineStart = val.lastIndexOf('\n', start - 1) + 1;
+      const currentLine = val.substring(lineStart, val.indexOf('\n', start) === -1 ? val.length : val.indexOf('\n', start));
+      
+      if (currentLine.startsWith('### ')) {
+        // Remove header
+        newText = val.substring(0, lineStart) + currentLine.substring(4) + val.substring(lineStart + currentLine.length);
+        newCursorPos = start - 4;
+      } else {
+        // Add header
+        newText = val.substring(0, lineStart) + '### ' + val.substring(lineStart);
+        newCursorPos = start + 4;
+      }
+    }
+
+    stateSetter(newText);
+    
+    // Restore focus and selection
+    setTimeout(() => {
+      el.focus();
+      el.setSelectionRange(newCursorPos, newCursorPos);
+      if (ref === instructionRef) adjustInstructionHeight();
+    }, 0);
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()} dialogTag="task-dialog" parentDialogTag={parentDialogTag}>
       <DialogContent className="max-w-xl">
@@ -185,13 +267,17 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
         <DialogBody className="space-y-6 py-6">
           <div className="space-y-3">
             <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground/70 ml-1">Nội dung công việc</Label>
-            <Textarea
-              placeholder="Ví dụ: Kiểm tra vệ sinh máy pha cà phê, Đổ rác khu vực pha chế..."
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              className="min-h-[100px] rounded-2xl bg-muted/20 border-muted-foreground/10 focus:bg-background focus:ring-primary/20 transition-all resize-none text-base p-4"
-              autoFocus
-            />
+            <div className="rounded-2xl border border-muted-foreground/10 overflow-hidden focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+              <FormattingToolbar onFormat={(t) => handleFormat(mainTextRef, setText, t)} />
+              <Textarea
+                ref={mainTextRef}
+                placeholder="Ví dụ: Kiểm tra vệ sinh máy pha cà phê, Đổ rác khu vực pha chế..."
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                className="min-h-[100px] border-0 rounded-none bg-muted/20 focus:bg-background transition-all resize-none text-base p-4 focus-visible:ring-0"
+                autoFocus
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -235,13 +321,19 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
               </Button>
             </div>
             
-            <Textarea
-              ref={instructionRef}
-              placeholder="Mô tả chi tiết hoặc lưu ý cho người thực hiện..."
-              value={instructionText}
-              onChange={(e) => { setInstructionText(e.target.value); adjustInstructionHeight(); }}
-              className="min-h-[100px] rounded-2xl bg-muted/10 border-transparent focus:bg-background focus:ring-indigo-500/20 transition-all resize-none overflow-hidden p-4 text-[13px] leading-relaxed"
-            />
+            <div className="rounded-2xl border border-transparent focus-within:border-indigo-100 focus-within:ring-2 focus-within:ring-indigo-500/20 overflow-hidden transition-all bg-muted/10">
+              <FormattingToolbar 
+                onFormat={(t) => handleFormat(instructionRef, setInstructionText, t)} 
+                className="bg-indigo-50/30 border-indigo-100/50"
+              />
+              <Textarea
+                ref={instructionRef}
+                placeholder="Mô tả chi tiết hoặc lưu ý cho người thực hiện..."
+                value={instructionText}
+                onChange={(e) => { setInstructionText(e.target.value); adjustInstructionHeight(); }}
+                className="min-h-[100px] border-0 rounded-none bg-transparent focus:bg-background transition-all resize-none overflow-hidden p-4 text-[13px] leading-relaxed focus-visible:ring-0"
+              />
+            </div>
 
             <div className="space-y-2">
               <input ref={fileRef} id="instruction-images" type="file" accept="image/*" multiple onChange={handleFileChange} className="hidden" />
@@ -289,7 +381,7 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
                   <div className="p-3 bg-white rounded-2xl shadow-sm transform group-hover:scale-110 transition-transform">
                     <ImageIcon className="h-5 w-5 text-indigo-400" />
                   </div>
-                  <span className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-widest">Nhấn để thêm ảnh đồ uống/món ăn mẫu</span>
+                  <span className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-widest">Nhấn để thêm ảnh mẫu</span>
                 </button>
               )}
 
