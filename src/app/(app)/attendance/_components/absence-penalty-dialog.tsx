@@ -332,7 +332,8 @@ export default function AbsencePenaltyDialog({
                 selectedAbsentUser.userId, 
                 penaltyAmount, 
                 penaltyNote, 
-                { userId: effectiveUser.uid || 'admin', userName: effectiveUser.displayName || 'Admin' }
+                { userId: effectiveUser.uid || 'admin', userName: effectiveUser.displayName || 'Admin' },
+                false
             );
 
             // 2. Add Bonuses for Present Users
@@ -401,7 +402,7 @@ export default function AbsencePenaltyDialog({
                     </div>
                 </DialogHeader>
 
-                <DialogBody className="p-0 flex flex-col md:flex-row h-[80vh] md:h-[70vh] max-h-[800px] min-h-[500px]">
+                <DialogBody className="p-0 flex flex-col md:flex-row">
                     {/* Left: Shifts List */}
                     <div className={cn(
                         "w-full md:w-[320px] lg:w-[380px] border-b md:border-b-0 md:border-r border-zinc-100 flex flex-col bg-zinc-50/30 shrink-0 transition-all duration-300",
@@ -480,13 +481,17 @@ export default function AbsencePenaltyDialog({
                     {/* Right: Details & Action */}
                     <div className="flex-1 flex flex-col bg-white overflow-hidden relative">
                         {!selectedShiftData ? (
-                            <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-12 text-center animate-in fade-in zoom-in-95 duration-300">
-                                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-amber-50 rounded-[2rem] sm:rounded-[2.5rem] flex items-center justify-center mb-6">
-                                    <AlertTriangle className="w-8 h-8 sm:w-10 sm:h-10 text-amber-500" />
+                            shiftsWithAbsences.length === 0 ? (
+                                null
+                            ) : (
+                                <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-12 text-center animate-in fade-in zoom-in-95 duration-300">
+                                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-amber-50 rounded-[2rem] sm:rounded-[2.5rem] flex items-center justify-center mb-6">
+                                        <AlertTriangle className="w-8 h-8 sm:w-10 sm:h-10 text-amber-500" />
+                                    </div>
+                                    <h3 className="text-base sm:text-lg font-bold text-zinc-900 mb-2 font-headline">Chưa chọn ca làm việc</h3>
+                                    <p className="text-xs sm:text-sm text-zinc-500 max-w-xs mx-auto leading-relaxed px-4">Vui lòng chọn một ca làm việc từ danh sách để bắt đầu xử lý kỷ luật.</p>
                                 </div>
-                                <h3 className="text-base sm:text-lg font-bold text-zinc-900 mb-2 font-headline">Chưa chọn ca làm việc</h3>
-                                <p className="text-xs sm:text-sm text-zinc-500 max-w-xs mx-auto leading-relaxed px-4">Vui lòng chọn một ca làm việc từ danh sách để bắt đầu xử lý kỷ luật.</p>
-                            </div>
+                            )
                         ) : !configView ? (
                             <div className="flex-1 flex flex-col p-5 sm:p-8 overflow-y-auto space-y-6 sm:space-y-8 animate-in slide-in-from-right-4 duration-300">
                                 <div className="space-y-4">
@@ -613,7 +618,7 @@ export default function AbsencePenaltyDialog({
                                                         {selectedBonusUserIds.length} người được chọn
                                                     </span>
                                                 </div>
-                                                <div className="divide-y divide-zinc-50 max-h-[250px] sm:max-h-[300px] overflow-y-auto bg-white">
+                                                <div className="divide-y divide-zinc-50 bg-white">
                                                     {selectedShiftData.presentUsers.map((pUser) => {
                                                         const bonusItem = bonusCalculations.find(b => b.user.userId === pUser.userId);
                                                         const isSelected = selectedBonusUserIds.includes(pUser.userId);

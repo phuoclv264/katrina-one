@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { AlertTriangle, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, ChevronRight, Calendar as CalendarIcon, UserPlus, Loader2, Check } from 'lucide-react';
 import type { AssignedShift, ManagedUser, Schedule, ShiftBusyEvidence, ShiftTemplate, UserRole, BusyReportRequest } from '@/lib/types';
 import { subscribeToBusyReportRequestsForWeek } from '@/lib/schedule-store';
 import type { AuthUser } from '@/hooks/use-auth';
@@ -14,6 +14,8 @@ import { cn } from '@/lib/utils';
 import { addWeeks, eachDayOfInterval, endOfWeek, format, getISOWeek, getISOWeekYear, getYear, startOfWeek } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { getRelevantUnderstaffedShifts } from '../../shift-scheduling/_components/understaffed-evidence-utils';
+import { dataStore } from '@/lib/data-store';
+import { toast } from '@/components/ui/pro-toast';
 
 interface WeekScheduleDialogProps {
   open: boolean;
@@ -139,6 +141,34 @@ export default function WeekScheduleDialog({
 
   const totalRelevantShifts = relevantTargetedShifts.length;
   const submittedEvidenceCount = Math.max(0, totalRelevantShifts - pendingEvidenceCount);
+
+  const [processingShiftId, setProcessingShiftId] = useState<string | null>(null);
+
+  const handleApply = async (shiftId: string) => {
+    if (!currentUser || !schedule) return;
+    setProcessingShiftId(shiftId);
+    try {
+      await dataStore.applyForShift(schedule.weekId, shiftId, currentUser);
+      toast.success("Đã gửi yêu cầu nhận ca.");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setProcessingShiftId(null);
+    }
+  }
+
+  const handleCancelApplication = async (shiftId: string) => {
+    if (!currentUser || !schedule) return;
+    setProcessingShiftId(shiftId);
+    try {
+      await dataStore.cancelShiftApplication(schedule.weekId, shiftId, currentUser.uid);
+      toast.success("Đã hủy yêu cầu.");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setProcessingShiftId(null);
+    }
+  }
 
   const renderUserBadge = (userId: string) => {
     const user = allUsers.find((u) => u.uid === userId);
@@ -334,6 +364,10 @@ export default function WeekScheduleDialog({
 
                               const isRelevantToMe = relevantUnderstaffedShifts.some(s => s.id === shiftForCell.id);
 
+                              const isAssigned = currentUser ? shiftForCell.assignedUsers.some(u => u.userId === currentUser.uid) : false;
+                              const hasApplied = currentUser ? shiftForCell.applicants?.some(a => a.userId === currentUser.uid) : false;
+                              const isProcessing = processingShiftId === shiftForCell.id;
+
                               return (
                                 <TableCell
                                   key={template.id}
@@ -365,6 +399,33 @@ export default function WeekScheduleDialog({
                                       <span className="text-[10px] text-muted-foreground/50 italic py-1 tracking-tight">Trống</span>
                                     )}
                                   </div>
+
+                                  {currentUser && isUnderstaffed && !isAssigned && (
+                                    <div className="mt-2">
+                                      {hasApplied ? (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => handleCancelApplication(shiftForCell.id)}
+                                          disabled={isProcessing}
+                                          className="w-full h-7 text-[10px] bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800"
+                                        >
+                                          {isProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3 mr-1" />}
+                                          Đã ứng tuyển
+                                        </Button>
+                                      ) : (
+                                        <Button
+                                          size="sm"
+                                          onClick={() => handleApply(shiftForCell.id)}
+                                          disabled={isProcessing}
+                                          className="w-full h-7 text-[10px] font-bold bg-primary/10 text-primary hover:bg-primary hover:text-white"
+                                        >
+                                          {isProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : <UserPlus className="w-3 h-3 mr-1" />}
+                                          Nhận ca
+                                        </Button>
+                                      )}
+                                    </div>
+                                  )}
                                 </TableCell>
                               );
                             })}
@@ -445,6 +506,10 @@ export default function WeekScheduleDialog({
 
                             const isRelevantToMe = relevantUnderstaffedShifts.some(s => s.id === shiftForCell.id);
 
+                            const isAssigned = currentUser ? shiftForCell.assignedUsers.some(u => u.userId === currentUser.uid) : false;
+                            const hasApplied = currentUser ? shiftForCell.applicants?.some(a => a.userId === currentUser.uid) : false;
+                            const isProcessing = processingShiftId === shiftForCell.id;
+
                             return (
                               <div
                                 key={template.id}
@@ -496,6 +561,33 @@ export default function WeekScheduleDialog({
                                       <span className="text-[11px] text-muted-foreground/60 italic px-1">Chưa có nhân viên trực ca này</span>
                                     )}
                                   </div>
+
+                                  {currentUser && isUnderstaffed && !isAssigned && (
+                                    <div className="mt-1 pt-2 border-t border-dashed border-slate-200 dark:border-slate-800">
+                                      {hasApplied ? (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => handleCancelApplication(shiftForCell.id)}
+                                          disabled={isProcessing}
+                                          className="w-full h-8 text-xs bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800"
+                                        >
+                                          {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Check className="w-3.5 h-3.5 mr-1.5" />}
+                                          Đã ứng tuyển nhận ca này
+                                        </Button>
+                                      ) : (
+                                        <Button
+                                          size="sm"
+                                          onClick={() => handleApply(shiftForCell.id)}
+                                          disabled={isProcessing}
+                                          className="w-full h-8 text-xs font-bold bg-primary/10 text-primary hover:bg-primary hover:text-white"
+                                        >
+                                          {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <UserPlus className="w-3.5 h-3.5 mr-1.5" />}
+                                          Đăng ký nhận ca này
+                                        </Button>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             );

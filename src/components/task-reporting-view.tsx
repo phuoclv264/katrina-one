@@ -13,6 +13,7 @@ import {
     ChevronLeft
 } from "lucide-react"
 import { format } from "date-fns"
+import ReactMarkdown from 'react-markdown';
 import Image from '@/components/ui/image';
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -150,7 +151,9 @@ export function TaskReportingView({
                     <ChevronLeft className="h-5 w-5" />
                 </Button>
                 <div className="min-w-0 flex-1">
-                    <DialogTitle className="font-black text-base leading-none">{assignment.taskName}</DialogTitle>
+                    <DialogTitle className="font-black text-base leading-none">
+                        <ReactMarkdown components={{ p: 'span' }}>{assignment.taskName}</ReactMarkdown>
+                    </DialogTitle>
                     <DialogDescription className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1 font-bold">
                         {assignment.appliesToRole ? `Vai trò: ${assignment.appliesToRole}` : "Chi tiết công việc"}
                     </DialogDescription>
@@ -163,9 +166,9 @@ export function TaskReportingView({
                             </button>
                         </PopoverTrigger>
                         <PopoverContent className="w-72 rounded-2xl p-4 shadow-xl border-border bg-popover/95 backdrop-blur-sm z-[110]">
-                            <p className="text-sm font-medium leading-relaxed">
-                                {assignment.description}
-                            </p>
+                            <div className="text-sm font-medium leading-relaxed prose prose-slate prose-sm max-w-none prose-p:my-0 prose-headings:mb-2 prose-headings:mt-4 first:prose-headings:mt-0">
+                                <ReactMarkdown>{assignment.description}</ReactMarkdown>
+                            </div>
                         </PopoverContent>
                     </Popover>
                 )}

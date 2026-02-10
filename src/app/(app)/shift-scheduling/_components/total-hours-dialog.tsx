@@ -508,8 +508,18 @@ export default function TotalHoursDialog({ open, onOpenChange, schedule, availab
   }, [allUsers, currentUserRole]);
 
   const filteredUsers = useMemo(() => {
-    return advancedSearch(sortedUsers, searchTerm, ['displayName', 'role']);
-  }, [sortedUsers, searchTerm]);
+    const list = advancedSearch(sortedUsers, searchTerm, ['displayName', 'role']);
+    // Sort by assigned hours (descending). Tie-break by role, then name.
+    return list.sort((a, b) => {
+      const hoursA = totalHoursByUser.get(a.uid) || 0;
+      const hoursB = totalHoursByUser.get(b.uid) || 0;
+      if (hoursB !== hoursA) return hoursB - hoursA;
+      const roleA = roleOrder[a.role] || 99;
+      const roleB = roleOrder[b.role] || 99;
+      if (roleA !== roleB) return roleA - roleB;
+      return a.displayName.localeCompare(b.displayName);
+    });
+  }, [sortedUsers, searchTerm, totalHoursByUser]);
 
   const stats = useMemo(() => {
     let totalScheduled = 0;
@@ -625,8 +635,10 @@ export default function TotalHoursDialog({ open, onOpenChange, schedule, availab
                                                             {workedHours.toFixed(1)}
                                                         </span>
                                                         <span className="text-[8px] font-bold text-muted-foreground uppercase">h</span>
-                                                    </div>
-                                                </div>
+                                                    </div>                                                <div className="text-[10px] text-muted-foreground mt-1">/
+                                                    <span className="font-semibold ml-1">{availableHours.toFixed(1)}h</span>
+                                                    <span className="text-[9px] ml-1">khả dụng</span>
+                                                </div>                                                </div>
                                             </div>
 
                                             <div className="space-y-1">

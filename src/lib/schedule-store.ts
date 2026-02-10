@@ -27,7 +27,7 @@ import {
     and,
     arrayUnion,
 } from 'firebase/firestore';
-import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, AuthUser, PassRequestPayload, TimeSlot, MonthlyTask, MonthlyTaskAssignment, MediaAttachment, MediaItem, TaskCompletionRecord, SimpleUser, ShiftBusyEvidence, BusyReportRequest } from './types';
+import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, AuthUser, PassRequestPayload, TimeSlot, MonthlyTask, MonthlyTaskAssignment, MediaAttachment, MediaItem, TaskCompletionRecord, SimpleUser, ShiftBusyEvidence, BusyReportRequest, ShiftApplicant } from './types';
 import { getISOWeek, getISOWeekYear, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, getDay, parseISO, isPast, isWithinInterval, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, getDate, getWeekOfMonth, addMonths } from 'date-fns';
 import { hasTimeConflict } from './schedule-utils';
 import { DateRange } from 'react-day-picker';
@@ -1762,5 +1762,109 @@ export async function deleteMonthlyTaskCompletion(taskId: string, userId: string
         const updatedCompletions = allCompletions.filter(c => c.taskId !== taskId);
 
         transaction.update(docRef, { completions: updatedCompletions });
+    });
+}
+
+export async function applyForShift(weekId: string, shiftId: string, user: AuthUser): Promise<void> {
+    const scheduleRef = doc(db, 'schedules', weekId);
+
+    // Fetch managers/owners to notify outside the transaction to minimize locking
+    // Send notification only to the restaurant owner (if any)
+    const ownerQuery = query(collection(db, 'users'), where('role', '==', 'Chủ nhà hàng'));
+    const ownersSnap = await getDocs(ownerQuery);
+    const recipientUids = ownersSnap.docs.length > 0 ? [ownersSnap.docs[0].id] : [];
+
+    await runTransaction(db, async (transaction) => {
+        const scheduleDoc = await transaction.get(scheduleRef);
+        if (!scheduleDoc.exists()) {
+            throw new Error("Schedule not found");
+        }
+
+        const schedule = scheduleDoc.data() as Schedule;
+        const shiftIndex = schedule.shifts.findIndex(s => s.id === shiftId);
+        if (shiftIndex === -1) {
+            throw new Error("Shift not found");
+        }
+
+        const shift = schedule.shifts[shiftIndex];
+        const applicants = shift.applicants || [];
+
+        if (applicants.some(a => a.userId === user.uid)) {
+            return; // Already applied
+        }
+
+        if (shift.assignedUsers.some(u => u.userId === user.uid)) {
+            throw new Error("Already assigned to this shift");
+        }
+
+        const newApplicant: ShiftApplicant = {
+            userId: user.uid,
+            userName: user.displayName,
+            appliedAt: new Date().toISOString()
+        };
+
+        const updatedShifts = [...schedule.shifts];
+        updatedShifts[shiftIndex] = {
+            ...shift,
+            applicants: [...applicants, newApplicant]
+        };
+
+        transaction.update(scheduleRef, { shifts: updatedShifts });
+
+        // Create notification
+        if (recipientUids.length > 0) {
+            const notificationRef = doc(collection(db, 'notifications'));
+            const notification: Notification = {
+                id: notificationRef.id,
+                type: 'shift_application',
+                createdAt: Timestamp.now(),
+                recipientUids,
+                messageTitle: 'Ứng tuyển nhận ca',
+                messageBody: `${user.displayName} đã đăng ký nhận ca ${shift.label} (${format(parseISO(shift.date), 'dd/MM')})`,
+                payload: {
+                    notificationType: 'shift_application',
+                    weekId,
+                    shiftId,
+                    shiftLabel: shift.label,
+                    shiftDate: shift.date,
+                    applicantId: user.uid,
+                    applicantName: user.displayName,
+                },
+                isRead: {},
+            };
+            transaction.set(notificationRef, notification);
+        }
+    });
+}
+
+export async function cancelShiftApplication(weekId: string, shiftId: string, userId: string): Promise<void> {
+    const scheduleRef = doc(db, 'schedules', weekId);
+
+    await runTransaction(db, async (transaction) => {
+        const scheduleDoc = await transaction.get(scheduleRef);
+        if (!scheduleDoc.exists()) {
+            throw new Error("Schedule not found");
+        }
+
+        const schedule = scheduleDoc.data() as Schedule;
+        const shiftIndex = schedule.shifts.findIndex(s => s.id === shiftId);
+        if (shiftIndex === -1) {
+            throw new Error("Shift not found");
+        }
+
+        const shift = schedule.shifts[shiftIndex];
+        const applicants = shift.applicants || [];
+
+        const updatedApplicants = applicants.filter(a => a.userId !== userId);
+
+        if (updatedApplicants.length === applicants.length) return; // No change
+
+        const updatedShifts = [...schedule.shifts];
+        updatedShifts[shiftIndex] = {
+            ...shift,
+            applicants: updatedApplicants
+        };
+
+        transaction.update(scheduleRef, { shifts: updatedShifts });
     });
 }

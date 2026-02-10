@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import { cn } from '@/lib/utils';
 import { dataStore } from '@/lib/data-store';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import type { Task, TasksByShift, TaskSection, ParsedServerTask, GenerateServerTasksOutput } from '@/lib/types';
@@ -19,10 +20,20 @@ import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { Textarea } from '@/components/ui/textarea';
 import { callGenerateServerTasks, callSortTasks } from '@/lib/ai-service';
 import { Combobox } from '@/components/combobox';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { 
+    Dialog, 
+    DialogContent, 
+    DialogTitle, 
+    DialogHeader, 
+    DialogDescription, 
+    DialogBody, 
+    DialogFooter, 
+    DialogAction, 
+    DialogCancel 
+} from '@/components/ui/dialog';
 import { diffChars } from 'diff';
 import { Badge } from '@/components/ui/badge';
+import { TaskDialog } from './_components/task-dialog';
 
 
 function AiAssistant({
@@ -171,88 +182,124 @@ function AiAssistant({
 
     return (
         <>
-            <Card className="mb-8">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl"><Wand2 /> Công cụ hỗ trợ AI</CardTitle>
-                    <CardDescription>Sử dụng AI để thêm hoặc sắp xếp lại các công việc một cách thông minh.</CardDescription>
+            <Card className="mb-8 border-none shadow-lg bg-gradient-to-br from-primary/5 via-background to-secondary/5 overflow-hidden">
+                <CardHeader className="pb-4 relative">
+                    <div className="absolute top-0 right-0 p-6 opacity-10 hidden sm:block pointer-events-none">
+                        <Sparkles className="h-20 w-20 text-primary" />
+                    </div>
+                    <CardTitle className="flex items-center gap-3 text-xl sm:text-2xl font-headline text-primary">
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                            <Wand2 className="h-6 w-6" />
+                        </div>
+                        Trợ lý AI Thông minh
+                    </CardTitle>
+                    <CardDescription className="text-base">Sử dụng AI để tối ưu hóa quy trình làm việc một cách tự động.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setTargetShift(''); setTargetSection(''); }}>
-                        <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="add"><Plus className="mr-2 h-4 w-4" />Thêm mới</TabsTrigger>
-                            <TabsTrigger value="sort"><Sparkles className="mr-2 h-4 w-4" />Sắp xếp</TabsTrigger>
+                    <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setTargetShift(''); setTargetSection(''); }} className="space-y-6">
+                        <TabsList className="grid w-full grid-cols-2 p-1 bg-muted/50 rounded-xl h-auto">
+                            <TabsTrigger value="add" className="py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                                <Plus className="mr-2 h-4 w-4 text-green-500" />
+                                <span className="font-medium">Thêm hàng loạt</span>
+                            </TabsTrigger>
+                            <TabsTrigger value="sort" className="py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                                <Shuffle className="mr-2 h-4 w-4 text-blue-500" />
+                                <span className="font-medium">Sắp xếp thông minh</span>
+                            </TabsTrigger>
                         </TabsList>
-                        <TabsContent value="add" className="mt-4 space-y-4">
-                            <Tabs defaultValue="text">
-                                <TabsList className="grid w-full grid-cols-2">
-                                    <TabsTrigger value="text"><FileText className="mr-2 h-4 w-4" />Dán văn bản</TabsTrigger>
-                                    <TabsTrigger value="image"><ImageIcon className="mr-2 h-4 w-4" />Tải ảnh lên</TabsTrigger>
-                                </TabsList>
-                                <TabsContent value="text" className="mt-4 space-y-4">
+
+                        <TabsContent value="add" className="mt-0 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <Tabs defaultValue="text" className="w-full">
+                                <div className="flex items-center gap-2 mb-4">
+                                     <TabsList className="bg-muted/30 p-1">
+                                        <TabsTrigger value="text" className="text-xs py-1.5"><FileText className="mr-1.5 h-3.5 w-3.5" />Văn bản</TabsTrigger>
+                                        <TabsTrigger value="image" className="text-xs py-1.5"><ImageIcon className="mr-1.5 h-3.5 w-3.5" />Hình ảnh</TabsTrigger>
+                                    </TabsList>
+                                </div>
+                                <TabsContent value="text" className="space-y-4">
                                     <Textarea
-                                        placeholder="Dán danh sách công việc vào đây. Ví dụ: 'Ca Sáng - Đầu ca: Lau bàn'. Nếu không chỉ định, AI sẽ thêm vào mục mặc định."
+                                        placeholder="Ví dụ: 'Ca Sáng - Đầu ca: Vệ sinh máy pha cà phê, Kiểm tra tủ bánh...'. AI sẽ tự động phân loại giúp bạn."
                                         rows={4}
+                                        className="resize-none border-muted-foreground/20 focus-visible:ring-primary/30"
                                         value={textInput}
                                         onChange={(e) => setTextInput(e.target.value)}
                                         disabled={isGenerating}
                                     />
-                                    <Button onClick={() => handleGenerateAdd('text')} disabled={isGenerating || !textInput.trim()} className="w-full sm:w-auto">
-                                        {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                                        Tạo
+                                    <Button onClick={() => handleGenerateAdd('text')} disabled={isGenerating || !textInput.trim()} className="w-full sm:w-auto shadow-md">
+                                        {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                                        Tạo danh sách bằng AI
                                     </Button>
                                 </TabsContent>
-                                <TabsContent value="image" className="mt-4 space-y-4">
-                                    <Input
-                                        id="server-image-upload"
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={handleFileChange}
-                                        disabled={isGenerating}
-                                    />
-                                    <Button onClick={() => handleGenerateAdd('image')} disabled={isGenerating || !imageInput} className="w-full sm:w-auto">
-                                        {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                                        Tạo
+                                <TabsContent value="image" className="space-y-4">
+                                    <div className="flex items-center gap-4">
+                                        <Input
+                                            id="server-image-upload"
+                                            type="file"
+                                            accept="image/*"
+                                            className="flex-1 cursor-pointer"
+                                            onChange={handleFileChange}
+                                            disabled={isGenerating}
+                                        />
+                                    </div>
+                                    <Button onClick={() => handleGenerateAdd('image')} disabled={isGenerating || !imageInput} className="w-full sm:w-auto shadow-md">
+                                        {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImageIcon className="mr-2 h-4 w-4" />}
+                                        Trích xuất từ ảnh
                                     </Button>
                                 </TabsContent>
                             </Tabs>
                         </TabsContent>
-                        <TabsContent value="sort" className="mt-4 space-y-4">
-                            <Textarea
-                                placeholder="Nhập yêu cầu của bạn, ví dụ: 'ưu tiên các việc quan trọng lên đầu'"
-                                rows={2}
-                                value={sortInstruction}
-                                onChange={(e) => setSortInstruction(e.target.value)}
-                                disabled={isGenerating}
-                            />
-                            <div className="flex flex-col sm:flex-row gap-2">
-                                <Combobox
-                                    value={targetShift}
-                                    onChange={setTargetShift}
-                                    disabled={isGenerating}
-                                    placeholder="Chọn ca..."
-                                    options={[
-                                        { value: "sang", label: "Ca Sáng" },
-                                        { value: "trua", label: "Ca Trưa" },
-                                        { value: "toi", label: "Ca Tối" }
-                                    ]}
-                                    compact
-                                />
-                                <Combobox
-                                    value={targetSection}
-                                    onChange={setTargetSection}
-                                    disabled={isGenerating}
-                                    placeholder="Chọn mục..."
-                                    options={[
-                                        { value: "Đầu ca", label: "Đầu ca" },
-                                        { value: "Trong ca", label: "Trong ca" },
-                                        { value: "Cuối ca", label: "Cuối ca" }
-                                    ]}
-                                    compact
-                                />
-                                <Button onClick={handleGenerateSort} disabled={isGenerating || !targetShift || !targetSection || !sortInstruction.trim()} className="w-full sm:w-auto">
-                                    {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                                    Sắp xếp bằng AI
-                                </Button>
+
+                        <TabsContent value="sort" className="mt-0 space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label className="text-sm font-semibold">Mục tiêu sắp xếp</Label>
+                                    <Textarea
+                                        placeholder="Ví dụ: 'Ưu tiên các việc quan trọng lên đầu', 'Sắp xếp theo thứ tự ưu tiên vận hành'..."
+                                        rows={2}
+                                        className="resize-none border-muted-foreground/20"
+                                        value={sortInstruction}
+                                        onChange={(e) => setSortInstruction(e.target.value)}
+                                        disabled={isGenerating}
+                                    />
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs text-muted-foreground">Chọn ca</Label>
+                                        <Combobox
+                                            value={targetShift}
+                                            onChange={setTargetShift}
+                                            disabled={isGenerating}
+                                            placeholder="Chọn ca..."
+                                            options={[
+                                                { value: "sang", label: "Ca Sáng" },
+                                                { value: "trua", label: "Ca Trưa" },
+                                                { value: "toi", label: "Ca Tối" }
+                                            ]}
+                                            compact
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs text-muted-foreground">Chọn mục</Label>
+                                        <Combobox
+                                            value={targetSection}
+                                            onChange={setTargetSection}
+                                            disabled={isGenerating}
+                                            placeholder="Chọn mục..."
+                                            options={[
+                                                { value: "Đầu ca", label: "Đầu ca" },
+                                                { value: "Trong ca", label: "Trong ca" },
+                                                { value: "Cuối ca", label: "Cuối ca" }
+                                            ]}
+                                            compact
+                                        />
+                                    </div>
+                                    <div className="flex items-end">
+                                        <Button onClick={handleGenerateSort} disabled={isGenerating || !targetShift || !targetSection || !sortInstruction.trim()} className="w-full shadow-md bg-indigo-600 hover:bg-indigo-700 text-white">
+                                            {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                                            Sắp xếp ngay
+                                        </Button>
+                                    </div>
+                                </div>
                             </div>
                         </TabsContent>
                     </Tabs>
@@ -262,69 +309,73 @@ function AiAssistant({
             {/* Add Preview Dialog */}
             <Dialog open={showAddPreview} onOpenChange={setShowAddPreview} dialogTag="task-add-preview-dialog" parentDialogTag="root">
                 <DialogContent className="max-w-2xl">
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Xem trước các công việc sẽ được thêm</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            AI đã phân tích đầu vào của bạn. Kiểm tra lại danh sách dưới đây trước khi thêm chúng. Công việc không có ca/mục sẽ được thêm vào mục mặc định.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <div className="max-h-[50vh] overflow-y-auto p-2 border rounded-md">
+                    <DialogHeader variant="info" iconkey="file">
+                        <DialogTitle>Xem trước danh sách từ AI</DialogTitle>
+                        <DialogDescription>
+                            AI đã phân tích nội dung. Kiểm tra lại danh sách dưới đây trước khi thêm vào hệ thống.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogBody>
                         <ul className="space-y-2">
                             {addPreviewTasks.map((task, index) => (
-                                <li key={index} className="flex items-center gap-3 p-2 rounded-md bg-muted/50 text-sm">
-                                    {task.isCritical ? <Star className="h-4 w-4 text-yellow-500" /> : <Plus className="h-4 w-4 text-green-500" />}
-                                    <span className="flex-1">{task.text}</span>
-                                    <Badge variant="outline">{task.type}</Badge>
+                                <li key={index} className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 text-sm border border-transparent hover:border-primary/10 transition-colors">
+                                    {task.isCritical ? <div className="p-1 bg-amber-100 rounded-md"><Star className="h-4 w-4 text-amber-500 fill-current" /></div> : <div className="p-1 bg-primary/10 rounded-md"><Plus className="h-4 w-4 text-primary" /></div>}
+                                    <span className="flex-1 font-medium">{task.text}</span>
+                                    <Badge variant="outline" className="text-[10px] uppercase tracking-wider">{task.type}</Badge>
                                 </li>
                             ))}
                         </ul>
-                    </div>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Hủy</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleConfirmAdd}>Thêm {addPreviewTasks.length} công việc</AlertDialogAction>
-                    </AlertDialogFooter>
+                    </DialogBody>
+                    <DialogFooter>
+                        <DialogCancel onClick={() => setShowAddPreview(false)}>Hủy bỏ</DialogCancel>
+                        <DialogAction onClick={handleConfirmAdd}>
+                             Thêm {addPreviewTasks.length} công việc
+                        </DialogAction>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
 
             {/* Sort Preview Dialog */}
             <Dialog open={showSortPreview} onOpenChange={setShowSortPreview} dialogTag="task-sort-preview-dialog" parentDialogTag="root">
                 <DialogContent className="max-w-4xl">
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Xem trước thứ tự sắp xếp mới</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            AI đề xuất sắp xếp lại các công việc trong mục <span className="font-bold">"{targetSection}"</span> của <span className="font-bold">Ca {tasksByShift?.[targetShift]?.name}</span> như sau. Bạn có muốn áp dụng thay đổi không?
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <div className="max-h-[60vh] overflow-y-auto p-2 border rounded-md grid grid-cols-2 gap-4">
-                        <div>
-                            <h4 className="font-semibold mb-2 text-center">Thứ tự hiện tại</h4>
-                            <ul className="space-y-2 text-sm">
+                    <DialogHeader variant="premium" iconkey="layout">
+                        <DialogTitle>Thứ tự sắp xếp mới</DialogTitle>
+                        <DialogDescription>
+                            AI đề xuất sắp xếp lại các công việc trong mục <span className="font-bold">"{targetSection}"</span> của <span className="font-bold">Ca {tasksByShift?.[targetShift]?.name}</span>.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogBody className="grid grid-cols-1 md:grid-cols-2 gap-6 py-6">
+                        <div className="space-y-3">
+                            <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground/70 ml-1">Thứ tự hiện tại</h4>
+                            <ul className="space-y-2 text-sm bg-muted/20 p-4 rounded-2xl border border-dashed">
                                 {sortPreview.oldOrder.map((task, index) => (
-                                    <li key={index} className="p-2 rounded-md bg-muted/50">
-                                        {index + 1}. {task}
+                                    <li key={index} className="flex gap-2 text-muted-foreground italic">
+                                        <span className="opacity-50">{index + 1}.</span> {task}
                                     </li>
                                 ))}
                             </ul>
                         </div>
-                        <div>
-                            <h4 className="font-semibold mb-2 text-center">Thứ tự mới</h4>
-                            <ul className="space-y-2 text-sm">
+                        <div className="space-y-3">
+                            <h4 className="text-xs font-black uppercase tracking-widest text-primary/70 ml-1">Thứ tự đề xuất</h4>
+                            <ul className="space-y-2 text-sm bg-primary/5 p-4 rounded-2xl border border-primary/10">
                                 {sortPreview.newOrder.map((task, index) => {
                                     const oldIndex = sortPreview.oldOrder.findIndex(t => t === task);
                                     const oldTaskText = oldIndex !== -1 ? sortPreview.oldOrder[oldIndex] : '';
                                     return (
-                                        <li key={index} className="p-2 rounded-md bg-green-100/50">
-                                            {index + 1}. {renderDiff(oldTaskText, task)}
+                                        <li key={index} className="flex gap-2 font-medium">
+                                            <span className="text-primary">{index + 1}.</span> {renderDiff(oldTaskText, task)}
                                         </li>
                                     )
                                 })}
                             </ul>
                         </div>
-                    </div>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Hủy</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleConfirmSort}>Áp dụng thứ tự mới</AlertDialogAction>
-                    </AlertDialogFooter>
+                    </DialogBody>
+                    <DialogFooter>
+                        <DialogCancel onClick={() => setShowSortPreview(false)}>Hủy bỏ</DialogCancel>
+                        <DialogAction onClick={handleConfirmSort}>
+                            Áp dụng thay đổi
+                        </DialogAction>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </>
@@ -338,8 +389,8 @@ export default function TaskListsPage() {
     const navigation = useAppNavigation();
     const [isLoading, setIsLoading] = useState(true);
     const [isSorting, setIsSorting] = useState(false);
-    const [newTask, setNewTask] = useState<{ [shiftKey: string]: { [sectionTitle: string]: { text: string; isCritical: boolean; type: Task['type']; minCompletions: number } } }>({});
-    const [editingTask, setEditingTask] = useState<{ shiftKey: string; sectionTitle: string; taskId: string; newText: string; newType: Task['type']; newMinCompletions: number } | null>(null);
+    const [addingToSection, setAddingToSection] = useState<{ shiftKey: string; sectionTitle: string } | null>(null);
+    const [editingTask, setEditingTask] = useState<{ shiftKey: string; sectionTitle: string; taskId: string; text: string; type: Task['type']; minCompletions: number; isCritical: boolean; instruction?: { text?: string; images?: string[] } } | null>(null);
 
     const [openSections, setOpenSections] = useState<{ [shiftKey: string]: string[] }>({});
 
@@ -433,54 +484,42 @@ export default function TaskListsPage() {
         }
     };
 
-    const handleAddTask = (shiftKey: string, sectionTitle: string) => {
+    const handleAddTask = (shiftKey: string, sectionTitle: string, taskData: Omit<Task, 'id'>) => {
         if (!tasksByShift) return;
-        const taskDetails = newTask[shiftKey]?.[sectionTitle];
-        if (!taskDetails || taskDetails.text.trim() === '') return;
 
         const newTaskToAdd: Task = {
             id: `task-${Date.now()}`,
-            text: taskDetails.text.trim(),
-            isCritical: taskDetails.isCritical,
-            type: taskDetails.type,
-            minCompletions: taskDetails.minCompletions || 1,
+            ...taskData
         };
 
         const newTasksState = JSON.parse(JSON.stringify(tasksByShift));
         const section = newTasksState[shiftKey].sections.find((s: TaskSection) => s.title === sectionTitle);
         if (section) {
             section.tasks.push(newTaskToAdd);
+            handleUpdateAndSave(newTasksState);
+        } else {
+            toast.error("Không tìm thấy ca hoặc mục để thêm công việc vào.");
         }
-
-        handleUpdateAndSave(newTasksState);
-
-        setNewTask(current => {
-            const newTasksInputState = JSON.parse(JSON.stringify(current));
-            if (newTasksInputState[shiftKey]?.[sectionTitle]) {
-                newTasksInputState[shiftKey][sectionTitle].text = '';
-                newTasksInputState[shiftKey][sectionTitle].isCritical = false;
-                newTasksInputState[shiftKey][sectionTitle].type = 'photo';
-                newTasksInputState[shiftKey][sectionTitle].minCompletions = 1;
-            }
-            return newTasksInputState;
-        });
     };
 
-    const handleUpdateTask = () => {
-        if (!tasksByShift || !editingTask || editingTask.newText.trim() === '') {
+    const handleUpdateTask = (data: Omit<Task, 'id'>) => {
+        if (!tasksByShift || !editingTask) {
             setEditingTask(null);
             return;
         }
 
-        const { shiftKey, sectionTitle, taskId, newText, newType, newMinCompletions } = editingTask;
+        const { shiftKey, sectionTitle, taskId } = editingTask;
+        const { text, type, minCompletions, isCritical, instruction } = data;
         const newTasksState = JSON.parse(JSON.stringify(tasksByShift));
         const section = newTasksState[shiftKey]?.sections.find((s: TaskSection) => s.title === sectionTitle);
         if (section) {
             const task = section.tasks.find((t: Task) => t.id === taskId);
             if (task) {
-                task.text = newText.trim();
-                task.type = newType;
-                task.minCompletions = newMinCompletions || 1;
+                task.text = text.trim();
+                task.type = type;
+                task.minCompletions = minCompletions || 1;
+                task.isCritical = isCritical;
+                task.instruction = instruction;
             }
         }
         handleUpdateAndSave(newTasksState);
@@ -524,16 +563,6 @@ export default function TaskListsPage() {
         handleUpdateAndSave(newTasksState, false);
     }
 
-    const handleNewTaskChange = (shiftKey: string, sectionTitle: string, field: 'text' | 'isCritical' | 'type' | 'minCompletions', value: string | boolean | Task['type'] | number) => {
-        setNewTask(current => {
-            const newState = JSON.parse(JSON.stringify(current));
-            if (!newState[shiftKey]) newState[shiftKey] = {};
-            if (!newState[shiftKey][sectionTitle]) newState[shiftKey][sectionTitle] = { text: '', isCritical: false, type: 'photo', minCompletions: 1 };
-            (newState[shiftKey][sectionTitle] as any)[field] = value;
-            return newState;
-        });
-    };
-
     const handleToggleAll = (shiftKey: string) => {
         if (!tasksByShift?.[shiftKey]) return;
         const areAllOpen = (openSections[shiftKey] || []).length === tasksByShift[shiftKey].sections.length;
@@ -573,210 +602,202 @@ export default function TaskListsPage() {
     }
 
     if (!tasksByShift) {
-        return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">Không thể tải danh sách công việc.</div>;
+        return (
+            <div className="container mx-auto max-w-4xl p-12 text-center space-y-4">
+                <div className="bg-muted w-16 h-16 rounded-full flex items-center justify-center mx-auto">
+                    <AlertCircle className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <h2 className="text-xl font-semibold">Không thể tải dữ liệu</h2>
+                <p className="text-muted-foreground">Vui lòng kiểm tra kết nối mạng và thử lại.</p>
+                <Button onClick={handleDataRefresh} variant="outline">Thử lại</Button>
+            </div>
+        );
     }
 
     const getTaskTypeIcon = (type: Task['type']) => {
         switch (type) {
-            case 'photo': return <ImageIcon className="h-4 w-4 text-green-500 shrink-0" />;
-            case 'boolean': return <CheckSquare className="h-4 w-4 text-sky-500 shrink-0" />;
-            case 'opinion': return <MessageSquare className="h-4 w-4 text-orange-500 shrink-0" />;
+            case 'photo': return <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-md"><ImageIcon className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" /></div>;
+            case 'boolean': return <div className="p-1.5 bg-sky-100 dark:bg-sky-900/30 rounded-md"><CheckSquare className="h-4 w-4 text-sky-600 dark:text-sky-400 shrink-0" /></div>;
+            case 'opinion': return <div className="p-1.5 bg-orange-100 dark:bg-orange-900/30 rounded-md"><MessageSquare className="h-4 w-4 text-orange-600 dark:text-orange-400 shrink-0" /></div>;
             default: return null;
         }
     }
 
+    const totalTasks = Object.values(tasksByShift).reduce((acc, shift) => acc + shift.sections.reduce((sAcc, section) => sAcc + section.tasks.length, 0), 0);
+
     return (
-        <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
-            <header className="mb-8">
-                <h1 className="text-2xl md:text-3xl font-bold font-headline">Quản lý danh sách công việc</h1>
-                <p className="text-muted-foreground">Tạo và chỉnh sửa các công việc hàng ngày cho tất cả các ca.</p>
+        <div className="container mx-auto max-w-5xl p-4 sm:p-6 md:p-8 space-y-8 pb-20">
+            <header className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 border-b pb-6">
+                <div className="space-y-1">
+                    <h1 className="text-3xl md:text-4xl font-extrabold font-headline tracking-tight text-foreground">
+                        Quản lý công việc
+                    </h1>
+                    <p className="text-lg text-muted-foreground">
+                        Hệ thống hóa quy trình vận hành cho từng ca làm việc.
+                    </p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="px-3 py-1 text-sm font-medium bg-secondary/50 border-primary/20 text-primary">
+                        {totalTasks} nhiệm vụ đang áp dụng
+                    </Badge>
+                </div>
             </header>
 
             <AiAssistant tasksByShift={tasksByShift} onAddTasks={onAiAddTasks} onSortTasks={onAiSortTasks} />
 
-            <Tabs defaultValue="sang" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="sang"><Sun className="mr-2" />Ca Sáng</TabsTrigger>
-                    <TabsTrigger value="trua"><Sunset className="mr-2" />Ca Trưa</TabsTrigger>
-                    <TabsTrigger value="toi"><Moon className="mr-2" />Ca Tối</TabsTrigger>
+            <Tabs defaultValue="sang" className="w-full space-y-6">
+                <TabsList className="grid w-full grid-cols-3 p-1.5 h-auto bg-muted/50 rounded-2xl border">
+                    <TabsTrigger value="sang" className="rounded-xl py-3 data-[state=active]:bg-amber-500 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-300">
+                        <Sun className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                        <span className="font-semibold hidden sm:inline">Ca Sáng</span>
+                        <span className="font-semibold sm:hidden text-xs">Sáng</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="trua" className="rounded-xl py-3 data-[state=active]:bg-orange-500 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-300">
+                        <Sunset className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                        <span className="font-semibold hidden sm:inline">Ca Trưa</span>
+                        <span className="font-semibold sm:hidden text-xs">Trưa</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="toi" className="rounded-xl py-3 data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-300">
+                        <Moon className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                        <span className="font-semibold hidden sm:inline">Ca Tối</span>
+                        <span className="font-semibold sm:hidden text-xs">Tối</span>
+                    </TabsTrigger>
                 </TabsList>
 
                 {Object.entries(tasksByShift).map(([shiftKey, shiftData]) => {
-                    const areAllSectionsOpen = tasksByShift?.[shiftKey] ? (openSections[shiftKey] || []).length === tasksByShift[shiftKey].sections.length : false;
+                    const areAllSectionsOpen = (openSections[shiftKey] || []).length === shiftData.sections.length;
                     return (
-                        <TabsContent value={shiftKey} key={shiftKey}>
-                            <Card>
-                                <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                                    <div className="space-y-1.5">
-                                        <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl"><ListTodo /> Công việc {shiftData.name}</CardTitle>
-                                        <CardDescription>Danh sách này sẽ được hiển thị cho nhân viên vào đầu mỗi ca.</CardDescription>
-                                    </div>
-                                    <div className="flex items-center gap-2 w-full sm:w-auto">
-                                        <Button variant="outline" size="sm" onClick={() => handleExport(shiftKey)} className="w-full sm:w-auto">
-                                            <Download className="mr-2 h-4 w-4" />
-                                            Xuất dữ liệu
-                                        </Button>
-                                        {isSorting ? (
-                                            <Button variant="default" size="sm" onClick={toggleSortMode} className="w-full sm:w-auto">
-                                                <Check className="mr-2 h-4 w-4" />
-                                                Xong
+                        <TabsContent value={shiftKey} key={shiftKey} className="animate-in fade-in slide-in-from-bottom-2 duration-500 mt-0">
+                            <Card className="border-none shadow-xl ring-1 ring-border overflow-hidden">
+                                <CardHeader className="border-b bg-muted/20 pb-4">
+                                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className={cn(
+                                                "p-3 rounded-2xl text-white shadow-inner",
+                                                shiftKey === 'sang' ? "bg-amber-500" : shiftKey === 'trua' ? "bg-orange-500" : "bg-indigo-600"
+                                            )}>
+                                                <ListTodo className="h-6 w-6" />
+                                            </div>
+                                            <div>
+                                                <CardTitle className="text-2xl font-headline">Công việc {shiftData.name}</CardTitle>
+                                                <CardDescription className="text-sm">Tối ưu các hoạt động vận hành trong {shiftData.name.toLowerCase()}.</CardDescription>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+                                            <Button variant="outline" size="sm" onClick={() => handleExport(shiftKey)} className="h-9 px-3 rounded-lg hover:bg-secondary">
+                                                <Download className="mr-2 h-4 w-4" />
+                                                Xuất
                                             </Button>
-                                        ) : (
-                                            <Button variant="outline" size="sm" onClick={toggleSortMode} className="w-full sm:w-auto">
-                                                <Shuffle className="mr-2 h-4 w-4" />
-                                                Sắp xếp
+                                            <Button variant={isSorting ? "default" : "outline"} size="sm" onClick={toggleSortMode} className="h-9 px-3 rounded-lg">
+                                                {isSorting ? <Check className="mr-2 h-4 w-4" /> : <Shuffle className="mr-2 h-4 w-4 text-muted-foreground" />}
+                                                {isSorting ? "Xong" : "Sắp xếp"}
                                             </Button>
-                                        )}
-                                        {shiftData.sections.length > 0 && (
-                                            <Button variant="outline" size="sm" onClick={() => handleToggleAll(shiftKey)} className="w-full sm:w-auto">
-                                                <ChevronsDownUp className="mr-2 h-4 w-4" />
+                                            <Button variant="outline" size="sm" onClick={() => handleToggleAll(shiftKey)} className="h-9 px-3 rounded-lg">
+                                                <ChevronsDownUp className="mr-2 h-4 w-4 text-muted-foreground" />
                                                 {areAllSectionsOpen ? 'Thu gọn' : 'Mở rộng'}
                                             </Button>
-                                        )}
+                                        </div>
                                     </div>
                                 </CardHeader>
-                                <CardContent>
+                                <CardContent className="p-0">
                                     <Accordion
                                         type="multiple"
                                         value={openSections[shiftKey] || []}
                                         onValueChange={(value) => setOpenSections(prev => ({ ...prev, [shiftKey]: value }))}
-                                        className="w-full space-y-4"
+                                        className="w-full"
                                     >
                                         {shiftData.sections.map(section => (
-                                            <AccordionItem value={section.title} key={section.title} className="border rounded-lg">
-                                                <AccordionTrigger className="p-4 text-lg font-medium" disabled={isSorting}>{section.title}</AccordionTrigger>
-                                                <AccordionContent className="p-4 border-t">
-                                                    <div className="space-y-4">
-                                                        <div className="space-y-2">
+                                            <AccordionItem value={section.title} key={section.title} className="border-b last:border-0 px-4 sm:px-8">
+                                                <AccordionTrigger className="hover:no-underline py-5 group" disabled={isSorting}>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="font-bold text-xl group-hover:text-primary transition-colors">{section.title}</span>
+                                                        <Badge variant="secondary" className="font-normal rounded-full px-2.5 h-6">{section.tasks.length}</Badge>
+                                                    </div>
+                                                </AccordionTrigger>
+                                                <AccordionContent className="pb-8">
+                                                    <div className="space-y-5 pt-2">
+                                                        <div className="space-y-3">
                                                             {section.tasks.map((task, taskIndex) => (
-                                                                <div key={task.id} className="flex items-center gap-2 rounded-md border bg-card p-3">
-
-                                                                    {editingTask?.taskId === task.id ? (
-                                                                        <div className="flex-1 flex flex-col sm:flex-row gap-2 items-center">
-                                                                            <Input
-                                                                                value={editingTask.newText}
-                                                                                onChange={(e) => setEditingTask({ ...editingTask, newText: e.target.value })}
-                                                                                autoFocus
-                                                                                className="text-sm h-9 flex-1"
-                                                                            />
-                                                                            <Input
-                                                                                type="number"
-                                                                                min="1"
-                                                                                value={editingTask.newMinCompletions}
-                                                                                onChange={(e) => {
-                                                                                    if (editingTask) {
-                                                                                        setEditingTask({ ...editingTask, newMinCompletions: parseInt(e.target.value) || 1 });
-                                                                                    }
-                                                                                }}
-                                                                                className="text-sm h-9 w-20"
-                                                                                placeholder="Tối thiểu"
-                                                                            />
-                                                                            <Combobox
-                                                                                value={editingTask.newType}
-                                                                                onChange={(value) => {
-                                                                                    if (editingTask) {
-                                                                                        setEditingTask({ ...editingTask, newType: value as Task['type'] });
-                                                                                    }
-                                                                                }}
-                                                                                options={[
-                                                                                    { value: "photo", label: "Hình ảnh" },
-                                                                                    { value: "boolean", label: "Đảm bảo / Không đảm bảo" },
-                                                                                    { value: "opinion", label: "Ý kiến" }
-                                                                                ]}
-                                                                                className="h-9 w-full sm:w-[180px]"
-                                                                                compact
-                                                                                searchable={false}
-                                                                            />
-                                                                            <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground" onClick={handleUpdateTask}>
-                                                                                <Check className="h-4 w-4 text-green-500" />
-                                                                            </Button>
-                                                                        </div>
-                                                                    ) : (
-                                                                        <div className="flex-1 flex flex-col sm:flex-row sm:items-center gap-2">
-                                                                            <p className="text-sm flex items-center gap-2 flex-1">
-                                                                                {task.isCritical && <Star className="h-4 w-4 text-yellow-500 shrink-0" />}
+                                                                <div key={task.id} className={cn(
+                                                                    "group relative flex flex-col md:flex-row md:items-center gap-3 md:gap-4 rounded-2xl border p-3 md:p-4 transition-all duration-200 hover:shadow-lg",
+                                                                    task.isCritical ? "border-amber-200 bg-amber-50/50 dark:bg-amber-950/10 shadow-sm" : "bg-card border-muted/60"
+                                                                )}>
+                                                                    <>
+                                                                        <div className="flex-1 flex items-start gap-3 md:gap-4 w-full">
+                                                                            <div className="mt-0.5 md:mt-1 flex-shrink-0">
                                                                                 {getTaskTypeIcon(task.type)}
-                                                                                {task.text}
-                                                                            </p>
-                                                                            {task.minCompletions && task.minCompletions > 1 && (
-                                                                                <Badge variant="secondary" className="w-fit text-xs font-normal">
-                                                                                    x{task.minCompletions} lần
-                                                                                </Badge>
+                                                                            </div>
+                                                                            <div className="space-y-1.5 flex-1 min-w-0">
+                                                                                <p className={cn(
+                                                                                    "text-sm md:text-base font-medium leading-tight md:leading-relaxed tracking-tight break-words",
+                                                                                    task.isCritical && "text-amber-900 dark:text-amber-400 font-bold"
+                                                                                )}>
+                                                                                    {task.text}
+                                                                                </p>
+                                                                                <div className="flex gap-1.5 md:gap-2 flex-wrap">
+                                                                                    {task.isCritical && (
+                                                                                        <Badge variant="outline" className="h-5 md:h-6 px-1.5 text-[9px] md:text-[10px] uppercase font-bold tracking-widest bg-amber-200/50 text-amber-800 border-amber-300 rounded-md">Quan trọng</Badge>
+                                                                                    )}
+                                                                                    {task.minCompletions && task.minCompletions > 1 && (
+                                                                                        <Badge variant="secondary" className="h-5 md:h-6 px-1.5 text-[9px] md:text-[10px] font-bold bg-muted text-muted-foreground rounded-md">{task.minCompletions} lần</Badge>
+                                                                                    )}
+                                                                                    <span className="sm:hidden text-[10px] text-muted-foreground/60 italic self-center ml-auto">
+                                                                                        {task.type === 'photo' ? 'Ảnh' : task.type === 'boolean' ? 'Tích' : 'Ghi chú'}
+                                                                                    </span>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <div className="flex items-center gap-1 self-end md:self-center md:opacity-0 group-hover:opacity-100 transition-all duration-200 md:translate-x-2 group-hover:translate-x-0 pt-2 md:pt-0 border-t md:border-0 w-full md:w-auto justify-end">
+                                                                            {isSorting ? (
+                                                                                <>
+                                                                                    <Button variant="ghost" size="icon" className="h-9 w-9 md:h-10 md:w-10 text-muted-foreground" onClick={() => handleMoveTask(shiftKey, section.title, taskIndex, 'up')} disabled={taskIndex === 0}>
+                                                                                        <ArrowUp className="h-4 w-4 md:h-5 md:w-5" />
+                                                                                    </Button>
+                                                                                    <Button variant="ghost" size="icon" className="h-9 w-9 md:h-10 md:w-10 text-muted-foreground" onClick={() => handleMoveTask(shiftKey, section.title, taskIndex, 'down')} disabled={taskIndex === section.tasks.length - 1}>
+                                                                                        <ArrowDown className="h-4 w-4 md:h-5 md:w-5" />
+                                                                                    </Button>
+                                                                                </>
+                                                                            ) : (
+                                                                                <>
+                                                                                    <Button variant="ghost" size="icon" className="h-9 w-9 md:h-10 md:w-10 text-muted-foreground hover:text-amber-500 hover:bg-amber-100/50 rounded-lg md:rounded-xl" onClick={() => handleToggleCritical(shiftKey, section.title, task.id)}>
+                                                                                        <Star className={cn("h-4 w-4 md:h-5 md:w-5 transition-all", task.isCritical && "fill-amber-500 text-amber-500")} />
+                                                                                    </Button>
+                                                                                    <Button variant="ghost" size="icon" className="h-9 w-9 md:h-10 md:w-10 text-muted-foreground hover:text-blue-500 hover:bg-blue-100/50 rounded-lg md:rounded-xl" onClick={() => setEditingTask({ shiftKey, sectionTitle: section.title, taskId: task.id, text: task.text, type: task.type, minCompletions: task.minCompletions || 1, isCritical: !!task.isCritical, instruction: task.instruction })}>
+                                                                                        <Pencil className="h-4 w-4 md:h-5 md:w-5" />
+                                                                                    </Button>
+                                                                                    <Button variant="ghost" size="icon" className="h-9 w-9 md:h-10 md:w-10 text-muted-foreground hover:text-destructive hover:bg-red-100/50 rounded-lg md:rounded-xl" onClick={() => handleDeleteTask(shiftKey, section.title, task.id)}>
+                                                                                        <Trash2 className="h-4 w-4 md:h-5 md:w-5" />
+                                                                                    </Button>
+                                                                                </>
                                                                             )}
                                                                         </div>
-                                                                    )}
-
-                                                                    {isSorting ? (
-                                                                        <>
-                                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveTask(shiftKey, section.title, taskIndex, 'up')} disabled={taskIndex === 0}>
-                                                                                <ArrowUp className="h-4 w-4" />
-                                                                            </Button>
-                                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveTask(shiftKey, section.title, taskIndex, 'down')} disabled={taskIndex === section.tasks.length - 1}>
-                                                                                <ArrowDown className="h-4 w-4" />
-                                                                            </Button>
-                                                                        </>
-                                                                    ) : (
-                                                                        <div className="flex items-center gap-0">
-                                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleToggleCritical(shiftKey, section.title, task.id)}>
-                                                                                <Star className={`h-4 w-4 ${task.isCritical ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground'}`} />
-                                                                            </Button>
-                                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingTask({ shiftKey, sectionTitle: section.title, taskId: task.id, newText: task.text, newType: task.type, newMinCompletions: task.minCompletions || 1 })}>
-                                                                                <Pencil className="h-4 w-4" />
-                                                                            </Button>
-                                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteTask(shiftKey, section.title, task.id)}>
-                                                                                <Trash2 className="h-4 w-4" />
-                                                                                <span className="sr-only">Xóa công việc</span>
-                                                                            </Button>
-                                                                        </div>
-                                                                    )}
+                                                                    </>
                                                                 </div>
                                                             ))}
                                                             {section.tasks.length === 0 && (
-                                                                <p className="text-sm text-muted-foreground text-center py-4">Chưa có công việc nào. Thêm công việc bên dưới.</p>
+                                                                <div className="text-center py-12 border-2 border-dashed rounded-2xl border-muted bg-muted/5 transition-colors">
+                                                                   <AlertCircle className="h-8 w-8 text-muted-foreground mx-auto mb-3 opacity-20" />
+                                                                   <p className="text-sm text-muted-foreground">Chưa có công việc nào trong danh mục này.</p>
+                                                                </div>
                                                             )}
                                                         </div>
-                                                        <div className="flex flex-col gap-2 rounded-md border p-3">
-                                                            <Input
-                                                                placeholder="Nhập mô tả công việc mới"
-                                                                value={newTask[shiftKey]?.[section.title]?.text || ''}
-                                                                onChange={e => handleNewTaskChange(shiftKey, section.title, 'text', e.target.value)}
-                                                                onKeyDown={e => e.key === 'Enter' && handleAddTask(shiftKey, section.title)}
-                                                            />
-                                                            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                                                                <div className="flex items-center space-x-2 w-full sm:w-auto">
-                                                                    <Input
-                                                                        type="number"
-                                                                        min="1"
-                                                                        value={newTask[shiftKey]?.[section.title]?.minCompletions || 1}
-                                                                        onChange={(e) => handleNewTaskChange(shiftKey, section.title, 'minCompletions', parseInt(e.target.value) || 1)}
-                                                                        placeholder="Tối thiểu"
-                                                                        className="h-9 w-20"
-                                                                    />
-                                                                    <Combobox
-                                                                        value={newTask[shiftKey]?.[section.title]?.type || 'photo'}
-                                                                        onChange={(value) => handleNewTaskChange(shiftKey, section.title, 'type', value as Task['type'])}
-                                                                        options={[
-                                                                            { value: "photo", label: "Hình ảnh" },
-                                                                            { value: "boolean", label: "Đảm bảo / Không đảm bảo" },
-                                                                            { value: "opinion", label: "Ý kiến" }
-                                                                        ]}
-                                                                        className="h-9 w-auto"
-                                                                        compact
-                                                                        searchable={false}
-                                                                    />
+
+                                                        {/* Add Task Button */}
+                                                        <div className="mt-6">
+                                                            <Button
+                                                                variant="outline"
+                                                                className="w-full h-full border-dashed border-primary/30 hover:bg-primary/5 hover:border-primary/50 transition-all rounded-2xl group flex flex-col items-center gap-2"
+                                                                onClick={() => setAddingToSection({
+                                                                    shiftKey,
+                                                                    sectionTitle: section.title,
+                                                                })}
+                                                            >
+                                                                <div className="p-2 bg-primary/10 rounded-full group-hover:scale-110 transition-transform">
+                                                                    <Plus className="h-6 w-6 text-primary" />
                                                                 </div>
-                                                                <div className="flex items-center space-x-2">
-                                                                    <Checkbox
-                                                                        id={`isCritical-${shiftKey}-${section.title}`}
-                                                                        checked={newTask[shiftKey]?.[section.title]?.isCritical || false}
-                                                                        onCheckedChange={(checked) => handleNewTaskChange(shiftKey, section.title, 'isCritical', checked as boolean)}
-                                                                    />
-                                                                    <Label htmlFor={`isCritical-${shiftKey}-${section.title}`} className="text-sm font-medium">Đánh dấu là quan trọng</Label>
-                                                                </div>
-                                                                <Button onClick={() => handleAddTask(shiftKey, section.title)} size="sm" className="w-full sm:w-auto">
-                                                                    <Plus className="mr-2 h-4 w-4" /> Thêm công việc
-                                                                </Button>
-                                                            </div>
+                                                                <span className="font-bold text-muted-foreground group-hover:text-primary transition-colors whitespace-normal break-words text-center sm:text-left">Thêm công việc vào mục {section.title}</span>
+                                                            </Button>
                                                         </div>
                                                     </div>
                                                 </AccordionContent>
@@ -789,6 +810,36 @@ export default function TaskListsPage() {
                     )
                 })}
             </Tabs>
+
+            {/* Global Task Add Dialog */}
+            <TaskDialog
+                isOpen={!!addingToSection}
+                onClose={() => setAddingToSection(null)}
+                onConfirm={(taskData) => {
+                    if (addingToSection) {
+                        handleAddTask(addingToSection.shiftKey, addingToSection.sectionTitle, taskData);
+                    }
+                }}
+                shiftName={addingToSection ? tasksByShift?.[addingToSection.shiftKey]?.name || '' : ''}
+                sectionTitle={addingToSection?.sectionTitle || ''}
+            />
+
+            <TaskDialog
+                isOpen={!!editingTask}
+                onClose={() => setEditingTask(null)}
+                onConfirm={(taskData) => {
+                    handleUpdateTask(taskData);
+                }}
+                initialData={editingTask ? {
+                    text: editingTask.text,
+                    type: editingTask.type,
+                    minCompletions: editingTask.minCompletions,
+                    isCritical: editingTask.isCritical,
+                    instruction: editingTask.instruction
+                } : null}
+                shiftName={editingTask ? tasksByShift?.[editingTask.shiftKey]?.name || '' : ''}
+                sectionTitle={editingTask?.sectionTitle || ''}
+            />
         </div>
     );
 }

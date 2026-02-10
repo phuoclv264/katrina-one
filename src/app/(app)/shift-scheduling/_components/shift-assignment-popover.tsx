@@ -117,8 +117,9 @@ export default function ShiftAssignmentDialog({
     }
   }, [isOpen, shift.assignedUsers, isPassAssignmentMode]);
 
-  const { selectedUsers, availableUsers, busyUsers } = useMemo(() => {
+  const { selectedUsers, availableUsers, busyUsers, applicantUsers } = useMemo(() => {
     const shiftRole = shift.role;
+    const applicantsSet = new Set(shift.applicants?.map(a => a.userId) || []);
 
     let roleFilteredUsers: ManagedUser[];
 
@@ -131,6 +132,7 @@ export default function ShiftAssignmentDialog({
     }
 
     // Further filter by the role required for the shift
+    // For applicants, we might want to be more lenient, but sticking to role filtering keeps it safe.
     roleFilteredUsers = roleFilteredUsers.filter(user => shiftRole === 'Bất kỳ' || user.role === shiftRole || user.secondaryRoles?.includes(shiftRole));
 
     // In pass assignment mode, filter out the user who is making the request
@@ -141,10 +143,13 @@ export default function ShiftAssignmentDialog({
     const selectedList: ManagedUser[] = [];
     const availableList: ManagedUser[] = [];
     const busyList: ManagedUser[] = [];
+    const applicantList: ManagedUser[] = [];
 
     roleFilteredUsers.forEach(user => {
       if (selectedUserIds.has(user.uid)) {
         selectedList.push(user);
+      } else if (applicantsSet.has(user.uid)) {
+        applicantList.push(user);
       } else if (isUserAvailable(user.uid, shift.timeSlot, availability.filter(a => a.date === shift.date))) {
         availableList.push(user);
       } else {
@@ -161,9 +166,10 @@ export default function ShiftAssignmentDialog({
     selectedList.sort(sortFn);
     availableList.sort(sortFn);
     busyList.sort(sortFn);
+    applicantList.sort(sortFn);
 
-    return { selectedUsers: selectedList, availableUsers: availableList, busyUsers: busyList };
-  }, [allUsers, shift.role, shift.timeSlot, availability, isPassAssignmentMode, passRequestingUser, currentUserRole, selectedUserIds]);
+    return { selectedUsers: selectedList, availableUsers: availableList, busyUsers: busyList, applicantUsers: applicantList };
+  }, [allUsers, shift.role, shift.timeSlot, availability, isPassAssignmentMode, passRequestingUser, currentUserRole, selectedUserIds, shift.applicants]);
 
   const assignedHoursByUser = useMemo(() => {
     const map = new Map<string, number>();
@@ -250,18 +256,20 @@ export default function ShiftAssignmentDialog({
 
   const UserCard = ({ user, isAvailable }: { user: ManagedUser, isAvailable: boolean }) => {
     const isSelected = selectedUserIds.has(user.uid);
+    const isApplicant = shift.applicants?.some(a => a.userId === user.uid);
     const conflict = hasTimeConflict(user.uid, shift, allShiftsOnDay.filter(s => s.id !== shift.id));
     const canSelect = currentUserRole === 'Chủ nhà hàng' || isAvailable;
     const assignedHours = assignedHoursByUser.get(user.uid) ?? 0;
     const availableHours = availabilityHoursByUser.get(user.uid) ?? 0;
 
+
     return (
       <Card
         className={cn(
           "cursor-pointer transition-all border-none shadow-none transform-gpu transition-transform",
-          isSelected 
-            ? 'bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background scale-105 z-10 mb-3' 
-            : 'bg-muted/30 hover:bg-muted/50 text-foreground',
+          isSelected
+            ? 'bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background scale-105 z-10 mb-3'
+            : (isApplicant ? 'bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-500/20' : 'bg-muted/30 hover:bg-muted/50 text-foreground'),
           !canSelect && !isSelected && 'opacity-60 bg-muted/20 cursor-not-allowed'
         )}
         onClick={() => handleSelectUser(user)}
@@ -317,9 +325,12 @@ export default function ShiftAssignmentDialog({
                 {!isAvailable && <Badge variant="destructive" className="bg-yellow-400 text-yellow-950 border-none text-[10px] uppercase font-black px-1.5 py-0">Chọn dù bận</Badge>}
               </>
             ) : (
-              conflict
-                ? <Badge variant="destructive" className="bg-rose-500 text-white border-none text-[10px] uppercase font-black px-1.5 py-0 shadow-sm">Trùng ca</Badge>
-                : (!isAvailable && <Badge variant="destructive" className="bg-sky-500 text-white border-none text-[10px] uppercase font-black px-1.5 py-0 shadow-sm">Bận</Badge>)
+              isApplicant
+                ? <Badge variant="default" className="bg-emerald-500 text-white border-none text-[10px] uppercase font-black px-1.5 py-0 shadow-sm">Ứng viên</Badge>
+                : (conflict
+                  ? <Badge variant="destructive" className="bg-rose-500 text-white border-none text-[10px] uppercase font-black px-1.5 py-0 shadow-sm">Trùng ca</Badge>
+                  : (!isAvailable && <Badge variant="destructive" className="bg-sky-500 text-white border-none text-[10px] uppercase font-black px-1.5 py-0 shadow-sm">Bận</Badge>)
+                )
             )}
           </div>
         </CardContent>
@@ -368,6 +379,21 @@ export default function ShiftAssignmentDialog({
                       key={user.uid} 
                       user={user} 
                       isAvailable={isUserAvailable(user.uid, shift.timeSlot, availability.filter(a => a.date === shift.date))} 
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {applicantUsers.length > 0 && (
+              <div>
+                <SectionHeader title="Ứng viên" count={applicantUsers.length} />
+                <div className="grid gap-2">
+                  {applicantUsers.map(user => (
+                    <UserCard
+                      key={user.uid}
+                      user={user}
+                      isAvailable={isUserAvailable(user.uid, shift.timeSlot, availability.filter(a => a.date === shift.date))}
                     />
                   ))}
                 </div>

@@ -41,3 +41,25 @@ export function getActiveShiftKeys(
   const ORDERED_SHIFTS: ShiftKey[] = ['sang', 'trua', 'toi'];
   return ORDERED_SHIFTS.filter((k) => keys.has(k));
 }
+
+export function getExactShiftKey(
+  timeFrames: ShiftTimeFrames,
+  now: Date = new Date(),
+): ShiftKey {
+  const currentHour = now.getHours();
+  const keys = new Set<ShiftKey>();
+
+  for (const k of Object.keys(timeFrames) as ShiftKey[]) {
+    const frame = timeFrames[k];
+    const validStartTime = frame.start;
+    const validEndTime = frame.end === 23 ? 24 : frame.end;
+
+    if (currentHour >= validStartTime && currentHour < validEndTime) {
+      keys.add(k);
+    }
+  }
+
+  // always return in canonical order: sang, trua, toi
+  const ORDERED_SHIFTS: ShiftKey[] = ['sang', 'trua', 'toi'];
+  return ORDERED_SHIFTS.filter((k) => keys.has(k))[0];
+}

@@ -255,13 +255,54 @@ export const dataStore = {
 
   subscribeToJobApplications(callback: (applications: JobApplication[]) => void): () => void {
     const q = query(collection(db, 'jobApplications'), orderBy('createdAt', 'desc'));
-    return onSnapshot(q, (snapshot) => {
-      const applications = snapshot.docs.map(docSnap => ({
-        id: docSnap.id,
-        ...docSnap.data()
-      } as JobApplication));
-      callback(applications);
-    });
+
+    // Try to open a real-time subscription first. Some browsers or environments
+    // (older WebViews, restricted browsers) may fail to setup onSnapshot. In
+    // that case fall back to a one-time getDocs() so the page still receives
+    // application data.
+    try {
+      const unsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          const applications = snapshot.docs.map(docSnap => ({
+            id: docSnap.id,
+            ...docSnap.data()
+          } as JobApplication));
+          callback(applications);
+        },
+        (error) => {
+          // If onSnapshot emits an error, fall back to a single fetch.
+          console.warn('[Firestore] onSnapshot error for jobApplications, falling back to getDocs():', error);
+          getDocs(q)
+            .then((snapshot) => {
+              const applications = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as JobApplication));
+              callback(applications);
+            })
+            .catch((err) => {
+              console.error('Failed to fetch jobApplications via getDocs fallback:', err);
+              callback([]);
+            });
+        }
+      );
+
+      return unsubscribe;
+    } catch (e) {
+      // Subscription setup threw synchronously (e.g., unsupported environment).
+      // Perform one-time fetch to ensure the UI receives data and return a
+      // no-op unsubscribe function.
+      console.warn('[Firestore] Could not subscribe to jobApplications, performing one-time fetch:', e);
+      getDocs(q)
+        .then((snapshot) => {
+          const applications = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as JobApplication));
+          callback(applications);
+        })
+        .catch((err) => {
+          console.error('Failed to fetch jobApplications via one-time getDocs:', err);
+          callback([]);
+        });
+
+      return () => { /* no-op unsubscribe */ };
+    }
   },
 
   async updateJobApplicationStatus(applicationId: string, status: JobApplication['status']): Promise<void> {
@@ -404,7 +445,7 @@ export const dataStore = {
     }
   },
 
-  async addSalaryAdvance(monthId: string, userId: string, amount: number, note: string, createdBy: SimpleUser): Promise<string> {
+  async addSalaryAdvance(monthId: string, userId: string, amount: number, note: string, createdBy: SimpleUser, shouldCreateExpenseSlip = true): Promise<string> {
     const docRef = doc(db, 'monthly_salaries', monthId);
     const advanceId = uuidv4();
     const newAdvance: SalaryAdvanceRecord = {
@@ -416,92 +457,94 @@ export const dataStore = {
     };
 
     await runTransaction(db, async (transaction) => {
-        const docSnap = await transaction.get(docRef);
-        if (!docSnap.exists()) {
-             throw new Error("Salary sheet not found");
-        }
-        const sheet = docSnap.data() as MonthlySalarySheet;
-        const record = sheet.salaryRecords[userId];
-        if (!record) {
-             throw new Error("User record not found in salary sheet");
-        }
+      const docSnap = await transaction.get(docRef);
+      if (!docSnap.exists()) {
+        throw new Error("Salary sheet not found");
+      }
+      const sheet = docSnap.data() as MonthlySalarySheet;
+      const record = sheet.salaryRecords[userId];
+      if (!record) {
+        throw new Error("User record not found in salary sheet");
+      }
 
-        const currentAdvances = record.advances || [];
-        const currentTotalAdvance = record.salaryAdvance || 0;
+      const currentAdvances = record.advances || [];
+      const currentTotalAdvance = record.salaryAdvance || 0;
 
-        const updatedAdvances = [...currentAdvances, newAdvance];
-        const updatedTotalAdvance = currentTotalAdvance + amount;
+      const updatedAdvances = [...currentAdvances, newAdvance];
+      const updatedTotalAdvance = currentTotalAdvance + amount;
 
-        transaction.update(docRef, {
-            [`salaryRecords.${userId}.advances`]: updatedAdvances,
-            [`salaryRecords.${userId}.salaryAdvance`]: updatedTotalAdvance
-        });
+      transaction.update(docRef, {
+        [`salaryRecords.${userId}.advances`]: updatedAdvances,
+        [`salaryRecords.${userId}.salaryAdvance`]: updatedTotalAdvance
+      });
     });
 
     // Send notification
     try {
-        const notification: Omit<Notification, 'id'> = {
-            type: 'salary_update',
-            createdAt: serverTimestamp() as Timestamp,
-            recipientUids: [userId],
-            messageTitle: 'Bạn nhận được khoản tạm ứng mới',
-            messageBody: `Bạn đã được tạm ứng ${amount.toLocaleString('vi-VN')}đ. Lý do: ${note}`,
-            payload: { monthId, advanceId },
-            isRead: { [userId]: false }
-        };
-        await addDoc(collection(db, 'notifications'), notification);
+      const notification: Omit<Notification, 'id'> = {
+        type: 'salary_update',
+        createdAt: serverTimestamp() as Timestamp,
+        recipientUids: [userId],
+        messageTitle: 'Bạn nhận được khoản tạm ứng mới',
+        messageBody: `Bạn đã được tạm ứng ${amount.toLocaleString('vi-VN')}đ. Lý do: ${note}`,
+        payload: { monthId, advanceId },
+        isRead: { [userId]: false }
+      };
+      await addDoc(collection(db, 'notifications'), notification);
     } catch (e) {
-        console.error("Failed to send notification for advance", e);
+      console.error("Failed to send notification for advance", e);
     }
 
     // Create linked expense slip
-    try {
-      const userDoc = await getDoc(doc(db, 'users', userId));
-      const recipientName = userDoc.exists() ? ((userDoc.data() as any).displayName || userId) : userId;
-      // Set slip date to the first day of the current month (respecting getTodaysDateKey timezone)
-      const todayKey = getTodaysDateKey();
-      const [year, month] = todayKey.split('-');
-      const dateStr = `${year}-${month}-01`;
+    if (!shouldCreateExpenseSlip) {
+      try {
+        const userDoc = await getDoc(doc(db, 'users', userId));
+        const recipientName = userDoc.exists() ? ((userDoc.data() as any).displayName || userId) : userId;
+        // Set slip date to the first day of the current month (respecting getTodaysDateKey timezone)
+        const todayKey = getTodaysDateKey();
+        const [year, month] = todayKey.split('-');
+        const dateStr = `${year}-${month}-01`;
 
-      const slipData: Partial<ExpenseSlip> = {
-        date: dateStr,
-        expenseType: 'other_cost',
-        items: [{
-          itemId: 'other_cost',
-          name: 'Tạm ứng lương',
-          description: `Tạm ứng cho ${recipientName}. Lý do: ${note}. AdvanceId:${advanceId}`,
-          supplier: recipientName,
-          quantity: 1,
-          unitPrice: amount,
-          unit: 'cái'
-        }],
-        paymentMethod: 'cash',
-        notes: `Tạm ứng lương cho ${recipientName}`,
-        createdBy: { userId: createdBy.userId, userName: createdBy.userName },
-        associatedSalaryAdvanceId: advanceId,
-        associatedMonthId: monthId,
-        associatedUserId: userId
-      } as Partial<ExpenseSlip>;
+        const slipData: Partial<ExpenseSlip> = {
+          date: dateStr,
+          expenseType: 'other_cost',
+          items: [{
+            itemId: 'other_cost',
+            name: 'Tạm ứng lương',
+            description: `Tạm ứng cho ${recipientName}. Lý do: ${note}. AdvanceId:${advanceId}`,
+            supplier: recipientName,
+            quantity: 1,
+            unitPrice: amount,
+            unit: 'cái'
+          }],
+          paymentMethod: 'cash',
+          notes: `Tạm ứng lương cho ${recipientName}`,
+          createdBy: { userId: createdBy.userId, userName: createdBy.userName },
+          associatedSalaryAdvanceId: advanceId,
+          associatedMonthId: monthId,
+          associatedUserId: userId
+        } as Partial<ExpenseSlip>;
 
-      const slipId = await cashierStore.addOrUpdateExpenseSlip(slipData as any);
+        const slipId = await cashierStore.addOrUpdateExpenseSlip(slipData as any);
 
-      // Link expense slip id back to the advance in the salary sheet in a new transaction
-      await runTransaction(db, async (transaction) => {
-        const docSnap = await transaction.get(docRef);
-        if (!docSnap.exists()) throw new Error('Salary sheet not found when linking slip');
-        const sheet = docSnap.data() as MonthlySalarySheet;
-        const record = sheet.salaryRecords[userId];
-        if (!record) throw new Error('User record not found when linking slip');
+        // Link expense slip id back to the advance in the salary sheet in a new transaction
+        await runTransaction(db, async (transaction) => {
+          const docSnap = await transaction.get(docRef);
+          if (!docSnap.exists()) throw new Error('Salary sheet not found when linking slip');
+          const sheet = docSnap.data() as MonthlySalarySheet;
+          const record = sheet.salaryRecords[userId];
+          if (!record) throw new Error('User record not found when linking slip');
 
-        const currentAdvances = record.advances || [];
-        const updatedAdvances = currentAdvances.map(a => a.id === advanceId ? { ...a, expenseSlipId: slipId } : a);
+          const currentAdvances = record.advances || [];
+          const updatedAdvances = currentAdvances.map(a => a.id === advanceId ? { ...a, expenseSlipId: slipId } : a);
 
-        transaction.update(docRef, {
-          [`salaryRecords.${userId}.advances`]: updatedAdvances
+          transaction.update(docRef, {
+            [`salaryRecords.${userId}.advances`]: updatedAdvances
+          });
         });
-      });
-    } catch (slipErr) {
-      console.error('Failed to create or link expense slip for salary advance:', slipErr);
+      } catch (slipErr) {
+        console.error('Failed to create or link expense slip for salary advance:', slipErr);
+      }
     }
 
     return advanceId;
@@ -513,62 +556,62 @@ export const dataStore = {
     let deletedNote = '';
 
     await runTransaction(db, async (transaction) => {
-        const docSnap = await transaction.get(docRef);
-        if (!docSnap.exists()) {
-             throw new Error("Salary sheet not found");
-        }
-        const sheet = docSnap.data() as MonthlySalarySheet;
-        const record = sheet.salaryRecords[userId];
-        if (!record) {
-             throw new Error("User record not found in salary sheet");
-        }
+      const docSnap = await transaction.get(docRef);
+      if (!docSnap.exists()) {
+        throw new Error("Salary sheet not found");
+      }
+      const sheet = docSnap.data() as MonthlySalarySheet;
+      const record = sheet.salaryRecords[userId];
+      if (!record) {
+        throw new Error("User record not found in salary sheet");
+      }
 
-        const currentAdvances = record.advances || [];
-        const advanceToDelete = currentAdvances.find(a => a.id === advanceId);
+      const currentAdvances = record.advances || [];
+      const advanceToDelete = currentAdvances.find(a => a.id === advanceId);
 
-        if (!advanceToDelete) {
-            return;
-        }
-        deletedAmount = advanceToDelete.amount;
-        deletedNote = advanceToDelete.note;
+      if (!advanceToDelete) {
+        return;
+      }
+      deletedAmount = advanceToDelete.amount;
+      deletedNote = advanceToDelete.note;
 
-        const updatedAdvances = currentAdvances.filter(a => a.id !== advanceId);
-        const updatedTotalAdvance = (record.salaryAdvance || 0) - advanceToDelete.amount;
+      const updatedAdvances = currentAdvances.filter(a => a.id !== advanceId);
+      const updatedTotalAdvance = (record.salaryAdvance || 0) - advanceToDelete.amount;
 
-        transaction.update(docRef, {
-            [`salaryRecords.${userId}.advances`]: updatedAdvances,
-            [`salaryRecords.${userId}.salaryAdvance`]: updatedTotalAdvance
-        });
+      transaction.update(docRef, {
+        [`salaryRecords.${userId}.advances`]: updatedAdvances,
+        [`salaryRecords.${userId}.salaryAdvance`]: updatedTotalAdvance
+      });
     });
 
     if (deletedAmount > 0) {
-        // Send notification
-        try {
-            const notification: Omit<Notification, 'id'> = {
-                type: 'salary_update',
-                createdAt: serverTimestamp() as Timestamp,
-                recipientUids: [userId],
-                messageTitle: 'Hủy khoản tạm ứng',
-                messageBody: `Khoản tạm ứng ${deletedAmount.toLocaleString('vi-VN')}đ đã bị hủy. Lý do hủy: ${deletedNote}`,
-                payload: { monthId, advanceId },
-                isRead: { [userId]: false }
-            };
-            await addDoc(collection(db, 'notifications'), notification);
-        } catch (e) {
-            console.error("Failed to send notification for advance deletion", e);
-        }
+      // Send notification
+      try {
+        const notification: Omit<Notification, 'id'> = {
+          type: 'salary_update',
+          createdAt: serverTimestamp() as Timestamp,
+          recipientUids: [userId],
+          messageTitle: 'Hủy khoản tạm ứng',
+          messageBody: `Khoản tạm ứng ${deletedAmount.toLocaleString('vi-VN')}đ đã bị hủy. Lý do hủy: ${deletedNote}`,
+          payload: { monthId, advanceId },
+          isRead: { [userId]: false }
+        };
+        await addDoc(collection(db, 'notifications'), notification);
+      } catch (e) {
+        console.error("Failed to send notification for advance deletion", e);
+      }
 
-        // Remove linked expense slip(s)
-        try {
-          const slipsQuery = query(collection(db, 'expense_slips'), where('associatedSalaryAdvanceId', '==', advanceId));
-          const slipsSnapshot = await getDocs(slipsQuery);
-          for (const slipDoc of slipsSnapshot.docs) {
-            const slip = { id: slipDoc.id, ...slipDoc.data() } as ExpenseSlip;
-            await cashierStore.deleteExpenseSlip(slip);
-          }
-        } catch (err) {
-          console.error('Failed to remove linked expense slip for deleted advance:', err);
+      // Remove linked expense slip(s)
+      try {
+        const slipsQuery = query(collection(db, 'expense_slips'), where('associatedSalaryAdvanceId', '==', advanceId));
+        const slipsSnapshot = await getDocs(slipsQuery);
+        for (const slipDoc of slipsSnapshot.docs) {
+          const slip = { id: slipDoc.id, ...slipDoc.data() } as ExpenseSlip;
+          await cashierStore.deleteExpenseSlip(slip);
         }
+      } catch (err) {
+        console.error('Failed to remove linked expense slip for deleted advance:', err);
+      }
     }
   },
 
@@ -589,44 +632,44 @@ export const dataStore = {
     };
 
     await runTransaction(db, async (transaction) => {
-        const docSnap = await transaction.get(docRef);
-        if (!docSnap.exists()) {
-             throw new Error("Salary sheet not found");
-        }
-        const sheet = docSnap.data() as MonthlySalarySheet;
-        const record = sheet.salaryRecords[userId];
-        if (!record) {
-             throw new Error("User record not found in salary sheet");
-        }
+      const docSnap = await transaction.get(docRef);
+      if (!docSnap.exists()) {
+        throw new Error("Salary sheet not found");
+      }
+      const sheet = docSnap.data() as MonthlySalarySheet;
+      const record = sheet.salaryRecords[userId];
+      if (!record) {
+        throw new Error("User record not found in salary sheet");
+      }
 
-        const currentBonuses = record.bonuses || [];
-        const currentTotalBonus = record.bonus || 0;
+      const currentBonuses = record.bonuses || [];
+      const currentTotalBonus = record.bonus || 0;
 
-        const updatedBonuses = [...currentBonuses, newBonus];
-        const updatedTotalBonus = currentTotalBonus + amount;
+      const updatedBonuses = [...currentBonuses, newBonus];
+      const updatedTotalBonus = currentTotalBonus + amount;
 
-        transaction.update(docRef, {
-            [`salaryRecords.${userId}.bonuses`]: updatedBonuses,
-            [`salaryRecords.${userId}.bonus`]: updatedTotalBonus
-        });
+      transaction.update(docRef, {
+        [`salaryRecords.${userId}.bonuses`]: updatedBonuses,
+        [`salaryRecords.${userId}.bonus`]: updatedTotalBonus
+      });
     });
 
     // Send notification
     try {
-        const notification: Omit<Notification, 'id'> = {
-            type: 'salary_update',
-            createdAt: serverTimestamp() as Timestamp,
-            recipientUids: [userId],
-            messageTitle: 'Bạn nhận được tiền thưởng mới',
-            messageBody: `Bạn đã được thưởng ${amount.toLocaleString('vi-VN')}đ. Lý do: ${note}`,
-            payload: { monthId, bonusId },
-            isRead: { [userId]: false }
-        };
-        await addDoc(collection(db, 'notifications'), notification);
+      const notification: Omit<Notification, 'id'> = {
+        type: 'salary_update',
+        createdAt: serverTimestamp() as Timestamp,
+        recipientUids: [userId],
+        messageTitle: 'Bạn nhận được tiền thưởng mới',
+        messageBody: `Bạn đã được thưởng ${amount.toLocaleString('vi-VN')}đ. Lý do: ${note}`,
+        payload: { monthId, bonusId },
+        isRead: { [userId]: false }
+      };
+      await addDoc(collection(db, 'notifications'), notification);
     } catch (e) {
-        console.error("Failed to send notification for bonus", e);
+      console.error("Failed to send notification for bonus", e);
     }
-    
+
     return bonusId;
   },
 
@@ -636,50 +679,50 @@ export const dataStore = {
     let deletedNote = '';
 
     await runTransaction(db, async (transaction) => {
-        const docSnap = await transaction.get(docRef);
-        if (!docSnap.exists()) {
-             throw new Error("Salary sheet not found");
-        }
-        const sheet = docSnap.data() as MonthlySalarySheet;
-        const record = sheet.salaryRecords[userId];
-        if (!record) {
-             throw new Error("User record not found in salary sheet");
-        }
+      const docSnap = await transaction.get(docRef);
+      if (!docSnap.exists()) {
+        throw new Error("Salary sheet not found");
+      }
+      const sheet = docSnap.data() as MonthlySalarySheet;
+      const record = sheet.salaryRecords[userId];
+      if (!record) {
+        throw new Error("User record not found in salary sheet");
+      }
 
-        const currentBonuses = record.bonuses || [];
-        const bonusToDelete = currentBonuses.find(b => b.id === bonusId);
+      const currentBonuses = record.bonuses || [];
+      const bonusToDelete = currentBonuses.find(b => b.id === bonusId);
 
-        if (!bonusToDelete) {
-            return;
-        }
-        deletedAmount = bonusToDelete.amount;
-        deletedNote = bonusToDelete.note;
+      if (!bonusToDelete) {
+        return;
+      }
+      deletedAmount = bonusToDelete.amount;
+      deletedNote = bonusToDelete.note;
 
-        const updatedBonuses = currentBonuses.filter(b => b.id !== bonusId);
-        const updatedTotalBonus = (record.bonus || 0) - bonusToDelete.amount;
+      const updatedBonuses = currentBonuses.filter(b => b.id !== bonusId);
+      const updatedTotalBonus = (record.bonus || 0) - bonusToDelete.amount;
 
-        transaction.update(docRef, {
-            [`salaryRecords.${userId}.bonuses`]: updatedBonuses,
-            [`salaryRecords.${userId}.bonus`]: updatedTotalBonus
-        });
+      transaction.update(docRef, {
+        [`salaryRecords.${userId}.bonuses`]: updatedBonuses,
+        [`salaryRecords.${userId}.bonus`]: updatedTotalBonus
+      });
     });
 
     if (deletedAmount > 0) {
-        // Send notification
-        try {
-            const notification: Omit<Notification, 'id'> = {
-                type: 'salary_update',
-                createdAt: serverTimestamp() as Timestamp,
-                recipientUids: [userId],
-                messageTitle: 'Điều chỉnh tiền thưởng',
-                messageBody: `Khoản thưởng ${deletedAmount.toLocaleString('vi-VN')}đ đã bị hủy. Lý do hủy: ${deletedNote}`,
-                payload: { monthId, bonusId },
-                isRead: { [userId]: false }
-            };
-            await addDoc(collection(db, 'notifications'), notification);
-        } catch (e) {
-            console.error("Failed to send notification for bonus deletion", e);
-        }
+      // Send notification
+      try {
+        const notification: Omit<Notification, 'id'> = {
+          type: 'salary_update',
+          createdAt: serverTimestamp() as Timestamp,
+          recipientUids: [userId],
+          messageTitle: 'Điều chỉnh tiền thưởng',
+          messageBody: `Khoản thưởng ${deletedAmount.toLocaleString('vi-VN')}đ đã bị hủy. Lý do hủy: ${deletedNote}`,
+          payload: { monthId, bonusId },
+          isRead: { [userId]: false }
+        };
+        await addDoc(collection(db, 'notifications'), notification);
+      } catch (e) {
+        console.error("Failed to send notification for bonus deletion", e);
+      }
     }
   },
 
@@ -996,7 +1039,24 @@ export const dataStore = {
 
   async updateTasks(newTasks: TasksByShift) {
     const docRef = doc(db, 'app-data', 'tasks');
-    await setDoc(docRef, newTasks);
+    // Firestore rejects undefined values anywhere in the document. Remove undefined fields recursively.
+    const removeUndefined = (obj: any): any => {
+      if (obj === undefined) return undefined;
+      if (obj === null) return null;
+      if (Array.isArray(obj)) return obj.map(removeUndefined).filter(v => v !== undefined);
+      if (typeof obj === 'object') {
+        const out: any = {};
+        for (const [k, v] of Object.entries(obj)) {
+          const cleaned = removeUndefined(v);
+          if (cleaned !== undefined) out[k] = cleaned;
+        }
+        return out;
+      }
+      return obj;
+    };
+
+    const sanitized = removeUndefined(newTasks);
+    await setDoc(docRef, sanitized);
   },
 
   subscribeToBartenderTasks(callback: (tasks: TaskSection[]) => void): () => void {

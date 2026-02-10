@@ -47,6 +47,8 @@ export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDa
       { start: '06:00', end: '12:00' },
       { start: '12:00', end: '17:00' },
       { start: '17:00', end: '22:30' },
+      // { start: '06:00', end: '14:00' },
+      // { start: '14:00', end: '22:30' },
     ];
 
     // Prepend the special slots
