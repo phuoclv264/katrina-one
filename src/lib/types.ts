@@ -379,6 +379,12 @@ export type AssignedUserWithRole = {
   assignedRole: UserRole | 'Bất kỳ';
 };
 
+export type ShiftApplicant = {
+  userId: string;
+  userName: string;
+  appliedAt: string | Timestamp;
+};
+
 export type AssignedShift = {
   id: string; // Unique ID for this specific shift instance in the schedule
   templateId: string;
@@ -388,6 +394,7 @@ export type AssignedShift = {
   timeSlot: TimeSlot;
   assignedUsers: AssignedUser[];
   assignedUsersWithRole?: AssignedUserWithRole[]; // Optional array of user-role pairs
+  applicants?: ShiftApplicant[]; // Users who applied for this shift
   minUsers: number;
   requiredRoles?: { role: UserRole; count: number }[];
   employees?: EmployeeAttendance[]; // Augmented with attendance info on admin page
@@ -577,7 +584,18 @@ export type NotificationType =
   | 'new_incident_report'
   | 'new_cash_handover_report'
   | 'new_ballot_draw'
-  | 'salary_update';
+  | 'salary_update'
+  | 'shift_application';
+
+export type ShiftApplicationPayload = {
+  notificationType?: 'shift_application';
+  weekId: string;
+  shiftId: string;
+  shiftLabel: string;
+  shiftDate: string;
+  applicantId: string;
+  applicantName: string;
+}
 
 export type PassRequestPayload = {
   notificationType?: 'pass_request';
@@ -620,7 +638,7 @@ export type NewViolationPayload = {
   title: string;
 }
 
-export type AnyNotificationPayload = PassRequestPayload | NewSchedulePayload | NewViolationPayload | DailyTaskReportPayload;
+export type AnyNotificationPayload = PassRequestPayload | NewSchedulePayload | NewViolationPayload | DailyTaskReportPayload | ShiftApplicationPayload;
 
 export type Notification = {
   id: string;

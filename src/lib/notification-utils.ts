@@ -14,6 +14,7 @@ import {
     LogOut,
     CheckCircle2,
     XCircle,
+    UserPlus,
 } from 'lucide-react';
 import type { Notification } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
@@ -91,6 +92,13 @@ export const getNotificationDetails = (notification: Notification, currentUserId
                     return { icon: MailQuestion, title: 'Yêu cầu Pass ca', description: 'Cập nhật trạng thái yêu cầu pass ca.', href: '/schedule?openPassRequest=true' };
             }
         }
+        case 'shift_application':
+            return {
+                icon: UserPlus,
+                title: messageTitle,
+                description: messageBody,
+                href: `/shift-scheduling?weekId=${payload.weekId}&openShift=${payload.shiftId}`,
+            };
         case 'new_schedule':
         case 'schedule_changed':
         case 'schedule_proposal':

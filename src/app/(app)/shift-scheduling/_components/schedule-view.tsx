@@ -269,7 +269,40 @@ export default function ScheduleView() {
                 routerRef.current.replace('/shift-scheduling', { scroll: false });
             }
         }
-    }, [searchParams]);
+
+        // Handle opening specific shift from notification
+        const urlWeekId = getQueryParamWithMobileHashFallback({
+            param: 'weekId',
+            searchParams,
+            hash: typeof window !== 'undefined' ? window.location.hash : '',
+        });
+        const openShiftId = getQueryParamWithMobileHashFallback({
+            param: 'openShift',
+            searchParams,
+            hash: typeof window !== 'undefined' ? window.location.hash : '',
+        });
+
+        // 1. Navigate to the correct week if needed
+        if (urlWeekId && urlWeekId !== weekId && /^\d{4}-W\d{1,2}$/.test(urlWeekId)) {
+             const parts = urlWeekId.split('-W');
+             const year = parseInt(parts[0]);
+             const week = parseInt(parts[1]);
+             if (!isNaN(year) && !isNaN(week)) {
+                 const jan4 = new Date(year, 0, 4);
+                 const weekStart = addDays(startOfWeek(jan4, { weekStartsOn: 1 }), (week - 1) * 7);
+                 setCurrentDate(weekStart);
+             }
+        }
+
+        // 2. Open the shift assignment dialog
+        if (openShiftId && localSchedule && localSchedule.weekId === (urlWeekId || weekId)) {
+             const shift = localSchedule.shifts.find(s => s.id === openShiftId);
+             if (shift) {
+                 setActiveShift(shift);
+                 setIsAssignmentDialogOpen(true);
+             }
+        }
+    }, [searchParams, localSchedule, weekId, isMobile]);
 
     // Normalize assigned users once both schedule data and user roles are available.
     useEffect(() => {
@@ -1101,6 +1134,7 @@ export default function ScheduleView() {
 
                                                         const minUsers = shiftObject.minUsers ?? 0;
                                                         const isUnderstaffed = minUsers > 0 && shiftObject.assignedUsers.length < minUsers;
+                                                        const hasApplicants = (shiftObject.applicants?.length || 0) > 0;
 
                                                         const sortedAssignedUsers = [...shiftObject.assignedUsers].sort((a, b) => {
                                                             const userA = allUsers.find(u => u.uid === a.userId);
@@ -1115,11 +1149,16 @@ export default function ScheduleView() {
                                                             <TableCell key={template.id} className={cn("p-1 align-top h-28 text-center border-l", isUnderstaffed && "bg-destructive/10", isPast && "opacity-60", isToday && "ring-1 ring-yellow-200")}>
                                                                 <Button
                                                                     variant="ghost"
-                                                                    className="h-full w-full flex flex-col items-center justify-center p-1 group"
+                                                                    className="h-full w-full flex flex-col items-center justify-center p-1 group relative"
                                                                     onClick={() => handleOpenAssignmentDialog(shiftObject)}
                                                                     disabled={!canEditSchedule}
                                                                 >
                                                                     {isUnderstaffed && <AlertTriangle className="w-4 h-4 text-destructive absolute top-1.5 right-1.5" />}
+                                                                    {hasApplicants && (
+                                                                        <div className="absolute top-1.5 left-1.5 flex items-center justify-center bg-emerald-500 text-white text-[9px] font-bold rounded-full w-4 h-4 shadow-sm z-10" title="Có ứng viên">
+                                                                            {shiftObject.applicants?.length}
+                                                                        </div>
+                                                                    )}
                                                                     {shiftObject.assignedUsers.length === 0 ? (
                                                                         <div className="text-muted-foreground group-hover:text-primary">
                                                                             <UserPlus className="h-6 w-6 mx-auto" />
