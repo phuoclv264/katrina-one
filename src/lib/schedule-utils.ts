@@ -390,3 +390,22 @@ function parseTime(time: string): number {
   const [hours, minutes] = time.split(':').map(Number);
   return hours + (minutes / 60);
 }
+
+/**
+ * Calculate expected salary for a single shift by summing each assigned user's hourlyRate * shift duration.
+ */
+export function calculateShiftExpectedSalary(shift: AssignedShift, allUsers: ManagedUser[]): number {
+  const duration = calculateTotalHours([shift.timeSlot]);
+  return shift.assignedUsers.reduce((sum, au) => {
+    const user = allUsers.find(u => u.uid === au.userId);
+    const rate = (user?.hourlyRate && Number.isFinite(user.hourlyRate)) ? user.hourlyRate : 0;
+    return sum + (rate * duration);
+  }, 0);
+}
+
+/**
+ * Calculate total expected salary for a list of shifts (e.g., for a day or week).
+ */
+export function calculateTotalExpectedSalary(shifts: AssignedShift[], allUsers: ManagedUser[]): number {
+  return shifts.reduce((sum, shift) => sum + calculateShiftExpectedSalary(shift, allUsers), 0);
+}

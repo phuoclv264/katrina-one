@@ -62,7 +62,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import isEqual from 'lodash.isequal';
 import { Badge } from '@/components/ui/badge';
 import PassRequestsDialog from '../../schedule/_components/pass-requests-dialog';
-import { isUserAvailable, hasTimeConflict } from '@/lib/schedule-utils';
+import { isUserAvailable, hasTimeConflict, calculateShiftExpectedSalary, calculateTotalExpectedSalary } from '@/lib/schedule-utils';
 import { getRelevantUnderstaffedShifts } from './understaffed-evidence-utils';
 import { useSearchParams } from 'next/navigation';
 import { getQueryParamWithMobileHashFallback } from '@/lib/url-params';
@@ -135,6 +135,9 @@ const roleOrder: Record<UserRole, number> = {
     'Quản lý': 4,
     'Chủ nhà hàng': 5,
 };
+
+// Currency formatter for expected salary display
+const currencyFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 });
 
 
 export default function ScheduleView() {
@@ -704,6 +707,33 @@ export default function ScheduleView() {
         return counts;
     }, [localSchedule, daysOfWeek, allUsers]);
 
+    // --- Salary calculations (expected) ---
+    const shiftSalaryMap = useMemo(() => {
+        const schedule = localSchedule ?? serverSchedule;
+        const map = new Map<string, number>();
+        (schedule?.shifts || []).forEach(s => {
+            map.set(s.id, calculateShiftExpectedSalary(s, allUsers));
+        });
+        return map;
+    }, [localSchedule, serverSchedule, allUsers]);
+
+    const dailySalaryMap = useMemo(() => {
+        const schedule = localSchedule ?? serverSchedule;
+        const map = new Map<string, number>();
+        daysOfWeek.forEach(day => {
+            const dateKey = format(day, 'yyyy-MM-dd');
+            const shiftsOnDay = (schedule?.shifts || []).filter(s => s.date === dateKey);
+            map.set(dateKey, calculateTotalExpectedSalary(shiftsOnDay, allUsers));
+        });
+        return map;
+    }, [localSchedule, serverSchedule, daysOfWeek, allUsers]);
+
+    const weeklyExpectedSalary = useMemo(() => {
+        let total = 0;
+        for (const v of dailySalaryMap.values()) total += v;
+        return total;
+    }, [dailySalaryMap]);
+
     const userAbbreviations = useMemo(() => generateSmartAbbreviations(allUsers), [allUsers]);
 
     if (isLoading) {
@@ -886,7 +916,11 @@ export default function ScheduleView() {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <h4 className="text-[9px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">Thống kê</h4>
-                                        <p className="text-xs text-muted-foreground leading-tight">Tổng giờ làm</p>
+                                        <p className="text-xs text-muted-foreground leading-tight">
+                                            <span>Tổng giờ làm</span>
+                                            <br />
+                                            <span className="font-bold">Lương dự kiến: {currencyFormatter.format(weeklyExpectedSalary)}</span>
+                                        </p>
                                     </div>
                                 </div>
                                 <Button 
@@ -1050,6 +1084,7 @@ export default function ScheduleView() {
                                                 <TableRow key={dateKey} className={cn("border-t", isToday && "bg-yellow-50 dark:bg-yellow-900/30", isPast && "opacity-70")}>
                                                     <TableCell className="font-semibold align-top text-center">
                                                         <p className={cn(isPast && 'text-muted-foreground', isToday && 'font-semibold')}>{format(day, 'eee, dd/MM', { locale: vi })}{isToday && <Badge className="ml-2 text-xs">Hôm nay</Badge>}</p>
+                                                        <p className="text-xs text-muted-foreground mt-1">Tổng ngày: <span className="font-semibold">{currencyFormatter.format(dailySalaryMap.get(dateKey) || 0)}</span></p>
                                                     </TableCell>
                                                     {shiftTemplates.map(template => {
                                                         const dayOfWeek = getDay(day);
@@ -1099,6 +1134,11 @@ export default function ScheduleView() {
                                                                             ))}
                                                                         </div>
                                                                     )}
+
+                                                                    {/* Shift expected salary */}
+                                                                    <div className="mt-1">
+                                                                        <p className="text-[11px] text-muted-foreground font-semibold">{currencyFormatter.format(shiftSalaryMap.get(shiftObject.id) || 0)}</p>
+                                                                    </div>
                                                                 </Button>
                                                             </TableCell>
                                                         )
@@ -1134,6 +1174,7 @@ export default function ScheduleView() {
                                                     <AccordionTrigger className="font-semibold text-base hover:no-underline p-0">
                                                         <span className="text-lg">{format(day, 'eeee, dd/MM', { locale: vi })}{isToday && <Badge className="ml-2 text-xs">Hôm nay</Badge>}</span>
                                                     </AccordionTrigger>
+                                                    <p className="text-sm text-muted-foreground mt-2">Tổng ngày: <span className="font-semibold">{currencyFormatter.format(dailySalaryMap.get(dateKey) || 0)}</span></p>
                                                     <div className="w-full space-y-2 mt-2 group-data-[state=open]:hidden">
                                                         {shiftsForDay.map(shiftObject => {
                                                             if (!shiftObject || shiftObject.assignedUsers.length === 0) return null;
@@ -1202,6 +1243,10 @@ export default function ScheduleView() {
                                                                                 {renderUserBadge(assignedUser, dateKey, shiftObject)}
                                                                             </React.Fragment>
                                                                         ))}
+                                                                    </div>
+
+                                                                    <div className="mt-2">
+                                                                        <p className="text-sm font-semibold text-muted-foreground">Lương dự kiến: {currencyFormatter.format(shiftSalaryMap.get(shiftObject.id) || 0)}</p>
                                                                     </div>
                                                                 </div>
                                                             );
