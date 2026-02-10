@@ -105,9 +105,10 @@ const SidebarProvider = React.forwardRef<
     // Adds a keyboard shortcut to toggle the sidebar.
     React.useEffect(() => {
       const handleKeyDown = (event: KeyboardEvent) => {
+        // Only toggle via Meta (Cmd) to avoid Ctrl+B triggering the sidebar on Windows
         if (
           event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
-          (event.metaKey || event.ctrlKey)
+          event.metaKey
         ) {
           event.preventDefault()
           toggleSidebar()
