@@ -55,7 +55,13 @@ type CameraDialogProps = {
 const PORTRAIT_ASPECT_RATIO = 3 / 4; // width:height = 3:4
 const TARGET_DIMENSIONS = {
   standard: { width: 1080 * 1.5, height: 1440 * 1.5 }, // 1620x2160
-  hd: { width: 1440 * 3, height: 1920 * 3 },       // 4320x5760
+  hd: { width: 1440 * 1.5, height: 1920 * 1.5 },     // 3240x4320
+};
+
+// Optimized video dimensions to prevent device lag/crash and reduce upload size
+const VIDEO_TARGET_DIMENSIONS = {
+  standard: { width: 720, height: 960 }, // 720p portrait
+  hd: { width: 1080, height: 1440 },     // 1080p portrait
 };
 
 const getTargetDimensions = (isHD: boolean) =>
@@ -488,8 +494,8 @@ export default function CameraDialog({
       }
       const { sx, sy, cropW, cropH } = crop || computePortraitCropBox(naturalW, naturalH);
 
-      // Use the configured target dimensions for higher-resolution video
-      const target = getTargetDimensions(isHD);
+      // Use optimized dimensions for video recording (720p/1080p) to reduce processing load and file size
+      const target = isHD ? VIDEO_TARGET_DIMENSIONS.hd : VIDEO_TARGET_DIMENSIONS.standard;
       const canvas = document.createElement('canvas');
       canvas.width = target.width;
       canvas.height = target.height;
@@ -546,7 +552,7 @@ export default function CameraDialog({
       };
       drawFrame();
 
-      const canvasStream = canvas.captureStream(30); // This has the video track with overlay
+      const canvasStream = canvas.captureStream(30); // Reduce to 30fps stable (or lower if needed)
       const videoTrackWithOverlay = canvasStream.getVideoTracks()[0];
 
       // Get existing audio tracks, or attempt to request microphone now if none present.
@@ -580,7 +586,10 @@ export default function CameraDialog({
 
       try {
         // Now use the combined stream for the recorder
-        mediaRecorderRef.current = new MediaRecorder(combinedStream, { mimeType: supportedMimeType as string });
+        mediaRecorderRef.current = new MediaRecorder(combinedStream, { 
+          mimeType: supportedMimeType as string,
+          videoBitsPerSecond: 2500000 // Limit bitrate to ~2.5Mbps to reduce file size and memory usage
+        });
         recordedChunksRef.current = [];
 
         mediaRecorderRef.current.ondataavailable = (event) => {
