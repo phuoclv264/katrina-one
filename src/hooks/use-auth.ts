@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc, getDocFromCache } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, getDocFromCache, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { toast } from '@/components/ui/pro-toast';
 import { dataStore } from '@/lib/data-store';
@@ -100,6 +100,8 @@ export const useAuth = () => {
             anonymousName: userData.anonymousName,
             photoURL: userData.photoURL || firebaseUser.photoURL || null,
             isTestAccount: userData.isTestAccount,
+            bankId: userData.bankId || null,
+            bankAccountNumber: userData.bankAccountNumber || null,
           } as AuthUser;
           setUser(authUser);
 
@@ -125,6 +127,8 @@ export const useAuth = () => {
                   anonymousName: serverData.anonymousName,
                   photoURL: serverData.photoURL || firebaseUser.photoURL || null,
                   isTestAccount: serverData.isTestAccount,
+                  bankId: serverData.bankId || null,
+                  bankAccountNumber: serverData.bankAccountNumber || null,
                 } as AuthUser;
                 // Update state only if there's a change to avoid unnecessary re-renders
                 setUser(currentUser => 
@@ -156,6 +160,30 @@ export const useAuth = () => {
 
     return () => unsubscribeAuth();
   }, [pathname, router]);
+
+  // Keep the auth user in sync with their Firestore document in real-time.
+  useEffect(() => {
+    if (!user?.uid) return;
+    const userRef = doc(db, 'users', user.uid);
+    const unsub = onSnapshot(userRef, (snap) => {
+      if (!snap.exists()) return;
+      const data = snap.data();
+      const updated: AuthUser = {
+        ...user,
+        displayName: data.displayName,
+        role: data.role as UserRole,
+        secondaryRoles: data.secondaryRoles || [],
+        anonymousName: data.anonymousName,
+        photoURL: data.photoURL || user.photoURL || null,
+        isTestAccount: data.isTestAccount,
+        bankId: data.bankId || null,
+        bankAccountNumber: data.bankAccountNumber || null,
+      } as AuthUser;
+      setUser((current) => JSON.stringify(current) !== JSON.stringify(updated) ? updated : current);
+    }, (err) => console.error('User doc snapshot error:', err));
+
+    return () => unsub();
+  }, [user?.uid]);
 
   useEffect(() => {
     if (!user) {

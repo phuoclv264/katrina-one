@@ -9,10 +9,10 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
+import { PaymentConfirmationView } from './payment-confirmation-view';
 import type { SalaryRecord, SimpleUser, Schedule, ManagedUser } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -23,7 +23,6 @@ import { findShiftForRecord, getStatusInfo } from '@/lib/attendance-utils';
 import { cn, generateShortName } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { UserAvatar } from '@/components/user-avatar';
-import { useAuth } from '@/hooks/use-auth';
 
 type SalaryRecordSectionContentProps = {
     record: SalaryRecord | undefined;
@@ -37,7 +36,6 @@ type SalaryRecordSectionContentProps = {
     dialogContainerRef: React.RefObject<HTMLElement | null>;
 };
 
-// Embedded SalaryRecordAccordionItem component
 const SalaryRecordAccordionItem: React.FC<{
     record: SalaryRecord;
     monthId: string;
@@ -48,8 +46,9 @@ const SalaryRecordAccordionItem: React.FC<{
     onRecordUpdated: (userId: string, updates: Partial<SalaryRecord>) => void;
     standalone?: boolean;
     dialogContainerRef: React.RefObject<HTMLElement | null>;
+    onInitiatePayment?: (amount: number) => void;
 }> = React.memo(
-    ({ record, monthId, currentUser, currentUserRole, scheduleMap, users, onRecordUpdated, standalone = false, dialogContainerRef }) => {
+    ({ record, monthId, currentUser, currentUserRole, scheduleMap, users, onRecordUpdated, standalone = false, dialogContainerRef, onInitiatePayment }) => {
         // Advance state
         const [isAddAdvanceDialogOpen, setIsAddAdvanceDialogOpen] = useState(false);
         const [newAdvanceAmount, setNewAdvanceAmount] = useState('');
@@ -66,16 +65,11 @@ const SalaryRecordAccordionItem: React.FC<{
 
         const isMobile = useIsMobile();
         const [isUpdatingPaymentStatus, setIsUpdatingPaymentStatus] = useState(false);
-        const [isPayDialogOpen, setIsPayDialogOpen] = useState(false);
-        const [actualPaidInput, setActualPaidInput] = useState<string>('');
-        const [actualPaidNumber, setActualPaidNumber] = useState<number | null>(null);
-        const inputRef = useRef<HTMLInputElement | null>(null);
 
-        useEffect(() => {
-            if (!isPayDialogOpen) return;
-            const id = window.setTimeout(() => inputRef.current?.focus(), 0);
-            return () => clearTimeout(id);
-        }, [isPayDialogOpen]);
+        const finalTakeHomePay = useMemo(() => {
+            const base = Math.max(0, record.totalSalary - (record.salaryAdvance || 0) + (record.bonus || 0));
+            return Math.ceil(base / 50000) * 50000;
+        }, [record.totalSalary, record.salaryAdvance, record.bonus]);
 
         const handleAddAdvance = useCallback(async () => {
             if (!currentUser || !monthId || !record.userId) return;
@@ -205,10 +199,11 @@ const SalaryRecordAccordionItem: React.FC<{
             if (newStatus === 'paid') {
                 const baseAmount = Math.max(0, record.totalSalary - (record.salaryAdvance || 0) + (record.bonus || 0));
                 const roundedSuggested = Math.ceil(baseAmount / 50000) * 50000;
-                setActualPaidNumber(roundedSuggested);
-                setActualPaidInput(new Intl.NumberFormat('vi-VN').format(roundedSuggested));
-                setIsPayDialogOpen(true);
-                return;
+                
+                if (onInitiatePayment) {
+                    onInitiatePayment(roundedSuggested);
+                    return;
+                }
             }
             setIsUpdatingPaymentStatus(true);
             const toastId = toast.loading('Đang cập nhật trạng thái...');
@@ -221,7 +216,7 @@ const SalaryRecordAccordionItem: React.FC<{
             } finally {
                 setIsUpdatingPaymentStatus(false);
             }
-        }, [currentUser, monthId, record.userId, record.paymentStatus, onRecordUpdated]);
+        }, [currentUser, monthId, record.userId, record.paymentStatus, record.totalSalary, record.salaryAdvance, record.bonus, onInitiatePayment, onRecordUpdated]);
 
         const violationPenaltyTotals = useMemo(() => {
             let paid = 0;
@@ -238,25 +233,6 @@ const SalaryRecordAccordionItem: React.FC<{
         }, [record.violationRecords, record.userId]);
 
         const totalPenalty = violationPenaltyTotals.paid + violationPenaltyTotals.unpaid;
-
-        const finalTakeHomePay = useMemo(() => {
-            const base = Math.max(0, record.totalSalary - (record.salaryAdvance || 0) + (record.bonus || 0));
-            return Math.ceil(base / 50000) * 50000;
-        }, [record.totalSalary, record.salaryAdvance, record.bonus]);
-
-        // VietQR Integration
-        const targetUser = useMemo(() => users.find(u => u.uid === record.userId), [users, record.userId]);
-        
-        const qrUrl = useMemo(() => {
-            if (!targetUser?.bankId || !targetUser?.bankAccountNumber) return null;
-            const amount = actualPaidNumber ?? (actualPaidInput ? Number(actualPaidInput.replace(/\D/g, '')) : NaN);
-            const validAmount = (isNaN(amount) || amount === 0) ? finalTakeHomePay : amount;
-            
-            // Description: "Luong T<month> <Name>" - encoded properly
-            const description = encodeURIComponent(`Luong ${monthId} ${generateShortName(record.userName)}`.trim());
-            
-            return `https://img.vietqr.io/image/${targetUser.bankId}-${targetUser.bankAccountNumber}-compact2.png?amount=${validAmount}&addInfo=${description}`;
-        }, [targetUser, actualPaidNumber, actualPaidInput, finalTakeHomePay, monthId, record.userName]);
 
         const Content = (
             <div className="space-y-6">
@@ -328,7 +304,7 @@ const SalaryRecordAccordionItem: React.FC<{
                 </div>
 
                 {/* 2. Admin Quick Update Controls */}
-                {currentUserRole === 'Chủ nhà hàng' && (
+                {(currentUserRole === 'Chủ nhà hàng' || currentUserRole === 'Quản lý') && (
                     <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
                         <div className="sm:col-span-8 grid grid-cols-2 gap-3">
                             <div className="space-y-1.5">
@@ -621,177 +597,6 @@ const SalaryRecordAccordionItem: React.FC<{
                     </div>
                 )}
 
-                <AlertDialog dialogTag="alert-dialog" open={isPayDialogOpen} onOpenChange={setIsPayDialogOpen} parentDialogTag={standalone ? 'root' : 'salary-management-dialog'} variant="warning">
-                    <AlertDialogContent className="max-w-xl">
-                        <AlertDialogHeader hideicon className="p-6 pb-0">
-                            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-2">
-                                <div className="w-14 h-14 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-500 shadow-sm border border-amber-100 flex-shrink-0">
-                                    <DollarSign className="w-7 h-7" />
-                                </div>
-                                <div className="text-center sm:text-left space-y-1">
-                                    <AlertDialogTitle className="text-xl">Xác nhận trả lương</AlertDialogTitle>
-                                    <AlertDialogDescription className="text-sm pt-0">
-                                        Số tiền đề xuất: <span className="text-primary font-black">{finalTakeHomePay.toLocaleString('vi-VN')}đ</span>. Vui lòng kiểm tra thông tin và nhập số tiền thực trả.
-                                    </AlertDialogDescription>
-                                </div>
-                            </div>
-                        </AlertDialogHeader>
-
-                        <div className="p-3 space-y-6">
-                            {/* Staff Detailed Breakdown Info */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 bg-zinc-50/50 rounded-2xl p-5 border border-zinc-100">
-                                <div className="flex justify-between items-center pb-2 border-b border-zinc-100 sm:col-span-2">
-                                    <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Nhân viên</span>
-                                    <span className="text-sm font-black text-primary uppercase tracking-tight">{record.userName}</span>
-                                </div>
-
-                                <div className="flex justify-between items-center">
-                                    <span className="text-[10px] font-bold text-zinc-400 uppercase">Vai trò</span>
-                                    <span className="text-xs font-black text-zinc-700">{record.userRole}</span>
-                                </div>
-
-                                <div className="flex justify-between items-center">
-                                    <span className="text-[10px] font-bold text-zinc-400 uppercase">Giờ làm</span>
-                                    <span className="text-xs font-black text-zinc-700">{record.totalWorkingHours.toFixed(1)} / {record.totalExpectedHours.toFixed(1)} h</span>
-                                </div>
-
-                                <div className="flex justify-between items-center">
-                                    <span className="text-[10px] font-bold text-zinc-400 uppercase">Lương/giờ</span>
-                                    <span className="text-xs font-black text-zinc-700">{record.averageHourlyRate.toLocaleString('vi-VN')}đ</span>
-                                </div>
-
-                                <div className="flex justify-between items-center">
-                                    <span className="text-[10px] font-bold text-zinc-400 uppercase">Tổng lương ca</span>
-                                    <span className="text-xs font-black text-zinc-700">{record.totalSalary.toLocaleString('vi-VN')}đ</span>
-                                </div>
-
-                                <div className="flex justify-between items-center">
-                                    <span className="text-[10px] font-bold text-zinc-400 uppercase">Tạm ứng</span>
-                                    <span className="text-xs font-black text-red-500">{(record.salaryAdvance || 0).toLocaleString('vi-VN')}đ</span>
-                                </div>
-
-                                <div className="flex justify-between items-center">
-                                    <span className="text-[10px] font-bold text-zinc-400 uppercase">Khen thưởng</span>
-                                    <span className="text-xs font-black text-emerald-600">{(record.bonus || 0).toLocaleString('vi-VN')}đ</span>
-                                </div>
-
-                                <div className="flex justify-between items-center sm:col-span-2 pt-2 border-t border-zinc-100">
-                                    <span className="text-[10px] font-bold text-zinc-400 uppercase">Tổng phạt</span>
-                                    <div className="text-right">
-                                        <span className="text-xs font-black text-zinc-700">{totalPenalty.toLocaleString('vi-VN')}đ</span>
-                                        {violationPenaltyTotals.unpaid > 0 && (
-                                            <span className="text-[10px] text-red-500 font-bold ml-1.5">(chưa nộp: {violationPenaltyTotals.unpaid.toLocaleString('vi-VN')}đ)</span>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {record.paymentStatus === 'paid' && (
-                                    <>
-                                        <div className="flex justify-between items-center sm:col-span-2 pt-2 border-t border-zinc-100">
-                                            <span className="text-[10px] font-bold text-zinc-400 uppercase">Trạng thái</span>
-                                            <Badge className="bg-emerald-500 text-[9px] font-black uppercase h-4 px-1.5 rounded-md">Đã thanh toán</Badge>
-                                        </div>
-                                        {record.paidAt && (
-                                            <div className="flex justify-between items-center sm:col-span-2 mt-1">
-                                                <span className="text-[10px] font-bold text-zinc-400 uppercase">Ngày trả</span>
-                                                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-tight">
-                                                    {format((record.paidAt as Timestamp).toDate(), 'dd/MM/yyyy HH:mm')}
-                                                </span>
-                                            </div>
-                                        )}
-                                    </>
-                                )}
-                            </div>
-
-                            {/* QR Code Section */}
-                            {qrUrl && (
-                                <div className="bg-white border-2 border-primary/10 rounded-2xl p-4 flex flex-col sm:flex-row items-center gap-4 shadow-sm relative overflow-hidden">
-                                     <div className="absolute top-0 right-0 p-2 opacity-5">
-                                        <Wallet className="w-24 h-24" />
-                                     </div>
-                                     <div className="p-2 bg-white rounded-xl border border-zinc-100 shadow-sm z-10">
-                                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                                         <img src={qrUrl} alt="VietQR" className="w-32 h-32 object-contain mix-blend-multiply" />
-                                     </div>
-                                     <div className="flex-1 text-center sm:text-left z-10 space-y-1">
-                                         <h4 className="font-black text-zinc-700 uppercase tracking-tight text-sm">Quét mã thanh toán</h4>
-                                         <p className="text-xs text-zinc-500 font-medium">Sử dụng ứng dụng ngân hàng để quét mã QR bên cạnh.</p>
-                                         <div className="flex items-center justify-center sm:justify-start gap-2 mt-2">
-                                             <Badge variant="secondary" className="bg-zinc-100 text-zinc-600 font-mono text-[10px]">
-                                                 {targetUser?.bankAccountNumber}
-                                             </Badge>
-                                         </div>
-                                     </div>
-                                </div>
-                            )}
-
-                            {/* Actual Paid Input */}
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between px-1">
-                                    <Label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] ml-1">Số tiền thực trả</Label>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setActualPaidNumber(finalTakeHomePay);
-                                            setActualPaidInput(new Intl.NumberFormat('vi-VN').format(finalTakeHomePay));
-                                        }}
-                                        className="text-[10px] font-black text-primary hover:underline uppercase"
-                                    >
-                                        Đặt theo đề xuất
-                                    </button>
-                                </div>
-                                <div className="relative group">
-                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/30 font-black text-2xl group-focus-within:text-primary transition-colors">đ</div>
-                                    <Input
-                                        ref={inputRef}
-                                        type="text"
-                                        inputMode="numeric"
-                                        value={actualPaidInput}
-                                        placeholder="0"
-                                        className="h-20 text-4xl font-black text-right pl-12 pr-6 rounded-[2rem] bg-zinc-50 border-2 border-transparent focus-visible:bg-white focus-visible:border-primary/20 focus-visible:ring-primary/10 transition-all shadow-inner"
-                                        onChange={(e) => {
-                                            const raw = e.target.value || '';
-                                            const digits = raw.replace(/\D/g, '');
-                                            const num = digits === '' ? null : parseInt(digits, 10);
-                                            setActualPaidNumber(num);
-                                            setActualPaidInput(num == null ? '' : new Intl.NumberFormat('vi-VN').format(num));
-                                        }}
-                                        onFocus={(e) => e.currentTarget.select()}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        <AlertDialogFooter className="p-6 pt-0 gap-3">
-                            <AlertDialogCancel className="h-12 flex-1 rounded-2xl bg-zinc-100 hover:bg-zinc-200 border-none text-zinc-600 font-black tracking-tight active:scale-[0.98] transition-all">Bỏ qua</AlertDialogCancel>
-                            <AlertDialogAction
-                                className="h-12 flex-[2] rounded-2xl bg-primary hover:bg-primary/90 text-white font-black tracking-tight shadow-xl shadow-primary/25 active:scale-[0.98] transition-all"
-                                onClick={async () => {
-                                    const amount = actualPaidNumber ?? (actualPaidInput ? Number(actualPaidInput.replace(/\D/g, '')) : NaN);
-                                    if (isNaN(amount) || amount < 0) {
-                                        toast.error('Số tiền không hợp lệ.');
-                                        return;
-                                    }
-                                    setIsUpdatingPaymentStatus(true);
-                                    const toastId = toast.loading('Đang ghi nhận...');
-                                    try {
-                                        await dataStore.updateSalaryPayment(monthId!, record.userId, 'paid', amount);
-                                        onRecordUpdated(record.userId, { paymentStatus: 'paid', paidAt: Timestamp.now(), actualPaidAmount: amount });
-                                        toast.success(`Đã tất toán cho ${record.userName}`, { id: toastId });
-                                        setIsPayDialogOpen(false);
-                                    } catch (error) {
-                                        toast.error('Lỗi khi cập nhật thanh toán.', { id: toastId });
-                                    } finally {
-                                        setIsUpdatingPaymentStatus(false);
-                                    }
-                                }}
-                            >
-                                {isUpdatingPaymentStatus ? <Loader2 className="w-5 h-5 animate-spin" /> : <DollarSign className="w-5 h-5 mr-1" />}
-                                Thanh toán
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
             </div>
         );
 
@@ -850,6 +655,8 @@ const SalaryRecordSectionContent: React.FC<SalaryRecordSectionContentProps> = ({
     onBack,
     dialogContainerRef,
 }) => {
+    const [isPaymentMode, setIsPaymentMode] = useState(false);
+
     // Track whether this component has ever been given a valid `record`.
     // If it had one and later the parent clears it (e.g. dialog closed / sheet unloaded),
     // navigate back to the main list so we don't render a detail view with missing props.
@@ -864,6 +671,29 @@ const SalaryRecordSectionContent: React.FC<SalaryRecordSectionContentProps> = ({
             onBack();
         }
     }, [record, onBack]);
+
+    const violationPenaltyTotals = useMemo(() => {
+        if (!record) return { paid: 0, unpaid: 0 };
+        let paid = 0;
+        let unpaid = 0;
+        for (const v of record.violationRecords || []) {
+            const userCost = v.userCosts?.find((uc) => uc.userId === record.userId)?.cost || 0;
+            const isPaid = v.isPenaltyWaived || (v.penaltySubmissions?.some((ps) => ps.userId === record.userId)) || v.penaltyPhotos;
+            if (userCost > 0) {
+                if (isPaid) paid += userCost;
+                else unpaid += userCost;
+            }
+        }
+        return { paid, unpaid };
+    }, [record]);
+
+    const totalPenalty = violationPenaltyTotals.paid + violationPenaltyTotals.unpaid;
+
+    const finalTakeHomePay = useMemo(() => {
+        if (!record) return 0;
+        const base = Math.max(0, record.totalSalary - (record.salaryAdvance || 0) + (record.bonus || 0));
+        return Math.ceil(base / 50000) * 50000;
+    }, [record]);
 
     if (!record) {
         return (
@@ -885,73 +715,91 @@ const SalaryRecordSectionContent: React.FC<SalaryRecordSectionContentProps> = ({
     }
 
     return (
-        <div className="flex flex-col h-full bg-zinc-50 overflow-hidden">
-            {/* Sticky header */}
-            <DialogHeader className="flex flex-row items-center justify-between border-b bg-white flex-shrink-0 shadow-sm" hideicon>
-                <div className="flex items-center gap-4 min-w-0 flex-1">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={onBack}
-                        className="h-10 w-10 text-zinc-400 hover:text-primary hover:bg-primary/5 rounded-full transition-all active:scale-95 flex-shrink-0"
-                    >
-                        <ArrowLeft className="h-5 w-5" />
-                    </Button>
+        <div className="flex flex-col h-full bg-zinc-50 overflow-hidden relative">
+            {isPaymentMode ? (
+                <PaymentConfirmationView
+                    record={record}
+                    monthId={monthId}
+                    currentUser={currentUser}
+                    currentUserRole={currentUserRole}
+                    users={users}
+                    onRecordUpdated={onRecordUpdated}
+                    onCancel={() => setIsPaymentMode(false)}
+                    finalTakeHomePay={finalTakeHomePay}
+                    violationPenaltyTotals={violationPenaltyTotals}
+                    totalPenalty={totalPenalty}
+                />
+            ) : (
+                <>
+                    {/* Sticky header */}
+                    <DialogHeader className="flex flex-row items-center justify-between border-b bg-white flex-shrink-0 shadow-sm" hideicon>
+                        <div className="flex items-center gap-4 min-w-0 flex-1">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={onBack}
+                                className="h-10 w-10 text-zinc-400 hover:text-primary hover:bg-primary/5 rounded-full transition-all active:scale-95 flex-shrink-0"
+                            >
+                                <ArrowLeft className="h-5 w-5" />
+                            </Button>
 
-                    <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/10 flex-shrink-0 shadow-inner">
-                            <UserAvatar
-                                user={users.find((u) => u.uid === record.userId) || null}
-                                rounded="2xl"
-                                className="object-cover"
-                                fallbackClassName="text-[10px]"
-                            />
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                            <DialogTitle className="text-base font-black text-zinc-900 truncate leading-tight tracking-tight">
-                                {generateShortName(record.userName)}
-                            </DialogTitle>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                                <Badge variant="outline" className="bg-zinc-100/50 text-[10px] font-black text-zinc-400 uppercase tracking-widest px-1.5 py-0 rounded-md border-none leading-none h-4">
-                                    {record.userRole}
-                                </Badge>
-                                {record.paymentStatus === 'paid' && (
-                                    <>
-                                        <span className="text-zinc-300 text-[10px] leading-none">•</span>
-                                        <div className="flex items-center gap-0.5 text-[9px] font-black text-emerald-500 uppercase leading-none">
-                                            <CheckCircle className="w-2.5 h-2.5" />
-                                            Đã thanh toán
-                                        </div>
-                                    </>
-                                )}
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/10 flex-shrink-0 shadow-inner">
+                                    <UserAvatar
+                                        user={users.find((u) => u.uid === record.userId) || null}
+                                        rounded="2xl"
+                                        className="object-cover"
+                                        fallbackClassName="text-[10px]"
+                                    />
+                                </div>
+                                <div className="flex flex-col min-w-0">
+                                    <DialogTitle className="text-base font-black text-zinc-900 truncate leading-tight tracking-tight">
+                                        {generateShortName(record.userName)}
+                                    </DialogTitle>
+                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                        <Badge variant="outline" className="bg-zinc-100/50 text-[10px] font-black text-zinc-400 uppercase tracking-widest px-1.5 py-0 rounded-md border-none leading-none h-4">
+                                            {record.userRole}
+                                        </Badge>
+                                        {record.paymentStatus === 'paid' && (
+                                            <>
+                                                <span className="text-zinc-300 text-[10px] leading-none">•</span>
+                                                <div className="flex items-center gap-0.5 text-[9px] font-black text-emerald-500 uppercase leading-none">
+                                                    <CheckCircle className="w-2.5 h-2.5" />
+                                                    Đã thanh toán
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                <div className="hidden sm:flex flex-col items-end pl-4 flex-shrink-0 border-l border-zinc-100">
-                    <span className="text-[9px] font-black text-zinc-300 uppercase tracking-tighter leading-none mb-1">Lương tháng</span>
-                    <span className="text-sm font-black text-primary/80 uppercase tracking-tight leading-none">
-                        {monthId.split('-')[1]} / {monthId.split('-')[0]}
-                    </span>
-                </div>
-            </DialogHeader>
-            <ScrollArea className="flex-grow min-h-0 overflow-y-auto">
-                <div className="p-4 sm:p-6 space-y-6 pb-20">
-                    {/* Render the embedded record component */}
-                    <SalaryRecordAccordionItem
-                        record={record}
-                        monthId={monthId}
-                        currentUser={currentUser}
-                        currentUserRole={currentUserRole}
-                        scheduleMap={scheduleMap}
-                        users={users}
-                        onRecordUpdated={onRecordUpdated}
-                        standalone={true}
-                        dialogContainerRef={dialogContainerRef}
-                    />
-                </div>
-            </ScrollArea>
+                        <div className="hidden sm:flex flex-col items-end pl-4 flex-shrink-0 border-l border-zinc-100">
+                            <span className="text-[9px] font-black text-zinc-300 uppercase tracking-tighter leading-none mb-1">Lương tháng</span>
+                            <span className="text-sm font-black text-primary/80 uppercase tracking-tight leading-none">
+                                {monthId.split('-')[1]} / {monthId.split('-')[0]}
+                            </span>
+                        </div>
+                    </DialogHeader>
+                    <ScrollArea className="flex-grow min-h-0 overflow-y-auto">
+                        <div className="p-4 sm:p-6 space-y-6 pb-20">
+                            {/* Render the embedded record component */}
+                            <SalaryRecordAccordionItem
+                                record={record}
+                                monthId={monthId}
+                                currentUser={currentUser}
+                                currentUserRole={currentUserRole}
+                                scheduleMap={scheduleMap}
+                                users={users}
+                                onRecordUpdated={onRecordUpdated}
+                                standalone={true}
+                                dialogContainerRef={dialogContainerRef}
+                                onInitiatePayment={() => setIsPaymentMode(true)}
+                            />
+                        </div>
+                    </ScrollArea>
+                </>
+            )}
         </div>
     );
 };
