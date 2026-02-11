@@ -93,11 +93,9 @@ export function TodaysScheduleSection({ shifts, offShiftEmployees, onViewDetails
                         )}
                         {emp.lateReason ? (
                           <div className="flex items-center gap-2">
-                            {(emp.estimatedLateMinutes) != null && (
-                              <span className="text-[10px] text-orange-500 dark:text-orange-400 font-bold">
-                                Xin trễ {(emp.estimatedLateMinutes) ?? '?'} phút — {emp.lateReason}
-                              </span>
-                            )}
+                            <span className="text-[10px] text-orange-500 dark:text-orange-400 font-bold">
+                              {emp.estimatedLateMinutes != null ? `Xin trễ ${emp.estimatedLateMinutes} phút — ${emp.lateReason}` : emp.lateReason}
+                            </span>
                             {emp.lateReasonPhotoUrl && (
                               <Button
                                 variant="ghost"
