@@ -44,11 +44,12 @@ const SalaryRecordAccordionItem: React.FC<{
     currentUser: SimpleUser | null;
     currentUserRole: string | undefined;
     scheduleMap: Record<string, Schedule>;
+    users: ManagedUser[];
     onRecordUpdated: (userId: string, updates: Partial<SalaryRecord>) => void;
     standalone?: boolean;
     dialogContainerRef: React.RefObject<HTMLElement | null>;
 }> = React.memo(
-    ({ record, monthId, currentUser, currentUserRole, scheduleMap, onRecordUpdated, standalone = false, dialogContainerRef }) => {
+    ({ record, monthId, currentUser, currentUserRole, scheduleMap, users, onRecordUpdated, standalone = false, dialogContainerRef }) => {
         // Advance state
         const [isAddAdvanceDialogOpen, setIsAddAdvanceDialogOpen] = useState(false);
         const [newAdvanceAmount, setNewAdvanceAmount] = useState('');
@@ -242,6 +243,20 @@ const SalaryRecordAccordionItem: React.FC<{
             const base = Math.max(0, record.totalSalary - (record.salaryAdvance || 0) + (record.bonus || 0));
             return Math.ceil(base / 50000) * 50000;
         }, [record.totalSalary, record.salaryAdvance, record.bonus]);
+
+        // VietQR Integration
+        const targetUser = useMemo(() => users.find(u => u.uid === record.userId), [users, record.userId]);
+        
+        const qrUrl = useMemo(() => {
+            if (!targetUser?.bankId || !targetUser?.bankAccountNumber) return null;
+            const amount = actualPaidNumber ?? (actualPaidInput ? Number(actualPaidInput.replace(/\D/g, '')) : NaN);
+            const validAmount = (isNaN(amount) || amount === 0) ? finalTakeHomePay : amount;
+            
+            // Description: "Luong T<month> <Name>" - encoded properly
+            const description = encodeURIComponent(`Luong ${monthId} ${generateShortName(record.userName)}`.trim());
+            
+            return `https://img.vietqr.io/image/${targetUser.bankId}-${targetUser.bankAccountNumber}-compact2.png?amount=${validAmount}&addInfo=${description}`;
+        }, [targetUser, actualPaidNumber, actualPaidInput, finalTakeHomePay, monthId, record.userName]);
 
         const Content = (
             <div className="space-y-6">
@@ -688,6 +703,28 @@ const SalaryRecordAccordionItem: React.FC<{
                                 )}
                             </div>
 
+                            {/* QR Code Section */}
+                            {qrUrl && (
+                                <div className="bg-white border-2 border-primary/10 rounded-2xl p-4 flex flex-col sm:flex-row items-center gap-4 shadow-sm relative overflow-hidden">
+                                     <div className="absolute top-0 right-0 p-2 opacity-5">
+                                        <Wallet className="w-24 h-24" />
+                                     </div>
+                                     <div className="p-2 bg-white rounded-xl border border-zinc-100 shadow-sm z-10">
+                                         {/* eslint-disable-next-line @next/next/no-img-element */}
+                                         <img src={qrUrl} alt="VietQR" className="w-32 h-32 object-contain mix-blend-multiply" />
+                                     </div>
+                                     <div className="flex-1 text-center sm:text-left z-10 space-y-1">
+                                         <h4 className="font-black text-zinc-700 uppercase tracking-tight text-sm">Quét mã thanh toán</h4>
+                                         <p className="text-xs text-zinc-500 font-medium">Sử dụng ứng dụng ngân hàng để quét mã QR bên cạnh.</p>
+                                         <div className="flex items-center justify-center sm:justify-start gap-2 mt-2">
+                                             <Badge variant="secondary" className="bg-zinc-100 text-zinc-600 font-mono text-[10px]">
+                                                 {targetUser?.bankAccountNumber}
+                                             </Badge>
+                                         </div>
+                                     </div>
+                                </div>
+                            )}
+
                             {/* Actual Paid Input */}
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between px-1">
@@ -908,6 +945,7 @@ const SalaryRecordSectionContent: React.FC<SalaryRecordSectionContentProps> = ({
                         currentUser={currentUser}
                         currentUserRole={currentUserRole}
                         scheduleMap={scheduleMap}
+                        users={users}
                         onRecordUpdated={onRecordUpdated}
                         standalone={true}
                         dialogContainerRef={dialogContainerRef}

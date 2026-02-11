@@ -21,6 +21,8 @@ export type ManagedUser = {
   photoURL?: string | null;
   /** Mark internal/dev accounts that should see test-only features/docs */
   isTestAccount?: boolean;
+  bankId?: string | null;
+  bankAccountNumber?: string | null;
 };
 
 export type SimpleUser = {
@@ -663,6 +665,8 @@ export interface AuthUser extends User {
   photoURL: string | null;
   /** Internal/dev flag: test accounts can see test-only events/features */
   isTestAccount?: boolean;
+  bankId?: string | null;
+  bankAccountNumber?: string | null;
 }
 
 // --- Cashier Types ---

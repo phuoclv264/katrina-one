@@ -18,13 +18,14 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Users2, Trash2, Edit, Loader2, Settings, StickyNote, Search, FlaskConical } from 'lucide-react';
+import { Users2, Trash2, Edit, Loader2, Settings, StickyNote, Search, FlaskConical, CreditCard } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Combobox } from '@/components/combobox';
 import { Badge } from '@/components/ui/badge';
 import { cn, advancedSearch } from '@/lib/utils';
 import { AvatarUpload } from '@/components/avatar-upload';
 import { UserAvatar as SharedUserAvatar } from '@/components/user-avatar';
+import { VIETQR_BANKS } from '@/lib/vietqr-banks';
 
 const RoleBadge = ({ role, isSecondary = false }: { role: UserRole, isSecondary?: boolean }) => {
     const colors = {
@@ -68,6 +69,8 @@ function EditUserDialog({ user, onSave, onOpenChange, open, isProcessing }: { us
     const [notes, setNotes] = useState(user.notes || '');
     const [photoURL, setPhotoURL] = useState(user.photoURL || null);
     const [isTestAccount, setIsTestAccount] = useState(user.isTestAccount || false);
+    const [bankId, setBankId] = useState(user.bankId || '');
+    const [bankAccountNumber, setBankAccountNumber] = useState(user.bankAccountNumber || '');
 
     useEffect(() => {
         if (open) {
@@ -79,6 +82,8 @@ function EditUserDialog({ user, onSave, onOpenChange, open, isProcessing }: { us
             setNotes(user.notes || '');
             setPhotoURL(user.photoURL || null);
             setIsTestAccount(user.isTestAccount || false);
+            setBankId(user.bankId || '');
+            setBankAccountNumber(user.bankAccountNumber || '');
         }
     }, [open, user]);
 
@@ -92,7 +97,9 @@ function EditUserDialog({ user, onSave, onOpenChange, open, isProcessing }: { us
             notes, 
             secondaryRoles: secondaryRoles.map(r => r.role), 
             photoURL: photoPayload,
-            isTestAccount
+            isTestAccount,
+            bankId: bankId || null,
+            bankAccountNumber: bankAccountNumber || null
         });
     };
 
@@ -205,6 +212,44 @@ function EditUserDialog({ user, onSave, onOpenChange, open, isProcessing }: { us
                                     placeholder="Thêm vai trò..."
                                     searchPlaceholder="Tìm kiếm..."
                                     className="w-full h-11"
+                                    disabled={isProcessing}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Banking Info Section */}
+                    <div className="space-y-4 pt-2">
+                        <div className="flex items-center gap-2 mb-2">
+                             <div className="h-1 w-8 bg-primary rounded-full" />
+                             <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Thông tin thanh toán</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label className="text-sm font-semibold ml-1">Ngân hàng thụ hưởng</Label>
+                                <Combobox
+                                    options={VIETQR_BANKS.map(bank => ({
+                                        value: bank.bin,
+                                        label: `${bank.shortName} - ${bank.name}`,
+                                    }))}
+                                    value={bankId}
+                                    onChange={(val) => setBankId(val as string)}
+                                    placeholder="Chọn ngân hàng"
+                                    searchPlaceholder="Tìm kiếm..."
+                                    className="w-full h-11"
+                                    disabled={isProcessing}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="bankAccountNumber" className="text-sm font-semibold ml-1">Số tài khoản</Label>
+                                <Input
+                                    id="bankAccountNumber"
+                                    value={bankAccountNumber}
+                                    onChange={(e) => setBankAccountNumber(e.target.value)}
+                                    placeholder="Nhập số tài khoản"
+                                    className="h-11 rounded-xl bg-muted/50 border-muted-foreground/10 focus:bg-background transition-all"
                                     disabled={isProcessing}
                                 />
                             </div>

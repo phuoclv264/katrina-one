@@ -22,6 +22,8 @@ export interface AuthUser extends User {
   photoURL: string | null;
   /** Internal/dev flag: test accounts can see test-only events/features */
   isTestAccount?: boolean;
+  bankId?: string | null;
+  bankAccountNumber?: string | null;
 }
 
 export const useAuth = () => {

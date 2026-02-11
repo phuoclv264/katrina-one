@@ -19,7 +19,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AvatarUpload } from '@/components/avatar-upload';
 import { toast } from '@/components/ui/pro-toast';
-import { Loader2, Save, User } from 'lucide-react';
+import { Loader2, Save, User, CreditCard } from 'lucide-react';
+import { Combobox } from '@/components/combobox';
+import { VIETQR_BANKS } from '@/lib/vietqr-banks';
 
 interface ProfileDialogProps {
   open: boolean;
@@ -31,12 +33,16 @@ export function ProfileDialog({ open, onOpenChange, parentDialogTag }: ProfileDi
   const { user } = useAuth();
   const [displayName, setDisplayName] = useState('');
   const [photoURL, setPhotoURL] = useState<string | null>(null);
+  const [bankId, setBankId] = useState<string>('');
+  const [bankAccountNumber, setBankAccountNumber] = useState<string>('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open && user) {
       setDisplayName(user.displayName || '');
       setPhotoURL(user.photoURL || null);
+      setBankId(user.bankId || '');
+      setBankAccountNumber(user.bankAccountNumber || '');
     }
   }, [open, user]);
 
@@ -53,6 +59,8 @@ export function ProfileDialog({ open, onOpenChange, parentDialogTag }: ProfileDi
       await dataStore.updateUserData(user.uid, {
         displayName,
         photoURL: photoURL || null,
+        bankId: bankId || null,
+        bankAccountNumber: bankAccountNumber || null,
       });
       toast.success('Đã cập nhật hồ sơ.');
       onOpenChange(false);
@@ -63,6 +71,11 @@ export function ProfileDialog({ open, onOpenChange, parentDialogTag }: ProfileDi
       setSaving(false);
     }
   };
+
+  const bankOptions = VIETQR_BANKS.map(bank => ({
+    value: bank.bin, // Store BIN as the ID
+    label: `${bank.shortName} - ${bank.name}`,
+  }));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} dialogTag="profile-dialog" parentDialogTag={parentDialogTag}>
@@ -115,6 +128,38 @@ export function ProfileDialog({ open, onOpenChange, parentDialogTag }: ProfileDi
                   {user.role}
                 </div>
               </div>
+
+              <div className="pt-4 border-t border-zinc-100">
+                <div className="flex items-center gap-2 mb-4">
+                  <CreditCard className="w-4 h-4 text-zinc-400" />
+                  <span className="text-xs font-black text-zinc-500 uppercase tracking-widest">Thông tin thanh toán</span>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase tracking-wider text-zinc-500 ml-1">Ngân hàng thụ hưởng</Label>
+                    <Combobox
+                      options={bankOptions}
+                      value={bankId}
+                      onChange={(val) => setBankId(val as string)}
+                      placeholder="Chọn ngân hàng"
+                      searchPlaceholder="Tìm kiếm..."
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="bankAccountNumber" className="text-[10px] font-black uppercase tracking-wider text-zinc-500 ml-1">Số tài khoản</Label>
+                    <Input
+                      id="bankAccountNumber"
+                      value={bankAccountNumber}
+                      onChange={(e) => setBankAccountNumber(e.target.value)}
+                      placeholder="Nhập số tài khoản"
+                      className="h-14 rounded-2xl border-zinc-100 bg-white font-bold px-4 shadow-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
         </DialogBody>
