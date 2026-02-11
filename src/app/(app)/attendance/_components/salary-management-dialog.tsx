@@ -35,8 +35,18 @@ const SalaryRecordNavigationTrigger: React.FC<{
     record: SalaryRecord;
     user: ManagedUser | null;
     onClick: () => void;
-}> = ({ record, user, onClick }) => {
+    nextMonthAmount?: number;
+}> = ({ record, user, onClick, nextMonthAmount = 0 }) => {
     const takeHome = Math.ceil((record.totalSalary - (record.salaryAdvance || 0) + (record.bonus || 0)) / 50000) * 50000;
+
+    const formatShortAmount = (amount: number) => {
+        // Round to nearest 1,000 and show 'k' for thousands; otherwise show full VND
+        if (!amount) return '0đ';
+        if (Math.abs(amount) >= 1000) {
+            return `${Math.round(amount / 1000).toLocaleString('vi-VN')}k`;
+        }
+        return `${amount.toLocaleString('vi-VN')}đ`;
+    };
 
     return (
         <button
@@ -56,6 +66,8 @@ const SalaryRecordNavigationTrigger: React.FC<{
                         <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-tight">{record.userRole}</span>
                         <span className="text-[10px] text-zinc-300">•</span>
                         <span className="text-[10px] text-zinc-500 font-medium">{record.totalWorkingHours.toFixed(1)}h</span>
+                        <span className="text-[10px] text-zinc-300">•</span>
+                        <span className="text-[10px] text-zinc-500 font-medium" title={`${nextMonthAmount || 0}đ`}>{formatShortAmount(nextMonthAmount || 0)}</span>
                     </div>
                 </div>
             </div>
@@ -233,17 +245,46 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
             try {
                 let sheet = await dataStore.getMonthlySalarySheet(selectedMonth);
 
-                if (!sheet) {
-                    if (!currentUser) {
-                        if (isActive) setIsLoading(false);
-                        return;
+                // Apply any locally saved eligibility overrides (do not persist these to server)
+                try {
+                    const localKey = `salary-eligibility-${selectedMonth}`;
+                    const localRaw = localStorage.getItem(localKey);
+                    const localEligibility = localRaw ? JSON.parse(localRaw) : null;
+
+                    if (!sheet) {
+                        if (!currentUser) {
+                            if (isActive) setIsLoading(false);
+                            return;
+                        }
+
+                        toast.loading('Đang tính toán bảng lương...', { id: 'recalc' });
+                        const monthDate = parseISO(`${selectedMonth}-01`);
+                        const newSheet = await calculateSalarySheet(monthDate, allUsers, { userId: currentUser.uid, userName: currentUser.displayName });
+
+                        // Save calculated sheet to server, but DO NOT save local eligibility override to server
+                        const sheetToSave = { ...newSheet } as any;
+                        if (localEligibility) {
+                            // ensure we don't send the override to the server
+                            delete sheetToSave.eligibility;
+                        }
+
+                        await dataStore.saveMonthlySalarySheet(selectedMonth, sheetToSave);
+
+                        // Use a copy that has the local override applied in-memory (not persisted)
+                        sheet = localEligibility ? { ...newSheet, eligibility: localEligibility } : newSheet;
+
+                        toast.success('Bảng lương đã được tính toán và lưu lại.', { id: 'recalc' });
+                    } else {
+                        // If sheet exists on server but there's a local override, apply it in-memory
+                        const localKey = `salary-eligibility-${selectedMonth}`;
+                        const localRaw = localStorage.getItem(localKey);
+                        const localEligibility = localRaw ? JSON.parse(localRaw) : null;
+                        if (localEligibility) {
+                            sheet = { ...sheet, eligibility: localEligibility };
+                        }
                     }
-                    toast.loading('Đang tính toán bảng lương...', { id: 'recalc' });
-                    const monthDate = parseISO(`${selectedMonth}-01`);
-                    const newSheet = await calculateSalarySheet(monthDate, allUsers, { userId: currentUser.uid, userName: currentUser.displayName });
-                    await dataStore.saveMonthlySalarySheet(selectedMonth, newSheet);
-                    sheet = newSheet;
-                    toast.success('Bảng lương đã được tính toán và lưu lại.', { id: 'recalc' });
+                } catch (err) {
+                    console.warn('Could not apply local eligibility override:', err);
                 }
 
                 if (isActive) {
@@ -310,10 +351,11 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
     const eligibleRecords = useMemo(() => {
         const threshold = eligibilityDraft.threshold;
         const requireNoPenalties = eligibilityDraft.penaltiesMustBeZero;
-        return filteredRecords.filter(r =>
-            r.paymentStatus !== 'paid' &&
+        return filteredRecords.filter(r => {
+            return r.paymentStatus !== 'paid' &&
             (nextMonthSalaryByUser[r.userId] || 0) >= threshold &&
             (requireNoPenalties ? ((r.totalUnpaidPenalties || 0) === 0) : true)
+        }
         );
     }, [filteredRecords, nextMonthSalaryByUser, eligibilityDraft]);
 
@@ -368,11 +410,37 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
         setIsLoading(true);
         toast.loading('Đang tính toán lại bảng lương...', { id: 'recalc' });
         try {
-            const monthDate = parseISO(`${selectedMonth}-01`);
-            const newSheet = await calculateSalarySheet(monthDate, allUsers, { userId: currentUser.uid, userName: currentUser.displayName }, salarySheet?.salaryRecords);
-            await dataStore.saveMonthlySalarySheet(selectedMonth, newSheet);
-            setSalarySheet(newSheet);
-            toast.success('Bảng lương đã được tính toán và lưu lại.', { id: 'recalc' });
+            // Use the current month (today) as the base and include the two previous months
+            const baseMonth = startOfMonth(new Date());
+            const monthsToRecalc = [0, -1, -2].map(offset => addMonths(baseMonth, offset));
+
+            for (const monthDate of monthsToRecalc) {
+                const monthId = format(monthDate, 'yyyy-MM');
+
+                // Try to get existing salaryRecords for this month to preserve manually entered values
+                const existingSheet = await dataStore.getMonthlySalarySheet(monthId);
+                const existingRecords = existingSheet?.salaryRecords || undefined;
+
+                const newSheet: MonthlySalarySheet = await calculateSalarySheet(monthDate, allUsers, { userId: currentUser.uid, userName: currentUser.displayName }, existingRecords);
+
+                // Do not persist any local eligibility overrides to the server
+                const localKey = `salary-eligibility-${monthId}`;
+                const localRaw = localStorage.getItem(localKey);
+                const hasLocalEligibility = !!localRaw;
+
+                const sheetToSave: any = { ...newSheet };
+                if (hasLocalEligibility) delete sheetToSave.eligibility;
+
+                await dataStore.saveMonthlySalarySheet(monthId, sheetToSave);
+
+                // If one of the recalculated months matches the currently selected month, apply local override (if any) and show it in UI
+                if (monthId === selectedMonth) {
+                    const sheetWithLocal = hasLocalEligibility ? { ...newSheet, eligibility: JSON.parse(localRaw as string) } : newSheet;
+                    setSalarySheet(sheetWithLocal);
+                }
+            }
+
+            toast.success('Bảng lương 3 tháng gần nhất đã được cập nhật.', { id: 'recalc' });
         } catch (error) {
             console.error("Salary calculation failed:", error);
             toast.error('Lỗi khi tính toán bảng lương.', { id: 'recalc' });
@@ -386,9 +454,17 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
         setIsLoading(true);
         try {
             const updated = { ...salarySheet, eligibility: { threshold: eligibilityDraft.threshold, penaltiesMustBeZero: eligibilityDraft.penaltiesMustBeZero } };
-            await dataStore.saveMonthlySalarySheet(selectedMonth, updated as any);
+
+            // Persist eligibility only locally (so it won't be visible to other clients until they save it themselves)
+            try {
+                const localKey = `salary-eligibility-${selectedMonth}`;
+                localStorage.setItem(localKey, JSON.stringify(updated.eligibility));
+            } catch (err) {
+                console.warn('Could not save eligibility locally:', err);
+            }
+
             setSalarySheet(updated);
-            toast.success('Đã lưu điều kiện đủ trả lương.');
+            toast.success('Đã lưu điều kiện.');
             setIsFilterPopoverOpen(false);
         } catch (error) {
             toast.error('Lỗi khi lưu điều kiện.');
@@ -617,6 +693,7 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
                                                         record={record}
                                                         user={allUsers.find(u => u.uid === record.userId) || null}
                                                         onClick={() => setCurrentSection(record.userId)}
+                                                        nextMonthAmount={nextMonthSalaryByUser[record.userId] || 0}
                                                     />
                                                 ))}
                                             </div>
@@ -638,6 +715,7 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
                                                         record={record}
                                                         user={allUsers.find(u => u.uid === record.userId) || null}
                                                         onClick={() => setCurrentSection(record.userId)}
+                                                        nextMonthAmount={nextMonthSalaryByUser[record.userId] || 0}
                                                     />
                                                 ))}
                                             </div>
@@ -659,6 +737,7 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
                                                         record={record}
                                                         user={allUsers.find(u => u.uid === record.userId) || null}
                                                         onClick={() => setCurrentSection(record.userId)}
+                                                        nextMonthAmount={nextMonthSalaryByUser[record.userId] || 0}
                                                     />
                                                 ))}
                                             </div>
