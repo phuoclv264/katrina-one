@@ -96,7 +96,8 @@ export default function WeekScheduleDialog({
     [weekInterval]
   );
 
-  const hasSchedule = !!schedule && schedule.shifts.length > 0;
+  // Only consider a schedule 'visible' if it is published and has shifts
+  const hasSchedule = !!schedule && schedule.status === 'published' && schedule.shifts.length > 0;
 
   const relevantUnderstaffedShifts = useMemo<AssignedShift[]>(() => {
     // Still compute for highlighting cells if needed

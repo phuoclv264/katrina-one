@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Star, ArrowUp, ArrowDown, Image as ImageIcon, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Star, ArrowUp, ArrowDown, Image as ImageIcon, Trash2, Loader2, Camera } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Task } from '@/lib/types';
+import CameraDialog from '@/components/camera-dialog';
+import { photoStore } from '@/lib/photo-store';
 import { useLightbox } from '@/contexts/lightbox-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -85,8 +87,13 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
     });
   };
 
+  // Track previous open state so we only initialize when dialog actually opens,
+  // avoiding mid-dialog resets caused by unrelated re-renders or nested dialogs.
+  const wasOpenRef = useRef(false);
+
   useEffect(() => {
-    if (isOpen) {
+    // Only initialize/reset when dialog transitions from closed -> open
+    if (isOpen && !wasOpenRef.current) {
       if (initialData) {
         setText(initialData.text || '');
         setIsCritical(!!initialData.isCritical);
@@ -100,10 +107,17 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
         setType('photo');
         setMinCompletions(1);
         setInstructionText('');
-        setInstructionImages([]);
+        setInstructionImages(prev => {
+          prev.forEach(src => {
+            if (src && src.startsWith('blob:')) URL.revokeObjectURL(src);
+          });
+          return [];
+        });
         if (fileRef.current) fileRef.current.value = '';
       }
     }
+
+    wasOpenRef.current = isOpen;
   }, [isOpen, initialData]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -128,7 +142,38 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
   };
 
   const removeImage = (index: number) => {
-    setInstructionImages(prev => prev.filter((_, i) => i !== index));
+    setInstructionImages(prev => {
+      const src = prev[index];
+      if (src && src.startsWith('blob:')) {
+        URL.revokeObjectURL(src);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  // Camera dialog state: allow taking photos to add as instruction images
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+
+  const handleCameraSubmit = async (media: { id: string; type: 'photo' | 'video' }[]) => {
+    // media contains local photo IDs stored in photoStore
+    if (!media || media.length === 0) {
+      setIsCameraOpen(false);
+      return;
+    }
+
+    try {
+      const photoIds = media.filter(m => m.type === 'photo').map(m => m.id);
+      const blobs = await Promise.all(photoIds.map(id => photoStore.getPhoto(id)));
+      const urls = blobs
+        .map((blob) => (blob ? URL.createObjectURL(blob) : null))
+        .filter(Boolean) as string[];
+
+      setInstructionImages(prev => [...prev, ...urls]);
+    } catch (error) {
+      console.error('Error processing camera images:', error);
+    } finally {
+      setIsCameraOpen(false);
+    }
   };
 
   const handleConfirm = () => {
@@ -199,16 +244,6 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground ml-1">Cẩm nang chuẩn (Theo dòng)</Label>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                disabled={isCompressing}
-                onClick={() => fileRef.current?.click()} 
-                className="h-8 text-[11px] font-bold text-indigo-600 hover:bg-indigo-50 rounded-xl"
-              >
-                {isCompressing ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <ImageIcon className="h-3 w-3 mr-2" />}
-                Thêm minh họa
-              </Button>
             </div>
             
             <RichTextEditor
@@ -220,8 +255,33 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
 
             <div className="space-y-2">
               <input ref={fileRef} id="instruction-images" type="file" accept="image/*" multiple onChange={handleFileChange} className="hidden" />
-              
-              {instructionImages.length > 0 ? (
+
+              {/* Always-visible toolbar to add more images */}
+              <div className="flex items-center gap-2.5 mb-4 p-1.5 rounded-[22px] bg-muted/10 border border-primary/5">
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  className="flex-1 flex items-center justify-center gap-2 py-2 rounded-[16px] bg-white shadow-sm border border-zinc-100 hover:bg-indigo-50/50 hover:border-indigo-100 hover:text-indigo-600 transition-all group active:scale-[0.98]"
+                  type="button"
+                >
+                  <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-500 group-hover:bg-indigo-100 transition-colors">
+                    <ImageIcon className="h-3.5 w-3.5" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-wider">Thư viện</span>
+                </button>
+
+                <button
+                  onClick={() => setIsCameraOpen(true)}
+                  className="flex-1 flex items-center justify-center gap-2 py-2 rounded-[16px] bg-white shadow-sm border border-zinc-100 hover:bg-indigo-50/50 hover:border-indigo-100 hover:text-indigo-600 transition-all group active:scale-[0.98]"
+                  type="button"
+                >
+                  <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-500 group-hover:bg-indigo-100 transition-colors">
+                    <Camera className="h-3.5 w-3.5" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-wider">Máy ảnh</span>
+                </button>
+              </div>
+
+              {instructionImages.length > 0 && (
                 <div className="grid grid-cols-1 gap-2.5">
                   {instructionImages.map((img, idx) => (
                     <div key={idx} className="flex items-center gap-3 p-2.5 bg-muted/20 rounded-2xl border border-transparent hover:border-indigo-100 transition-all group">
@@ -256,16 +316,6 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
                     </div>
                   ))}
                 </div>
-              ) : !isCompressing && (
-                <button 
-                  onClick={() => fileRef.current?.click()}
-                  className="w-full py-8 rounded-2xl border-2 border-dashed border-muted-foreground/10 bg-muted/5 flex flex-col items-center justify-center gap-2 hover:bg-indigo-50/30 hover:border-indigo-200/50 transition-all group"
-                >
-                  <div className="p-3 bg-white rounded-2xl shadow-sm transform group-hover:scale-110 transition-transform">
-                    <ImageIcon className="h-5 w-5 text-indigo-400" />
-                  </div>
-                  <span className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-widest">Nhấn để thêm ảnh mẫu</span>
-                </button>
               )}
 
               {isCompressing && (
@@ -290,6 +340,16 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
             <Checkbox checked={isCritical} onCheckedChange={(c) => setIsCritical(c as boolean)} className="h-6 w-6" />
           </div>
         </DialogBody>
+
+        <CameraDialog
+          isOpen={isCameraOpen}
+          onClose={() => setIsCameraOpen(false)}
+          onSubmit={handleCameraSubmit}
+          parentDialogTag={parentDialogTag}
+          singlePhotoMode={false}
+          captureMode="photo"
+          isHD={true}
+        />
 
         <DialogFooter>
           <DialogCancel onClick={onClose}>Hủy</DialogCancel>

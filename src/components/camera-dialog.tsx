@@ -33,6 +33,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import MediaGalleryDialog from './media-gallery-dialog';
+import { get } from 'http';
 
 
 type CameraDialogProps = {
@@ -54,8 +55,8 @@ type CameraDialogProps = {
 
 const PORTRAIT_ASPECT_RATIO = 3 / 4; // width:height = 3:4
 const TARGET_DIMENSIONS = {
-  standard: { width: 1080 * 1.5, height: 1440 * 1.5 }, // 1620x2160
-  hd: { width: 1440 * 1.5, height: 1920 * 1.5 },       // 2160x2880
+  standard: { width: 720, height: 960 }, // 1620x2160
+  hd: { width: 1080, height: 1440 },     // 3240x4320
 };
 
 const getTargetDimensions = (isHD: boolean) =>
@@ -276,13 +277,9 @@ export default function CameraDialog({
       // Prefer camera native resolution close to our target dimensions so
       // captured photos/videos are higher resolution. We still request a
       // portrait aspect ratio and the rear camera.
-      const target = getTargetDimensions(isHD);
-      const videoConstraints: MediaTrackConstraints = {
-        facingMode: { ideal: 'environment' },
-        aspectRatio: PORTRAIT_ASPECT_RATIO,
-        width: { ideal: target.width },
-        height: { ideal: target.height },
-      };
+      const videoConstraints: MediaTrackConstraints = isHD
+            ? { facingMode: 'environment', aspectRatio: PORTRAIT_ASPECT_RATIO, width: { ideal: 1920 }, height: { ideal: 1080 } }
+            : { facingMode: 'environment', aspectRatio: PORTRAIT_ASPECT_RATIO, width: { ideal: 1280 }, height: { ideal: 720 } };
 
       // Start camera with video-only. Defer microphone permission until recording starts to avoid
       // blocking camera on devices without a microphone or when microphone permission is denied.
@@ -488,7 +485,7 @@ export default function CameraDialog({
       }
       const { sx, sy, cropW, cropH } = crop || computePortraitCropBox(naturalW, naturalH);
 
-      // Use the configured target dimensions for higher-resolution video
+      // Use optimized dimensions for video recording (720p/1080p) to reduce processing load and file size
       const target = getTargetDimensions(isHD);
       const canvas = document.createElement('canvas');
       canvas.width = target.width;
@@ -546,7 +543,7 @@ export default function CameraDialog({
       };
       drawFrame();
 
-      const canvasStream = canvas.captureStream(30); // This has the video track with overlay
+      const canvasStream = canvas.captureStream(30); // Reduce to 30fps stable (or lower if needed)
       const videoTrackWithOverlay = canvasStream.getVideoTracks()[0];
 
       // Get existing audio tracks, or attempt to request microphone now if none present.
@@ -580,7 +577,10 @@ export default function CameraDialog({
 
       try {
         // Now use the combined stream for the recorder
-        mediaRecorderRef.current = new MediaRecorder(combinedStream, { mimeType: supportedMimeType as string });
+        mediaRecorderRef.current = new MediaRecorder(combinedStream, { 
+          mimeType: supportedMimeType as string,
+          videoBitsPerSecond: 2500000 // Limit bitrate to ~2.5Mbps to reduce file size and memory usage
+        });
         recordedChunksRef.current = [];
 
         mediaRecorderRef.current.ondataavailable = (event) => {

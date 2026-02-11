@@ -8,7 +8,7 @@ import { toast } from '@/components/ui/pro-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingPage } from '@/components/loading/LoadingPage';
-import { ShieldX, Plus, FilterX, BadgeInfo, Settings, UserSearch, Camera, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ShieldX, Plus, FilterX, BadgeInfo, Settings, UserSearch, Camera, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
 import type { ManagedUser, Violation, ViolationCategory, ViolationUser, ViolationCategoryData, MediaAttachment } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import CameraDialog from '@/components/camera-dialog';
@@ -25,6 +25,7 @@ import { generateSmartAbbreviations } from '@/lib/violations-utils';
 import { useRouter } from 'nextjs-toploader/app';
 import { useSearchParams } from 'next/navigation';
 import { SubmitAllDialog } from './_components/submit-all-dialog';
+import { OwnerBulkPayDialog, UnpaidItem } from './_components/owner-bulk-pay-dialog';
 import { getQueryParamWithMobileHashFallback } from '@/lib/url-params';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -68,6 +69,7 @@ function ViolationsView() {
   // Submit all dialog state
   const [isSubmitAllOpen, setIsSubmitAllOpen] = useState(false);
   const [isBulkCameraOpen, setIsBulkCameraOpen] = useState(false);
+  const [isOwnerBulkPayOpen, setIsOwnerBulkPayOpen] = useState(false);
   const [violationsToSubmit, setViolationsToSubmit] = useState<string[]>([]);
 
   const [filterUsers, setFilterUsers] = useState<ManagedUser[]>([]);
@@ -446,6 +448,44 @@ function ViolationsView() {
     return violations.filter(v => v.users.some(u => u.id === user.uid) && !(v.penaltySubmissions || []).some(s => s.userId === user.uid));
   }, [violations, user]);
 
+  const ownerPendingPaymentItems = useMemo(() => {
+    if (!user || user.role !== 'Chủ nhà hàng') return [];
+    
+    // Based on filteredViolations so owner can filter by user/category first
+    const items: UnpaidItem[] = [];
+    
+    filteredViolations.forEach(v => {
+      if (v.isPenaltyWaived) return;
+      
+      const userCosts = v.userCosts || [];
+      const submissions = v.penaltySubmissions || [];
+      
+      userCosts.forEach(uc => {
+        // Check if this specific user has paid
+        if (!submissions.some(s => s.userId === uc.userId)) {
+           // Try to find nice name
+           const managedUser = users.find(u => u.uid === uc.userId);
+           const userName = managedUser?.displayName || v.users.find(u => u.id === uc.userId)?.name || 'Unknown';
+           
+           items.push({
+             key: `${v.id}_${uc.userId}`,
+             violation: v,
+             userId: uc.userId,
+             userName: userName,
+             cost: uc.cost
+           });
+        }
+      });
+    });
+    
+    // Sort items by date desc
+    return items.sort((a, b) => {
+      const dateA = (a.violation.createdAt as any).toDate ? (a.violation.createdAt as any).toDate() : new Date(a.violation.createdAt as string);
+      const dateB = (b.violation.createdAt as any).toDate ? (b.violation.createdAt as any).toDate() : new Date(b.violation.createdAt as string);
+      return dateB.getTime() - dateA.getTime();
+    });
+  }, [filteredViolations, user, users]);
+
   // Early return check - AFTER all hooks are called
   if (isLoading || authLoading || !user) {
     return <LoadingPage />;
@@ -475,6 +515,33 @@ function ViolationsView() {
     });
   };
 
+  const handleOwnerBulkPaySubmit = async (items: UnpaidItem[]) => {
+    if (items.length === 0) return;
+    setIsProcessing(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const item of items) {
+      try {
+        await dataStore.markPenaltyAsSubmitted(item.violation.id, { userId: item.userId, userName: item.userName });
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to mark penalty as paid for ${item.userName} in violation ${item.violation.id}:`, error);
+        failCount++;
+      }
+    }
+
+    if (successCount > 0) {
+      toast.success(`Đã xác nhận thanh toán cho ${successCount} khoản phạt.`);
+    }
+    if (failCount > 0) {
+      toast.error(`Có lỗi khi xử lý ${failCount} khoản phạt.`);
+    }
+
+    setIsProcessing(false);
+    setIsOwnerBulkPayOpen(false);
+  };
+
   return (
     <>
       <div className="container mx-auto px-4 py-6 sm:py-8 lg:px-8">
@@ -494,12 +561,28 @@ function ViolationsView() {
               </Button>
             )}
             {canManage && (
-              <Button onClick={() => openAddDialog(false)} className="flex-1 min-w-full sm:flex-1 h-11 sm:h-10">
+              <Button onClick={() => openAddDialog(false)} className="flex-1 min-w-full sm:flex-1 h-11 sm:h-10 shadow-lg shadow-primary/20">
                 <Plus className="mr-2 h-4 w-4" /> Thêm mới
               </Button>
             )}
+            {isOwner && ownerPendingPaymentItems.length > 0 && (
+              <Button 
+                variant="default" 
+                className="flex-1 sm:flex-none h-11 sm:h-10 bg-gradient-to-br from-indigo-700 to-indigo-800 hover:from-indigo-800 hover:to-indigo-900 shadow-lg shadow-indigo-500/30 active:scale-95 transition-all border-none text-white" 
+                onClick={() => setIsOwnerBulkPayOpen(true)}
+              >
+                <div className="relative mr-2">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white"></span>
+                  </span>
+                </div>
+                Thanh toán ({ownerPendingPaymentItems.length})
+              </Button>
+            )}
             {staffPendingViolations.length > 0 && user.role !== 'Chủ nhà hàng' && (
-              <Button variant="default" className="flex-none sm:flex-none h-11 sm:h-10 bg-amber-600 hover:bg-amber-700" onClick={() => setIsSubmitAllOpen(true)}>
+              <Button variant="default" className="flex-1 sm:flex-none h-11 sm:h-10 bg-amber-600 hover:bg-amber-700" onClick={() => setIsSubmitAllOpen(true)}>
                 <Camera className="mr-2 h-4 w-4" />
                 Nộp phạt ({staffPendingViolations.length})
               </Button>
@@ -774,6 +857,18 @@ function ViolationsView() {
         <ViolationCategoryManagementDialog
           isOpen={isCategoryDialogOpen}
           onClose={() => setIsCategoryDialogOpen(false)}
+          parentDialogTag="root"
+        />
+      )}
+
+      {isOwner && (
+        <OwnerBulkPayDialog
+          open={isOwnerBulkPayOpen}
+          onClose={() => setIsOwnerBulkPayOpen(false)}
+          unpaidItems={ownerPendingPaymentItems}
+          allUsers={users}
+          onSubmit={handleOwnerBulkPaySubmit}
+          isProcessing={isProcessing}
           parentDialogTag="root"
         />
       )}
