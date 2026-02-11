@@ -55,7 +55,7 @@ type CameraDialogProps = {
 const PORTRAIT_ASPECT_RATIO = 3 / 4; // width:height = 3:4
 const TARGET_DIMENSIONS = {
   standard: { width: 1080 * 1.5, height: 1440 * 1.5 }, // 1620x2160
-  hd: { width: 1440 * 1.5, height: 1920 * 1.5 },       // 2160x2880
+  hd: { width: 1440 * 3, height: 1920 * 3 },       // 4320x5760
 };
 
 const getTargetDimensions = (isHD: boolean) =>
