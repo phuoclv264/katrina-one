@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { ProToastProvider } from '@/components/ui/pro-toast';
 import { DialogProvider } from '@/contexts/dialog-context';
+import { CapacitorUpdaterListener } from '@/components/capacitor-updater-listener';
 
 export const metadata: Metadata = {
   title: 'Katrina One',
@@ -29,6 +30,7 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         <DialogProvider>
+          <CapacitorUpdaterListener />
           {children}
           <ProToastProvider />
         </DialogProvider>

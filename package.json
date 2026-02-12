@@ -18,6 +18,7 @@
     "@capacitor/keyboard": "^7.0.3",
     "@capacitor/push-notifications": "^7.0.3",
     "@capacitor/status-bar": "^7.0.3",
+    "@capgo/capacitor-updater": "lts-v7",
     "@genkit-ai/googleai": "^1.14.1",
     "@genkit-ai/next": "^1.14.1",
     "@hookform/resolvers": "^4.1.3",

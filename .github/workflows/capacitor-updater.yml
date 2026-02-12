@@ -1,0 +1,55 @@
+name: Capacitor Updater Bundle
+
+on:
+  push:
+    branches:
+      - mobile-app
+
+jobs:
+  build-export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web bundle
+        run: |
+          npm run build
+          npx next export -o out
+
+      - name: Package update zip
+        run: |
+          cd out
+          zip -r ../dist.zip .
+
+      - name: Write manifest
+        run: |
+          cat <<'EOF' > manifest.json
+          {
+            "version": "${{ github.run_number }}-${{ github.sha }}",
+            "url": "https://github.com/${{ github.repository }}/releases/latest/download/dist.zip"
+          }
+          EOF
+
+      - name: Publish release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: cap-updater-${{ github.run_number }}
+          name: Cap Updater ${{ github.run_number }}
+          draft: false
+          prerelease: true
+          make_latest: true
+          files: |
+            dist.zip
+            manifest.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
