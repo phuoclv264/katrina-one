@@ -724,7 +724,10 @@ const SalaryRecordSectionContent: React.FC<SalaryRecordSectionContentProps> = ({
                     currentUserRole={currentUserRole}
                     users={users}
                     onRecordUpdated={onRecordUpdated}
-                    onCancel={() => setIsPaymentMode(false)}
+                    onCancel={() => {
+                        setIsPaymentMode(false);
+                        onBack();
+                    }}
                     finalTakeHomePay={finalTakeHomePay}
                     violationPenaltyTotals={violationPenaltyTotals}
                     totalPenalty={totalPenalty}
