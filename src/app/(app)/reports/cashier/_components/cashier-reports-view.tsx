@@ -40,7 +40,6 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
   const router = useRouter();
   const routerRef = useRef(router);
   const searchParams = useSearchParams();
-  const isInitialLoad = useRef(true);
   const isMobile = useIsMobile();
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -226,8 +225,10 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
       hash: typeof window !== 'undefined' ? window.location.hash : '',
     });
     if (!highlightId || sortedDatesInMonth.length === 0 || processingItemId) return;
-    const [type, id] = highlightId.split('-');
+    const [type, ...idParts] = highlightId.split('-');
     let itemDate: string | undefined;
+
+    const id = idParts.join('-');
 
     if (type === 'expense') itemDate = expenseSlips.find(s => s.id === id)?.date;
     else if (type === 'revenue') itemDate = revenueStats.find(s => s.id === id)?.date;
@@ -266,9 +267,8 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
   }, [searchParams, sortedDatesInMonth, processingItemId, openDays, expenseSlips, revenueStats, incidents, cashHandoverReports]);
 
   useEffect(() => {
-    if (allMonthsWithData.length > 0 && isInitialLoad.current) {
+    if (allMonthsWithData.length > 0) {
       setCurrentMonth(parseISO(`${allMonthsWithData[0]}-01`));
-      isInitialLoad.current = false;
     }
   }, [allMonthsWithData]);
 

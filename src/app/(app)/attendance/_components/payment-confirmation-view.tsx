@@ -7,7 +7,8 @@ import {
     Info, 
     Loader2, 
     User, 
-    Wallet 
+    Wallet,
+    Share2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,12 +47,6 @@ export const PaymentConfirmationView: React.FC<PaymentConfirmationViewProps> = (
     const [actualPaidNumber, setActualPaidNumber] = useState<number | null>(finalTakeHomePay);
     const [qrAmount, setQrAmount] = useState<number>(finalTakeHomePay);
     const [isUpdating, setIsUpdating] = useState(false);
-    const inputRef = useRef<HTMLInputElement | null>(null);
-
-    useEffect(() => {
-        const id = window.setTimeout(() => inputRef.current?.focus(), 100);
-        return () => clearTimeout(id);
-    }, []);
 
     useEffect(() => {
         const timeoutId = setTimeout(() => {
@@ -94,10 +89,48 @@ export const PaymentConfirmationView: React.FC<PaymentConfirmationViewProps> = (
         }
     };
 
+    const handleShare = async () => {
+        if (!qrUrl) return;
+        try {
+            // Fetch the QR image as a blob so we can share or download the image itself
+            const resp = await fetch(qrUrl);
+            if (!resp.ok) throw new Error('Không thể tải ảnh QR');
+            const blob = await resp.blob();
+
+            const fileName = `LUONG-${generateShortName(record.userName).toUpperCase()}-T${monthId.split('-')[1]}.png`;
+            const file = new File([blob], fileName, { type: blob.type });
+
+            // Prefer Web Share API with files if available
+            if ((navigator as any).canShare && (navigator as any).canShare({ files: [file] })) {
+                await (navigator as any).share({
+                    files: [file],
+                    title: `Thanh toán - ${record.userName}`,
+                    text: `Mã QR thanh toán cho ${record.userName} (T${monthId.split('-')[1]})`,
+                });
+                toast.success('Đã chia sẻ ảnh mã QR.');
+                return;
+            }
+
+            // Next, try writing the image to clipboard (modern browsers)
+            if (navigator.clipboard && (window as any).ClipboardItem) {
+                try {
+                    await navigator.clipboard.write([new (window as any).ClipboardItem({ [blob.type]: blob })]);
+                    toast.success('Đã sao chép ảnh mã QR vào clipboard.');
+                    return;
+                } catch (err) {
+                    console.warn('Clipboard image write failed', err);
+                    // fallthrough to download
+                }
+            }
+        } catch (err) {
+            console.error('Chia sẻ mã QR thất bại', err);
+        }
+    };
+
     return (
         <div className="flex flex-col h-full bg-white animate-in slide-in-from-right duration-300 overflow-hidden">
             {/* Header */}
-            <div className="flex items-center gap-3 px-4 h-14 border-b flex-shrink-0">
+            <div className="p-10 flex items-center gap-3 px-4 h-14 border-b flex-shrink-0">
                 <Button variant="ghost" size="icon" onClick={onCancel} className="h-9 w-9 text-zinc-500">
                     <ArrowLeft className="h-5 w-5" />
                 </Button>
@@ -122,6 +155,20 @@ export const PaymentConfirmationView: React.FC<PaymentConfirmationViewProps> = (
                             <div className="absolute -top-10 -right-10 opacity-[0.03]">
                                 <Wallet className="w-48 h-48" />
                             </div>
+
+                            {/* Share button overlay */}
+                            <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    title="Chia sẻ mã QR"
+                                    onClick={handleShare}
+                                    className="h-9 px-3 rounded-full bg-white/90 border border-zinc-100 flex items-center gap-2 text-xs font-black text-zinc-700 shadow-sm hover:bg-white transition-colors"
+                                >
+                                    <Share2 className="w-4 h-4 text-zinc-700" />
+                                    <span className="hidden sm:inline">Chia sẻ</span>
+                                </button>
+                            </div>
+
                             <div className="relative">
                                 <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full scale-150 opacity-50" />
                                 <div className="relative p-3 bg-white rounded-3xl border-4 border-white shadow-2xl z-10 overflow-hidden">
@@ -161,7 +208,6 @@ export const PaymentConfirmationView: React.FC<PaymentConfirmationViewProps> = (
                         <div className="relative group">
                             <div className="absolute left-6 top-1/2 -translate-y-1/2 text-primary/30 font-black text-3xl group-focus-within:text-primary transition-colors">đ</div>
                             <Input
-                                ref={inputRef}
                                 type="text"
                                 inputMode="numeric"
                                 value={actualPaidInput}

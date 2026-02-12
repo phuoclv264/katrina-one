@@ -496,10 +496,19 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
                 {currentSection === null ? (
                     <>
                         <div className="flex flex-col bg-white border-b shadow-sm">
-                            <DialogHeader variant='premium' className="flex flex-row items-center justify-between border-b">
+                            <DialogHeader variant='premium' className="pt-3 pb-3 flex flex-row items-center justify-between border-b">
                                 <div className="flex items-center gap-3 min-w-0">
-                                    <DialogTitle className="text-base font-bold text-zinc-900">Bảng lương tháng {format(parseISO(`${selectedMonth}-01`), 'MM/yyyy')}</DialogTitle>
-
+                            <div className="flex flex-col min-w-0">
+                                <DialogTitle className="text-base font-bold text-zinc-900">Bảng lương tháng {format(parseISO(`${selectedMonth}-01`), 'MM/yyyy')}</DialogTitle>
+                                {salarySheet?.calculatedAt && (
+                                    <div className="text-[12px] text-zinc-500 mt-0.5 flex items-center gap-2">
+                                        <Clock className="w-4 h-4 text-zinc-400" />
+                                        <span title={format((salarySheet.calculatedAt as Timestamp).toDate(), "dd/MM/yyyy 'lúc' HH:mm", { locale: vi })}>
+                                            {format((salarySheet.calculatedAt as Timestamp).toDate(), "dd/MM/yyyy '-' HH:mm", { locale: vi })}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
                                     {/* Recalculate button placed directly next to the title for faster access */}
                                     <Button
                                         aria-label="Tính lại bảng lương"
