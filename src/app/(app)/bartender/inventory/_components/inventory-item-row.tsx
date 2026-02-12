@@ -168,6 +168,8 @@ const InventoryItemRowComponent = ({
                                 onStockChange(item.id, newVal);
                             }}
                             placeholder="Chọn..."
+                            compact
+                            searchable={false}
                             className="w-32 h-11 font-bold rounded-xl border-primary/20 bg-background/80 shadow-sm"
                         />
                     )}
