@@ -997,6 +997,50 @@ export const dataStore = {
 
   async updateTasks(newTasks: TasksByShift) {
     const docRef = doc(db, 'app-data', 'tasks');
+
+    const uploadPromises: Promise<void>[] = [];
+
+    // Process images and upload if needed
+    for (const shiftKey in newTasks) {
+      const shift = newTasks[shiftKey];
+      for (const section of shift.sections) {
+        for (const task of section.tasks) {
+          if (task.instruction?.images) {
+            task.instruction.images.forEach((img, idx) => {
+              const url = typeof img === 'string' ? img : img.url;
+              if (url && (url.startsWith('data:') || url.startsWith('blob:'))) {
+                const uploadPromise = (async () => {
+                  try {
+                    const res = await fetch(url);
+                    const blob = await res.blob();
+                    const path = `task-instructions/${Date.now()}-${uuidv4().substring(0, 8)}.jpg`;
+                    const uploadedUrl = await uploadFile(blob, path);
+                    if (typeof img === 'string') {
+                      // replace string entry with the new object shape
+                      task.instruction!.images![idx] = { url: uploadedUrl, caption: '' } as any;
+                    } else {
+                      img.url = uploadedUrl;
+                    }
+                    // If it was a blob URL, revoke it to free memory
+                    if (url.startsWith('blob:')) {
+                      URL.revokeObjectURL(url);
+                    }
+                  } catch (e) {
+                    console.error("Failed to upload instruction image:", e);
+                  }
+                })();
+                uploadPromises.push(uploadPromise);
+              }
+            });
+          }
+        }
+      }
+    }
+
+    if (uploadPromises.length > 0) {
+      await Promise.all(uploadPromises);
+    }
+
     // Firestore rejects undefined values anywhere in the document. Remove undefined fields recursively.
     const removeUndefined = (obj: any): any => {
       if (obj === undefined) return undefined;

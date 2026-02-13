@@ -56,7 +56,10 @@ export type Task = {
   minCompletions?: number; // Minimum number of completions required to mark task as done (default: 1)
   instruction?: {
     text?: string;
-    images?: string[]; // data URIs or storage URLs
+    images?: {
+      url: string;
+      caption?: string;
+    }[]; // data URIs or storage URLs
   };
 };
 
