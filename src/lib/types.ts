@@ -168,6 +168,15 @@ export type InventoryItem = {
 
 export type Suppliers = string[];
 
+export type SupplierBankInfo = {
+  id?: string;
+  supplier: string;
+  bankId: string | null;
+  bankAccountNumber: string | null;
+  accountName?: string | null;
+  accountLabel?: string | null;
+};
+
 // Type for AI-parsed items before they get a real ID
 export type ParsedInventoryItem = Omit<InventoryItem, 'id' | 'unit'>;
 

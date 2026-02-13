@@ -30,7 +30,7 @@ import {
 } from 'firebase/firestore';
 import { DateRange } from 'react-day-picker';
 import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebase/storage'; // WhistleblowingReport is imported here
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission, ViolationUserCost, MediaAttachment, CashCount, ExtractHandoverDataOutput, AttendanceRecord, MonthlyTask, MonthlyTaskAssignment, JobApplication } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, SupplierBankInfo, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission, ViolationUserCost, MediaAttachment, CashCount, ExtractHandoverDataOutput, AttendanceRecord, MonthlyTask, MonthlyTaskAssignment, JobApplication } from './types';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
 import { getISOWeek, getISOWeekYear, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, addDays, parseISO, isPast, isWithinInterval, isSameMonth } from 'date-fns';
@@ -1190,6 +1190,35 @@ export const dataStore = {
   async updateSuppliers(newSuppliers: string[]) {
     const docRef = doc(db, 'app-data', 'suppliers');
     await setDoc(docRef, { list: newSuppliers });
+  },
+
+  subscribeToSupplierBankInfo(callback: (supplierBankInfo: SupplierBankInfo[]) => void): () => void {
+    const docRef = doc(db, 'app-data', 'supplier-bank-info');
+    const unsubscribe = onSnapshot(docRef, async (docSnap) => {
+      if (docSnap.exists()) {
+        callback((docSnap.data().list || []) as SupplierBankInfo[]);
+      } else {
+        callback([]);
+      }
+    }, (error) => {
+      console.warn(`[Firestore Read Error] Could not read supplier bank info: ${error.code}`);
+      callback([]);
+    });
+    return unsubscribe;
+  },
+
+  async getSupplierBankInfo(): Promise<SupplierBankInfo[]> {
+    const docRef = doc(db, 'app-data', 'supplier-bank-info');
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return (docSnap.data().list || []) as SupplierBankInfo[];
+    }
+    return [];
+  },
+
+  async updateSupplierBankInfo(newSupplierBankInfo: SupplierBankInfo[]) {
+    const docRef = doc(db, 'app-data', 'supplier-bank-info');
+    await setDoc(docRef, { list: newSupplierBankInfo });
   },
 
   createEmptyInventoryReport(userId: string, staffName: string): InventoryReport {
