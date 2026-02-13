@@ -44,7 +44,7 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
 
   // instruction fields
   const [instructionText, setInstructionText] = useState('');
-  const [instructionImages, setInstructionImages] = useState<string[]>([]);
+  const [instructionImages, setInstructionImages] = useState<{ url: string; caption: string }[]>([]);
   const [isCompressing, setIsCompressing] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const { openLightbox } = useLightbox();
@@ -100,7 +100,11 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
         setType(initialData.type || 'photo');
         setMinCompletions(initialData.minCompletions || 1);
         setInstructionText(initialData.instruction?.text || '');
-        setInstructionImages(initialData.instruction?.images || []);
+        setInstructionImages(
+          (initialData.instruction?.images || []).map((img: any) => 
+            typeof img === 'string' ? { url: img, caption: '' } : { url: img.url, caption: img.caption || '' }
+          )
+        );
       } else {
         setText('');
         setIsCritical(false);
@@ -108,8 +112,8 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
         setMinCompletions(1);
         setInstructionText('');
         setInstructionImages(prev => {
-          prev.forEach(src => {
-            if (src && src.startsWith('blob:')) URL.revokeObjectURL(src);
+          prev.forEach(img => {
+            if (img.url && img.url.startsWith('blob:')) URL.revokeObjectURL(img.url);
           });
           return [];
         });
@@ -131,7 +135,10 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
       const compressedResults = await Promise.all(
         arr.map(file => compressImage(file))
       );
-      setInstructionImages(prev => [...prev, ...compressedResults]);
+      setInstructionImages(prev => [
+        ...prev, 
+        ...compressedResults.map(url => ({ url, caption: '' }))
+      ]);
     } catch (error) {
       console.error('Error compressing images:', error);
     } finally {
@@ -143,12 +150,16 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
 
   const removeImage = (index: number) => {
     setInstructionImages(prev => {
-      const src = prev[index];
-      if (src && src.startsWith('blob:')) {
-        URL.revokeObjectURL(src);
+      const img = prev[index];
+      if (img.url && img.url.startsWith('blob:')) {
+        URL.revokeObjectURL(img.url);
       }
       return prev.filter((_, i) => i !== index);
     });
+  };
+
+  const updateImageCaption = (index: number, caption: string) => {
+    setInstructionImages(prev => prev.map((img, i) => i === index ? { ...img, caption } : img));
   };
 
   // Camera dialog state: allow taking photos to add as instruction images
@@ -168,7 +179,7 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
         .map((blob) => (blob ? URL.createObjectURL(blob) : null))
         .filter(Boolean) as string[];
 
-      setInstructionImages(prev => [...prev, ...urls]);
+      setInstructionImages(prev => [...prev, ...urls.map(url => ({ url, caption: '' }))]);
     } catch (error) {
       console.error('Error processing camera images:', error);
     } finally {
@@ -178,6 +189,7 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
 
   const handleConfirm = () => {
     if (!text.trim()) return;
+    
     onConfirm({
       text: text.trim(),
       isCritical,
@@ -284,35 +296,47 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
               {instructionImages.length > 0 && (
                 <div className="grid grid-cols-1 gap-2.5">
                   {instructionImages.map((img, idx) => (
-                    <div key={idx} className="flex items-center gap-3 p-2.5 bg-muted/20 rounded-2xl border border-transparent hover:border-indigo-100 transition-all group">
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => openLightbox(instructionImages.map(src => ({ src })), idx)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            openLightbox(instructionImages.map(src => ({ src })), idx);
-                          }
-                        }}
-                        className="relative h-14 w-20 rounded-xl overflow-hidden shadow-sm border border-white/50 bg-white cursor-zoom-in"
-                      >
-                        <img src={img} className="object-cover w-full h-full" alt={`instruction-${idx}`} />
-                        <div className="absolute inset-0 bg-black/5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <ImageIcon className="h-3 w-3 text-white shadow-sm" />
+                    <div key={idx} className="flex flex-col gap-2 p-3 bg-muted/20 rounded-2xl border border-transparent hover:border-indigo-100 transition-all group">
+                      <div className="flex items-center gap-3">
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => openLightbox(instructionImages.map(i => ({ src: i.url, title: i.caption })), idx)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              openLightbox(instructionImages.map(i => ({ src: i.url, title: i.caption })), idx);
+                            }
+                          }}
+                          className="relative h-14 w-20 flex-shrink-0 rounded-xl overflow-hidden shadow-sm border border-white/50 bg-white cursor-zoom-in"
+                        >
+                          <img src={img.url} className="object-cover w-full h-full" alt={`instruction-${idx}`} />
+                          <div className="absolute inset-0 bg-black/5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <ImageIcon className="h-3 w-3 text-white shadow-sm" />
+                          </div>
                         </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">Ảnh minh họa {idx + 1}</div>
+                          <div className="text-[9px] text-indigo-500/60 font-bold uppercase tracking-tighter">
+                            {img.url.startsWith('data:') || img.url.startsWith('blob:') ? 'Chờ tải lên...' : 'Đã tải lên hệ thống'}
+                          </div>
+                        </div>
+                        <button 
+                          type="button" 
+                          onClick={(e) => { e.stopPropagation(); removeImage(idx); }} 
+                          className="p-2.5 rounded-xl text-muted-foreground/30 hover:text-red-500 hover:bg-red-50 active:scale-90 transition-all"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">Ảnh minh họa {idx + 1}</div>
-                        <div className="text-[9px] text-indigo-500/60 font-bold uppercase tracking-tighter">Optimized & ready</div>
+                      <div className="px-1">
+                        <Input 
+                          placeholder="Thêm chú thích cho ảnh này..." 
+                          value={img.caption} 
+                          onChange={(e) => updateImageCaption(idx, e.target.value)}
+                          className="h-8 text-[11px] bg-white/50 border-transparent focus:bg-white transition-all rounded-lg"
+                        />
                       </div>
-                      <button 
-                        type="button" 
-                        onClick={(e) => { e.stopPropagation(); removeImage(idx); }} 
-                        className="p-2.5 rounded-xl text-muted-foreground/30 hover:text-red-500 hover:bg-red-50 active:scale-90 transition-all"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
                     </div>
                   ))}
                 </div>
@@ -353,7 +377,9 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
 
         <DialogFooter>
           <DialogCancel onClick={onClose}>Hủy</DialogCancel>
-          <DialogAction onClick={handleConfirm} disabled={!text.trim()}> {initialData ? 'Lưu thay đổi' : (<><Plus className="mr-2 h-4 w-4"/> Xác nhận</>)} </DialogAction>
+          <DialogAction onClick={handleConfirm} disabled={!text.trim()}> 
+            {initialData ? 'Lưu thay đổi' : (<><Plus className="mr-2 h-4 w-4"/> Xác nhận</>)}
+          </DialogAction>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -32,7 +32,7 @@ import {
 } from 'firebase/firestore';
 import { DateRange } from 'react-day-picker';
 import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebase/storage'; // WhistleblowingReport is imported here
-import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission, ViolationUserCost, MediaAttachment, CashCount, ExtractHandoverDataOutput, AttendanceRecord, MonthlyTask, MonthlyTaskAssignment, JobApplication } from './types';
+import type { ShiftReport, TasksByShift, CompletionRecord, TaskSection, InventoryItem, InventoryReport, ComprehensiveTaskSection, Suppliers, SupplierBankInfo, ManagedUser, Violation, AppSettings, ViolationCategory, DailySummary, Task, Schedule, AssignedShift, Notification, UserRole, AssignedUser, InventoryOrderSuggestion, ShiftTemplate, Availability, TimeSlot, ViolationComment, AuthUser, ExpenseSlip, IncidentReport, RevenueStats, ExpenseItem, ExpenseType, OtherCostCategory, UnitDefinition, IncidentCategory, PaymentMethod, Product, GlobalUnit, PassRequestPayload, IssueNote, ViolationCategoryData, FineRule, PenaltySubmission, ViolationUserCost, MediaAttachment, CashCount, ExtractHandoverDataOutput, AttendanceRecord, MonthlyTask, MonthlyTaskAssignment, JobApplication } from './types';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from './photo-store';
 import { getISOWeek, getISOWeekYear, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, format, eachDayOfInterval, startOfWeek, endOfWeek, getDay, addDays, parseISO, isPast, isWithinInterval, isSameMonth } from 'date-fns';
@@ -1039,6 +1039,50 @@ export const dataStore = {
 
   async updateTasks(newTasks: TasksByShift) {
     const docRef = doc(db, 'app-data', 'tasks');
+
+    const uploadPromises: Promise<void>[] = [];
+
+    // Process images and upload if needed
+    for (const shiftKey in newTasks) {
+      const shift = newTasks[shiftKey];
+      for (const section of shift.sections) {
+        for (const task of section.tasks) {
+          if (task.instruction?.images) {
+            task.instruction.images.forEach((img, idx) => {
+              const url = typeof img === 'string' ? img : img.url;
+              if (url && (url.startsWith('data:') || url.startsWith('blob:'))) {
+                const uploadPromise = (async () => {
+                  try {
+                    const res = await fetch(url);
+                    const blob = await res.blob();
+                    const path = `task-instructions/${Date.now()}-${uuidv4().substring(0, 8)}.jpg`;
+                    const uploadedUrl = await uploadFile(blob, path);
+                    if (typeof img === 'string') {
+                      // replace string entry with the new object shape
+                      task.instruction!.images![idx] = { url: uploadedUrl, caption: '' } as any;
+                    } else {
+                      img.url = uploadedUrl;
+                    }
+                    // If it was a blob URL, revoke it to free memory
+                    if (url.startsWith('blob:')) {
+                      URL.revokeObjectURL(url);
+                    }
+                  } catch (e) {
+                    console.error("Failed to upload instruction image:", e);
+                  }
+                })();
+                uploadPromises.push(uploadPromise);
+              }
+            });
+          }
+        }
+      }
+    }
+
+    if (uploadPromises.length > 0) {
+      await Promise.all(uploadPromises);
+    }
+
     // Firestore rejects undefined values anywhere in the document. Remove undefined fields recursively.
     const removeUndefined = (obj: any): any => {
       if (obj === undefined) return undefined;
@@ -1188,6 +1232,35 @@ export const dataStore = {
   async updateSuppliers(newSuppliers: string[]) {
     const docRef = doc(db, 'app-data', 'suppliers');
     await setDoc(docRef, { list: newSuppliers });
+  },
+
+  subscribeToSupplierBankInfo(callback: (supplierBankInfo: SupplierBankInfo[]) => void): () => void {
+    const docRef = doc(db, 'app-data', 'supplier-bank-info');
+    const unsubscribe = onSnapshot(docRef, async (docSnap) => {
+      if (docSnap.exists()) {
+        callback((docSnap.data().list || []) as SupplierBankInfo[]);
+      } else {
+        callback([]);
+      }
+    }, (error) => {
+      console.warn(`[Firestore Read Error] Could not read supplier bank info: ${error.code}`);
+      callback([]);
+    });
+    return unsubscribe;
+  },
+
+  async getSupplierBankInfo(): Promise<SupplierBankInfo[]> {
+    const docRef = doc(db, 'app-data', 'supplier-bank-info');
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return (docSnap.data().list || []) as SupplierBankInfo[];
+    }
+    return [];
+  },
+
+  async updateSupplierBankInfo(newSupplierBankInfo: SupplierBankInfo[]) {
+    const docRef = doc(db, 'app-data', 'supplier-bank-info');
+    await setDoc(docRef, { list: newSupplierBankInfo });
   },
 
   createEmptyInventoryReport(userId: string, staffName: string): InventoryReport {

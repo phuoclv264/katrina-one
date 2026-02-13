@@ -7,13 +7,13 @@ import {
     Info, 
     Loader2, 
     User, 
-    Wallet,
-    Share2
+    Wallet
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { ShareQrButton } from '@/components/share-qr-button';
 import { SalaryRecord, ManagedUser, SimpleUser } from '@/lib/types';
 import { generateShortName } from '@/lib/utils';
 import { Timestamp } from 'firebase/firestore';
@@ -89,44 +89,6 @@ export const PaymentConfirmationView: React.FC<PaymentConfirmationViewProps> = (
         }
     };
 
-    const handleShare = async () => {
-        if (!qrUrl) return;
-        try {
-            // Fetch the QR image as a blob so we can share or download the image itself
-            const resp = await fetch(qrUrl);
-            if (!resp.ok) throw new Error('Không thể tải ảnh QR');
-            const blob = await resp.blob();
-
-            const fileName = `LUONG-${generateShortName(record.userName).toUpperCase()}-T${monthId.split('-')[1]}.png`;
-            const file = new File([blob], fileName, { type: blob.type });
-
-            // Prefer Web Share API with files if available
-            if ((navigator as any).canShare && (navigator as any).canShare({ files: [file] })) {
-                await (navigator as any).share({
-                    files: [file],
-                    title: `Thanh toán - ${record.userName}`,
-                    text: `Mã QR thanh toán cho ${record.userName} (T${monthId.split('-')[1]})`,
-                });
-                toast.success('Đã chia sẻ ảnh mã QR.');
-                return;
-            }
-
-            // Next, try writing the image to clipboard (modern browsers)
-            if (navigator.clipboard && (window as any).ClipboardItem) {
-                try {
-                    await navigator.clipboard.write([new (window as any).ClipboardItem({ [blob.type]: blob })]);
-                    toast.success('Đã sao chép ảnh mã QR vào clipboard.');
-                    return;
-                } catch (err) {
-                    console.warn('Clipboard image write failed', err);
-                    // fallthrough to download
-                }
-            }
-        } catch (err) {
-            console.error('Chia sẻ mã QR thất bại', err);
-        }
-    };
-
     return (
         <div className="flex flex-col h-full bg-white animate-in slide-in-from-right duration-300 overflow-hidden">
             {/* Header */}
@@ -157,16 +119,13 @@ export const PaymentConfirmationView: React.FC<PaymentConfirmationViewProps> = (
                             </div>
 
                             {/* Share button overlay */}
-                            <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
-                                <button
-                                    type="button"
-                                    title="Chia sẻ mã QR"
-                                    onClick={handleShare}
-                                    className="h-9 px-3 rounded-full bg-white/90 border border-zinc-100 flex items-center gap-2 text-xs font-black text-zinc-700 shadow-sm hover:bg-white transition-colors"
-                                >
-                                    <Share2 className="w-4 h-4 text-zinc-700" />
-                                    <span className="hidden sm:inline">Chia sẻ</span>
-                                </button>
+                            <div className="absolute top-3 right-3 z-30 flex items-center gap-2">
+                                <ShareQrButton
+                                    url={qrUrl!}
+                                    title={`Mã QR lương — ${record.userName}`}
+                                    text={`Mã QR thanh toán lương cho ${record.userName} (T${monthId.split('-')[1]}), số tiền ${(qrAmount || finalTakeHomePay).toLocaleString('vi-VN')}đ`}
+                                    className="bg-white/90"
+                                />
                             </div>
 
                             <div className="relative">

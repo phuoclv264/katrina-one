@@ -149,7 +149,7 @@ export default function ShiftInfoDialog({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose} dialogTag="shift-info-dialog" parentDialogTag={parentDialogTag}>
-            <DialogContent>
+            <DialogContent className="flex flex-col max-h-[80vh] overflow-hidden">
                 <DialogHeader variant="premium" iconkey="info">
                     <DialogTitle>{shift.label}</DialogTitle>
                     <DialogDescription className="font-bold text-[10px] uppercase tracking-[0.2em] mt-1.5 opacity-80">
@@ -162,146 +162,150 @@ export default function ShiftInfoDialog({
                         <TabsList className="grid w-full grid-cols-2 h-11 sm:h-12 p-1.5 bg-muted/50 rounded-[20px] border border-muted-foreground/5">
                             <TabsTrigger
                                 value="colleagues"
-                                className="rounded-[14px] text-[10px] sm:text-[11px] font-black uppercase tracking-tight sm:tracking-wider data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all whitespace-nowrap overflow-hidden text-ellipsis"
+                                className="rounded-[14px] text-[10px] sm:text-[11px] font-black uppercase tracking-tight sm:tracking-wider data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all whitespace-nowrap text-ellipsis"
                             >
                                 Nhân viên ({colleagues.length})
                             </TabsTrigger>
                             <TabsTrigger
                                 value="available"
-                                className="rounded-[14px] text-[10px] sm:text-[11px] font-black uppercase tracking-tight sm:tracking-wider data-[state=active]:bg-background data-[state=active]:text-emerald-500 data-[state=active]:shadow-sm transition-all whitespace-nowrap overflow-hidden text-ellipsis"
+                                className="rounded-[14px] text-[10px] sm:text-[11px] font-black uppercase tracking-tight sm:tracking-wider data-[state=active]:bg-background data-[state=active]:text-emerald-500 data-[state=active]:shadow-sm transition-all whitespace-nowrap text-ellipsis"
                             >
                                 Đang rảnh ({availableStaff.length})
                             </TabsTrigger>
                         </TabsList>
                     </div>
 
-                    <DialogBody className="bg-muted/5 py-2">
-                        <TabsContent value="colleagues" className="mt-0 focus-visible:outline-none space-y-3 px-1 pb-4">
-                            {colleagues.length > 0 ? (
-                                <div className="space-y-2.5">
-                                    {colleagues.map(({ user, shift: colleagueShift, assignedRole }) => {
-                                        const canSwap = shift.label !== colleagueShift.label || (shift.timeSlot.start !== colleagueShift.timeSlot.start || shift.timeSlot.end !== colleagueShift.timeSlot.end);
-                                        const alreadyRequested = existingPendingRequests.some(r => r.payload.targetUserId === user.uid);
-                                        const isThisUserProcessing = processingUserId === user.uid;
-                                        return (
-                                            <div key={user.uid} className="flex items-center justify-between p-3 sm:p-4 rounded-[22px] bg-background border border-muted-foreground/5 shadow-sm transition-all hover:border-primary/20 hover:shadow-md group">
-                                                <div className="flex items-center gap-2.5 sm:gap-4 min-w-0">
-                                                    <div className="relative shrink-0">
-                                                        <UserAvatar user={user} size="h-9 w-9 sm:h-11 sm:w-11" rounded="xl" />
-                                                        <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 sm:w-5 sm:h-5 bg-background rounded-full flex items-center justify-center border border-muted-foreground/10 shadow-sm">
-                                                            <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-500" />
+                    <DialogBody className="bg-muted/5 py-2 flex-1 overflow-y-auto">
+                        <TabsContent value="colleagues" className="mt-0 focus-visible:outline-none p-0">
+                            <ScrollArea className="max-h-[40vh] sm:max-h-[55vh] mt-0 px-1 pb-4 overflow-y-auto">
+                                {colleagues.length > 0 ? (
+                                    <div className="space-y-2.5">
+                                        {colleagues.map(({ user, shift: colleagueShift, assignedRole }) => {
+                                            const canSwap = shift.label !== colleagueShift.label || (shift.timeSlot.start !== colleagueShift.timeSlot.start || shift.timeSlot.end !== colleagueShift.timeSlot.end);
+                                            const alreadyRequested = existingPendingRequests.some(r => r.payload.targetUserId === user.uid);
+                                            const isThisUserProcessing = processingUserId === user.uid;
+                                            return (
+                                                <div key={user.uid} className="flex items-center justify-between p-3 sm:p-4 rounded-[22px] bg-background border border-muted-foreground/5 shadow-sm transition-all hover:border-primary/20 hover:shadow-md group">
+                                                    <div className="flex items-center gap-2.5 sm:gap-4 min-w-0">
+                                                        <div className="relative shrink-0">
+                                                            <UserAvatar user={user} size="h-9 w-9 sm:h-11 sm:w-11" rounded="xl" />
+                                                            <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 sm:w-5 sm:h-5 bg-background rounded-full flex items-center justify-center border border-muted-foreground/10 shadow-sm">
+                                                                <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-500" />
+                                                            </div>
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="font-bold text-[13px] sm:text-sm text-foreground tracking-tight leading-none mb-1.5 group-hover:text-primary transition-colors">{user.displayName}</p>
+                                                            <div className="flex items-center gap-1.5 sm:gap-2">
+                                                                <Badge variant="outline" className="text-[8px] sm:text-[9px] h-4 sm:h-4.5 px-1 sm:px-1.5 font-black border-muted-foreground/10 bg-muted/30 text-muted-foreground/80 uppercase tracking-widest rounded-[6px]">
+                                                                    {assignedRole || colleagueShift.role || 'NHÂN VIÊN'}
+                                                                </Badge>
+                                                                <span className="text-[9px] sm:text-[10px] font-bold text-muted-foreground/50 tabular-nums bg-muted/20 px-1 sm:px-1.5 py-0.5 rounded-[6px] whitespace-nowrap">
+                                                                    {colleagueShift.timeSlot.start}-{colleagueShift.timeSlot.end}
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    <div className="min-w-0">
-                                                        <p className="font-bold text-[13px] sm:text-sm text-foreground tracking-tight leading-none mb-1.5 group-hover:text-primary transition-colors">{user.displayName}</p>
-                                                        <div className="flex items-center gap-1.5 sm:gap-2">
-                                                            <Badge variant="outline" className="text-[8px] sm:text-[9px] h-4 sm:h-4.5 px-1 sm:px-1.5 font-black border-muted-foreground/10 bg-muted/30 text-muted-foreground/80 uppercase tracking-widest rounded-[6px]">
-                                                                {assignedRole || colleagueShift.role || 'NHÂN VIÊN'}
-                                                            </Badge>
-                                                            <span className="text-[9px] sm:text-[10px] font-bold text-muted-foreground/50 tabular-nums bg-muted/20 px-1 sm:px-1.5 py-0.5 rounded-[6px] whitespace-nowrap">
-                                                                {colleagueShift.timeSlot.start}-{colleagueShift.timeSlot.end}
-                                                            </span>
-                                                        </div>
-                                                    </div>
+                                                    {canSwap && (
+                                                        <Button
+                                                            size="sm"
+                                                            variant={alreadyRequested ? "ghost" : "outline"}
+                                                            onClick={() => handlePassRequest(user, true)}
+                                                            disabled={isProcessing || isThisUserProcessing || alreadyRequested}
+                                                            className={cn(
+                                                                "h-9 sm:h-10 rounded-[14px] font-black text-[9px] sm:text-[10px] uppercase tracking-wider px-3 sm:px-4 transition-all active:scale-95 shrink-0 ml-2",
+                                                                !alreadyRequested && "border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary shadow-sm"
+                                                            )}
+                                                        >
+                                                            {isProcessing || isThisUserProcessing ? (
+                                                                <Loader2 className="h-3.5 w-3.5 animate-spin sm:mr-1.5" />
+                                                            ) : alreadyRequested ? (
+                                                                <CheckCircle2 className="sm:mr-1.5 h-3.5 w-3.5 text-primary" />
+                                                            ) : (
+                                                                <Replace className="sm:mr-1.5 h-3.5 w-3.5" />
+                                                            )}
+                                                            <span className="hidden sm:inline">{alreadyRequested ? 'Đã nhờ' : 'Đổi ca'}</span>
+                                                            <span className="sm:hidden">{alreadyRequested ? 'Đã nhờ' : 'Đổi'}</span>
+                                                        </Button>
+                                                    )}
                                                 </div>
-                                                {canSwap && (
+                                            )
+                                        })}
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-10 sm:py-16 text-center">
+                                        <div className="h-12 w-12 sm:h-16 sm:w-16 bg-muted/50 rounded-[22px] sm:rounded-[28px] flex items-center justify-center mb-4 border border-muted-foreground/5 shadow-inner">
+                                            <Users className="h-5 w-5 sm:h-7 sm:w-7 text-muted-foreground/30" />
+                                        </div>
+                                        <p className="text-[10px] font-black text-muted-foreground/40 uppercase tracking-[0.2em]">Không có đồng nghiệp</p>
+                                    </div>
+                                )}
+                            </ScrollArea>
+                        </TabsContent>
+
+                        <TabsContent value="available" className="mt-0 focus-visible:outline-none p-0">
+                            <ScrollArea className="max-h-[40vh] sm:max-h-[55vh] mt-0 px-1 pb-4 overflow-y-auto">
+                                {availableStaff.length > 0 ? (
+                                    <div className="space-y-2.5">
+                                        {availableStaff.map(user => {
+                                            const alreadyRequested = existingPendingRequests.some(r => r.payload.targetUserId === user.uid);
+                                            const isThisUserProcessing = processingUserId === user.uid;
+                                            return (
+                                                <div key={user.uid} className="flex items-center justify-between p-3 sm:p-4 rounded-[22px] bg-background border border-muted-foreground/5 shadow-sm transition-all hover:border-emerald-500/20 hover:shadow-md group">
+                                                    <div className="flex items-center gap-2.5 sm:gap-4 min-w-0">
+                                                        <div className="relative shrink-0">
+                                                            <UserAvatar user={user} size="h-9 w-9 sm:h-11 sm:w-11" rounded="xl" />
+                                                            <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 sm:w-5 sm:h-5 bg-background rounded-full flex items-center justify-center border border-muted-foreground/10 shadow-sm">
+                                                                <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-500/50" />
+                                                            </div>
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="font-bold text-[13px] sm:text-sm text-foreground tracking-tight leading-none mb-1.5 group-hover:text-emerald-500 transition-colors">{user.displayName}</p>
+                                                            <p className="text-[8px] sm:text-[9px] font-black text-emerald-500/60 uppercase tracking-widest bg-emerald-500/5 px-2 py-0.5 rounded-[6px] w-fit">{user.role}</p>
+                                                        </div>
+                                                    </div>
                                                     <Button
                                                         size="sm"
                                                         variant={alreadyRequested ? "ghost" : "outline"}
-                                                        onClick={() => handlePassRequest(user, true)}
+                                                        onClick={() => handlePassRequest(user, false)}
                                                         disabled={isProcessing || isThisUserProcessing || alreadyRequested}
                                                         className={cn(
                                                             "h-9 sm:h-10 rounded-[14px] font-black text-[9px] sm:text-[10px] uppercase tracking-wider px-3 sm:px-4 transition-all active:scale-95 shrink-0 ml-2",
-                                                            !alreadyRequested && "border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary shadow-sm"
+                                                            !alreadyRequested && "border-emerald-500/20 text-emerald-500 hover:bg-emerald-500 hover:text-white hover:border-emerald-500 shadow-sm"
                                                         )}
                                                     >
                                                         {isProcessing || isThisUserProcessing ? (
                                                             <Loader2 className="h-3.5 w-3.5 animate-spin sm:mr-1.5" />
                                                         ) : alreadyRequested ? (
-                                                            <CheckCircle2 className="sm:mr-1.5 h-3.5 w-3.5 text-primary" />
+                                                            <CheckCircle2 className="sm:mr-1.5 h-3.5 w-3.5 text-emerald-500" />
                                                         ) : (
-                                                            <Replace className="sm:mr-1.5 h-3.5 w-3.5" />
+                                                            <Send className="sm:mr-1.5 h-3.5 w-3.5" />
                                                         )}
-                                                        <span className="hidden sm:inline">{alreadyRequested ? 'Đã nhờ' : 'Đổi ca'}</span>
-                                                        <span className="sm:hidden">{alreadyRequested ? 'Đã nhờ' : 'Đổi'}</span>
+                                                        <span className="hidden sm:inline">{alreadyRequested ? 'Đã nhờ' : 'Nhờ nhận'}</span>
+                                                        <span className="sm:hidden">{alreadyRequested ? 'Đã nhờ' : 'Nhờ'}</span>
                                                     </Button>
-                                                )}
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                            ) : (
-                                <div className="flex flex-col items-center justify-center py-10 sm:py-16 text-center">
-                                    <div className="h-12 w-12 sm:h-16 sm:w-16 bg-muted/50 rounded-[22px] sm:rounded-[28px] flex items-center justify-center mb-4 border border-muted-foreground/5 shadow-inner">
-                                        <Users className="h-5 w-5 sm:h-7 sm:w-7 text-muted-foreground/30" />
-                                    </div>
-                                    <p className="text-[10px] font-black text-muted-foreground/40 uppercase tracking-[0.2em]">Không có đồng nghiệp</p>
-                                </div>
-                            )}
-                        </TabsContent>
-
-                        <TabsContent value="available" className="mt-0 focus-visible:outline-none space-y-3 px-1 pb-4">
-                            {availableStaff.length > 0 ? (
-                                <div className="space-y-2.5">
-                                    {availableStaff.map(user => {
-                                        const alreadyRequested = existingPendingRequests.some(r => r.payload.targetUserId === user.uid);
-                                        const isThisUserProcessing = processingUserId === user.uid;
-                                        return (
-                                            <div key={user.uid} className="flex items-center justify-between p-3 sm:p-4 rounded-[22px] bg-background border border-muted-foreground/5 shadow-sm transition-all hover:border-emerald-500/20 hover:shadow-md group">
-                                                <div className="flex items-center gap-2.5 sm:gap-4 min-w-0">
-                                                    <div className="relative shrink-0">
-                                                        <UserAvatar user={user} size="h-9 w-9 sm:h-11 sm:w-11" rounded="xl" />
-                                                        <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 sm:w-5 sm:h-5 bg-background rounded-full flex items-center justify-center border border-muted-foreground/10 shadow-sm">
-                                                            <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-500/50" />
-                                                        </div>
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <p className="font-bold text-[13px] sm:text-sm text-foreground tracking-tight leading-none mb-1.5 group-hover:text-emerald-500 transition-colors">{user.displayName}</p>
-                                                        <p className="text-[8px] sm:text-[9px] font-black text-emerald-500/60 uppercase tracking-widest bg-emerald-500/5 px-2 py-0.5 rounded-[6px] w-fit">{user.role}</p>
-                                                    </div>
                                                 </div>
-                                                <Button
-                                                    size="sm"
-                                                    variant={alreadyRequested ? "ghost" : "outline"}
-                                                    onClick={() => handlePassRequest(user, false)}
-                                                    disabled={isProcessing || isThisUserProcessing || alreadyRequested}
-                                                    className={cn(
-                                                        "h-9 sm:h-10 rounded-[14px] font-black text-[9px] sm:text-[10px] uppercase tracking-wider px-3 sm:px-4 transition-all active:scale-95 shrink-0 ml-2",
-                                                        !alreadyRequested && "border-emerald-500/20 text-emerald-500 hover:bg-emerald-500 hover:text-white hover:border-emerald-500 shadow-sm"
-                                                    )}
-                                                >
-                                                    {isProcessing || isThisUserProcessing ? (
-                                                        <Loader2 className="h-3.5 w-3.5 animate-spin sm:mr-1.5" />
-                                                    ) : alreadyRequested ? (
-                                                        <CheckCircle2 className="sm:mr-1.5 h-3.5 w-3.5 text-emerald-500" />
-                                                    ) : (
-                                                        <Send className="sm:mr-1.5 h-3.5 w-3.5" />
-                                                    )}
-                                                    <span className="hidden sm:inline">{alreadyRequested ? 'Đã nhờ' : 'Nhờ nhận'}</span>
-                                                    <span className="sm:hidden">{alreadyRequested ? 'Đã nhờ' : 'Nhờ'}</span>
-                                                </Button>
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                            ) : (
-                                <div className="flex flex-col items-center justify-center py-10 sm:py-16 text-center">
-                                    <div className="h-12 w-12 sm:h-16 sm:w-16 bg-muted/50 rounded-[22px] sm:rounded-[28px] flex items-center justify-center mb-4 border border-muted-foreground/5 shadow-inner">
-                                        <UserCheck className="h-5 w-5 sm:h-7 sm:w-7 text-muted-foreground/30" />
+                                            )
+                                        })}
                                     </div>
-                                    <p className="text-[10px] font-black text-muted-foreground/40 uppercase tracking-[0.2em]">Không có nhân viên rảnh</p>
-                                </div>
-                            )}
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-10 sm:py-16 text-center">
+                                        <div className="h-12 w-12 sm:h-16 sm:w-16 bg-muted/50 rounded-[22px] sm:rounded-[28px] flex items-center justify-center mb-4 border border-muted-foreground/5 shadow-inner">
+                                            <UserCheck className="h-5 w-5 sm:h-7 sm:w-7 text-muted-foreground/30" />
+                                        </div>
+                                        <p className="text-[10px] font-black text-muted-foreground/40 uppercase tracking-[0.2em]">Không có nhân viên rảnh</p>
+                                    </div>
+                                )}
+                            </ScrollArea>
                         </TabsContent>
                     </DialogBody>
                 </Tabs>
 
-                <DialogFooter variant="muted" className="p-6">
-                    <DialogCancel onClick={onClose} className="w-full h-12 rounded-[18px] font-black uppercase tracking-widest text-xs">
-                        Đóng cửa sổ
-                    </DialogCancel>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                        <DialogFooter variant="muted" className="p-6">
+                            <DialogCancel onClick={onClose} className="w-full h-12 rounded-[18px] font-black uppercase tracking-widest text-xs">
+                                Đóng cửa sổ
+                            </DialogCancel>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
     );
 }

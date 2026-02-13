@@ -229,24 +229,37 @@ const TaskItemComponent = ({
                           <ImageIcon className="w-3.5 h-3.5 text-indigo-400" />
                           <h4 className="text-slate-400 text-[11px] font-black uppercase tracking-[0.1em]">Hình ảnh minh họa</h4>
                         </div>
-                        <div className="flex flex-wrap gap-3 px-1 text-center">
-                          {task.instruction.images.map((img, i) => (
-                            <div 
-                              key={i} 
-                              className="relative h-24 w-[calc(50%-6px)] rounded-2xl overflow-hidden shadow-sm border border-slate-100 bg-slate-100 shrink-0 cursor-zoom-in active:scale-[0.98] transition-all group hover:border-indigo-200"
-                              onClick={() => onOpenLightbox(task.instruction!.images!.map(src => ({ src })), i)}
-                            >
-                              <Image 
-                                src={img} 
-                                alt={`HD ${i + 1}`} 
-                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
-                              />
-                              <div className="absolute top-2 right-2 bg-black/40 px-2 py-0.5 backdrop-blur-md rounded-lg border border-white/20">
-                                <span className="text-[9px] font-black text-white uppercase tracking-tighter">Mẫu {i + 1}</span>
+                        <div className="flex flex-wrap gap-3 px-1">
+                          {task.instruction.images.map((img, i) => {
+                            const url = typeof img === 'string' ? img : img.url;
+                            const caption = typeof img === 'string' ? '' : img.caption;
+                            
+                            return (
+                              <div key={i} className="w-[calc(50%-6px)] space-y-2">
+                                <div 
+                                  className="relative h-24 w-full rounded-2xl overflow-hidden shadow-sm border border-slate-100 bg-slate-100 shrink-0 cursor-zoom-in active:scale-[0.98] transition-all group hover:border-indigo-200"
+                                  onClick={() => onOpenLightbox(task.instruction!.images!.map(item => ({ src: typeof item === 'string' ? item : item.url, title: typeof item === 'string' ? undefined : item.caption })), i)}
+                                >
+                                  <Image 
+                                    src={url} 
+                                    alt={caption || `HD ${i + 1}`} 
+                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+                                    width={200}
+                                    height={200}
+                                  />
+                                  <div className="absolute top-2 right-2 bg-black/40 px-2 py-0.5 backdrop-blur-md rounded-lg border border-white/20">
+                                    <span className="text-[9px] font-black text-white uppercase tracking-tighter">Mẫu {i + 1}</span>
+                                  </div>
+                                  <div className="absolute inset-0 bg-indigo-600/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </div>
+                                {caption && (
+                                  <p className="text-[10px] text-slate-500 font-bold leading-tight px-1 text-center line-clamp-2">
+                                    {caption}
+                                  </p>
+                                )}
                               </div>
-                              <div className="absolute inset-0 bg-indigo-600/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}

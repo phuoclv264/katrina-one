@@ -56,7 +56,10 @@ export type Task = {
   minCompletions?: number; // Minimum number of completions required to mark task as done (default: 1)
   instruction?: {
     text?: string;
-    images?: string[]; // data URIs or storage URLs
+    images?: {
+      url: string;
+      caption?: string;
+    }[]; // data URIs or storage URLs
   };
 };
 
@@ -164,6 +167,15 @@ export type InventoryItem = {
 
 
 export type Suppliers = string[];
+
+export type SupplierBankInfo = {
+  id?: string;
+  supplier: string;
+  bankId: string | null;
+  bankAccountNumber: string | null;
+  accountName?: string | null;
+  accountLabel?: string | null;
+};
 
 // Type for AI-parsed items before they get a real ID
 export type ParsedInventoryItem = Omit<InventoryItem, 'id' | 'unit'>;
