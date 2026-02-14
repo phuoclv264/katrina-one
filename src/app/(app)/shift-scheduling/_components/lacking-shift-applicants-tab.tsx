@@ -16,6 +16,14 @@ import { toast } from '@/components/ui/pro-toast';
 import { hasTimeConflict } from '@/lib/schedule-utils';
 import { UserAvatar } from '@/components/user-avatar';
 
+const roleOrder: Record<UserRole, number> = {
+  'Phục vụ': 1,
+  'Pha chế': 2,
+  'Thu ngân': 3,
+  'Quản lý': 4,
+  'Chủ nhà hàng': 5,
+};
+
 type Props = {
   schedule: Schedule | null;
   allUsers: ManagedUser[];
@@ -207,11 +215,37 @@ export default function LackingShiftApplicantsTab({ schedule, allUsers, containe
                             <span className="text-[10px] font-black uppercase truncate max-w-[140px]">{ds.label}</span>
                             <Badge variant="outline" className="text-[9px] font-bold h-4 py-0 border-none bg-muted/60">{ds.timeSlot.start}-{ds.timeSlot.end}</Badge>
                           </div>
-                          <div className="flex flex-wrap gap-1">
-                            {ds.assignedUsers.length > 0 ? ds.assignedUsers.map((u: AssignedUser) => (
-                                <Badge key={u.userId} variant="secondary" className="text-[8px] h-3.5 px-1 py-0 border-none font-bold bg-muted/40">{u.userName}</Badge>
-                            )) : <span className="text-[9px] text-muted-foreground italic mt-0.5">Chưa có người trực</span>}
-                          </div>
+                          {ds.assignedUsers.length > 0 ? (
+                            <div className="flex flex-col gap-2">
+                              {(() => {
+                                const grouped: Record<string, AssignedUser[]> = {};
+                                ds.assignedUsers.forEach((u: AssignedUser) => {
+                                  const r = u.assignedRole || 'Khác';
+                                  if (!grouped[r]) grouped[r] = [];
+                                  grouped[r].push(u);
+                                });
+
+                                const roles = Object.keys(grouped).sort((a, b) => {
+                                  const pa = roleOrder[a as UserRole] || 99;
+                                  const pb = roleOrder[b as UserRole] || 99;
+                                  return pa - pb || a.localeCompare(b);
+                                });
+
+                                return roles.map((role) => (
+                                  <div key={role} className="flex items-start gap-3">
+                                    <div className="w-20 text-[9px] font-black uppercase tracking-wide text-muted-foreground/50">{role}</div>
+                                    <div className="flex flex-wrap gap-1">
+                                      {grouped[role].map(u => (
+                                        <Badge key={u.userId} variant="secondary" className="text-[8px] h-3.5 px-1 py-0 border-none font-bold bg-muted/40">{u.userName}</Badge>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ));
+                              })()}
+                            </div>
+                          ) : (
+                            <span className="text-[9px] text-muted-foreground italic mt-0.5">Chưa có người trực</span>
+                          )}
                         </div>
                       ))}
                     </div>
