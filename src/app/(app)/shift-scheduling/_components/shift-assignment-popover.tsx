@@ -14,12 +14,13 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { User, CheckCircle, AlertTriangle, AlertCircle, Clock } from 'lucide-react';
+import { User, CheckCircle, AlertTriangle, AlertCircle, Clock, Search } from 'lucide-react';
 import type { AssignedShift, Availability, ManagedUser, UserRole, AssignedUser } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import { cn, advancedSearch } from '@/lib/utils';
 import { isUserAvailable, hasTimeConflict, calculateTotalHours } from '@/lib/schedule-utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Combobox } from '@/components/combobox';
+import { Input } from '@/components/ui/input';
 import { format, parseISO, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
@@ -97,9 +98,11 @@ export default function ShiftAssignmentDialog({
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [selectedRoles, setSelectedRoles] = useState<Record<string, UserRole>>({});
   const [conflictError, setConflictError] = useState<{ userName: string; shiftLabel: string } | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     if (isOpen) {
+      setSearchTerm('');
       if (isPassAssignmentMode) {
         // In pass assignment mode, selection is cleared initially.
         setSelectedUserIds(new Set());
@@ -140,12 +143,16 @@ export default function ShiftAssignmentDialog({
       roleFilteredUsers = roleFilteredUsers.filter(user => user.uid !== passRequestingUser.userId);
     }
 
+    const filteredBySearch = searchTerm.trim() 
+      ? advancedSearch(roleFilteredUsers, searchTerm, ['displayName', 'role'])
+      : roleFilteredUsers;
+
     const selectedList: ManagedUser[] = [];
     const availableList: ManagedUser[] = [];
     const busyList: ManagedUser[] = [];
     const applicantList: ManagedUser[] = [];
 
-    roleFilteredUsers.forEach(user => {
+    filteredBySearch.forEach(user => {
       if (selectedUserIds.has(user.uid)) {
         selectedList.push(user);
       } else if (applicantsSet.has(user.uid)) {
@@ -169,7 +176,7 @@ export default function ShiftAssignmentDialog({
     applicantList.sort(sortFn);
 
     return { selectedUsers: selectedList, availableUsers: availableList, busyUsers: busyList, applicantUsers: applicantList };
-  }, [allUsers, shift.role, shift.timeSlot, availability, isPassAssignmentMode, passRequestingUser, currentUserRole, selectedUserIds, shift.applicants]);
+  }, [allUsers, shift.role, shift.timeSlot, availability, isPassAssignmentMode, passRequestingUser, currentUserRole, selectedUserIds, shift.applicants, searchTerm]);
 
   const assignedHoursByUser = useMemo(() => {
     const map = new Map<string, number>();
@@ -369,6 +376,18 @@ export default function ShiftAssignmentDialog({
         </DialogHeader>
 
         <DialogBody className="bg-slate-50/50 dark:bg-zinc-950/50">
+          <div className="bg-slate-50/95 dark:bg-zinc-950/95 pb-4 pt-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Tìm tên hoặc vai trò..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 bg-background/50 border-muted-foreground/20 focus:bg-background transition-colors"
+                autoFocus={false}
+              />
+            </div>
+          </div>
           <div className="space-y-8 py-2">
             {selectedUsers.length > 0 && (
               <div>

@@ -511,17 +511,22 @@ export default function TotalHoursDialog({ open, onOpenChange, schedule, availab
 
   const filteredUsers = useMemo(() => {
     const list = advancedSearch(sortedUsers, searchTerm, ['displayName', 'role']);
-    // Sort by assigned hours (descending). Tie-break by role, then name.
+    // Sort by assigned hours (descending). Tie-break by availability (descending), then role, then name.
     return list.sort((a, b) => {
       const hoursA = totalHoursByUser.get(a.uid) || 0;
       const hoursB = totalHoursByUser.get(b.uid) || 0;
       if (hoursB !== hoursA) return hoursB - hoursA;
+
+      const availA = availableHoursByUser.get(a.uid) || 0;
+      const availB = availableHoursByUser.get(b.uid) || 0;
+      if (availB !== availA) return availB - availA;
+
       const roleA = roleOrder[a.role] || 99;
       const roleB = roleOrder[b.role] || 99;
       if (roleA !== roleB) return roleA - roleB;
       return a.displayName.localeCompare(b.displayName);
     });
-  }, [sortedUsers, searchTerm, totalHoursByUser]);
+  }, [sortedUsers, searchTerm, totalHoursByUser, availableHoursByUser]);
 
   const stats = useMemo(() => {
     let totalScheduled = 0;
