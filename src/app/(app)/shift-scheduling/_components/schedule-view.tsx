@@ -47,7 +47,7 @@ import {
 } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, SimpleUser, ShiftBusyEvidence } from '@/lib/types';
+import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, SimpleUser, ShiftBusyEvidence, SpecialPeriod } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { toast } from '@/components/ui/pro-toast';
 import ShiftAssignmentDialog from './shift-assignment-popover'; // Renaming this import for clarity, but it's the right file
@@ -165,6 +165,7 @@ export default function ScheduleView() {
 
     const [availability, setAvailability] = useState<Availability[]>([]);
     const [allUsers, setAllUsers] = useState<ManagedUser[]>([]);
+    const [specialPeriods, setSpecialPeriods] = useState<SpecialPeriod[]>([]);
     const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [busyEvidences, setBusyEvidences] = useState<ShiftBusyEvidence[]>([]);
@@ -244,6 +245,7 @@ export default function ScheduleView() {
 
         const unsubNotifications = dataStore.subscribeToAllPassRequestNotifications(setNotifications);
         const unsubBusyEvidences = dataStore.subscribeToShiftBusyEvidencesForWeek(weekId, setBusyEvidences);
+        const unsubSpecialPeriods = dataStore.subscribeToSpecialPeriods(setSpecialPeriods);
 
         return () => {
             unsubSchedule();
@@ -252,6 +254,7 @@ export default function ScheduleView() {
             unsubTemplates();
             unsubNotifications();
             unsubBusyEvidences();
+            unsubSpecialPeriods();
         };
 
     }, [user, weekId, canManage]);
@@ -745,10 +748,10 @@ export default function ScheduleView() {
         const schedule = localSchedule ?? serverSchedule;
         const map = new Map<string, number>();
         (schedule?.shifts || []).forEach(s => {
-            map.set(s.id, calculateShiftExpectedSalary(s, allUsers));
+            map.set(s.id, calculateShiftExpectedSalary(s, allUsers, specialPeriods));
         });
         return map;
-    }, [localSchedule, serverSchedule, allUsers]);
+    }, [localSchedule, serverSchedule, allUsers, specialPeriods]);
 
     const dailySalaryMap = useMemo(() => {
         const schedule = localSchedule ?? serverSchedule;
@@ -756,10 +759,10 @@ export default function ScheduleView() {
         daysOfWeek.forEach(day => {
             const dateKey = format(day, 'yyyy-MM-dd');
             const shiftsOnDay = (schedule?.shifts || []).filter(s => s.date === dateKey);
-            map.set(dateKey, calculateTotalExpectedSalary(shiftsOnDay, allUsers));
+            map.set(dateKey, calculateTotalExpectedSalary(shiftsOnDay, allUsers, specialPeriods));
         });
         return map;
-    }, [localSchedule, serverSchedule, daysOfWeek, allUsers]);
+    }, [localSchedule, serverSchedule, daysOfWeek, allUsers, specialPeriods]);
 
     const weeklyExpectedSalary = useMemo(() => {
         let total = 0;

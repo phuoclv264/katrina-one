@@ -1,4 +1,4 @@
-import type { AssignedShift, TimeSlot, MonthlyTask, Schedule, ManagedUser, TaskCompletionRecord, AssignedUser, Availability, UserRole } from './types';
+import type { AssignedShift, TimeSlot, MonthlyTask, Schedule, ManagedUser, TaskCompletionRecord, AssignedUser, Availability, UserRole, SpecialPeriod } from './types';
 import { set, eachDayOfInterval, startOfMonth, endOfMonth, getDay, getDate, getWeekOfMonth, parseISO, format, isWithinInterval } from 'date-fns';
 
 /**
@@ -394,18 +394,48 @@ function parseTime(time: string): number {
 /**
  * Calculate expected salary for a single shift by summing each assigned user's hourlyRate * shift duration.
  */
-export function calculateShiftExpectedSalary(shift: AssignedShift, allUsers: ManagedUser[]): number {
+export function calculateShiftExpectedSalary(shift: AssignedShift, allUsers: ManagedUser[], specialPeriods?: SpecialPeriod[]): number {
   const duration = calculateTotalHours([shift.timeSlot]);
+
+  const shiftDate = new Date(shift.date);
+
+  // helper: normalize period date values (string | Timestamp) -> Date
+  const toDate = (d: string | any | undefined): Date | null => {
+    if (!d) return null;
+    if (typeof d === 'string') return new Date(d);
+    try { return (d as any).toDate(); } catch { return new Date(String(d)); }
+  };
   return shift.assignedUsers.reduce((sum, au) => {
     const user = allUsers.find(u => u.uid === au.userId);
-    const rate = (user?.hourlyRate && Number.isFinite(user.hourlyRate)) ? user.hourlyRate : 0;
-    return sum + (rate * duration);
+    const baseRate = (user?.hourlyRate && Number.isFinite(user.hourlyRate)) ? user.hourlyRate : 0;
+
+    // Determine applicable special-period multiplier (take the highest multiplier when multiple overlap)
+    let multiplier = 1;
+    if (specialPeriods && specialPeriods.length > 0) {
+      for (const p of specialPeriods) {
+        const start = toDate(p.startDate as any);
+        const end = toDate(p.endDate as any);
+        if (!start || !end) continue;
+        // normalize to date-only comparison
+        const s = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+        const e = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+        const sd = new Date(shiftDate.getFullYear(), shiftDate.getMonth(), shiftDate.getDate());
+        if (sd.getTime() >= s.getTime() && sd.getTime() <= e.getTime()) {
+          // If the period targets specific users, check membership
+          if (!p.targetUserIds || p.targetUserIds.length === 0 || p.targetUserIds.includes(au.userId)) {
+            multiplier = Math.max(multiplier, p.multiplier || 1);
+          }
+        }
+      }
+    }
+
+    return sum + (baseRate * duration * multiplier);
   }, 0);
 }
 
 /**
  * Calculate total expected salary for a list of shifts (e.g., for a day or week).
  */
-export function calculateTotalExpectedSalary(shifts: AssignedShift[], allUsers: ManagedUser[]): number {
-  return shifts.reduce((sum, shift) => sum + calculateShiftExpectedSalary(shift, allUsers), 0);
+export function calculateTotalExpectedSalary(shifts: AssignedShift[], allUsers: ManagedUser[], specialPeriods?: SpecialPeriod[]): number {
+  return shifts.reduce((sum, shift) => sum + calculateShiftExpectedSalary(shift, allUsers, specialPeriods), 0);
 }
