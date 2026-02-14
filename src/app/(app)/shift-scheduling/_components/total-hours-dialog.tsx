@@ -18,7 +18,7 @@ import { Separator } from '@/components/ui/separator'
 import { UserAvatar } from '@/components/user-avatar';
 import type { Schedule, ManagedUser, UserRole, Availability, AssignedShift, AssignedUser } from '@/lib/types';
 import { calculateTotalHours } from '@/lib/schedule-utils';
-import { Users, Search, AlertCircle, Clock, ChevronLeft, ChevronRight, Loader2, Calendar, History as HistoryIcon, Hourglass, CalendarDays, LayoutGrid, User, TrendingUp, Filter, ArrowRight, Plus, Trash2, CalendarCheck, Check } from 'lucide-react';
+import { Users, Search, AlertCircle, Clock, ChevronLeft, ChevronRight, Loader2, Calendar, History as HistoryIcon, Hourglass, CalendarDays, LayoutGrid, User, TrendingUp, Filter, ArrowRight, Plus, Trash2, CalendarCheck, Check, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn, advancedSearch } from '@/lib/utils';
@@ -59,6 +59,7 @@ const getRoleColors = (role: UserRole) => {
     }
 };
 
+import LackingShiftApplicantsTab from './lacking-shift-applicants-tab';
 function AvailabilityTab({ 
     weekAvailability, 
     schedule, 
@@ -462,6 +463,7 @@ function HistoryTab({ user }: { user: ManagedUser }) {
 export default function TotalHoursDialog({ open, onOpenChange, schedule, availability, allUsers, currentUserRole, onUpdateSchedule, daysOfWeek, dialogTag, parentDialogTag }: TotalHoursDialogProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<ManagedUser | null>(null);
+    const [mainTab, setMainTab] = useState<'total-hours' | 'lacking-shifts'>('total-hours');
   const containerRef = useRef<HTMLDivElement>(null);
 
   const canManage = useMemo(() => currentUserRole === 'Chủ nhà hàng', [currentUserRole]);
@@ -538,219 +540,205 @@ export default function TotalHoursDialog({ open, onOpenChange, schedule, availab
   if (!schedule) return null;
 
   const handleClose = () => {
+        setMainTab('total-hours');
     setSelectedUser(null);
     onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={(val) => {
-        if (!val) setSelectedUser(null);
+        if (!val) {
+            setSelectedUser(null);
+            setMainTab('total-hours');
+        }
         onOpenChange(val);
     }} dialogTag={dialogTag} parentDialogTag={parentDialogTag}>
       <DialogContent 
         ref={containerRef}
         className="p-0 overflow-hidden sm:rounded-3xl border-none shadow-2xl bg-background/95 backdrop-blur-xl max-w-lg"
       >
-            {!selectedUser ? (
-                <div 
-                    key="user-list"
-                    className="flex flex-col h-full max-h-[80vh]"
-                >
-                    <DialogHeader className="p-4 pb-1 space-y-1 relative" icon={<Users className="h-5 w-5 text-primary" />}>
-                        <DialogTitle className="text-lg font-black tracking-tight flex items-center gap-2">
-                            Tổng Giờ Làm
-                        </DialogTitle>
-                        <DialogDescription className="text-muted-foreground/60 font-bold uppercase text-[8px] tracking-[0.15em] mt-0 flex items-center gap-1.5">
-                            <TrendingUp className="h-2 w-2 text-emerald-500" />
-                            Tuần này
-                        </DialogDescription>
-                    </DialogHeader>
+        <DialogHeader className="p-4 pb-2 border-b border-border/40" icon={<LayoutDashboard className="h-5 w-5 text-primary" />}>
+            <DialogTitle className="text-lg font-black tracking-tight">Quản trị Nhân sự</DialogTitle>
+            <DialogDescription className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-[0.15em] flex items-center gap-2">
+                <Calendar className="h-2.5 w-2.5 text-blue-500" />
+                Tổng quan & Phân bổ tuần làm việc
+            </DialogDescription>
+        </DialogHeader>
 
-                    <DialogBody className="p-0 flex flex-col min-h-0">
-                        <div className="px-4 py-2 space-y-2.5">
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="p-2.5 bg-gradient-to-br from-primary via-primary/90 to-primary/80 rounded-xl shadow-lg shadow-primary/20 text-white relative overflow-hidden group">
-                                    <div className="absolute top-0 right-0 p-2 opacity-20 group-hover:scale-110 transition-transform duration-500">
-                                        <Users className="h-8 w-8" />
-                                    </div>
-                                    <p className="text-[8px] font-black uppercase tracking-widest text-white/70">Nhân sự</p>
-                                    <div className="flex items-baseline gap-1 mt-0">
-                                        <p className="text-xl font-black">{stats.totalEmployees}</p>
-                                        <p className="text-[9px] font-bold text-white/60">người</p>
-                                    </div>
-                                </div>
-                                <div className="p-2.5 bg-card border border-border/60 rounded-xl shadow-sm relative overflow-hidden group">
-                                    <div className="absolute top-0 right-0 p-2 opacity-5 group-hover:scale-110 transition-transform duration-500">
-                                        <Clock className="h-8 w-8" />
-                                    </div>
-                                    <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/60">Tổng giờ</p>
-                                    <div className="flex items-baseline gap-1 mt-0">
-                                        <p className="text-xl font-black text-foreground">{stats.totalHours.toFixed(1)}h</p>
-                                    </div>
-                                    <div className="h-0.5 w-6 bg-primary rounded-full mt-1" />
-                                </div>
-                            </div>
-
-                            <div className="relative group">
-                                <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                                    <Search className="h-3.5 w-3.5 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
-                                </div>
-                                <Input
-                                    placeholder="Tìm theo tên hoặc vai trò..."
-                                    className="pl-9 h-9 bg-muted/20 border-none hover:bg-muted/30 focus:bg-background focus:ring-1 focus:ring-primary/20 rounded-lg transition-all font-semibold text-[11px] placeholder:text-muted-foreground/40"
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                />
-                            </div>
-                        </div>
-
-                        <ScrollArea className="flex-1 px-4 pb-4 mt-0.5">
-                            <div className="grid grid-cols-1 gap-1.5 pr-2">
-                                {filteredUsers.map((user, idx) => {
-                                    const workedHours = totalHoursByUser.get(user.uid) || 0;
-                                    const availableHours = availableHoursByUser.get(user.uid) || 0;
-                                    const progressValue = availableHours > 0 ? (workedHours / availableHours) * 100 : 0;
-                                    const isOverworked = workedHours > availableHours && availableHours > 0;
-                                    const roleStyles = getRoleColors(user.role);
-                                    
-                                    return (
-                                        <div 
-                                            key={user.uid}
-                                            className="group relative flex flex-col p-2.5 rounded-xl border border-border/50 bg-card hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 cursor-pointer transition-all duration-300"
-                                            onClick={() => setSelectedUser(user)}
-                                        >
-                                            <div className="flex justify-between items-start mb-2">
-                                                <div className="flex items-center gap-3">
-                                                    <UserAvatar user={user} rounded="xl" className={cn("shadow-inner border bg-gradient-to-br transition-transform group-hover:scale-105 duration-300", roleStyles)} />
-                                                    <div className="space-y-0 text-left">
-                                                        <p className="font-bold text-xs text-foreground group-hover:text-primary transition-colors leading-tight">{user.displayName}</p>
-                                                        <Badge variant="outline" className={cn("text-[7px] px-1 py-0 h-3.5 border-none font-black uppercase tracking-wider rounded-md bg-gradient-to-r mt-0.5", roleStyles)}>
-                                                            {user.role}
-                                                        </Badge>
-                                                    </div>
-                                                </div>
-                                                <div className="flex flex-col items-end">
-                                                    <div className="flex items-baseline gap-0.5 bg-muted/40 px-2 py-0.5 rounded-full group-hover:bg-primary/10 transition-colors">
-                                                        <span className={cn("text-sm font-black tracking-tight", isOverworked ? "text-destructive" : "text-primary")}>
-                                                            {workedHours.toFixed(1)}
-                                                        </span>
-                                                        <span className="text-[8px] font-bold text-muted-foreground uppercase">h</span>
-                                                    </div>                                                <div className="text-[10px] text-muted-foreground mt-1">/
-                                                    <span className="font-semibold ml-1">{availableHours.toFixed(1)}h</span>
-                                                    <span className="text-[9px] ml-1">khả dụng</span>
-                                                </div>                                                </div>
-                                            </div>
-
-                                            <div className="space-y-1">
-                                                <div className="flex justify-between items-center text-[7px] font-black uppercase tracking-widest text-muted-foreground/50 px-0.5">
-                                                    <div className="flex items-center gap-1">
-                                                        <span>Tỷ lệ được xếp</span>
-                                                        {isOverworked && <AlertCircle className="h-2 w-2 text-destructive animate-pulse" />}
-                                                    </div>
-                                                    <span className={isOverworked ? "text-destructive" : "text-primary"}>
-                                                        {Math.round(progressValue)}%
-                                                    </span>
-                                                </div>
-                                                <div className="relative h-1 w-full bg-muted/30 rounded-full overflow-hidden border border-border/5">
-                                                    <div 
-                                                        style={{ width: `${Math.min(progressValue, 100)}%` }}
-                                                        className={cn(
-                                                            "h-full rounded-full shadow-sm", 
-                                                            isOverworked ? "bg-destructive" : (progressValue > 85 ? "bg-amber-500" : "bg-primary")
-                                                        )}
-                                                    />
-                                                </div>
-                                            </div>
-                                            
-                                            <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300">
-                                                <ChevronRight className="h-3 w-3 text-primary" />
-                                            </div>
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        </ScrollArea>
-                    </DialogBody>
+        <DialogBody className="p-0 flex flex-col min-h-0 overflow-hidden">
+            <Tabs value={mainTab} onValueChange={(value) => setMainTab(value as 'total-hours' | 'lacking-shifts')} className="h-full flex flex-col">
+                <div className="px-4 py-2 bg-muted/20 border-b border-border/40">
+                    <TabsList className="h-8 w-full bg-background/50 p-1 rounded-xl ring-1 ring-border/40">
+                        <TabsTrigger
+                            value="total-hours"
+                            className="h-6 flex-1 rounded-lg text-[10px] font-black uppercase tracking-widest data-[state=active]:shadow-sm"
+                        >
+                            Tổng giờ
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="lacking-shifts"
+                            className="h-6 flex-1 rounded-lg text-[10px] font-black uppercase tracking-widest data-[state=active]:shadow-sm"
+                        >
+                            Ca thiếu người
+                        </TabsTrigger>
+                    </TabsList>
                 </div>
-            ) : (
-                <div 
-                    key="user-detail"
-                    className="flex flex-col h-full max-h-[85vh]"
-                >
-                    <DialogHeader className="space-y-4 relative" hideicon>
-                        <div className="flex items-center gap-3">
-                            <Button 
-                                variant="secondary" 
-                                size="icon" 
-                                className="h-7 w-7 rounded-lg shadow-sm border border-border/40 hover:bg-background hover:scale-105 active:scale-95 transition-all flex-shrink-0" 
-                                onClick={() => setSelectedUser(null)}
-                            >
-                                <ChevronLeft className="h-4 w-4" />
-                            </Button>
-                            <div className="flex items-center gap-3">
-                                <UserAvatar user={selectedUser} size="h-10 w-10 text-lg" rounded="xl" className={cn("shadow-md bg-gradient-to-br", getRoleColors(selectedUser.role))} />
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-2">
-                                        <DialogTitle className="text-lg font-black tracking-tight leading-none">{selectedUser.displayName}</DialogTitle>
-                                        <Badge variant="outline" className={cn("text-[7px] px-1.5 py-0 border-none font-black uppercase tracking-widest bg-gradient-to-r shadow-sm h-3.5 rounded-md", getRoleColors(selectedUser.role))}>
-                                            {selectedUser.role}
-                                        </Badge>
-                                    </div>
-                                    <DialogDescription className="text-[8px] text-muted-foreground/60 font-bold uppercase tracking-widest flex items-center gap-1.5 leading-none">
-                                        <User className="h-2 w-2" />
-                                        Hồ sơ & Hoạt động
-                                    </DialogDescription>
-                                </div>
-                            </div>
-                        </div>
-                    </DialogHeader>
 
-                    <DialogBody className="p-0 flex flex-col min-h-0">
-                        <Tabs defaultValue="availability" className="w-full h-full flex flex-col">
-                            <div className="px-4 border-b border-border/40 flex items-center justify-between">
-                                <TabsList className="h-9 bg-transparent p-0 gap-6">
-                                    <TabsTrigger 
-                                        value="availability" 
-                                        className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 text-[10px] font-black uppercase tracking-widest opacity-40 data-[state=active]:opacity-100 transition-all font-bold"
-                                    >
-                                        Đăng ký
-                                    </TabsTrigger>
-                                    <TabsTrigger 
-                                        value="history" 
-                                        className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 text-[10px] font-black uppercase tracking-widest opacity-40 data-[state=active]:opacity-100 transition-all font-bold"
-                                    >
-                                        Lịch sử
-                                    </TabsTrigger>
-                                </TabsList>
-                                <div className="h-5 w-px bg-border/40" />
-                                <div className="flex items-center gap-1">
-                                    <Filter className="h-2.5 w-2.5 text-muted-foreground/40" />
-                                    <span className="text-[8px] font-black uppercase tracking-tighter text-muted-foreground/40">Bộ lọc</span>
+                <TabsContent value="total-hours" className="mt-0 flex-1 min-h-0">
+                    {!selectedUser ? (
+                        <div key="user-list" className="flex flex-col h-full max-h-[75vh]">
+                            <div className="px-4 py-3 space-y-3">
+                                <div className="grid grid-cols-2 gap-2.5">
+                                    <div className="p-3 bg-gradient-to-br from-primary to-primary/80 rounded-2xl shadow-lg shadow-primary/10 text-white relative overflow-hidden group">
+                                        <Users className="absolute -right-1 -bottom-1 h-12 w-12 opacity-10 group-hover:scale-110 transition-transform" />
+                                        <p className="text-[8px] font-black uppercase tracking-widest text-white/70">Tổng nhân sự</p>
+                                        <p className="text-xl font-black mt-0.5">{stats.totalEmployees}</p>
+                                    </div>
+                                    <div className="p-3 bg-card border border-border/60 rounded-2xl shadow-sm relative overflow-hidden group">
+                                        <Clock className="absolute -right-1 -bottom-1 h-12 w-12 opacity-5 group-hover:scale-110 transition-transform" />
+                                        <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/60">Quỹ giờ tuần</p>
+                                        <p className="text-xl font-black text-foreground mt-0.5">{stats.totalHours.toFixed(1)}h</p>
+                                    </div>
+                                </div>
+
+                                <div className="relative group">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
+                                    <Input
+                                        placeholder="Tìm tên hoặc vai trò..."
+                                        className="pl-9 h-9 bg-muted/20 border-none rounded-xl focus:ring-1 focus:ring-primary/20 text-[11px] font-bold"
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                    />
                                 </div>
                             </div>
-                            
-                            <ScrollArea className="flex-1">
-                                <div className="p-4">
-                                    <TabsContent value="availability" className="mt-0 focus-visible:outline-none outline-none ring-0">
-                                        <AvailabilityTab 
-                                            weekAvailability={weekAvailabilityForSelectedUser} 
-                                            schedule={schedule}
-                                            user={selectedUser}
-                                            canManage={canManage}
-                                            onUpdateSchedule={onUpdateSchedule}
-                                            daysOfWeek={daysOfWeek}
-                                            container={containerRef.current}
-                                        />
-                                    </TabsContent>
-                                    <TabsContent value="history" className="mt-0 focus-visible:outline-none outline-none ring-0">
-                                        <HistoryTab user={selectedUser} />
-                                    </TabsContent>
+
+                            <ScrollArea className="flex-1 px-4 pb-4">
+                                <div className="grid grid-cols-1 gap-2 pr-2">
+                                    {filteredUsers.map((user) => {
+                                        const workedHours = totalHoursByUser.get(user.uid) || 0;
+                                        const availableHours = availableHoursByUser.get(user.uid) || 0;
+                                        const progressValue = availableHours > 0 ? (workedHours / availableHours) * 100 : 0;
+                                        const isOverworked = workedHours > availableHours && availableHours > 0;
+                                        const roleStyles = getRoleColors(user.role);
+                                        
+                                        return (
+                                            <div 
+                                                key={user.uid}
+                                                className="group flex flex-col p-3 rounded-2xl border border-border/50 bg-card hover:border-primary/30 hover:shadow-xl hover:shadow-primary/5 cursor-pointer transition-all duration-300"
+                                                onClick={() => setSelectedUser(user)}
+                                            >
+                                                <div className="flex justify-between items-start mb-2.5">
+                                                    <div className="flex items-center gap-3">
+                                                        <UserAvatar user={user} rounded="xl" className={cn("shadow-inner border transition-transform group-hover:scale-105", roleStyles)} />
+                                                        <div className="space-y-0.5">
+                                                            <p className="font-black text-xs text-foreground group-hover:text-primary transition-colors">{user.displayName}</p>
+                                                            <Badge variant="outline" className={cn("text-[7px] px-1.5 py-0 h-4 border-none font-black uppercase bg-gradient-to-r rounded-md", roleStyles)}>
+                                                                {user.role}
+                                                            </Badge>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-col items-end">
+                                                        <div className="flex items-baseline gap-0.5 px-2 py-0.5 rounded-lg bg-muted/40 group-hover:bg-primary/10 transition-colors">
+                                                            <span className={cn("text-sm font-black tracking-tighter", isOverworked ? "text-destructive" : "text-primary")}>
+                                                                {workedHours.toFixed(1)}
+                                                            </span>
+                                                            <span className="text-[8px] font-bold text-muted-foreground uppercase">h</span>
+                                                        </div>
+                                                        <p className="text-[9px] text-muted-foreground/60 mt-1 font-bold">/ {availableHours.toFixed(1)}h rảnh</p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-1.5">
+                                                    <div className="flex justify-between items-center text-[7px] font-black uppercase tracking-widest text-muted-foreground/40">
+                                                        <span>Tỷ lệ lấp đầy lịch</span>
+                                                        <span className={isOverworked ? "text-destructive" : "text-primary"}>{Math.round(progressValue)}%</span>
+                                                    </div>
+                                                    <div className="h-1 w-full bg-muted/30 rounded-full overflow-hidden">
+                                                        <div 
+                                                            style={{ width: `${Math.min(progressValue, 100)}%` }}
+                                                            className={cn("h-full rounded-full transition-all duration-500", isOverworked ? "bg-destructive" : "bg-primary")}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
                                 </div>
                             </ScrollArea>
-                        </Tabs>
-                    </DialogBody>
-                </div>
-            )}
+                        </div>
+                    ) : (
+                        <div key="user-detail" className="flex flex-col h-full max-h-[75vh]">
+                            <div className="p-4 border-b border-border/40 bg-card/50">
+                                <div className="flex items-center gap-4">
+                                    <Button 
+                                        variant="outline" 
+                                        size="icon" 
+                                        className="h-9 w-9 rounded-xl flex-shrink-0" 
+                                        onClick={() => setSelectedUser(null)}
+                                    >
+                                        <ChevronLeft className="h-4 w-4" />
+                                    </Button>
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <UserAvatar user={selectedUser} size="h-10 w-10" rounded="xl" className={getRoleColors(selectedUser.role)} />
+                                        <div className="min-w-0">
+                                            <h3 className="text-base font-black tracking-tight leading-none truncate">{selectedUser.displayName}</h3>
+                                            <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest mt-1">{selectedUser.role} • Chi tiết hoạt động</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <Tabs defaultValue="availability" className="flex-1 flex flex-col min-h-0">
+                                <div className="px-4 border-b border-border/40">
+                                    <TabsList className="h-9 bg-transparent p-0 gap-6">
+                                        <TabsTrigger 
+                                            value="availability" 
+                                            className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary px-0 text-[10px] font-black uppercase tracking-widest opacity-40 data-[state=active]:opacity-100 transition-all"
+                                        >
+                                            Ca đang xếp
+                                        </TabsTrigger>
+                                        <TabsTrigger 
+                                            value="history" 
+                                            className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary px-0 text-[10px] font-black uppercase tracking-widest opacity-40 data-[state=active]:opacity-100 transition-all"
+                                        >
+                                            Lịch sử tháng
+                                        </TabsTrigger>
+                                    </TabsList>
+                                </div>
+                                <ScrollArea className="flex-1">
+                                    <div className="p-4">
+                                        <TabsContent value="availability" className="mt-0 outline-none">
+                                            <AvailabilityTab 
+                                                weekAvailability={weekAvailabilityForSelectedUser} 
+                                                schedule={schedule}
+                                                user={selectedUser}
+                                                canManage={canManage}
+                                                onUpdateSchedule={onUpdateSchedule}
+                                                daysOfWeek={daysOfWeek}
+                                                container={containerRef.current}
+                                            />
+                                        </TabsContent>
+                                        <TabsContent value="history" className="mt-0 outline-none">
+                                            <HistoryTab user={selectedUser} />
+                                        </TabsContent>
+                                    </div>
+                                </ScrollArea>
+                            </Tabs>
+                        </div>
+                    )}
+                </TabsContent>
+
+                <TabsContent value="lacking-shifts" className="mt-0 flex-1 min-h-0 max-h-[75vh]">
+                    <LackingShiftApplicantsTab
+                        schedule={schedule}
+                        allUsers={allUsers}
+                        container={containerRef.current}
+                        currentUserRole={currentUserRole}
+                        onUpdateSchedule={onUpdateSchedule}
+                    />
+                </TabsContent>
+            </Tabs>
+        </DialogBody>
       </DialogContent>
     </Dialog>
   );
