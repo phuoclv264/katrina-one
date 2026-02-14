@@ -50,17 +50,73 @@ export function ShareQrButton({ url, title, text, className, variant = "outline"
       // continue to other fallbacks
     }
 
-      if (Capacitor.isNativePlatform()) {
+    if (Capacitor.isNativePlatform()) {
+      const isImage = /\.(png|jpe?g|webp|gif)(\?|$)/i.test(url) || url.includes('vietqr.io');
+
+      if (isImage) {
+        // try to share the actual image on-device (best UX)
         try {
-          // @ts-ignore - optional Capacitor plugin (may not be present in web builds)
-          const { Share } = await import('@capacitor/share');
-          await Share.share({ title, text, url });
-          toast.success('Đã mở hộp chia sẻ.');
-          return;
-        } catch (err) {
-          console.warn('Capacitor Share failed or @capacitor/share not present', err);
+          const resp = await fetch(url);
+          const blob = await resp.blob();
+
+          const blobToBase64 = (b: Blob) =>
+            new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                const dataUrl = reader.result as string;
+                resolve(dataUrl.split(',')[1]);
+              };
+              reader.onerror = reject;
+              reader.readAsDataURL(b);
+            });
+
+          const base64 = await blobToBase64(blob);
+
+          // If Filesystem plugin is installed, write a temp file and share the file URI.
+          try {
+            // @ts-ignore - optional Capacitor Filesystem plugin (may not be installed)
+            const fs: any = await import('@capacitor/filesystem');
+            const { Filesystem, Directory } = fs as any;
+            const ext = (blob.type.split('/')[1] || 'png').split(';')[0];
+            const fileName = `qr-${Date.now()}.${ext}`;
+
+            await Filesystem.writeFile({ path: fileName, data: base64, directory: Directory.Cache });
+            const uriResult: any = await Filesystem.getUri({ directory: Directory.Cache, path: fileName });
+            const fileUri: string = uriResult.uri || uriResult.uri; // platform-dependent
+
+            const { Share } = await import('@capacitor/share');
+            await Share.share({ title, text, url: fileUri });
+
+            toast.success('Đã mở hộp chia sẻ.');
+            return;
+          } catch (fsErr) {
+            // Filesystem plugin missing or write/share failed — try data URL share then fallback to link
+            try {
+              const dataUrl = `data:${blob.type};base64,${base64}`;
+              const { Share } = await import('@capacitor/share');
+              await Share.share({ title, text, url: dataUrl });
+
+              toast.success('Đã mở hộp chia sẻ.');
+              return;
+            } catch (dataUrlErr) {
+              console.warn('Native share with data URL failed, will fall back to link', dataUrlErr);
+            }
+          }
+        } catch (imgErr) {
+          console.warn('Native image share failed, falling back to link', imgErr);
         }
       }
+
+      // Fallback: share the remote URL using Capacitor Share
+      try {
+        const { Share } = await import('@capacitor/share');
+        await Share.share({ title, text, url });
+        toast.success('Đã mở hộp chia sẻ.');
+        return;
+      } catch (err) {
+        console.warn('Capacitor Share failed or @capacitor/share not present', err);
+      }
+    }
 
     // Best-effort clipboard fallback: if image, try to copy image; otherwise copy URL
     try {

@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { CapacitorUpdater, BundleInfo } from '@capgo/capacitor-updater';
+import { toast } from '@/components/ui/pro-toast';
 
 type ManifestPayload = {
   version: string;
@@ -13,6 +14,8 @@ type ManifestPayload = {
 };
 
 const manifestUrl = process.env.NEXT_PUBLIC_UPDATER_MANIFEST_URL;
+const CHECK_INTERVAL_MS = Number(process.env.NEXT_PUBLIC_UPDATER_CHECK_INTERVAL_MS ?? 6 * 60 * 60 * 1000); // default: 6 hours
+const ALLOW_SILENT_UPDATE = (process.env.NEXT_PUBLIC_UPDATER_SILENT ?? 'true') === 'true';
 
 export function CapacitorUpdaterListener() {
   const isUpdatingRef = useRef(false);
@@ -55,15 +58,39 @@ export function CapacitorUpdaterListener() {
 
         if (manifest.version === currentVersion) return;
 
-        const downloaded: BundleInfo = await CapacitorUpdater.download({
-          url: manifest.url,
-          version: manifest.version,
-          checksum: manifest.checksum,
-          sessionKey: manifest.sessionKey,
-        });
+        const toastId = toast.loading('Đang tải bản cập nhật...');
+        let downloaded: BundleInfo | null = null;
+
+        try {
+          downloaded = await CapacitorUpdater.download({
+            url: manifest.url,
+            version: manifest.version,
+            checksum: manifest.checksum,
+            sessionKey: manifest.sessionKey,
+          });
+        } catch (err) {
+          toast.error('Tải cập nhật thất bại', { id: toastId });
+          throw err;
+        }
+
+        if (!downloaded) {
+          toast.dismiss(toastId);
+          return;
+        }
 
         await CapacitorUpdater.next({ id: downloaded.id });
-        await CapacitorUpdater.reload();
+
+        if (ALLOW_SILENT_UPDATE) {
+          toast.success('Cập nhật sẵn sàng — đang khởi động lại...', { id: toastId });
+          await CapacitorUpdater.reload();
+        } else {
+          // pro-toast supports `message` + `onPress` (tap anywhere to act)
+          toast.success('Cập nhật đã tải xong. Khởi động lại để áp dụng.', {
+            id: toastId,
+            message: 'Nhấn để khởi động lại',
+            onPress: async () => await CapacitorUpdater.reload(),
+          });
+        }
       } catch (err) {
         console.warn('CapacitorUpdater update check failed', err);
       } finally {
@@ -71,8 +98,11 @@ export function CapacitorUpdaterListener() {
       }
     };
 
+    // startup + periodic checks
     notifyReady().catch(() => {});
     checkForUpdates();
+
+    const intervalId = window.setInterval(() => checkForUpdates().catch(() => {}), CHECK_INTERVAL_MS);
 
     let resumeListener: Awaited<ReturnType<typeof App.addListener>> | undefined;
     App.addListener('resume', checkForUpdates).then((listener) => {
@@ -80,6 +110,7 @@ export function CapacitorUpdaterListener() {
     });
 
     return () => {
+      clearInterval(intervalId);
       resumeListener?.remove();
     };
   }, []);
