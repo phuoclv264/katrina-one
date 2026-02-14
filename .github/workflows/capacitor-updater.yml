@@ -1,5 +1,13 @@
 name: Capacitor Updater Bundle
 
+# Builds the static web bundle, packages it to dist.zip, writes a manifest.json,
+# uploads dist.zip + manifest.json to Firebase Storage (gs://<bucket>/updates/)
+# and publishes a GitHub release (keeps existing behavior).
+#
+# Requirements (set in repository Settings → Secrets):
+#  - GCP_SA_KEY: JSON service account key with Storage object create/get permissions
+#  - GCP_PROJECT_ID: (optional) GCP project id for the service account
+#
 on:
   push:
     branches:
@@ -8,6 +16,8 @@ on:
 jobs:
   build-export:
     runs-on: ubuntu-latest
+    env:
+      UPDATES_DIR: updates
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,27 +34,84 @@ jobs:
       - name: Build web bundle
         run: |
           npm run build
-          npx next export -o out
+          npx cap sync
 
       - name: Package update zip
         run: |
+          mkdir -p dist
           cd out
           zip -r ../dist.zip .
+          cd ..
 
-      - name: Write manifest
+      - name: Compute checksum & version
+        id: build-info
         run: |
-          cat <<'EOF' > manifest.json
+          ZIP=dist.zip
+          CHECKSUM=$(sha256sum "$ZIP" | awk '{print $1}')
+          VERSION="${{ github.run_number }}-${GITHUB_SHA::8}"
+          echo "checksum=$CHECKSUM" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "zipfile=$(basename $ZIP)" >> $GITHUB_OUTPUT
+
+      - name: Detect Firebase storage bucket
+        id: detect-bucket
+        run: |
+          # try reading storageBucket from src/lib/firebase.ts
+          BUCKET=$(grep -oP "storageBucket:\\s*\"\K[^\"]+" src/lib/firebase.ts || true)
+          if [ -z "$BUCKET" ]; then
+            echo "ERROR: storageBucket not found in src/lib/firebase.ts; set FIREBASE_STORAGE_BUCKET secret instead" >&2
+            exit 1
+          fi
+          # convert firebasestorage.app host to GCS bucket name when present
+          if [[ "$BUCKET" == *.firebasestorage.app ]]; then
+            BUCKET=$(echo "$BUCKET" | sed 's/\.firebasestorage\.app$/.appspot.com/')
+          fi
+          echo "bucket=$BUCKET" >> $GITHUB_OUTPUT
+
+      - name: Authenticate to Google Cloud (for gsutil)
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          export_default_credentials: true
+
+      - name: Upload dist.zip to Firebase Storage
+        run: |
+          BUCKET=${{ steps.detect-bucket.outputs.bucket }}
+          ZIPFILE=${{ steps.build-info.outputs.zipfile }}
+          gsutil cp dist.zip gs://$BUCKET/$UPDATES_DIR/$ZIPFILE
+          # best-effort: make the object readable publicly
+          gsutil acl ch -u AllUsers:R gs://$BUCKET/$UPDATES_DIR/$ZIPFILE || true
+
+      - name: Write & upload manifest.json (to storage)
+        id: upload-manifest
+        run: |
+          BUCKET=${{ steps.detect-bucket.outputs.bucket }}
+          VERSION=${{ steps.build-info.outputs.version }}
+          CHECKSUM=${{ steps.build-info.outputs.checksum }}
+          ZIPFILE=${{ steps.build-info.outputs.zipfile }}
+
+          MANIFEST_FILE=manifest.json
+          cat > $MANIFEST_FILE <<EOF
           {
-            "version": "${{ github.run_number }}-${{ github.sha }}",
-            "url": "https://github.com/${{ github.repository }}/releases/latest/download/dist.zip"
+            "version": "$VERSION",
+            "url": "https://storage.googleapis.com/$BUCKET/$UPDATES_DIR/$ZIPFILE",
+            "checksum": "$CHECKSUM"
           }
           EOF
 
-      - name: Publish release assets
+          echo "manifest content:" && cat $MANIFEST_FILE
+
+          gsutil cp $MANIFEST_FILE gs://$BUCKET/$UPDATES_DIR/manifest.json
+          gsutil acl ch -u AllUsers:R gs://$BUCKET/$UPDATES_DIR/manifest.json || true
+
+          echo "manifest-url=https://storage.googleapis.com/$BUCKET/$UPDATES_DIR/manifest.json" >> $GITHUB_OUTPUT
+
+      - name: Publish release assets (keeps existing release behavior)
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: cap-updater-${{ github.run_number }}
-          name: Cap Updater ${{ github.run_number }}
+          tag_name: cap-updater-${{ steps.build-info.outputs.version }}
+          name: Cap Updater ${{ steps.build-info.outputs.version }}
           draft: false
           prerelease: true
           make_latest: true
@@ -53,3 +120,7 @@ jobs:
             manifest.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Output manifest URL
+        run: |
+          echo "Manifest uploaded → ${{ steps.upload-manifest.outputs.manifest-url }}"
