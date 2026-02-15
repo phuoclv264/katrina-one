@@ -75,6 +75,20 @@ jobs:
           # do NOT convert to .appspot.com — use the value from src/lib/firebase.ts or FIREBASE_STORAGE_BUCKET
           echo "bucket=$BUCKET" >> $GITHUB_OUTPUT
 
+      - name: Verify detected bucket vs secret (safe)
+        run: |
+          DETECTED="${{ steps.detect-bucket.outputs.bucket }}"
+
+          if [ -n "${{ secrets.FIREBASE_STORAGE_BUCKET }}" ]; then
+            if [ "$DETECTED" = "${{ secrets.FIREBASE_STORAGE_BUCKET }}" ]; then
+              echo "Bucket check: matches FIREBASE_STORAGE_BUCKET (value masked in logs)"
+            else
+              echo "Bucket check: detected bucket differs from FIREBASE_STORAGE_BUCKET"
+            fi
+          else
+            echo "Bucket check: FIREBASE_STORAGE_BUCKET secret not set"
+          fi
+
       - name: Authenticate to Google Cloud (for gsutil)
         uses: google-github-actions/setup-gcloud@v1
         with:
