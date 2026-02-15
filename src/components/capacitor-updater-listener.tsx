@@ -5,21 +5,35 @@ import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { CapacitorUpdater, BundleInfo } from '@capgo/capacitor-updater';
 import { toast } from '@/components/ui/pro-toast';
-
-type ManifestPayload = {
-  version: string;
-  url: string;
-  checksum?: string;
-  sessionKey?: string;
-};
+import {
+  storageKeys,
+  getStorageNumber,
+  getStorageString,
+  setStorageValue,
+  removeStorageValue,
+  clearFailureState,
+  parseManifestPayload,
+  type ManifestPayload,
+} from '@/lib/capacitor-updater-status';
 
 const manifestUrl = process.env.NEXT_PUBLIC_UPDATER_MANIFEST_URL;
 const CHECK_INTERVAL_MS = Number(process.env.NEXT_PUBLIC_UPDATER_CHECK_INTERVAL_MS ?? 6 * 60 * 60 * 1000); // default: 6 hours
 const ALLOW_SILENT_UPDATE = (process.env.NEXT_PUBLIC_UPDATER_SILENT ?? 'true') === 'true';
+const MANIFEST_TIMEOUT_MS = Number(process.env.NEXT_PUBLIC_UPDATER_MANIFEST_TIMEOUT_MS ?? 15000);
+const MAX_APPLY_FAILURES = Number(process.env.NEXT_PUBLIC_UPDATER_MAX_FAILURES ?? 3);
+const APPLY_DISABLE_MS = Number(process.env.NEXT_PUBLIC_UPDATER_DISABLE_MS ?? 6 * 60 * 60 * 1000); // default: 6 hours
+
+// Safety keys to prevent restart loops
+const RELOAD_COOLDOWN_MS = 2 * 60 * 1000; // 2 minutes
+const LAST_RELOAD_KEY = storageKeys.lastReload;
+const PENDING_VERSION_KEY = storageKeys.pendingVersion;
+const APPLY_FAILURE_COUNT_KEY = storageKeys.applyFailureCount;
+const AUTO_DISABLE_UNTIL_KEY = storageKeys.autoDisableUntil;
 
 export function CapacitorUpdaterListener() {
   const isUpdatingRef = useRef(false);
-  const hasShownSetupToastRef = useRef(false);
+  const hasShownManifestErrorToastRef = useRef(false);
+  const hasShownDisabledToastRef = useRef(false);
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
@@ -37,13 +51,35 @@ export function CapacitorUpdaterListener() {
     };
 
     const fetchManifest = async (): Promise<ManifestPayload | null> => {
-      const response = await fetch(manifestUrl, { cache: 'no-store' });
-      if (!response.ok) {
-        throw new Error(`Manifest request failed: ${response.status}`);
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), MANIFEST_TIMEOUT_MS);
+
+      try {
+        const response = await fetch(manifestUrl, { cache: 'no-store', signal: controller.signal });
+        if (!response.ok) {
+          throw new Error(`Manifest request failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return parseManifestPayload(data);
+      } finally {
+        clearTimeout(timeoutId);
       }
-      const data = await response.json();
-      if (!data?.version || !data?.url) return null;
-      return data as ManifestPayload;
+    };
+
+    const markApplyFailure = () => {
+      const currentFailures = getStorageNumber(APPLY_FAILURE_COUNT_KEY);
+      const nextFailures = currentFailures + 1;
+      setStorageValue(APPLY_FAILURE_COUNT_KEY, String(nextFailures));
+
+      if (nextFailures >= MAX_APPLY_FAILURES) {
+        const disabledUntil = Date.now() + APPLY_DISABLE_MS;
+        setStorageValue(AUTO_DISABLE_UNTIL_KEY, String(disabledUntil));
+        if (!hasShownDisabledToastRef.current) {
+          toast.error('Tạm dừng tự động cập nhật do nhiều lần áp dụng thất bại.');
+          hasShownDisabledToastRef.current = true;
+        }
+      }
     };
 
     const checkForUpdates = async () => {
@@ -51,25 +87,50 @@ export function CapacitorUpdaterListener() {
       isUpdatingRef.current = true;
 
       try {
-        const manifest = await fetchManifest();
-
-        // one-time diagnostic toast to show whether updater is configured correctly
-        if (!hasShownSetupToastRef.current) {
-          if (!manifest) {
-            toast.error('Capacitor Updater: manifest không hợp lệ hoặc không tìm thấy.');
-            hasShownSetupToastRef.current = true;
-            // do not proceed with update logic on missing manifest
-            return;
+        const disabledUntil = getStorageNumber(AUTO_DISABLE_UNTIL_KEY);
+        if (disabledUntil > Date.now()) {
+          if (!hasShownDisabledToastRef.current) {
+            toast.error('Tự động cập nhật đang tạm dừng để đảm bảo ổn định ứng dụng.');
+            hasShownDisabledToastRef.current = true;
           }
-
-          toast.success(`Capacitor Updater: manifest truy cập được — v${manifest.version}`);
-          hasShownSetupToastRef.current = true;
+          return;
         }
 
-        if (!manifest) return;
+        if (disabledUntil > 0 && disabledUntil <= Date.now()) {
+          removeStorageValue(AUTO_DISABLE_UNTIL_KEY);
+          removeStorageValue(APPLY_FAILURE_COUNT_KEY);
+          hasShownDisabledToastRef.current = false;
+        }
+
+        const manifest = await fetchManifest();
+
+        if (!manifest) {
+          if (!hasShownManifestErrorToastRef.current) {
+            toast.error('Cấu hình cập nhật không hợp lệ. Vui lòng kiểm tra manifest.');
+            hasShownManifestErrorToastRef.current = true;
+          }
+          return;
+        }
+
+        hasShownManifestErrorToastRef.current = false;
 
         const current = await CapacitorUpdater.current();
         const currentVersion = current.bundle?.version ?? 'builtin';
+
+        const lastReload = getStorageNumber(LAST_RELOAD_KEY);
+        const reloadedRecently = Date.now() - lastReload < RELOAD_COOLDOWN_MS;
+        const pendingVersion = getStorageString(PENDING_VERSION_KEY);
+
+        if (pendingVersion && currentVersion === pendingVersion) {
+          clearFailureState();
+          removeStorageValue(LAST_RELOAD_KEY);
+        }
+
+        if (pendingVersion && reloadedRecently && currentVersion !== pendingVersion) {
+          markApplyFailure();
+          removeStorageValue(PENDING_VERSION_KEY);
+          return;
+        }
 
         if (manifest.version === currentVersion) return;
 
@@ -94,24 +155,36 @@ export function CapacitorUpdaterListener() {
         }
 
         await CapacitorUpdater.next({ id: downloaded.id });
+        removeStorageValue(APPLY_FAILURE_COUNT_KEY);
 
         if (ALLOW_SILENT_UPDATE) {
           toast.success('Cập nhật sẵn sàng — đang khởi động lại...', { id: toastId });
+          setStorageValue(PENDING_VERSION_KEY, manifest.version);
+          setStorageValue(LAST_RELOAD_KEY, String(Date.now()));
           await CapacitorUpdater.reload();
         } else {
-          // pro-toast supports `message` + `onPress` (tap anywhere to act)
           toast.success('Cập nhật đã tải xong. Khởi động lại để áp dụng.', {
             id: toastId,
             message: 'Nhấn để khởi động lại',
-            onPress: async () => await CapacitorUpdater.reload(),
+            onPress: async () => {
+              setStorageValue(PENDING_VERSION_KEY, manifest.version);
+              setStorageValue(LAST_RELOAD_KEY, String(Date.now()));
+              await CapacitorUpdater.reload();
+            },
           });
         }
-      } catch (err) {
-        // show one-time diagnostic error toast if auth/network prevents manifest fetch
-        if (!hasShownSetupToastRef.current) {
-          toast.error('Capacitor Updater: không thể truy cập manifest / cấu hình.');
-          hasShownSetupToastRef.current = true;
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+
+        if (errorMessage.toLowerCase().includes('manifest request failed') || errorMessage.toLowerCase().includes('abort')) {
+          if (!hasShownManifestErrorToastRef.current) {
+            toast.error('Không thể kiểm tra bản cập nhật lúc này. Vui lòng thử lại sau.', { duration: 8000 });
+            hasShownManifestErrorToastRef.current = true;
+          }
+        } else {
+          markApplyFailure();
         }
+
         console.warn('CapacitorUpdater update check failed', err);
       } finally {
         isUpdatingRef.current = false;
@@ -124,12 +197,20 @@ export function CapacitorUpdaterListener() {
 
     const intervalId = window.setInterval(() => checkForUpdates().catch(() => {}), CHECK_INTERVAL_MS);
 
+    let isDisposed = false;
     let resumeListener: Awaited<ReturnType<typeof App.addListener>> | undefined;
-    App.addListener('resume', checkForUpdates).then((listener) => {
+    App.addListener('resume', () => {
+      checkForUpdates().catch(() => {});
+    }).then((listener) => {
+      if (isDisposed) {
+        listener.remove();
+        return;
+      }
       resumeListener = listener;
     });
 
     return () => {
+      isDisposed = true;
       clearInterval(intervalId);
       resumeListener?.remove();
     };
