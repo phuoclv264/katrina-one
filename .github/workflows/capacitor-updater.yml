@@ -89,12 +89,22 @@ jobs:
             echo "Bucket check: FIREBASE_STORAGE_BUCKET secret not set"
           fi
 
-      - name: Authenticate to Google Cloud (for gsutil)
+      - name: Authenticate to Google Cloud (auth)
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Setup gcloud SDK
         uses: google-github-actions/setup-gcloud@v1
         with:
-          service_account_key: ${{ secrets.GCP_SA_KEY }}
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           export_default_credentials: true
+
+      - name: Verify gcloud authentication (safe)
+        run: |
+          echo "gcloud active account: $(gcloud auth list --filter=status:ACTIVE --format='value(account)' || echo 'none')"
+          echo "gcloud project: $(gcloud config get-value project || echo 'none')"
 
       - name: Upload dist.zip to Firebase Storage
         run: |
