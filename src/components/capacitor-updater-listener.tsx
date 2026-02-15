@@ -19,6 +19,7 @@ const ALLOW_SILENT_UPDATE = (process.env.NEXT_PUBLIC_UPDATER_SILENT ?? 'true') =
 
 export function CapacitorUpdaterListener() {
   const isUpdatingRef = useRef(false);
+  const hasShownSetupToastRef = useRef(false);
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
@@ -51,6 +52,20 @@ export function CapacitorUpdaterListener() {
 
       try {
         const manifest = await fetchManifest();
+
+        // one-time diagnostic toast to show whether updater is configured correctly
+        if (!hasShownSetupToastRef.current) {
+          if (!manifest) {
+            toast.error('Capacitor Updater: manifest không hợp lệ hoặc không tìm thấy.');
+            hasShownSetupToastRef.current = true;
+            // do not proceed with update logic on missing manifest
+            return;
+          }
+
+          toast.success(`Capacitor Updater: manifest truy cập được — v${manifest.version}`);
+          hasShownSetupToastRef.current = true;
+        }
+
         if (!manifest) return;
 
         const current = await CapacitorUpdater.current();
@@ -92,6 +107,11 @@ export function CapacitorUpdaterListener() {
           });
         }
       } catch (err) {
+        // show one-time diagnostic error toast if auth/network prevents manifest fetch
+        if (!hasShownSetupToastRef.current) {
+          toast.error('Capacitor Updater: không thể truy cập manifest / cấu hình.');
+          hasShownSetupToastRef.current = true;
+        }
         console.warn('CapacitorUpdater update check failed', err);
       } finally {
         isUpdatingRef.current = false;
