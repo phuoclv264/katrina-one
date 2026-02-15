@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,11 @@ import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { getUserAccessLinks } from '@/lib/user-access-links';
 
+// show app / updater status
+import { Capacitor } from '@capacitor/core';
+import { CapacitorUpdater } from '@capgo/capacitor-updater';
+import packageJson from '../../package.json';
+
 interface UserMenuViewProps {
   onNavigateToHome?: () => void;
   onNavigate?: (href: string) => void;
@@ -27,6 +32,50 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
   const { isCheckedIn } = useCheckInCardPlacement();
   const nav = useAppNavigation();
   const [profileOpen, setProfileOpen] = useState(false);
+
+  const [installedVersion, setInstalledVersion] = useState<string | null>(null);
+  const [latestVersion, setLatestVersion] = useState<string | null>(null);
+  const [lastChecked, setLastChecked] = useState<string | null>(null);
+  const manifestUrl = process.env.NEXT_PUBLIC_UPDATER_MANIFEST_URL || '';
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function readVersions() {
+      // app build version (from package.json)
+      // installed bundle (native) or same as app version (web)
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const current = await CapacitorUpdater.current();
+          if (!mounted) return;
+          setInstalledVersion(current.bundle?.version ?? 'builtin');
+        } catch (err) {
+          if (!mounted) return;
+          setInstalledVersion('unknown');
+        }
+      } else {
+        setInstalledVersion(packageJson.version ?? null);
+      }
+
+      // fetch manifest (optional)
+      if (!manifestUrl) return;
+      try {
+        const res = await fetch(manifestUrl, { cache: 'no-store' });
+        if (!res.ok) throw new Error(String(res.status));
+        const data = await res.json();
+        if (!mounted) return;
+        setLatestVersion(data?.version ?? null);
+        setLastChecked(new Date().toLocaleString());
+      } catch (err) {
+        if (!mounted) return;
+        setLatestVersion(null);
+        setLastChecked(new Date().toLocaleString());
+      }
+    }
+
+    readVersions();
+    return () => { mounted = false; };
+  }, []);
 
   if (!user) return null;
 
@@ -215,6 +264,17 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
             <LogOut className="w-4 h-4 mr-2" />
             Đăng xuất
           </Button>
+
+          {/* Version / updater info */}
+          <div className="mt-3 text-xs text-muted-foreground space-y-1">
+            <div>Phiên bản app: <span className="font-medium">v{packageJson.version}</span></div>
+            <div>Phiên bản hiện tại: <span className="font-medium">{installedVersion ?? '—'}</span></div>
+            <div>Bản cập nhật mới nhất: <span className="font-medium">{latestVersion ?? '—'}</span></div>
+            <div>Kiểm tra lần cuối: <span className="font-medium">{lastChecked ?? '—'}</span></div>
+            {latestVersion && installedVersion && latestVersion !== installedVersion && (
+              <div className="text-amber-600">Bản cập nhật khả dụng</div>
+            )}
+          </div>
         </div>
       </div>
     </div>
