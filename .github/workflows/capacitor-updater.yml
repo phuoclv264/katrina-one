@@ -71,11 +71,8 @@ jobs:
             exit 1
           fi
 
-          # convert firebasestorage.app host to GCS bucket name when present
-          if [[ "$BUCKET" == *.firebasestorage.app ]]; then
-            BUCKET=$(echo "$BUCKET" | sed 's/\.firebasestorage\.app$/.appspot.com/')
-          fi
-
+          # keep the storage bucket value exactly as provided (supports *.firebasestorage.app)
+          # do NOT convert to .appspot.com — use the value from src/lib/firebase.ts or FIREBASE_STORAGE_BUCKET
           echo "bucket=$BUCKET" >> $GITHUB_OUTPUT
 
       - name: Authenticate to Google Cloud (for gsutil)
