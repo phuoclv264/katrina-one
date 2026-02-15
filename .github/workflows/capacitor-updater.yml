@@ -55,17 +55,27 @@ jobs:
 
       - name: Detect Firebase storage bucket
         id: detect-bucket
+        env:
+          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
         run: |
           # try reading storageBucket from src/lib/firebase.ts
           BUCKET=$(grep -oP "storageBucket:\\s*\"\K[^\"]+" src/lib/firebase.ts || true)
+
+          # fallback to repository secret FIREBASE_STORAGE_BUCKET when not present in source
           if [ -z "$BUCKET" ]; then
-            echo "ERROR: storageBucket not found in src/lib/firebase.ts; set FIREBASE_STORAGE_BUCKET secret instead" >&2
+            BUCKET="${FIREBASE_STORAGE_BUCKET:-}"
+          fi
+
+          if [ -z "$BUCKET" ]; then
+            echo "ERROR: storageBucket not found in src/lib/firebase.ts and FIREBASE_STORAGE_BUCKET secret is not set" >&2
             exit 1
           fi
+
           # convert firebasestorage.app host to GCS bucket name when present
           if [[ "$BUCKET" == *.firebasestorage.app ]]; then
             BUCKET=$(echo "$BUCKET" | sed 's/\.firebasestorage\.app$/.appspot.com/')
           fi
+
           echo "bucket=$BUCKET" >> $GITHUB_OUTPUT
 
       - name: Authenticate to Google Cloud (for gsutil)
