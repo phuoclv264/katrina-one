@@ -17,6 +17,7 @@ export type UserRole = 'Phục vụ' | 'Pha chế' | 'Quản lý' | 'Chủ nhà 
 export interface AuthUser extends User {
   displayName: string;
   role: UserRole;
+  gender?: ManagedUser['gender'];
   employmentStatus?: 'Đang làm việc' | 'Nghỉ việc';
   secondaryRoles?: UserRole[];
   anonymousName?: string;
@@ -97,6 +98,7 @@ export const useAuth = () => {
             ...firebaseUser,
             displayName: userData.displayName,
             role: userRole,
+            gender: userData.gender || 'Nam',
             employmentStatus: userData.employmentStatus || 'Đang làm việc',
             secondaryRoles: userData.secondaryRoles || [],
             anonymousName: userData.anonymousName,
@@ -125,6 +127,7 @@ export const useAuth = () => {
                   ...firebaseUser,
                   displayName: serverData.displayName,
                   role: serverData.role as UserRole,
+                  gender: serverData.gender || 'Nam',
                   employmentStatus: serverData.employmentStatus || 'Đang làm việc',
                   secondaryRoles: serverData.secondaryRoles || [],
                   anonymousName: serverData.anonymousName,
@@ -175,6 +178,7 @@ export const useAuth = () => {
         ...user,
         displayName: data.displayName,
         role: data.role as UserRole,
+        gender: data.gender || user.gender || 'Nam',
         employmentStatus: data.employmentStatus || 'Đang làm việc',
         secondaryRoles: data.secondaryRoles || [],
         anonymousName: data.anonymousName,
@@ -262,7 +266,7 @@ export const useAuth = () => {
     }
   }, []);
 
-  const register = useCallback(async (email: string, password: string, displayName: string, role: UserRole): Promise<boolean> => {
+  const register = useCallback(async (email: string, password: string, displayName: string, role: UserRole, gender: ManagedUser['gender']): Promise<boolean> => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
@@ -272,6 +276,7 @@ export const useAuth = () => {
         email,
         displayName,
         role,
+        gender: gender || 'Nam',
         employmentStatus: 'Đang làm việc',
         secondaryRoles: [],
       });

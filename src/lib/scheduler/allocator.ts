@@ -121,19 +121,51 @@ export function allocate(
     shift: AssignedShift,
     needToFillRole: UserRole | 'Bất kỳ',
     matcher: (u: ManagedUser, r: UserRole | 'Bất kỳ') => boolean,
-    ignoreAvailability = false
+    ignoreAvailability = false,
+    gender?: ManagedUser['gender']
   ) => {
     const maxRoleMap = ctx.maxByShiftRole.get(shift.id) || new Map<UserRole | 'Bất kỳ', number>();
-    const baseTarget = needToFillRole === shift.role
-      ? (maxRoleMap.get(needToFillRole) ?? (shift.minUsers ?? 0))
-      : (maxRoleMap.get(needToFillRole) ?? 0);
+
+    // Respect shift.template.requiredRoles (gender-aware) when present.
+    const templateReqs = (shift.requiredRoles || []).filter(r => r.role === needToFillRole);
+
+    let baseTarget: number;
+
+    if (gender) {
+      const tpl = templateReqs.find(r => r.gender === gender);
+      if (tpl) {
+        baseTarget = tpl.count;
+      } else {
+        baseTarget = needToFillRole === shift.role
+          ? (maxRoleMap.get(needToFillRole) ?? (shift.minUsers ?? 0))
+          : (maxRoleMap.get(needToFillRole) ?? 0);
+      }
+    } else {
+      const genericTpl = templateReqs.find(r => !r.gender);
+      if (genericTpl) {
+        baseTarget = genericTpl.count;
+      } else if (templateReqs.length > 0) {
+        // Template specifies only gender-split requirements for this role —
+        // the generic (gender-less) fill should be a no-op to avoid double-counting.
+        baseTarget = 0;
+      } else {
+        baseTarget = needToFillRole === shift.role
+          ? (maxRoleMap.get(needToFillRole) ?? (shift.minUsers ?? 0))
+          : (maxRoleMap.get(needToFillRole) ?? 0);
+      }
+    }
+
     const count = Math.max(0, baseTarget);
 
     const roleMax = maxRoleMap.get(needToFillRole) ?? Number.POSITIVE_INFINITY;
-    const assignedFromShift = (shift.assignedUsersWithRole || []).filter(u => u.assignedRole === needToFillRole).length;
 
-    const currentAssignedCount = assignedFromShift;
-    let remaining = Math.max(0, Math.min(count, roleMax) - currentAssignedCount);
+    const assignedFromShift = (shift.assignedUsersWithRole || []).filter(u => {
+      if (u.assignedRole !== needToFillRole) return false;
+      if (!gender) return true;
+      return usersByUid.get(u.userId)?.gender === gender;
+    }).length;
+
+    let remaining = Math.max(0, Math.min(count, roleMax) - assignedFromShift);
     if (remaining <= 0) return 0;
 
     const duration = calculateTotalHours([shift.timeSlot]);
@@ -141,7 +173,7 @@ export function allocate(
     const allShiftsOnDay = workingShifts.filter(s => s.date === shift.date);
     const priorities = ctx.prioritiesByShift.get(shift.id) || new Map<string, number>();
 
-    const candidates = eligibleUsers.filter(u => matcher(u, needToFillRole));
+    const candidates = eligibleUsers.filter(u => matcher(u, needToFillRole) && (gender ? u.gender === gender : true));
 
     const candidateScores = candidates.map(u => {
       const key = `${u.uid}:${shift.id}`;
@@ -172,7 +204,12 @@ export function allocate(
     for (const cs of candidateScores) {
       if (remaining <= 0) break;
       if (cs.score === Number.NEGATIVE_INFINITY) continue;
-      const assignedFromShiftForCandidateRole = (shift.assignedUsersWithRole || []).filter(u => u.assignedRole === needToFillRole).length;
+
+      const assignedFromShiftForCandidateRole = (shift.assignedUsersWithRole || []).filter(u => {
+        if (u.assignedRole !== needToFillRole) return false;
+        if (!gender) return true;
+        return usersByUid.get(u.userId)?.gender === gender;
+      }).length;
 
       const currentRoleAssigned = assignedFromShiftForCandidateRole;
       const candidateRoleMax = maxRoleMap.get(needToFillRole) ?? Number.POSITIVE_INFINITY;
@@ -189,18 +226,48 @@ export function allocate(
   // Phase 1: fill using primary roles only (Available users)
   for (const shift of workingShifts) {
     const maxRoleMap = ctx.maxByShiftRole.get(shift.id) || new Map<UserRole | 'Bất kỳ', number>();
-    const rolesToFill = new Set<UserRole | 'Bất kỳ'>([...maxRoleMap.keys() as any]);
+    // include roles declared in template.requiredRoles so template conditions are enforced
+    const rolesFromTemplate = (shift.requiredRoles || []).map(r => r.role);
+    const rolesToFill = new Set<UserRole | 'Bất kỳ'>([...maxRoleMap.keys() as any, ...rolesFromTemplate as any]);
+
     for (const role of rolesToFill) {
-      fillRole(shift, role, mainRoleMatches);
+      const tplEntries = (shift.requiredRoles || []).filter(r => r.role === role);
+      const hasGenderSplits = tplEntries.some(e => !!e.gender);
+
+      // If template provides gender-specific counts, fill them separately
+      if (hasGenderSplits) {
+        for (const entry of tplEntries.filter(e => !!e.gender)) {
+          fillRole(shift, role, mainRoleMatches, false, entry.gender);
+        }
+        // If template also has a generic count (no gender), fill it too
+        const generic = tplEntries.find(e => !e.gender);
+        if (generic) fillRole(shift, role, mainRoleMatches);
+      } else {
+        // No template splits — fall back to normal behavior (constraints or minUsers)
+        fillRole(shift, role, mainRoleMatches);
+      }
     }
   }
 
   // Phase 2: attempt to backfill remaining demand with secondary roles (Available users)
   for (const shift of workingShifts) {
     const maxRoleMap = ctx.maxByShiftRole.get(shift.id) || new Map<UserRole | 'Bất kỳ', number>();
-    const rolesToFill = new Set<UserRole | 'Bất kỳ'>([...maxRoleMap.keys() as any]);
+    const rolesFromTemplate = (shift.requiredRoles || []).map(r => r.role);
+    const rolesToFill = new Set<UserRole | 'Bất kỳ'>([...maxRoleMap.keys() as any, ...rolesFromTemplate as any]);
+
     for (const role of rolesToFill) {
-      fillRole(shift, role, secondaryRoleMatches);
+      const tplEntries = (shift.requiredRoles || []).filter(r => r.role === role);
+      const hasGenderSplits = tplEntries.some(e => !!e.gender);
+
+      if (hasGenderSplits) {
+        for (const entry of tplEntries.filter(e => !!e.gender)) {
+          fillRole(shift, role, secondaryRoleMatches, false, entry.gender);
+        }
+        const generic = tplEntries.find(e => !e.gender);
+        if (generic) fillRole(shift, role, secondaryRoleMatches);
+      } else {
+        fillRole(shift, role, secondaryRoleMatches);
+      }
     }
   }
 
@@ -208,12 +275,31 @@ export function allocate(
   if (options?.includeBusyUsers) {
     for (const shift of workingShifts) {
       const maxRoleMap = ctx.maxByShiftRole.get(shift.id) || new Map<UserRole | 'Bất kỳ', number>();
-      const rolesToFill = new Set<UserRole | 'Bất kỳ'>([...maxRoleMap.keys() as any]);
+      const rolesFromTemplate = (shift.requiredRoles || []).map(r => r.role);
+      const rolesToFill = new Set<UserRole | 'Bất kỳ'>([...maxRoleMap.keys() as any, ...rolesFromTemplate as any]);
+
       for (const role of rolesToFill) {
-        // Try primary roles for busy users
-        fillRole(shift, role, mainRoleMatches, true);
-        // Try secondary roles for busy users
-        fillRole(shift, role, secondaryRoleMatches, true);
+        const tplEntries = (shift.requiredRoles || []).filter(r => r.role === role);
+        const hasGenderSplits = tplEntries.some(e => !!e.gender);
+
+        if (hasGenderSplits) {
+          for (const entry of tplEntries.filter(e => !!e.gender)) {
+            // Try primary roles for busy users
+            fillRole(shift, role, mainRoleMatches, true, entry.gender);
+            // Try secondary roles for busy users
+            fillRole(shift, role, secondaryRoleMatches, true, entry.gender);
+          }
+          const generic = tplEntries.find(e => !e.gender);
+          if (generic) {
+            fillRole(shift, role, mainRoleMatches, true);
+            fillRole(shift, role, secondaryRoleMatches, true);
+          }
+        } else {
+          // Try primary roles for busy users
+          fillRole(shift, role, mainRoleMatches, true);
+          // Try secondary roles for busy users
+          fillRole(shift, role, secondaryRoleMatches, true);
+        }
       }
     }
   }
@@ -221,30 +307,84 @@ export function allocate(
   // Reporting Phase: Calculate unfilled demand and generate warnings
   for (const shift of workingShifts) {
     const maxRoleMap = ctx.maxByShiftRole.get(shift.id) || new Map<UserRole | 'Bất kỳ', number>();
-    const rolesToFill = new Set<UserRole | 'Bất kỳ'>([...maxRoleMap.keys() as any]);
+    const rolesFromTemplate = (shift.requiredRoles || []).map(r => r.role);
+    const rolesToFill = new Set<UserRole | 'Bất kỳ'>([...maxRoleMap.keys() as any, ...rolesFromTemplate as any]);
+
     for (const role of rolesToFill) {
-      const target = role === shift.role
-        ? (maxRoleMap.get(role) ?? (shift.minUsers ?? 0))
-        : (maxRoleMap.get(role) ?? 0);
-      
-      const assignedFromShift = (shift.assignedUsersWithRole || []).filter(u => u.assignedRole === role).length;
-      const remaining = Math.max(0, target - assignedFromShift);
+      const tplEntries = (shift.requiredRoles || []).filter(r => r.role === role);
 
-      if (remaining > 0) {
-        unfilled.push({ shiftId: shift.id, role, remaining });
-        const mandatoryKeys = [
-          `${shift.id}:${role}`,
-          `${shift.id}:primary:${role}`,
-          `${shift.id}:secondary:${role}`,
-        ];
-        const isMandatory = mandatoryKeys.some(k => ctx.mandatoryDemand.has(k));
-        const time = `${shift.timeSlot.start}-${shift.timeSlot.end}`;
-        const [y, m, d] = shift.date.split('-');
-        const formattedDate = `${d}/${m}/${y}`;
+      if (tplEntries.length > 0) {
+        // If template has a generic entry (no gender), treat it as the target for the role
+        const generic = tplEntries.find(e => !e.gender);
+        if (generic) {
+          const target = generic.count;
+          const assignedFromShift = (shift.assignedUsersWithRole || []).filter(u => u.assignedRole === role).length;
+          const remaining = Math.max(0, target - assignedFromShift);
+          if (remaining > 0) {
+            unfilled.push({ shiftId: shift.id, role, remaining });
+            const mandatoryKeys = [
+              `${shift.id}:${role}`,
+              `${shift.id}:primary:${role}`,
+              `${shift.id}:secondary:${role}`,
+            ];
+            const isMandatory = mandatoryKeys.some(k => ctx.mandatoryDemand.has(k));
+            const time = `${shift.timeSlot.start}-${shift.timeSlot.end}`;
+            const [y, m, d] = shift.date.split('-');
+            const formattedDate = `${d}/${m}/${y}`;
+            if (isMandatory) {
+              const msg = `Thiếu nhân sự bắt buộc cho ca ${shift.label} (${formattedDate} ${time}): còn thiếu ${remaining} người vai trò ${role}.`;
+              warnings.push(msg);
+            }
+          }
+        }
 
-        if (isMandatory) {
-          const msg = `Thiếu nhân sự bắt buộc cho ca ${shift.label} (${formattedDate} ${time}): còn thiếu ${remaining} người vai trò ${role}.`;
-          warnings.push(msg);
+        // Handle gender-specific entries separately (report per gender shortfall)
+        for (const entry of tplEntries.filter(e => !!e.gender)) {
+          const assignedForGender = (shift.assignedUsersWithRole || []).filter(u => u.assignedRole === role && usersByUid.get(u.userId)?.gender === entry.gender).length;
+          const remainingGender = Math.max(0, entry.count - assignedForGender);
+          if (remainingGender > 0) {
+            unfilled.push({ shiftId: shift.id, role, remaining: remainingGender });
+            // Treat gendered mandatory demand the same as generic mandatory (existing system doesn't track gender in mandatory keys)
+            const mandatoryKeys = [
+              `${shift.id}:${role}`,
+              `${shift.id}:primary:${role}`,
+              `${shift.id}:secondary:${role}`,
+            ];
+            const isMandatory = mandatoryKeys.some(k => ctx.mandatoryDemand.has(k));
+            const time = `${shift.timeSlot.start}-${shift.timeSlot.end}`;
+            const [y, m, d] = shift.date.split('-');
+            const formattedDate = `${d}/${m}/${y}`;
+            if (isMandatory) {
+              const msg = `Thiếu nhân sự bắt buộc cho ca ${shift.label} (${formattedDate} ${time}): còn thiếu ${remainingGender} người vai trò ${role} (${entry.gender}).`;
+              warnings.push(msg);
+            }
+          }
+        }
+      } else {
+        // Fallback to constraints-based target
+        const target = role === shift.role
+          ? (maxRoleMap.get(role) ?? (shift.minUsers ?? 0))
+          : (maxRoleMap.get(role) ?? 0);
+
+        const assignedFromShift = (shift.assignedUsersWithRole || []).filter(u => u.assignedRole === role).length;
+        const remaining = Math.max(0, target - assignedFromShift);
+
+        if (remaining > 0) {
+          unfilled.push({ shiftId: shift.id, role, remaining });
+          const mandatoryKeys = [
+            `${shift.id}:${role}`,
+            `${shift.id}:primary:${role}`,
+            `${shift.id}:secondary:${role}`,
+          ];
+          const isMandatory = mandatoryKeys.some(k => ctx.mandatoryDemand.has(k));
+          const time = `${shift.timeSlot.start}-${shift.timeSlot.end}`;
+          const [y, m, d] = shift.date.split('-');
+          const formattedDate = `${d}/${m}/${y}`;
+
+          if (isMandatory) {
+            const msg = `Thiếu nhân sự bắt buộc cho ca ${shift.label} (${formattedDate} ${time}): còn thiếu ${remaining} người vai trò ${role}.`;
+            warnings.push(msg);
+          }
         }
       }
     }

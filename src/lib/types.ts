@@ -17,6 +17,7 @@ export type ManagedUser = {
   email: string;
   displayName: string;
   role: UserRole;
+  gender?: 'Nam' | 'Nữ' | 'Khác';
   employmentStatus?: EmploymentStatus;
   secondaryRoles?: UserRole[];
   notes?: string;
@@ -381,7 +382,8 @@ export type ShiftTemplate = {
   timeSlot: TimeSlot;
   applicableDays: number[]; // 0 for Sun, 1 for Mon, ..., 6 for Sat
   minUsers: number;
-  requiredRoles?: { role: UserRole; count: number }[]; // e.g., [{role: 'Pha chế', count: 2}, ...]
+  // requiredRoles may include an optional gender constraint; omitted gender means any.
+  requiredRoles?: { role: UserRole; count: number; gender?: 'Nam' | 'Nữ' | 'Khác' }[]; // e.g., [{role: 'Pha chế', count: 2, gender: 'Nam'}, ...]
 };
 
 export type AssignedUser = {
@@ -413,7 +415,7 @@ export type AssignedShift = {
   assignedUsersWithRole?: AssignedUserWithRole[]; // Optional array of user-role pairs
   applicants?: ShiftApplicant[]; // Users who applied for this shift
   minUsers: number;
-  requiredRoles?: { role: UserRole; count: number }[];
+  requiredRoles?: { role: UserRole; count: number; gender?: 'Nam' | 'Nữ' | 'Khác' }[];
   employees?: EmployeeAttendance[]; // Augmented with attendance info on admin page
   /** Flag to indicate if absences in this shift have been processed for penalty/bonus */
   isPenaltyProcessed?: boolean;

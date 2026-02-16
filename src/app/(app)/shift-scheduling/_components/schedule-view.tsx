@@ -319,11 +319,13 @@ export default function ScheduleView() {
         const normalizedSchedule: Schedule = {
             ...incomingSchedule,
             shifts: incomingSchedule.shifts.map((shift: AssignedShift) => {
-                const normalizedAssignedUsers: AssignedUser[] = shift.assignedUsers.map((au: AssignedUser) => {
-                    const fallbackRole = allUsers.find((u) => u.uid === au.userId)?.role;
-                    const resolvedRole: UserRole = au.assignedRole ?? fallbackRole ?? 'Phục vụ';
-                    return { ...au, assignedRole: resolvedRole };
-                });
+                const normalizedAssignedUsers: AssignedUser[] = shift.assignedUsers
+                    .filter((au: AssignedUser) => allUsers.some((u) => u.uid === au.userId))
+                    .map((au: AssignedUser) => {
+                        const fallbackRole = allUsers.find((u) => u.uid === au.userId)?.role;
+                        const resolvedRole: UserRole = au.assignedRole ?? fallbackRole ?? 'Phục vụ';
+                        return { ...au, assignedRole: resolvedRole };
+                    });
                 return { ...shift, assignedUsers: normalizedAssignedUsers };
             }),
         };
@@ -823,7 +825,7 @@ export default function ScheduleView() {
         const nameToShow = userAbbreviations.get(assignedUser.userId) || assignedUser.userName;
 
         const badgeContent = (
-            <Badge className={cn("h-auto py-0.5 text-xs flex items-center", getRoleColor(displayedRole))}>
+            <Badge className={cn("h-auto py-0.5 text-xs flex items-center", getRoleColor(displayedRole), isBusy && 'ring-2 ring-destructive/50') }>
                 {isBusy && <AlertTriangle className="h-3 w-3 mr-1 text-destructive-foreground" />}
                 {hasMultipleShifts && (
                     <span className={cn("font-bold mr-1", shiftCount > 2 ? 'text-red-500' : 'text-yellow-500')}>{shiftCount}</span>

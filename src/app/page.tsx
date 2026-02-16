@@ -29,6 +29,7 @@ export default function AuthPage() {
   const [registerPassword, setRegisterPassword] = useState('');
   const [registerName, setRegisterName] = useState('');
   const [registerRole, setRegisterRole] = useState<UserRole | ''>('');
+  const [registerGender, setRegisterGender] = useState<'Nam'|'Nữ'|'Khác'>('Nam');
 
 
   const [showLoginPassword, setShowLoginPassword] = useState(false);
@@ -53,8 +54,8 @@ export default function AuthPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!registerEmail || !registerPassword || !registerName || !registerRole) {
-      toast.error('Vui lòng điền đầy đủ thông tin, bao gồm cả vai trò.');
+    if (!registerEmail || !registerPassword || !registerName || !registerRole || !registerGender) {
+      toast.error('Vui lòng điền đầy đủ thông tin, bao gồm giới tính và vai trò.');
       return;
     }
     setIsProcessingAuth(true);
@@ -67,7 +68,7 @@ export default function AuthPage() {
         return;
       }
 
-      const success = await register(registerEmail, registerPassword, registerName, registerRole);
+      const success = await register(registerEmail, registerPassword, registerName, registerRole, registerGender);
       if (!success) {
         setIsProcessingAuth(false);
       }
@@ -168,6 +169,22 @@ export default function AuthPage() {
                 <div className="space-y-2">
                   <Label htmlFor="register-name">Tên hiển thị</Label>
                   <Input id="register-name" placeholder="Ví dụ: Phước" value={registerName} onChange={(e) => setRegisterName(e.target.value)} required disabled={isProcessing} />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="register-gender">Giới tính</Label>
+                  <Combobox
+                    options={[
+                      { value: 'Nam', label: 'Nam' },
+                      { value: 'Nữ', label: 'Nữ' },
+                      { value: 'Khác', label: 'Khác' },
+                    ]}
+                    value={registerGender}
+                    onChange={(value) => setRegisterGender(value as 'Nam'|'Nữ'|'Khác')}
+                    placeholder="Chọn giới tính"
+                    disabled={isProcessing}
+                    className="w-full"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="register-email">Email</Label>

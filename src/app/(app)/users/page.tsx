@@ -78,6 +78,7 @@ const EmploymentBadge = ({ user }: { user: ManagedUser }) => {
 function EditUserDialog({ user, onSave, onOpenChange, open, isProcessing }: { user: ManagedUser, onSave: (data: Partial<ManagedUser>) => void, onOpenChange: (open: boolean) => void, open: boolean, isProcessing: boolean }) {
     const [displayName, setDisplayName] = useState(user.displayName);
     const [role, setRole] = useState<UserRole>(user.role);
+    const [gender, setGender] = useState<ManagedUser['gender']>(user.gender || 'Nam');
     const [secondaryRoles, setSecondaryRoles] = useState<ManagedUser[]>([]);
     const [notes, setNotes] = useState(user.notes || '');
     const [photoURL, setPhotoURL] = useState(user.photoURL || null);
@@ -90,6 +91,7 @@ function EditUserDialog({ user, onSave, onOpenChange, open, isProcessing }: { us
         if (open) {
             setDisplayName(user.displayName);
             setRole(user.role);
+            setGender(user.gender || 'Nam');
             // This is a bit tricky. We need to create dummy ManagedUser objects for the multi-select.
             const secondaryRoleUsers = (user.secondaryRoles || []).map(r => ({ uid: r, displayName: r, email: '', role: r }));
             setSecondaryRoles(secondaryRoleUsers);
@@ -109,6 +111,7 @@ function EditUserDialog({ user, onSave, onOpenChange, open, isProcessing }: { us
         onSave({ 
             displayName, 
             role, 
+            gender,
             notes, 
             secondaryRoles: secondaryRoles.map(r => r.role), 
             photoURL: photoPayload,
@@ -159,6 +162,22 @@ function EditUserDialog({ user, onSave, onOpenChange, open, isProcessing }: { us
                                     onChange={(e) => setDisplayName(e.target.value)} 
                                     className="h-11 rounded-xl bg-muted/50 border-muted-foreground/10 focus:bg-background transition-all"
                                     placeholder="Nhập tên nhân viên..."
+                                    disabled={isProcessing}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="gender" className="text-sm font-semibold ml-1">Giới tính</Label>
+                                <Combobox
+                                    options={[
+                                        { value: 'Nam', label: 'Nam' },
+                                        { value: 'Nữ', label: 'Nữ' },
+                                        { value: 'Khác', label: 'Khác' },
+                                    ]}
+                                    value={gender}
+                                    onChange={(val) => setGender(val as ManagedUser['gender'])}
+                                    placeholder="Chọn giới tính"
+                                    className="w-full h-11"
                                     disabled={isProcessing}
                                 />
                             </div>
@@ -455,7 +474,7 @@ export default function UsersPage() {
         if (!filterText) {
             return users;
         }
-        return advancedSearch(users, filterText, ['displayName', 'email', 'role', 'employmentStatus']);
+        return advancedSearch(users, filterText, ['displayName', 'email', 'role', 'employmentStatus', 'gender']);
     }, [users, filterText]);
 
     if (isLoading || authLoading) {
@@ -535,7 +554,7 @@ export default function UsersPage() {
                                                         <EmploymentBadge user={u} />
                                                         {u.isTestAccount && <TestBadge />}
                                                     </div>
-                                                    <CardDescription className="text-xs break-words break-all whitespace-normal max-w-full">{u.email}</CardDescription>
+                                                    <CardDescription className="text-xs break-words break-all whitespace-normal max-w-full">{u.email} • {u.gender || '—'}</CardDescription>
                                                 </div>
                                             </div>
                                         </CardHeader>
@@ -621,6 +640,7 @@ export default function UsersPage() {
                                     <TableRow>
                                         <TableHead>Tên hiển thị</TableHead>
                                         <TableHead>Email</TableHead>
+                                        <TableHead>Giới tính</TableHead>
                                         <TableHead>Vai trò</TableHead>
                                         <TableHead>Ghi chú</TableHead>
                                         <TableHead className="text-right">Hành động</TableHead>
@@ -643,6 +663,7 @@ export default function UsersPage() {
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-muted-foreground text-sm">{u.email}</TableCell>
+                                            <TableCell className="text-sm">{u.gender || '—'}</TableCell>
                                             <TableCell>
                                                 <div className='flex flex-wrap gap-1.5'>
                                                     <RoleBadge role={u.role} />
@@ -713,7 +734,7 @@ export default function UsersPage() {
                                     ))}
                                     {filteredUsers.length === 0 && (
                                         <TableRow>
-                                            <TableCell colSpan={5} className="h-24 text-center">Không tìm thấy người dùng nào.</TableCell>
+                                            <TableCell colSpan={6} className="h-24 text-center">Không tìm thấy người dùng nào.</TableCell>
                                         </TableRow>
                                     )}
                                 </TableBody>
