@@ -17,13 +17,7 @@ import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { getUserAccessLinks } from '@/lib/user-access-links';
 import { toast } from '@/components/ui/pro-toast';
-import {
-  storageKeys,
-  getStorageNumber,
-  parseManifestPayload,
-  clearFailureState,
-  ManifestPayload,
-} from '@/lib/capacitor-updater-status';
+import { parseManifestPayload, ManifestPayload } from '@/lib/capacitor-updater-status';
 
 // show app / updater status
 import { Capacitor } from '@capacitor/core';
@@ -49,13 +43,35 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
   const [checkingManifest, setCheckingManifest] = useState(false);
   const [manifestCheckMessage, setManifestCheckMessage] = useState<string | null>(null);
   const [isAutoUpdateDisabled, setIsAutoUpdateDisabled] = useState(false);
-  const [autoUpdateDisabledUntil, setAutoUpdateDisabledUntil] = useState<number | null>(null);
+  const [pendingUpdateVersion, setPendingUpdateVersion] = useState<string | null>(null);
 
-  const refreshAutoUpdateStatus = useCallback(() => {
-    const until = getStorageNumber(storageKeys.autoDisableUntil);
-    const disabled = until > Date.now();
-    setIsAutoUpdateDisabled(disabled);
-    setAutoUpdateDisabledUntil(until > 0 ? until : null);
+  const refreshAutoUpdateStatus = useCallback(async () => {
+    // use plugin API to reflect whether auto-update is enabled in plugin config
+    if (!Capacitor.isNativePlatform()) {
+      setIsAutoUpdateDisabled(false);
+      return;
+    }
+
+    try {
+      const res = await CapacitorUpdater.isAutoUpdateEnabled();
+      setIsAutoUpdateDisabled(!res.enabled);
+    } catch {
+      setIsAutoUpdateDisabled(false);
+    }
+  }, []);
+
+  const refreshPendingUpdateVersion = useCallback(async () => {
+    if (!Capacitor.isNativePlatform()) {
+      setPendingUpdateVersion(null);
+      return;
+    }
+
+    try {
+      const next = await CapacitorUpdater.getNextBundle();
+      setPendingUpdateVersion(next?.version ?? null);
+    } catch {
+      setPendingUpdateVersion(null);
+    }
   }, []);
 
   const formatDateTime = (value: number | null) => (value ? new Date(value).toLocaleString() : '—');
@@ -98,15 +114,16 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
       handleManifestResult(null, `Không thể kiểm tra manifest (${message}).`);
     } finally {
       setCheckingManifest(false);
-      refreshAutoUpdateStatus();
+      // call plugin-backed refreshers
+      void refreshAutoUpdateStatus();
+      void refreshPendingUpdateVersion();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('cap-updater-check'));
+      }
     }
   };
 
-  const handleReenableAutoUpdate = () => {
-    clearFailureState();
-    refreshAutoUpdateStatus();
-    toast.success('Tự động cập nhật đã được bật lại.');
-  };
+  // removed manual re-enable — plugin manages failures/rollbacks now.
 
   useEffect(() => {
     let mounted = true;
@@ -143,10 +160,11 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
     }
 
     readVersions();
-    refreshAutoUpdateStatus();
+    void refreshAutoUpdateStatus();
+    void refreshPendingUpdateVersion();
 
     return () => { mounted = false; };
-  }, [fetchManifestInfo, refreshAutoUpdateStatus, handleManifestResult, manifestUrl]);
+  }, [fetchManifestInfo, refreshAutoUpdateStatus, refreshPendingUpdateVersion, handleManifestResult, manifestUrl]);
 
   if (!user) return null;
 
@@ -350,11 +368,6 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
                   {isAutoUpdateDisabled ? 'Tạm dừng' : 'Đang hoạt động'}
                 </span>
               </div>
-              {isAutoUpdateDisabled && autoUpdateDisabledUntil && (
-                <div className="text-[10px] text-amber-400">
-                  Hoạt động lại: {formatDateTime(autoUpdateDisabledUntil)}
-                </div>
-              )}
               <div className="flex flex-wrap gap-2 mt-2">
                 <Button
                   size="sm"
@@ -364,15 +377,15 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
                 >
                   {checkingManifest ? 'Đang kiểm tra...' : 'Kiểm tra bản cập nhật'}
                 </Button>
-                {isAutoUpdateDisabled && (
-                  <Button size="sm" variant="ghost" onClick={handleReenableAutoUpdate}>
-                    Bật lại auto-update
-                  </Button>
-                )}
               </div>
               {manifestCheckMessage && (
                 <div className="text-[10px] text-muted-foreground/80 mt-1">
                   {manifestCheckMessage}
+                </div>
+              )}
+              {pendingUpdateVersion && installedVersion && pendingUpdateVersion !== installedVersion && (
+                <div className="text-[10px] text-emerald-500 mt-1">
+                  Bản cập nhật v{pendingUpdateVersion} đã tải xong — khởi động lại để áp dụng.
                 </div>
               )}
             </div>
