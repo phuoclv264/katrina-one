@@ -287,23 +287,27 @@ export default function ScheduleView() {
 
         // 1. Navigate to the correct week if needed
         if (urlWeekId && urlWeekId !== weekId && /^\d{4}-W\d{1,2}$/.test(urlWeekId)) {
-             const parts = urlWeekId.split('-W');
-             const year = parseInt(parts[0]);
-             const week = parseInt(parts[1]);
-             if (!isNaN(year) && !isNaN(week)) {
-                 const jan4 = new Date(year, 0, 4);
-                 const weekStart = addDays(startOfWeek(jan4, { weekStartsOn: 1 }), (week - 1) * 7);
-                 setCurrentDate(weekStart);
-             }
+            const parts = urlWeekId.split('-W');
+            const year = parseInt(parts[0]);
+            const week = parseInt(parts[1]);
+            if (!isNaN(year) && !isNaN(week)) {
+                const jan4 = new Date(year, 0, 4);
+                const weekStart = addDays(startOfWeek(jan4, { weekStartsOn: 1 }), (week - 1) * 7);
+                setCurrentDate(weekStart);
+            }
         }
 
         // 2. Open the shift assignment dialog
         if (openShiftId && localSchedule && localSchedule.weekId === (urlWeekId || weekId)) {
-             const shift = localSchedule.shifts.find(s => s.id === openShiftId);
-             if (shift) {
-                 setActiveShift(shift);
-                 setIsAssignmentDialogOpen(true);
-             }
+            const shift = localSchedule.shifts.find(s => s.id === openShiftId);
+            if (shift) {
+                setActiveShift(shift);
+                setIsAssignmentDialogOpen(true);
+
+                if (!isMobile) {
+                    routerRef.current.replace('/shift-scheduling', { scroll: false });
+                }
+            }
         }
     }, [searchParams, localSchedule, weekId, isMobile]);
 
@@ -825,7 +829,7 @@ export default function ScheduleView() {
         const nameToShow = userAbbreviations.get(assignedUser.userId) || assignedUser.userName;
 
         const badgeContent = (
-            <Badge className={cn("h-auto py-0.5 text-xs flex items-center", getRoleColor(displayedRole), isBusy && 'ring-2 ring-destructive/50') }>
+            <Badge className={cn("h-auto py-0.5 text-xs flex items-center", getRoleColor(displayedRole), isBusy && 'ring-2 ring-destructive/50')}>
                 {isBusy && <AlertTriangle className="h-3 w-3 mr-1 text-destructive-foreground" />}
                 {hasMultipleShifts && (
                     <span className={cn("font-bold mr-1", shiftCount > 2 ? 'text-red-500' : 'text-yellow-500')}>{shiftCount}</span>
@@ -911,7 +915,7 @@ export default function ScheduleView() {
                             </div>
 
                             {/* Pass Requests Section */}
-                            <div 
+                            <div
                                 className="p-3 transition-all cursor-pointer hover:bg-blue-50/20 dark:hover:bg-blue-900/5 group flex flex-col justify-between"
                                 onClick={() => setIsPassRequestsDialogOpen(true)}
                             >
@@ -934,8 +938,8 @@ export default function ScheduleView() {
                                         </p>
                                     </div>
                                 </div>
-                                <Button 
-                                    variant="outline" 
+                                <Button
+                                    variant="outline"
                                     size="sm"
                                     className="w-full h-6 border-blue-200 dark:border-blue-900/50 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-bold rounded-lg text-[10px]"
                                 >
@@ -944,7 +948,7 @@ export default function ScheduleView() {
                             </div>
 
                             {/* Workload Section (Total Hours) */}
-                            <div 
+                            <div
                                 className="p-3 transition-all cursor-pointer hover:bg-indigo-50/20 dark:hover:bg-indigo-900/5 group flex flex-col justify-between lg:border-t-0"
                                 onClick={() => setIsTotalHoursDialogOpen(true)}
                             >
@@ -961,8 +965,8 @@ export default function ScheduleView() {
                                         </p>
                                     </div>
                                 </div>
-                                <Button 
-                                    variant="outline" 
+                                <Button
+                                    variant="outline"
                                     size="sm"
                                     className="w-full h-6 border-indigo-200 dark:border-indigo-900/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-bold rounded-lg text-[10px]"
                                 >
@@ -985,8 +989,8 @@ export default function ScheduleView() {
                                                         <p className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-tight">Đã công bố</p>
                                                     </div>
                                                 </div>
-                                                <Button 
-                                                    variant="ghost" 
+                                                <Button
+                                                    variant="ghost"
                                                     size="sm"
                                                     className="w-full h-6 hover:bg-orange-100 dark:hover:bg-orange-900/30 text-orange-700 dark:text-orange-300 font-bold border border-orange-200/50 dark:border-orange-500/20 rounded-lg text-[10px]"
                                                 >
@@ -1033,38 +1037,38 @@ export default function ScheduleView() {
                             <div className="flex items-center gap-1 p-1 bg-zinc-100/50 dark:bg-zinc-900/50 rounded-xl border border-zinc-200/60 dark:border-zinc-800/60 w-full sm:w-auto shadow-inner overflow-hidden">
                                 <div className="px-2.5 py-1 bg-white/50 dark:bg-zinc-800/50 rounded-lg flex items-center gap-2 border border-zinc-200/50 dark:border-zinc-700/50 mr-1">
                                     <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 hidden xs:inline">Trạng thái:</span>
-                                    <Badge 
-                                        variant="outline" 
+                                    <Badge
+                                        variant="outline"
                                         className={cn(
                                             "uppercase text-[9px] font-black px-1.5 py-0 rounded-md tracking-wider border-none ring-1 ring-inset shadow-sm",
-                                            localSchedule?.status === 'published' 
-                                                ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-500/20" 
+                                            localSchedule?.status === 'published'
+                                                ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-500/20"
                                                 : localSchedule?.status === 'proposed'
-                                                ? "bg-indigo-50 text-indigo-700 ring-indigo-600/20 dark:bg-indigo-500/10 dark:text-indigo-400 dark:ring-indigo-500/20"
-                                                : "bg-zinc-100 text-zinc-700 ring-zinc-600/10 dark:bg-zinc-800 dark:text-zinc-400 dark:ring-zinc-700"
+                                                    ? "bg-indigo-50 text-indigo-700 ring-indigo-600/20 dark:bg-indigo-500/10 dark:text-indigo-400 dark:ring-indigo-500/20"
+                                                    : "bg-zinc-100 text-zinc-700 ring-zinc-600/10 dark:bg-zinc-800 dark:text-zinc-400 dark:ring-zinc-700"
                                         )}
                                     >
                                         {localSchedule?.status === 'published' ? 'Đã công bố' : (localSchedule?.status === 'proposed' ? 'Đã đề xuất' : (localSchedule?.status === 'draft' ? 'Bản nháp' : 'Chưa có lịch'))}
                                     </Badge>
                                 </div>
 
-                                <Button 
-                                    variant="ghost" 
-                                    size="icon" 
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
                                     onClick={() => handleDateChange('prev')}
                                     className="h-8 w-8 rounded-lg hover:bg-white dark:hover:bg-zinc-800 hover:shadow-md transition-all active:scale-95"
                                 >
                                     <ChevronLeft className="h-4 w-4" />
                                 </Button>
-                                
+
                                 <div className="flex items-center gap-2 px-1">
                                     <div className="flex flex-col items-center justify-center min-w-[90px] px-2">
                                         <span className="text-primary font-black text-[10px] whitespace-nowrap leading-none tracking-tight">
                                             {format(weekInterval.start, 'dd/MM')} - {format(weekInterval.end, 'dd/MM/yyyy')}
                                         </span>
-                                        <Button 
-                                            variant="link" 
-                                            size="sm" 
+                                        <Button
+                                            variant="link"
+                                            size="sm"
                                             onClick={() => setCurrentDate(new Date())}
                                             className={cn(
                                                 "h-auto p-0 font-black text-[9px] uppercase tracking-[0.1em] hover:no-underline opacity-60 hover:opacity-100 transition-all",
@@ -1076,9 +1080,9 @@ export default function ScheduleView() {
                                     </div>
                                 </div>
 
-                                <Button 
-                                    variant="ghost" 
-                                    size="icon" 
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
                                     onClick={() => handleDateChange('next')}
                                     className="h-8 w-8 rounded-lg hover:bg-white dark:hover:bg-zinc-800 hover:shadow-md transition-all active:scale-95"
                                 >
@@ -1505,11 +1509,11 @@ export default function ScheduleView() {
                 onApplyAssignments={(assignments, strategy) => {
                     setLocalSchedule(prev => {
                         const base = prev ?? { weekId, status: 'draft' as const, shifts: [] };
-                        
+
                         // Clear assignments of all shifts first before applying new ones as requested
                         const updatedShifts = base.shifts.map(s => {
                             const adds = assignments.filter(a => a.shiftId === s.id);
-                            
+
                             // Rebuild assignedUsers list from scratch for this shift (clearing old ones)
                             const newAssignedUsers = adds.map(a => {
                                 const userRole = allUsers.find(u => u.uid === a.userId)?.role;
@@ -1526,7 +1530,7 @@ export default function ScheduleView() {
 
                             return { ...s, assignedUsers: newAssignedUsers };
                         });
-                        
+
                         const newSchedule = { ...base, shifts: updatedShifts };
                         setHasUnsavedChanges(!isEqual(newSchedule.shifts, serverSchedule?.shifts || []));
                         return newSchedule;
