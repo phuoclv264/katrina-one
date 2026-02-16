@@ -1,4 +1,4 @@
-import type { AssignedShift, Availability, ManagedUser, ScheduleRunResult, Assignment, UserRole } from '@/lib/types';
+import type { AssignedShift, Availability, ManagedUser, ScheduleRunResult, Assignment, UserRole, TimeSlot } from '@/lib/types';
 import { normalizeConstraints, NormalizedContext } from './constraints';
 import { isUserAvailable, hasTimeConflict, calculateTotalHours } from '@/lib/schedule-utils';
 
@@ -7,6 +7,16 @@ type Counters = {
   weekHours: Map<string, number>; // userId -> assigned hours
   dailyShifts: Map<string, Map<string, number>>; // date -> (userId -> count)
 };
+
+type FrameId = 'F1' | 'F2' | 'F3';
+
+const FRAME_WINDOWS = [
+  { id: 'F1' as FrameId, start: 6 * 60, end: 12 * 60 },
+  { id: 'F2' as FrameId, start: 12 * 60, end: 17 * 60 },
+  { id: 'F3' as FrameId, start: 17 * 60, end: 22 * 60 + 30 },
+];
+
+const FRAME_ORDER: Record<FrameId, number> = { F1: 1, F2: 2, F3: 3 };
 
 const makePairKey = (a: string, b: string) => a < b ? `${a}|${b}` : `${b}|${a}`;
 
@@ -36,6 +46,30 @@ function secondaryRoleMatches(user: ManagedUser, role: UserRole | 'Bất kỳ'):
   return user.secondaryRoles?.includes(role) ?? false;
 }
 
+function hmToMinutes(hm: string): number {
+  const [h, m] = hm.split(':').map(Number);
+  return h * 60 + (m || 0);
+}
+
+function getFrameId(slot: TimeSlot): FrameId | null {
+  const start = hmToMinutes(slot.start);
+  const end = hmToMinutes(slot.end);
+  if (end <= start) return null;
+  const mid = (start + end) / 2;
+  const frame = FRAME_WINDOWS.find(f => mid >= f.start && mid <= f.end);
+  return frame ? frame.id : null;
+}
+
+function dateKeyWithOffset(dateKey: string, deltaDays: number): string {
+  const date = new Date(`${dateKey}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return dateKey;
+  date.setDate(date.getDate() + deltaDays);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export function allocate(
   shifts: AssignedShift[],
   users: ManagedUser[],
@@ -54,6 +88,53 @@ export function allocate(
   const workingShifts: AssignedShift[] = shifts.map(s => ({ ...s, assignedUsers: [], assignedUsersWithRole: [] }));
 
   const counters = initCounters();
+
+  const shiftFrameMap = new Map<string, FrameId | null>();
+  for (const shift of workingShifts) {
+    shiftFrameMap.set(shift.id, getFrameId(shift.timeSlot));
+  }
+
+  const framesByUserDate = new Map<string, Map<string, Set<FrameId>>>();
+
+  const recordFrameAssignment = (userId: string, dateKey: string, frameId: FrameId | null) => {
+    if (!frameId) return;
+    let byDate = framesByUserDate.get(userId);
+    if (!byDate) {
+      byDate = new Map<string, Set<FrameId>>();
+      framesByUserDate.set(userId, byDate);
+    }
+    let frames = byDate.get(dateKey);
+    if (!frames) {
+      frames = new Set<FrameId>();
+      byDate.set(dateKey, frames);
+    }
+    frames.add(frameId);
+  };
+
+  const wouldBreakFrameRules = (userId: string, dateKey: string, frameId: FrameId | null) => {
+    if (!frameId) return false;
+
+    const framesToday = framesByUserDate.get(userId)?.get(dateKey);
+    if (ctx.enforceFrameContinuity && framesToday && framesToday.size > 0) {
+      const combined = new Set<FrameId>([...framesToday, frameId]);
+      const ordered = [...combined].map(f => FRAME_ORDER[f]).sort((a, b) => a - b);
+      const contiguous = ordered[ordered.length - 1] - ordered[0] === ordered.length - 1;
+      if (!contiguous) return true;
+    }
+
+    if (ctx.enforceNightRestGap) {
+      if (frameId === 'F1') {
+        const prevFrames = framesByUserDate.get(userId)?.get(dateKeyWithOffset(dateKey, -1));
+        if (prevFrames?.has('F3')) return true;
+      }
+      if (frameId === 'F3') {
+        const nextFrames = framesByUserDate.get(userId)?.get(dateKeyWithOffset(dateKey, 1));
+        if (nextFrames?.has('F1')) return true;
+      }
+    }
+
+    return false;
+  };
 
   // Helper to check caps
   const canAssign = (userId: string, dateKey: string, durationHours: number) => {
@@ -77,6 +158,8 @@ export function allocate(
     const dailyMap = counters.dailyShifts.get(shift.date) || new Map<string, number>();
     dailyMap.set(userId, (dailyMap.get(userId) || 0) + 1);
     counters.dailyShifts.set(shift.date, dailyMap);
+
+    recordFrameAssignment(userId, shift.date, shiftFrameMap.get(shift.id) || null);
 
     // Keep workingShifts in sync so conflict checks see newly added assignments
     const userName = eligibleUsers.find(u => u.uid === userId)?.displayName || userId;
@@ -105,12 +188,13 @@ export function allocate(
     const isAvail = isUserAvailable(f.userId, shift.timeSlot, dailyAvailability);
     const conflict = hasTimeConflict(f.userId, shift, workingShifts.filter(s => s.date === shift.date));
     const pairBlocked = (shift.assignedUsersWithRole || []).some(u => isPairBlocked(u.userId, f.userId, shift.id, ctx));
+    const frameViolation = wouldBreakFrameRules(f.userId, shift.date, shiftFrameMap.get(shift.id) || null);
     if (!isAvail) {
       if (ctx.strictAvailability) {
         continue; // Skip assignment
       }
     }
-    if (conflict || pairBlocked) {
+    if (conflict || pairBlocked || frameViolation) {
       continue; // Do not allow overlapping forced assignments
     }
 
@@ -184,8 +268,9 @@ export function allocate(
       const okCaps = canAssign(u.uid, shift.date, duration);
       const conflict = hasTimeConflict(u.uid, shift, allShiftsOnDay);
       const pairBlocked = (shift.assignedUsersWithRole || []).some(existing => isPairBlocked(existing.userId, u.uid, shift.id, ctx));
+      const frameViolation = wouldBreakFrameRules(u.uid, shift.date, shiftFrameMap.get(shift.id) || null);
 
-      if (banned || alreadyAssignedHere || !avail || !okCaps || !!conflict || pairBlocked || isBusyExcluded) {
+      if (banned || alreadyAssignedHere || !avail || !okCaps || !!conflict || pairBlocked || isBusyExcluded || frameViolation) {
         return { user: u, score: Number.NEGATIVE_INFINITY, reason: 'ineligible' as const };
       }
       const weekCount = counters.weekShifts.get(u.uid) || 0;

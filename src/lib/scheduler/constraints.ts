@@ -19,6 +19,8 @@ export type NormalizedContext = {
   strictAvailability: boolean;
   incompatibleGlobal: Set<string>; // `${a}|${b}` sorted
   incompatibleByShift: Map<string, Set<string>>; // shiftId -> `${a}|${b}`
+  enforceFrameContinuity: boolean;
+  enforceNightRestGap: boolean;
 };
 
 const makePairKey = (a: string, b: string) => a < b ? `${a}|${b}` : `${b}|${a}`;
@@ -44,6 +46,8 @@ export function normalizeConstraints(
   const mandatoryDemand = new Set<string>();
   const incompatibleGlobal = new Set<string>();
   const incompatibleByShift = new Map<string, Set<string>>();
+  let enforceFrameContinuity = false;
+  let enforceNightRestGap = false;
 
   // Global workload defaults
   let globalWorkload: WorkloadLimit | null = null;
@@ -59,6 +63,10 @@ export function normalizeConstraints(
       globalDailyLimit = c as DailyShiftLimit;
     } else if (c.type === 'AvailabilityStrictness') {
       availabilityStrictness = c as AvailabilityStrictness;
+    } else if (c.type === 'FrameContinuity') {
+      enforceFrameContinuity = true;
+    } else if (c.type === 'NightRestGap') {
+      enforceNightRestGap = true;
     }
   }
 
@@ -163,5 +171,7 @@ export function normalizeConstraints(
     strictAvailability: availabilityStrictness?.strict ?? false,
     incompatibleGlobal,
     incompatibleByShift,
+    enforceFrameContinuity,
+    enforceNightRestGap,
   };
 }

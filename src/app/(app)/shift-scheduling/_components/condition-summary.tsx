@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
 import { Checkbox } from '@/components/ui/checkbox';
-import { Trash2, Edit2, X, AlertCircle, Info, Calendar, User, Clock, Calculator, LayoutGrid, Check, Trophy, Lock, AlertTriangle, Link2, UserMinus } from 'lucide-react';
+import { Trash2, Edit2, X, AlertCircle, Info, Calendar, User, Clock, Calculator, LayoutGrid, Check, Trophy, Lock, AlertTriangle, Link2, UserMinus, Sunrise, Moon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ScheduleCondition, ShiftTemplate, ManagedUser } from '@/lib/types';
@@ -34,6 +34,8 @@ const typeLabels: Record<string, string> = {
   StaffShiftLink: 'Ràng buộc',
   StaffExclusion: 'Không ghép chung',
   AvailabilityStrictness: 'Thời gian rảnh',
+  FrameContinuity: 'Chuỗi ca liên tục',
+  NightRestGap: 'Nghỉ cuối ngày',
 };
 
 const typeIcons: Record<string, React.ReactNode> = {
@@ -44,6 +46,8 @@ const typeIcons: Record<string, React.ReactNode> = {
   StaffShiftLink: <Link2 className="h-3.5 w-3.5" />,
   StaffExclusion: <UserMinus className="h-3.5 w-3.5" />,
   AvailabilityStrictness: <Calendar className="h-3.5 w-3.5" />,
+  FrameContinuity: <Sunrise className="h-3.5 w-3.5" />,
+  NightRestGap: <Moon className="h-3.5 w-3.5" />,
 };
 
 export default function ConditionSummary({
@@ -270,6 +274,10 @@ function getConditionLabel(
       return `Không ghép: ${baseUser?.displayName || c_.userId}`;
     case 'AvailabilityStrictness':
       return c_.strict ? 'Thời gian rảnh: Bắt buộc' : 'Thời gian rảnh: Mềm';
+    case 'FrameContinuity':
+      return 'Chuỗi ca liên tục trong ngày';
+    case 'NightRestGap':
+      return 'Nghỉ sau ca tối';
     default:
       return 'Điều kiện';
   }
@@ -304,6 +312,10 @@ function getConditionDetails(
       return `Tránh ghép với: ${blocked.join(', ') || '—'}${scopeText}`;
     case 'AvailabilityStrictness':
       return '';
+    case 'FrameContinuity':
+      return 'Nếu làm nhiều ca trong ngày, ca phải liên tiếp theo khung 06:00-12:00, 12:00-17:00, 17:00-22:30.';
+    case 'NightRestGap':
+      return 'Có ca 17:00-22:30 sẽ không xếp ca 06:00-12:00 ngày tiếp theo.';
     default:
       return '';
   }

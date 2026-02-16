@@ -22,7 +22,7 @@ function mapUserIdsToUsers(ids: string[], users: ManagedUser[]) {
     .filter((u): u is ManagedUser => !!u);
 }
 
-type ConditionType = 'WorkloadLimit' | 'DailyShiftLimit' | 'ShiftStaffing' | 'StaffPriority' | 'StaffShiftLink' | 'StaffExclusion' | 'AvailabilityStrictness';
+type ConditionType = 'WorkloadLimit' | 'DailyShiftLimit' | 'ShiftStaffing' | 'StaffPriority' | 'StaffShiftLink' | 'StaffExclusion' | 'AvailabilityStrictness' | 'FrameContinuity' | 'NightRestGap';
 
 type Props = {
   isOpen: boolean;
@@ -245,6 +245,16 @@ export default function AddConditionSheet({
           type: 'AvailabilityStrictness',
           strict: availabilityStrict,
         } as any;
+      case 'FrameContinuity':
+        return {
+          ...base,
+          type: 'FrameContinuity',
+        } as any;
+      case 'NightRestGap':
+        return {
+          ...base,
+          type: 'NightRestGap',
+        } as any;
       default:
         return null;
     }
@@ -265,6 +275,10 @@ export default function AddConditionSheet({
       case 'StaffExclusion':
         return selectedUser.length > 0 && blockedUsers.length > 0;
       case 'AvailabilityStrictness':
+        return true;
+      case 'FrameContinuity':
+        return true;
+      case 'NightRestGap':
         return true;
       default:
         return false;
@@ -297,6 +311,8 @@ export default function AddConditionSheet({
                 { value: "StaffShiftLink", label: "Ràng buộc nhân viên↔ca" },
                 { value: "StaffExclusion", label: "Không ghép chung" },
                 { value: "AvailabilityStrictness", label: "Thời gian rảnh" },
+                { value: "FrameContinuity", label: "Chuỗi ca liên tục" },
+                { value: "NightRestGap", label: "Nghỉ sau ca tối" },
               ]}
               compact
               searchable={false}
@@ -393,6 +409,14 @@ export default function AddConditionSheet({
               availabilityStrict={availabilityStrict}
               setAvailabilityStrict={setAvailabilityStrict}
             />
+          )}
+
+          {type === 'FrameContinuity' && (
+            <FrameContinuityForm />
+          )}
+
+          {type === 'NightRestGap' && (
+            <NightRestForm />
           )}
 
           {/* Action buttons */}
@@ -854,6 +878,32 @@ function AvailabilityForm({ availabilityStrict, setAvailabilityStrict }: {
             <p className="text-[11px] text-muted-foreground">Nếu bật, phân công bắt buộc sẽ bị bỏ qua nếu nhân viên không rảnh, thay vì chỉ cảnh báo.</p>
           </div>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function FrameContinuityForm() {
+  return (
+    <Card className="bg-muted/30">
+      <CardContent className="pt-4 space-y-2 text-sm text-muted-foreground">
+        <p className="font-semibold text-foreground">Chuỗi ca liên tục trong ngày</p>
+        <p className="text-[11px] leading-relaxed">
+          Chia ngày thành 3 khung giờ: 06:00-12:00, 12:00-17:00, 17:00-22:30. Nếu nhân viên làm nhiều ca trong một ngày, các ca của họ phải liền kề các khung này (ví dụ 06:00-12:00 đi cùng 12:00-17:00; không được 06:00-12:00 với 17:00-22:30).
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function NightRestForm() {
+  return (
+    <Card className="bg-muted/30">
+      <CardContent className="pt-4 space-y-2 text-sm text-muted-foreground">
+        <p className="font-semibold text-foreground">Nghỉ sau ca tối</p>
+        <p className="text-[11px] leading-relaxed">
+          Nhân viên đã làm khung 17:00-22:30 sẽ không được xếp ca sáng hôm sau (06:00-12:00) để đảm bảo thời gian nghỉ.
+        </p>
       </CardContent>
     </Card>
   );

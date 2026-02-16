@@ -546,6 +546,16 @@ export type AvailabilityStrictness = BaseConstraint & {
   strict: boolean;
 };
 
+export type FrameContinuity = BaseConstraint & {
+  type: 'FrameContinuity';
+  /** Optional override for time frames; defaults to 06:00-12:00, 12:00-17:00, 17:00-22:30 when omitted. */
+  frames?: TimeSlot[];
+};
+
+export type NightRestGap = BaseConstraint & {
+  type: 'NightRestGap';
+};
+
 export type ScheduleCondition =
   | StaffPriority
   | ShiftStaffing
@@ -553,7 +563,9 @@ export type ScheduleCondition =
   | StaffShiftLink
   | StaffExclusion
   | WorkloadLimit
-  | AvailabilityStrictness;
+  | AvailabilityStrictness
+  | FrameContinuity
+  | NightRestGap;
 
 export type Assignment = {
   shiftId: string;
