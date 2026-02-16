@@ -8,7 +8,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useRouter } from 'nextjs-toploader/app';
 import { dataStore } from '@/lib/data-store';
 import { toast } from '@/components/ui/pro-toast';
-import type { ManagedUser, UserRole, AppSettings } from '@/lib/types';
+import type { ManagedUser, UserRole, AppSettings, EmploymentStatus } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -26,6 +26,7 @@ import { cn, advancedSearch } from '@/lib/utils';
 import { AvatarUpload } from '@/components/avatar-upload';
 import { UserAvatar as SharedUserAvatar } from '@/components/user-avatar';
 import { VIETQR_BANKS } from '@/lib/vietqr-banks';
+import { getEmploymentStatus, isResignedUser } from '@/lib/user-status';
 
 const RoleBadge = ({ role, isSecondary = false }: { role: UserRole, isSecondary?: boolean }) => {
     const colors = {
@@ -61,6 +62,18 @@ const TestBadge = () => (
     </Badge>
 );
 
+const EmploymentBadge = ({ user }: { user: ManagedUser }) => {
+    if (!isResignedUser(user)) {
+        return null;
+    }
+
+    return (
+        <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/20 dark:text-rose-300 dark:border-rose-900/40 font-semibold">
+            Nghỉ việc
+        </Badge>
+    );
+};
+
 
 function EditUserDialog({ user, onSave, onOpenChange, open, isProcessing }: { user: ManagedUser, onSave: (data: Partial<ManagedUser>) => void, onOpenChange: (open: boolean) => void, open: boolean, isProcessing: boolean }) {
     const [displayName, setDisplayName] = useState(user.displayName);
@@ -69,6 +82,7 @@ function EditUserDialog({ user, onSave, onOpenChange, open, isProcessing }: { us
     const [notes, setNotes] = useState(user.notes || '');
     const [photoURL, setPhotoURL] = useState(user.photoURL || null);
     const [isTestAccount, setIsTestAccount] = useState(user.isTestAccount || false);
+    const [employmentStatus, setEmploymentStatus] = useState<EmploymentStatus>(getEmploymentStatus(user) as EmploymentStatus);
     const [bankId, setBankId] = useState(user.bankId || '');
     const [bankAccountNumber, setBankAccountNumber] = useState(user.bankAccountNumber || '');
 
@@ -82,6 +96,7 @@ function EditUserDialog({ user, onSave, onOpenChange, open, isProcessing }: { us
             setNotes(user.notes || '');
             setPhotoURL(user.photoURL || null);
             setIsTestAccount(user.isTestAccount || false);
+            setEmploymentStatus(getEmploymentStatus(user) as EmploymentStatus);
             setBankId(user.bankId || '');
             setBankAccountNumber(user.bankAccountNumber || '');
         }
@@ -98,6 +113,7 @@ function EditUserDialog({ user, onSave, onOpenChange, open, isProcessing }: { us
             secondaryRoles: secondaryRoles.map(r => r.role), 
             photoURL: photoPayload,
             isTestAccount,
+            employmentStatus,
             bankId: bankId || null,
             bankAccountNumber: bankAccountNumber || null
         });
@@ -215,6 +231,21 @@ function EditUserDialog({ user, onSave, onOpenChange, open, isProcessing }: { us
                                     disabled={isProcessing}
                                 />
                             </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="text-sm font-semibold ml-1">Trạng thái nhân sự</Label>
+                            <Combobox
+                                value={employmentStatus}
+                                onChange={(value) => setEmploymentStatus(value as EmploymentStatus)}
+                                placeholder="Chọn trạng thái"
+                                options={[
+                                    { value: 'Đang làm việc', label: 'Đang làm việc' },
+                                    { value: 'Nghỉ việc', label: 'Nghỉ việc' },
+                                ]}
+                                className="w-full h-11"
+                                disabled={isProcessing}
+                            />
                         </div>
                     </div>
 
@@ -362,7 +393,7 @@ export default function UsersPage() {
                     setUsers(userList);
                     userSubscribed = true;
                     checkLoadingDone();
-                });
+                }, { includeResigned: true });
                 const unsubSettings = dataStore.subscribeToAppSettings((settings) => {
                     setAppSettings(settings);
                 });
@@ -424,7 +455,7 @@ export default function UsersPage() {
         if (!filterText) {
             return users;
         }
-        return advancedSearch(users, filterText, ['displayName', 'email', 'role']);
+        return advancedSearch(users, filterText, ['displayName', 'email', 'role', 'employmentStatus']);
     }, [users, filterText]);
 
     if (isLoading || authLoading) {
@@ -501,6 +532,7 @@ export default function UsersPage() {
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2 min-w-0">
                                                         <CardTitle className="text-base">{u.displayName}</CardTitle>
+                                                        <EmploymentBadge user={u} />
                                                         {u.isTestAccount && <TestBadge />}
                                                     </div>
                                                     <CardDescription className="text-xs break-words break-all whitespace-normal max-w-full">{u.email}</CardDescription>
@@ -603,6 +635,7 @@ export default function UsersPage() {
                                                     <div className="flex flex-col">
                                                         <div className="flex items-center gap-2">
                                                             <span className="font-semibold text-sm">{u.displayName}</span>
+                                                            <EmploymentBadge user={u} />
                                                             {u.isTestAccount && <TestBadge />}
                                                         </div>
                                                         <span className="text-[11px] text-muted-foreground">{u.uid.substring(0, 8)}...</span>

@@ -10,11 +10,14 @@ export type Staff = {
 
 export type UserRole = 'Phục vụ' | 'Pha chế' | 'Quản lý' | 'Chủ nhà hàng' | 'Thu ngân';
 
+export type EmploymentStatus = 'Đang làm việc' | 'Nghỉ việc';
+
 export type ManagedUser = {
   uid: string;
   email: string;
   displayName: string;
   role: UserRole;
+  employmentStatus?: EmploymentStatus;
   secondaryRoles?: UserRole[];
   notes?: string;
   hourlyRate?: number; // Added for payroll
@@ -672,6 +675,7 @@ export type Notification = {
 export interface AuthUser extends User {
   displayName: string;
   role: UserRole;
+  employmentStatus?: EmploymentStatus;
   secondaryRoles?: UserRole[];
   anonymousName?: string;
   photoURL: string | null;

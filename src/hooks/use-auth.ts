@@ -17,6 +17,7 @@ export type UserRole = 'Phục vụ' | 'Pha chế' | 'Quản lý' | 'Chủ nhà 
 export interface AuthUser extends User {
   displayName: string;
   role: UserRole;
+  employmentStatus?: 'Đang làm việc' | 'Nghỉ việc';
   secondaryRoles?: UserRole[];
   anonymousName?: string;
   photoURL: string | null;
@@ -96,6 +97,7 @@ export const useAuth = () => {
             ...firebaseUser,
             displayName: userData.displayName,
             role: userRole,
+            employmentStatus: userData.employmentStatus || 'Đang làm việc',
             secondaryRoles: userData.secondaryRoles || [],
             anonymousName: userData.anonymousName,
             photoURL: userData.photoURL || firebaseUser.photoURL || null,
@@ -123,6 +125,7 @@ export const useAuth = () => {
                   ...firebaseUser,
                   displayName: serverData.displayName,
                   role: serverData.role as UserRole,
+                  employmentStatus: serverData.employmentStatus || 'Đang làm việc',
                   secondaryRoles: serverData.secondaryRoles || [],
                   anonymousName: serverData.anonymousName,
                   photoURL: serverData.photoURL || firebaseUser.photoURL || null,
@@ -172,6 +175,7 @@ export const useAuth = () => {
         ...user,
         displayName: data.displayName,
         role: data.role as UserRole,
+        employmentStatus: data.employmentStatus || 'Đang làm việc',
         secondaryRoles: data.secondaryRoles || [],
         anonymousName: data.anonymousName,
         photoURL: data.photoURL || user.photoURL || null,
@@ -268,6 +272,7 @@ export const useAuth = () => {
         email,
         displayName,
         role,
+        employmentStatus: 'Đang làm việc',
         secondaryRoles: [],
       });
 
