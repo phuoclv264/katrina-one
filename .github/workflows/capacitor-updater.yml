@@ -54,10 +54,14 @@ jobs:
           ZIP=dist.zip
           CHECKSUM=$(sha256sum "$ZIP" | awk '{print $1}')
 
-          # derive major.minor from package.json and use commit count as patch
-          BASE=$(node -e "const v=require('./package.json').version.split('.'); console.log(v[0]+'.'+v[1])")
-          PATCH=$(git rev-list --count HEAD)
-          VERSION="v${BASE}.${PATCH}"
+          # derive major/minor from package.json and map commit-count into minor/patch
+          # behavior:
+          #  - addMinor = floor(commits / 100)
+          #  - patch = commits % 100
+          #  - totalMinor = baseMinor + addMinor
+          #  - carry any 100+ minor into major
+          COMMITS=$(git rev-list --count HEAD)
+          VERSION=$(node -e "const commits=${COMMITS}; const pkg=require('./package.json'); const v=pkg.version.split('.').map(Number); const maj=v[0]||0; const min=v[1]||0; const addMinor=Math.floor(commits/100); const newPatch=commits%100; const totalMinor=min+addMinor; const carryMajor=Math.floor(totalMinor/100); const newMinor=totalMinor%100; const newMajor=maj+carryMajor; console.log('v'+newMajor+'.'+newMinor+'.'+newPatch);")
 
           echo "checksum=$CHECKSUM" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
