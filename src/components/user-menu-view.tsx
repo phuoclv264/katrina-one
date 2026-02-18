@@ -42,23 +42,7 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
   const MANIFEST_FETCH_TIMEOUT_MS = Number(process.env.NEXT_PUBLIC_UPDATER_MANIFEST_TIMEOUT_MS ?? 15000);
   const [checkingManifest, setCheckingManifest] = useState(false);
   const [manifestCheckMessage, setManifestCheckMessage] = useState<string | null>(null);
-  const [isAutoUpdateDisabled, setIsAutoUpdateDisabled] = useState(false);
   const [pendingUpdateVersion, setPendingUpdateVersion] = useState<string | null>(null);
-
-  const refreshAutoUpdateStatus = useCallback(async () => {
-    // use plugin API to reflect whether auto-update is enabled in plugin config
-    if (!Capacitor.isNativePlatform()) {
-      setIsAutoUpdateDisabled(false);
-      return;
-    }
-
-    try {
-      const res = await CapacitorUpdater.isAutoUpdateEnabled();
-      setIsAutoUpdateDisabled(!res.enabled);
-    } catch {
-      setIsAutoUpdateDisabled(false);
-    }
-  }, []);
 
   const refreshPendingUpdateVersion = useCallback(async () => {
     if (!Capacitor.isNativePlatform()) {
@@ -115,7 +99,6 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
     } finally {
       setCheckingManifest(false);
       // call plugin-backed refreshers
-      void refreshAutoUpdateStatus();
       void refreshPendingUpdateVersion();
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('cap-updater-check'));
@@ -141,30 +124,13 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
       } else {
         setInstalledVersion(packageJson.version ?? null);
       }
-
-      if (!manifestUrl) return;
-
-      try {
-        const manifest = await fetchManifestInfo();
-        if (!mounted) return;
-        if (manifest) {
-          handleManifestResult(manifest, `Manifest truy cập được — v${manifest.version}`);
-        } else {
-          handleManifestResult(null, 'Manifest không hợp lệ hoặc không đầy đủ dữ liệu.');
-        }
-      } catch (err: unknown) {
-        if (!mounted) return;
-        const message = err instanceof Error ? err.message : 'Không thể kiểm tra manifest.';
-        handleManifestResult(null, `Không thể kiểm tra manifest (${message}).`);
-      }
     }
 
     readVersions();
-    void refreshAutoUpdateStatus();
     void refreshPendingUpdateVersion();
 
     return () => { mounted = false; };
-  }, [fetchManifestInfo, refreshAutoUpdateStatus, refreshPendingUpdateVersion, handleManifestResult, manifestUrl]);
+  }, [fetchManifestInfo, refreshPendingUpdateVersion, handleManifestResult, manifestUrl]);
 
   if (!user) return null;
 
@@ -356,18 +322,11 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
 
           {/* Version / updater info */}
           <div className="mt-3 text-xs text-muted-foreground space-y-1">
-            <div>Phiên bản app: <span className="font-medium">v{packageJson.version}</span></div>
             <div>Phiên bản hiện tại: <span className="font-medium">{installedVersion ?? '—'}</span></div>
             <div>Bản cập nhật mới nhất: <span className="font-medium">{latestVersion ?? '—'}</span></div>
             <div>Kiểm tra lần cuối: <span className="font-medium">{lastChecked ?? '—'}</span></div>
 
             <div className="pt-2 border-t border-dashed border-muted/40">
-              <div className="flex items-center justify-between text-[11px] text-foreground">
-                <span className="font-semibold">Tự động cập nhật</span>
-                <span className={isAutoUpdateDisabled ? 'text-amber-500' : 'text-emerald-500'}>
-                  {isAutoUpdateDisabled ? 'Tạm dừng' : 'Đang hoạt động'}
-                </span>
-              </div>
               <div className="flex flex-wrap gap-2 mt-2">
                 <Button
                   size="sm"

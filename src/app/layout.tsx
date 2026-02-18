@@ -3,6 +3,7 @@ import './globals.css';
 import { ProToastProvider } from '@/components/ui/pro-toast';
 import { DialogProvider } from '@/contexts/dialog-context';
 import { CapacitorUpdaterListener } from '@/components/capacitor-updater-listener';
+import { CapacitorUpdater } from '@capgo/capacitor-updater'
 
 export const metadata: Metadata = {
   title: 'Katrina One',
@@ -20,6 +21,17 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const notifyReady = async () => {
+    try {
+      console.log('CapacitorUpdater: notifyAppReady() — notifying native plugin that app is ready');
+      await CapacitorUpdater.notifyAppReady();
+      console.log('CapacitorUpdater: notifyAppReady() succeeded');
+    } catch (err) {
+      console.warn('CapacitorUpdater notifyAppReady failed', err);
+      console.log('CapacitorUpdater: notifyAppReady() error', err);
+    }
+  };
+  notifyReady().catch(() => { });
   return (
     <html lang="vi" suppressHydrationWarning>
       <head>

@@ -27,17 +27,6 @@ export function CapacitorUpdaterListener() {
             return;
         }
 
-        const notifyReady = async () => {
-            try {
-                console.log('CapacitorUpdater: notifyAppReady() — notifying native plugin that app is ready');
-                await CapacitorUpdater.notifyAppReady();
-                console.log('CapacitorUpdater: notifyAppReady() succeeded');
-            } catch (err) {
-                console.warn('CapacitorUpdater notifyAppReady failed', err);
-                console.log('CapacitorUpdater: notifyAppReady() error', err);
-            }
-        };
-
         const fetchManifest = async (): Promise<ManifestPayload | null> => {
             const controller = new AbortController();
             const timeoutId = window.setTimeout(() => controller.abort(), MANIFEST_TIMEOUT_MS);
@@ -99,9 +88,7 @@ export function CapacitorUpdaterListener() {
                 console.log('CapacitorUpdater: starting download for version', manifest.version, manifest.url);
                 const version = await CapacitorUpdater.download({
                     url: manifest.url,
-                    version: manifest.version,
-                    checksum: manifest.checksum,
-                    sessionKey: manifest.sessionKey,
+                    version: manifest.version
                 });
                 console.log('CapacitorUpdater: download() returned', version);
 
@@ -117,7 +104,13 @@ export function CapacitorUpdaterListener() {
                 console.info('CapacitorUpdater: download complete — staging update for background apply', version);
             } catch (err: unknown) {
                 const errorMessage = err instanceof Error ? err.message : String(err);
-                console.log('CapacitorUpdater: checkForUpdates error:', errorMessage);
+                // include manifest URL + target version (if set) and full error object to aid native/plugin debugging
+                console.log('CapacitorUpdater: checkForUpdates error:', errorMessage, { manifestUrl, targetVersion: promptedVersionRef.current, err });
+
+                // give an explicit hint when the native/plugin download fails
+                if (errorMessage.toLowerCase().includes('failed to download') || errorMessage.toLowerCase().includes('download failed')) {
+                    console.warn('CapacitorUpdater: download failed — verify manifest.url is reachable, server TLS/config, checksum, and plugin responseTimeout.');
+                }
 
                 if (errorMessage.toLowerCase().includes('manifest request failed') || errorMessage.toLowerCase().includes('abort')) {
                     if (!hasLoggedManifestErrorRef.current) {
@@ -166,7 +159,6 @@ export function CapacitorUpdaterListener() {
             checkForUpdates().catch(() => { });
         };
 
-        notifyReady().catch(() => { });
         console.log('CapacitorUpdater: running initial update check');
         checkForUpdates();
 
