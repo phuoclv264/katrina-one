@@ -24,6 +24,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -51,7 +53,12 @@ jobs:
         run: |
           ZIP=dist.zip
           CHECKSUM=$(sha256sum "$ZIP" | awk '{print $1}')
-          VERSION="${{ github.run_number }}-${GITHUB_SHA::8}"
+
+          # derive major.minor from package.json and use commit count as patch
+          BASE=$(node -e "const v=require('./package.json').version.split('.'); console.log(v[0]+'.'+v[1])")
+          PATCH=$(git rev-list --count HEAD)
+          VERSION="v${BASE}.${PATCH}"
+
           echo "checksum=$CHECKSUM" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "zipfile=$(basename $ZIP)" >> $GITHUB_OUTPUT
@@ -94,7 +101,8 @@ jobs:
         run: |
           BUCKET=${{ steps.detect-bucket.outputs.bucket }}
           ZIPFILE=${{ steps.build-info.outputs.zipfile }}
-          gsutil cp dist.zip gs://$BUCKET/$UPDATES_DIR/$ZIPFILE
+          # Upload versioned zip with long-lived immutable cache (safe because filename is unique per run)
+          gsutil -h "Cache-Control: public, max-age=31536000, immutable" cp dist.zip gs://$BUCKET/$UPDATES_DIR/$ZIPFILE
           # best-effort: make the object readable publicly
           gsutil acl ch -u AllUsers:R gs://$BUCKET/$UPDATES_DIR/$ZIPFILE || true
 
@@ -117,7 +125,8 @@ jobs:
 
           echo "manifest content:" && cat $MANIFEST_FILE
 
-          gsutil cp $MANIFEST_FILE gs://$BUCKET/$UPDATES_DIR/manifest.json
+          # Upload manifest with no-cache so CDN/edges always revalidate the object
+          gsutil -h "Cache-Control: no-cache, max-age=0, must-revalidate" cp $MANIFEST_FILE gs://$BUCKET/$UPDATES_DIR/manifest.json
           gsutil acl ch -u AllUsers:R gs://$BUCKET/$UPDATES_DIR/manifest.json || true
 
           echo "manifest-url=https://storage.googleapis.com/$BUCKET/$UPDATES_DIR/manifest.json" >> $GITHUB_OUTPUT
