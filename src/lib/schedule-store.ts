@@ -32,6 +32,7 @@ import { getISOWeek, getISOWeekYear, startOfWeek, endOfWeek, addDays, format, ea
 import { hasTimeConflict } from './schedule-utils';
 import { DateRange } from 'react-day-picker';
 import { uploadMedia, deleteFileByUrl } from './data-store-helpers';
+import { isActiveUser } from './user-status';
 
 // --- Schedule Functions ---
 
@@ -1519,7 +1520,9 @@ function createMonthlyTaskSubscription(
     let unsubUsers: (() => void) | null = null;
     if (!callerProvidesUsers) {
         unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-            allUsers = snapshot.docs.map(d => ({ ...d.data(), uid: d.id } as ManagedUser));
+            allUsers = snapshot.docs
+                .map(d => ({ ...d.data(), uid: d.id } as ManagedUser))
+                .filter(isActiveUser);
             processAndCallback();
         });
     }

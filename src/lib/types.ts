@@ -10,11 +10,15 @@ export type Staff = {
 
 export type UserRole = 'Phục vụ' | 'Pha chế' | 'Quản lý' | 'Chủ nhà hàng' | 'Thu ngân';
 
+export type EmploymentStatus = 'Đang làm việc' | 'Nghỉ việc';
+
 export type ManagedUser = {
   uid: string;
   email: string;
   displayName: string;
   role: UserRole;
+  gender?: 'Nam' | 'Nữ' | 'Khác';
+  employmentStatus?: EmploymentStatus;
   secondaryRoles?: UserRole[];
   notes?: string;
   hourlyRate?: number; // Added for payroll
@@ -378,7 +382,8 @@ export type ShiftTemplate = {
   timeSlot: TimeSlot;
   applicableDays: number[]; // 0 for Sun, 1 for Mon, ..., 6 for Sat
   minUsers: number;
-  requiredRoles?: { role: UserRole; count: number }[]; // e.g., [{role: 'Pha chế', count: 2}, ...]
+  // requiredRoles may include an optional gender constraint; omitted gender means any.
+  requiredRoles?: { role: UserRole; count: number; gender?: 'Nam' | 'Nữ' | 'Khác' }[]; // e.g., [{role: 'Pha chế', count: 2, gender: 'Nam'}, ...]
 };
 
 export type AssignedUser = {
@@ -410,7 +415,7 @@ export type AssignedShift = {
   assignedUsersWithRole?: AssignedUserWithRole[]; // Optional array of user-role pairs
   applicants?: ShiftApplicant[]; // Users who applied for this shift
   minUsers: number;
-  requiredRoles?: { role: UserRole; count: number }[];
+  requiredRoles?: { role: UserRole; count: number; gender?: 'Nam' | 'Nữ' | 'Khác' }[];
   employees?: EmployeeAttendance[]; // Augmented with attendance info on admin page
   /** Flag to indicate if absences in this shift have been processed for penalty/bonus */
   isPenaltyProcessed?: boolean;
@@ -541,6 +546,16 @@ export type AvailabilityStrictness = BaseConstraint & {
   strict: boolean;
 };
 
+export type FrameContinuity = BaseConstraint & {
+  type: 'FrameContinuity';
+  /** Optional override for time frames; defaults to 06:00-12:00, 12:00-17:00, 17:00-22:30 when omitted. */
+  frames?: TimeSlot[];
+};
+
+export type NightRestGap = BaseConstraint & {
+  type: 'NightRestGap';
+};
+
 export type ScheduleCondition =
   | StaffPriority
   | ShiftStaffing
@@ -548,7 +563,9 @@ export type ScheduleCondition =
   | StaffShiftLink
   | StaffExclusion
   | WorkloadLimit
-  | AvailabilityStrictness;
+  | AvailabilityStrictness
+  | FrameContinuity
+  | NightRestGap;
 
 export type Assignment = {
   shiftId: string;
@@ -672,6 +689,7 @@ export type Notification = {
 export interface AuthUser extends User {
   displayName: string;
   role: UserRole;
+  employmentStatus?: EmploymentStatus;
   secondaryRoles?: UserRole[];
   anonymousName?: string;
   photoURL: string | null;

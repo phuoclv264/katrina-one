@@ -16,11 +16,9 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
 import type { TimeSlot, ShiftTemplate } from '@/lib/types';
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from '@/lib/utils';
 import isEqual from 'lodash.isequal';
-import { Badge } from '@/components/ui/badge';
-import { X, Loader2, CalendarCheck2, Clock, CheckCircle2, Lock, Info, MessageSquare } from 'lucide-react';
+import { Loader2, Clock, CheckCircle2, Lock, Info, MessageSquare } from 'lucide-react';
 import { vi } from 'date-fns/locale';
 
 type AvailabilityDialogProps = {
@@ -112,15 +110,6 @@ export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDa
     });
   };
 
-  const handleRemoveSlot = (slotToRemove: TimeSlot) => {
-    const isOriginal = originalSlotsRef.current.some(s => isEqual(s, slotToRemove));
-    if ((lockExistingSlots || false) && isOriginal) {
-      // When locked (schedule published), do not allow removing original slots
-      return;
-    }
-    setSelectedSlots(prevSelected => prevSelected.filter(s => !isEqual(s, slotToRemove)));
-  };
-
   const handleSave = async () => {
     if (selectedDate) {
       setIsSaving(true);
@@ -175,9 +164,12 @@ export default function AvailabilityDialog({ isOpen, onClose, onSave, selectedDa
               {quickSelectSlots.special.map((slot, index) => {
                 // Determine if this specific quick-select slot is covered by an original entry
                 const isCoveredByOriginal = originalSlotsRef.current.some(o => o.start <= slot.start && o.end >= slot.end);
+                // "selected" must reflect the current UI state (what's in selectedSlots) —
+                // don't treat the original snapshot as a source of truth for UI selection because
+                // originalSlotsRef is intentionally preserved for lock checks only.
                 const isCurrentlySelected = selectedSlots.some(s => s.start <= slot.start && s.end >= slot.end);
-                const isSelected = isCurrentlySelected || isCoveredByOriginal;
-                const isLocked = lockExistingSlots && isCoveredByOriginal;
+                const isSelected = isCurrentlySelected; // show real-time selection from state
+                const isLocked = Boolean(lockExistingSlots && isCoveredByOriginal);
 
                 return (
                   <Button

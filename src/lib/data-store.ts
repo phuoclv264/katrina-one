@@ -45,6 +45,7 @@ import * as idbKeyvalStore from './idb-keyval-store';
 import * as cashierStore from './cashier-store';
 import * as dailyTaskStore from './daily-task-store';
 import { deleteFileByUrl, uploadFile } from './data-store-helpers';
+import { isActiveUser } from './user-status';
 import { error } from 'console';
 import { InventoryItemRow } from '@/app/(app)/bartender/inventory/_components/inventory-item-row';
 
@@ -938,16 +939,26 @@ export const dataStore = {
     await updateDoc(docRef, newSettings);
   },
 
-  subscribeToUsers(callback: (users: ManagedUser[]) => void): () => void {
+  subscribeToUsers(
+    callback: (users: ManagedUser[]) => void,
+    options?: { includeResigned?: boolean }
+  ): () => void {
+    const includeResigned = options?.includeResigned ?? false;
     const usersCollection = collection(db, 'users');
     const q = query(usersCollection, orderBy('displayName'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const users: ManagedUser[] = [];
       querySnapshot.forEach((doc) => {
-        users.push({
+        const managedUser = {
           ...doc.data(),
           uid: doc.id,
-        } as ManagedUser);
+        } as ManagedUser;
+
+        if (!includeResigned && !isActiveUser(managedUser)) {
+          return;
+        }
+
+        users.push(managedUser);
       });
       callback(users);
     }, (error) => {

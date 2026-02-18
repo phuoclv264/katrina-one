@@ -32,7 +32,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Undo2, Redo2, Plus, AlertTriangle, User, Clock, Calculator, LayoutGrid, Check, X } from 'lucide-react';
+import { Undo2, Redo2, Plus, AlertTriangle, User, Clock, Calculator, LayoutGrid, Check, X, Sunrise, Moon } from 'lucide-react';
 import ConditionSummary from './condition-summary';
 import AddConditionSheet from './add-condition-sheet';
 import { Combobox } from '@/components/combobox';
@@ -64,6 +64,7 @@ const TABS: TabConfig[] = [
   { value: 'staffing', label: 'Nhu cầu ca', types: ['ShiftStaffing'] },
   { value: 'priority', label: 'Ưu tiên', types: ['StaffPriority'] },
   { value: 'links', label: 'Ràng buộc', types: ['StaffShiftLink', 'StaffExclusion'] },
+  { value: 'continuity', label: 'Chuỗi ca', types: ['FrameContinuity', 'NightRestGap'] },
   { value: 'availability', label: 'Thời gian rảnh', types: ['AvailabilityStrictness'] },
   { value: 'all', label: 'Tất cả điều kiện' },
   { value: 'preview', label: 'Xem trước' },
@@ -527,6 +528,18 @@ export default function AutoScheduleDialog({
                       />
                     </TabsContent>
 
+                    <TabsContent value="continuity" className="m-0 focus-visible:outline-none">
+                      <ContinuityTab
+                        constraints={editableConstraints}
+                        shiftTemplates={shiftTemplates}
+                        allUsers={allUsers}
+                        onToggleEnabled={handleToggleCondition}
+                        onDelete={handleDeleteCondition}
+                        onEdit={handleStartEditCondition}
+                        canSave={canSaveStructuredConstraints}
+                      />
+                    </TabsContent>
+
                     <TabsContent value="availability" className="m-0 focus-visible:outline-none">
                       <AvailabilityTab
                         constraints={editableConstraints}
@@ -833,6 +846,62 @@ function LinksTab({
           shiftTemplates={shiftTemplates}
           allUsers={allUsers}
           filterTab={["StaffShiftLink", "StaffExclusion"]}
+          onToggleEnabled={onToggleEnabled}
+          onDelete={onDelete}
+          onEdit={canSave ? onEdit : undefined}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ContinuityTab({
+  constraints,
+  shiftTemplates,
+  allUsers,
+  onToggleEnabled,
+  onDelete,
+  onEdit,
+  canSave,
+}: {
+  constraints: ScheduleCondition[];
+  shiftTemplates: ShiftTemplate[];
+  allUsers: ManagedUser[];
+  onToggleEnabled: (id: string) => void;
+  onDelete: (id: string) => void;
+  onEdit?: (c: ScheduleCondition) => void;
+  canSave?: boolean;
+}) {
+  return (
+    <div className="space-y-6">
+      <div className="bg-primary/[0.03] p-6 rounded-[2rem] border border-primary/5">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="p-2 rounded-xl bg-background border border-primary/10">
+            <Sunrise className="h-4 w-4 text-primary" />
+          </div>
+          <h4 className="font-bold text-sm">Chuỗi ca & Nghỉ ngơi</h4>
+        </div>
+        <p className="text-xs text-muted-foreground font-medium leading-relaxed">
+          Bật/tắt hai quy tắc: (1) nếu làm nhiều ca trong ngày, ca phải liền kề các khung 06:00-12:00, 12:00-17:00, 17:00-22:30; (2) làm ca tối (17:00-22:30) thì không nhận ca sáng hôm sau (06:00-12:00).
+        </p>
+        <div className="flex flex-wrap gap-2 mt-3">
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-xl bg-background border border-primary/10 text-[11px] font-black text-primary">
+            <Sunrise className="h-3.5 w-3.5" />
+            Chuỗi ca liên tục
+          </span>
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-xl bg-background border border-primary/10 text-[11px] font-black text-primary">
+            <Moon className="h-3.5 w-3.5" />
+            Nghỉ sau ca tối
+          </span>
+        </div>
+      </div>
+
+      <div className="bg-background border border-primary/10 rounded-2xl overflow-hidden shadow-sm">
+        <ConditionSummary
+          constraints={constraints}
+          shiftTemplates={shiftTemplates}
+          allUsers={allUsers}
+          filterTab={["FrameContinuity", "NightRestGap"]}
           onToggleEnabled={onToggleEnabled}
           onDelete={onDelete}
           onEdit={canSave ? onEdit : undefined}
