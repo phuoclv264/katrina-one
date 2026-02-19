@@ -3,6 +3,7 @@ import './globals.css';
 import { ProToastProvider } from '@/components/ui/pro-toast';
 import { DialogProvider } from '@/contexts/dialog-context';
 import { OTAUpdaterBootstrap } from '@/components/ota-updater-bootstrap';
+import PullToRefresh from '@/components/pull-to-refresh';
 
 export const metadata: Metadata = {
   title: 'Katrina One',
@@ -30,6 +31,7 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         <OTAUpdaterBootstrap />
+        <PullToRefresh />
         <DialogProvider>
           {children}
           <ProToastProvider />

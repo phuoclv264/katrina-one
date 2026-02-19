@@ -1,5 +1,6 @@
 import { App } from '@capacitor/app';
 import { Capacitor, CapacitorHttp, WebView } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 import type { PluginListenerHandle } from '@capacitor/core';
 import packageJson from '../../package.json';
 import { BundleManager, parseManifestPayload, type ManifestPayload } from '@/lib/bundleManager';
@@ -13,12 +14,12 @@ type OTAUpdaterOptions = {
 };
 
 // const isDev = process.env.NODE_ENV !== 'production';
-const isDev = process.env.NODE_ENV !== 'production';
+const isDev = true;
 const otaToastsEnabled = true;
 
 const otaLog = (...args: unknown[]) => {
   if (!isDev) return;
-  try { console.log('[OTA]', ...args); } catch { /* ignore */ }
+  try { console.log('[OTA]', JSON.stringify(args)); } catch { /* ignore */ }
 };
 
 const toComparableParts = (value: string): number[] =>
@@ -66,6 +67,13 @@ export class OTAUpdater {
     this.started = true;
 
     await this.bootstrapActiveVersion();
+
+    // NOTE: do NOT apply `activePath` automatically at startup. Persisting
+    // sentinel values such as `public` to the WebView base path can make the
+    // app fail to load (connection refused). The WebView base path is only
+    // changed when applying a downloaded bundle via `applyStagedUpdate()` —
+    // that flow validates the bundle directory first.
+
     await this.registerLifecycleListeners();
     await this.applyStagedUpdate('launch');
     await this.checkForUpdate();
@@ -205,6 +213,45 @@ export class OTAUpdater {
     }
   }
 
+  /**
+   * Resolve a VersionStore bundle path (usually relative like `ota/bundles/x.y.z`)
+   * to the platform path/URI format expected by Capacitor WebView.
+   * - leaves absolute or file:// paths untouched
+   * - tries Filesystem.getUri for Directory.Data paths and normalizes to match current WebView format
+   */
+  private async normalizePathForWebView(path: string | null): Promise<string | null> {
+    if (!path) return null;
+
+    // If already absolute or a file URI, return as-is
+    if (path.startsWith('/') || path.startsWith('file://')) return path;
+
+    try {
+      const uriResult: any = await Filesystem.getUri({ path, directory: Directory.Data });
+      let resolved: string | null = uriResult?.uri ?? uriResult?.path ?? null;
+      if (!resolved) return path;
+
+      // Detect current WebView base path format and normalize accordingly
+      try {
+        const current = await WebView.getServerBasePath();
+        const currentPath = current?.path ?? '';
+        if (currentPath && currentPath.startsWith('/')) {
+          // WebView returns plain filesystem path -> strip file:// if present
+          resolved = resolved.replace(/^file:\/\//, '');
+        } else if (currentPath && currentPath.startsWith('file://')) {
+          // WebView expects file:// style
+          if (!resolved.startsWith('file://')) resolved = `file://${resolved}`;
+        }
+      } catch {
+        // ignore and return resolved as-is
+      }
+
+      return resolved;
+    } catch (err) {
+      otaLog('normalizePathForWebView failed, falling back to original path', path, err);
+      return path;
+    }
+  }
+
   async applyStagedUpdate(trigger: 'pause' | 'background' | 'launch'): Promise<void> {
     if (this.applying || !Capacitor.isNativePlatform()) return;
     if (trigger !== 'launch' && this.appIsActive) {
@@ -242,12 +289,41 @@ export class OTAUpdater {
 
       await this.versionStore.markApplyAttempt(state.stagedVersion);
 
-      await WebView.setServerBasePath({ path: state.stagedPath });
-      await WebView.persistServerBasePath();
-      await this.versionStore.setActive(state.stagedVersion, state.stagedPath);
-      await this.versionStore.clearFailed(state.stagedVersion);
+      // Resolve stagedPath to the format WebView expects (absolute / file://)
+      const resolvedPath = (await this.normalizePathForWebView(state.stagedPath)) ?? state.stagedPath;
 
-      otaLog('Applied OTA update', { version: state.stagedVersion, trigger });
+      // Defensive: never attempt to set WebView to sentinel values (e.g. 'public').
+      if (resolvedPath === 'public' || resolvedPath === 'builtin') {
+        otaLog('Staged path is sentinel, marking active without changing WebView', resolvedPath);
+        await this.versionStore.setActive(state.stagedVersion, state.stagedPath);
+        await this.versionStore.clearFailed(state.stagedVersion);
+        otaLog('Applied OTA update (sentinel)', { version: state.stagedVersion, trigger });
+      } else {
+        // Try setting the WebView base path and verify it took effect
+        await WebView.setServerBasePath({ path: resolvedPath });
+        await WebView.persistServerBasePath();
+
+        const after = await WebView.getServerBasePath();
+        const appliedPath = after?.path ?? null;
+
+        otaLog('Set server base path ->', { requested: state.stagedPath, resolved: resolvedPath, applied: appliedPath });
+
+        if (!appliedPath) {
+          // Try an alternate form (toggle file:// prefix) as a best-effort fallback
+          const alt = resolvedPath?.startsWith('file://') ? resolvedPath.replace(/^file:\/\//, '') : `file://${resolvedPath}`;
+          otaLog('Retrying setServerBasePath with alternate format', alt);
+          await WebView.setServerBasePath({ path: alt });
+          await WebView.persistServerBasePath();
+          const after2 = await WebView.getServerBasePath();
+          otaLog('Retry result', after2?.path ?? null);
+          if (!after2?.path) throw new Error('WebView failed to apply server base path');
+        }
+
+        await this.versionStore.setActive(state.stagedVersion, state.stagedPath);
+        await this.versionStore.clearFailed(state.stagedVersion);
+
+        otaLog('Applied OTA update', { version: state.stagedVersion, trigger });
+      }
 
       if (otaToastsEnabled && applyToastId) {
         toast.success(`Applied v${state.stagedVersion}`, { id: applyToastId, message: 'Restarting now...' });
