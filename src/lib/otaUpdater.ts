@@ -4,6 +4,7 @@ import type { PluginListenerHandle } from '@capacitor/core';
 import packageJson from '../../package.json';
 import { BundleManager, parseManifestPayload, type ManifestPayload } from '@/lib/bundleManager';
 import { VersionStore } from '@/lib/versionStore';
+import { toast } from '@/components/ui/pro-toast';
 
 type OTAUpdaterOptions = {
   manifestUrl?: string;
@@ -12,11 +13,12 @@ type OTAUpdaterOptions = {
 };
 
 // const isDev = process.env.NODE_ENV !== 'production';
-const isDev = true;
+const isDev = process.env.NODE_ENV !== 'production';
+const otaToastsEnabled = true;
 
 const otaLog = (...args: unknown[]) => {
   if (!isDev) return;
-  console.log('[OTA]', JSON.stringify(args.length === 1 ? args[0] : args));
+  try { console.log('[OTA]', ...args); } catch { /* ignore */ }
 };
 
 const toComparableParts = (value: string): number[] =>
@@ -155,15 +157,38 @@ export class OTAUpdater {
         return;
       }
 
+      let toastId: string | null = null;
+      if (otaToastsEnabled) {
+        toastId = toast.loading(`Downloading v${manifest.version}...`);
+      }
+
       const prepared = await this.bundleManager.downloadAndPrepareBundle(manifest, {
         retries: this.downloadRetries,
-        onProgress: (percent) => otaLog('Download progress', `${percent}%`),
+        onProgress: (percent) => {
+          otaLog('Download progress', `${percent}%`);
+          if (otaToastsEnabled && toastId) {
+            toast.show({ id: toastId, title: `Downloading v${manifest.version}`, message: `${percent}%` });
+          }
+        },
       });
 
       await this.versionStore.stage(prepared.version, prepared.path);
       otaLog('Staged OTA update', prepared.version);
+
+      if (otaToastsEnabled && toastId) {
+        // Offer a direct "apply now" action in the toast — tap to apply immediately
+        toast.success(`Downloaded v${prepared.version}`, {
+          id: toastId,
+          message: 'Tap to apply now or it will apply automatically on next restart.',
+          onPress: () => void this.applyStagedUpdate('launch'),
+        });
+      }
     } catch (error) {
       otaLog('OTA check/download failed', error);
+      if (otaToastsEnabled) {
+        const msg = error instanceof Error ? error.message : String(error ?? 'unknown error');
+        toast.error('OTA download failed', { message: `${msg} — will retry later.` });
+      }
     } finally {
       this.checking = false;
     }
@@ -191,12 +216,19 @@ export class OTAUpdater {
     if (!state.stagedVersion || !state.stagedPath) return;
 
     this.applying = true;
+    let applyToastId: string | null = null;
+    if (otaToastsEnabled) {
+      applyToastId = toast.loading(`Applying v${state.stagedVersion}...`);
+    }
 
     try {
       const isValid = await this.bundleManager.validateBundleStructure(state.stagedPath);
       if (!isValid) {
         await this.versionStore.markFailed(state.stagedVersion);
         otaLog('Staged bundle invalid, blacklisted', state.stagedVersion);
+        if (otaToastsEnabled && applyToastId) {
+          toast.error('OTA apply aborted', { id: applyToastId, message: 'Staged bundle failed validation and was blacklisted.' });
+        }
         return;
       }
 
@@ -216,9 +248,21 @@ export class OTAUpdater {
       await this.versionStore.clearFailed(state.stagedVersion);
 
       otaLog('Applied OTA update', { version: state.stagedVersion, trigger });
+
+      if (otaToastsEnabled && applyToastId) {
+        toast.success(`Applied v${state.stagedVersion}`, { id: applyToastId, message: 'Restarting now...' });
+      }
+
+      // Reload to activate new bundle
       window.location.reload();
     } catch (error) {
       otaLog('Apply OTA failed', error);
+      if (otaToastsEnabled && applyToastId) {
+        toast.error('OTA apply failed', { id: applyToastId, message: 'Rollback completed — keeping current version.' });
+      } else if (otaToastsEnabled) {
+        toast.error('OTA apply failed', { message: 'Rollback completed — keeping current version.' });
+      }
+
       await this.versionStore.markFailed(state.stagedVersion);
       await this.versionStore.clearStaged();
       await this.rollbackToPrevious(state.activePath);

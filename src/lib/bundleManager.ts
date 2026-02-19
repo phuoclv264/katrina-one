@@ -1,4 +1,4 @@
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { Directory, Filesystem } from '@capacitor/filesystem';
 import JSZip from 'jszip';
 
@@ -26,6 +26,17 @@ const toArrayBuffer = (data: string): ArrayBuffer => {
   return bytes.buffer;
 };
 
+const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000; // 32KB chunks
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode.apply(null, Array.from(chunk));
+  }
+  return btoa(binary);
+};
+
 const normalizeChecksum = (input: string): string => {
   const trimmed = input.trim();
   return trimmed.includes('-') ? trimmed.split('-').slice(1).join('-') : trimmed;
@@ -35,6 +46,19 @@ const encodeHex = (buffer: ArrayBuffer): string =>
   Array.from(new Uint8Array(buffer))
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('');
+
+// Serialize errors and plugin/native results for logging (preserves message + stack)
+const _serializeError = (v: unknown): unknown => {
+  if (v instanceof Error) return { name: v.name, message: v.message, stack: v.stack };
+  if (v && typeof v === 'object') {
+    const anyV = v as Record<string, unknown>;
+    if (typeof anyV.message === 'string' || typeof anyV.name === 'string' || typeof anyV.stack === 'string') {
+      return { name: anyV.name, message: anyV.message, stack: anyV.stack };
+    }
+    try { return JSON.parse(JSON.stringify(v)); } catch { return String(v); }
+  }
+  return v;
+};
 
 const sanitizeZipEntryPath = (entryPath: string): string | null => {
   const normalized = entryPath.replace(/\\/g, '/').replace(/^\/+/, '');
@@ -133,6 +157,68 @@ export class BundleManager {
     }
   }
 
+  private async downloadUrlToFile(manifest: ManifestPayload, zipPath: string, options: DownloadOptions = {}): Promise<void> {
+    // Primary: streaming fetch (reports progress when content-length is available)
+    try {
+      const resp = await fetch(manifest.url, { method: 'GET' });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+      const contentLengthHeader = resp.headers.get('content-length');
+      const total = contentLengthHeader ? parseInt(contentLengthHeader, 10) : NaN;
+      let arrayBuffer: ArrayBuffer;
+
+      if (resp.body && options.onProgress && !Number.isNaN(total)) {
+        const reader = resp.body.getReader();
+        const chunks: Uint8Array[] = [];
+        let received = 0;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) {
+            chunks.push(value);
+            received += value.length;
+            options.onProgress(Math.floor((received / total) * 100));
+          }
+        }
+        const buffer = new Uint8Array(received);
+        let offset = 0;
+        for (const c of chunks) { buffer.set(c, offset); offset += c.length; }
+        arrayBuffer = buffer.buffer;
+      } else {
+        arrayBuffer = await resp.arrayBuffer();
+        if (options.onProgress) options.onProgress(100);
+      }
+
+      const base64 = arrayBufferToBase64(arrayBuffer);
+      await Filesystem.writeFile({ path: zipPath, directory: Directory.Data, data: base64, recursive: true });
+      return;
+    } catch (fetchErr) {
+      // Fallback to CapacitorHttp for environments where fetch doesn't work as expected
+      try {
+        const httpResp = await CapacitorHttp.get({
+          url: manifest.url,
+          responseType: 'arraybuffer' as any,
+          connectTimeout: 30000,
+          readTimeout: 30000,
+        });
+        const data = httpResp.data;
+        let arrayBuffer: ArrayBuffer;
+        if (data instanceof ArrayBuffer) arrayBuffer = data;
+        else if (typeof data === 'string') arrayBuffer = toArrayBuffer(data);
+        else if (data && (data as any).buffer instanceof ArrayBuffer) arrayBuffer = (data as any).buffer;
+        else throw fetchErr;
+
+        const base64 = arrayBufferToBase64(arrayBuffer);
+        await Filesystem.writeFile({ path: zipPath, directory: Directory.Data, data: base64, recursive: true });
+        if (options.onProgress) options.onProgress(100);
+        return;
+      } catch (err) {
+        // surface original fetch error if fallback also fails
+        throw err ?? fetchErr;
+      }
+    }
+  }
+
   async validateBundleStructure(bundlePath: string): Promise<boolean> {
     try {
       await Filesystem.stat({ path: `${bundlePath}/index.html`, directory: Directory.Data });
@@ -163,40 +249,33 @@ export class BundleManager {
     let lastError: unknown;
 
     for (let attempt = 1; attempt <= retries; attempt += 1) {
-      let progressHandle: { remove: () => Promise<void> } | null = null;
       try {
-        progressHandle = await Filesystem.addListener('progress', (event) => {
-          if (!options.onProgress || !event.contentLength) return;
-          const percent = Math.floor((event.bytes / event.contentLength) * 100);
-          options.onProgress(Math.max(0, Math.min(100, percent)));
-        });
-
-        await Filesystem.downloadFile({
-          url: manifest.url,
-          path: zipPath,
-          directory: Directory.Data,
-          recursive: true,
-        });
+        // download + save ZIP to filesystem (extracted to a dedicated function)
+        await this.downloadUrlToFile(manifest, zipPath, options);
 
         await this.verifyChecksumIfNeeded(zipPath, manifest.checksum);
         await this.unzipToBundleDirectory(zipPath, bundlePath);
 
         const valid = await this.validateBundleStructure(bundlePath);
-        if (!valid) {
-          throw new Error('OTA bundle validation failed (missing index.html/_next/assets)');
-        }
+        if (!valid) throw new Error('OTA bundle validation failed (missing index.html/_next/assets)');
 
         await Filesystem.deleteFile({ path: zipPath, directory: Directory.Data }).catch(() => undefined);
-        await progressHandle?.remove().catch(() => undefined);
         return { version: manifest.version, path: bundlePath };
       } catch (error) {
         lastError = error;
-        await progressHandle?.remove().catch(() => undefined);
+        try { console.debug('[OTA][bundle] download attempt failed', { version: manifest.version, attempt, error: _serializeError(error) }); } catch { /* ignore */ }
       }
     }
 
     await Filesystem.deleteFile({ path: zipPath, directory: Directory.Data }).catch(() => undefined);
-    throw lastError instanceof Error ? lastError : new Error('OTA bundle download failed');
+
+    // Normalize/rethrow so callers receive a readable Error (helps remote loggers that stringify objects)
+    if (lastError instanceof Error) {
+      throw new Error(`downloadAndPrepareBundle failed for ${manifest.version}: ${lastError.message}`);
+    }
+
+    throw new Error(`downloadAndPrepareBundle failed for ${manifest.version}: ${String(lastError ?? 'unknown error')}`);
+
   }
 }
 
