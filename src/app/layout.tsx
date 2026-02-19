@@ -2,8 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { ProToastProvider } from '@/components/ui/pro-toast';
 import { DialogProvider } from '@/contexts/dialog-context';
-import { CapacitorUpdaterListener } from '@/components/capacitor-updater-listener';
-import { CapacitorUpdater } from '@capgo/capacitor-updater'
+import { OTAUpdaterBootstrap } from '@/components/ota-updater-bootstrap';
 
 export const metadata: Metadata = {
   title: 'Katrina One',
@@ -21,17 +20,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const notifyReady = async () => {
-    try {
-      console.log('CapacitorUpdater: notifyAppReady() — notifying native plugin that app is ready');
-      await CapacitorUpdater.notifyAppReady();
-      console.log('CapacitorUpdater: notifyAppReady() succeeded');
-    } catch (err) {
-      console.warn('CapacitorUpdater notifyAppReady failed', err);
-      console.log('CapacitorUpdater: notifyAppReady() error', err);
-    }
-  };
-  notifyReady().catch(() => { });
   return (
     <html lang="vi" suppressHydrationWarning>
       <head>
@@ -41,8 +29,8 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="https://firebasestorage.googleapis.com/v0/b/katrinaone.firebasestorage.app/o/logo_coffee.png?alt=media&token=c4832ac1-b277-425e-9d35-8108cd2c3fe6" />
       </head>
       <body className="font-body antialiased">
+        <OTAUpdaterBootstrap />
         <DialogProvider>
-          <CapacitorUpdaterListener />
           {children}
           <ProToastProvider />
         </DialogProvider>
