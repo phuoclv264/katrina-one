@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
-import { CheckCircle2, Box, DollarSign, History, Calendar, Calculator, Megaphone, ListChecks, UserPlus } from 'lucide-react';
+import { CheckCircle2, Box, DollarSign, History, Calendar, Calculator, Megaphone, ListChecks, UserPlus, Archive } from 'lucide-react';
 
 interface QuickAccessToolsSectionProps {
   onNavigate?: (path: string) => void;
@@ -81,6 +81,16 @@ export function QuickAccessToolsSection({ onNavigate }: QuickAccessToolsSectionP
       iconColor: 'text-blue-600 dark:text-blue-400',
       borderColor: 'border-blue-500',
       hoverColor: 'hover:border-blue-500 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10',
+    },
+    {
+      icon: Archive,
+      label: 'OTA Diagnostics',
+      color: 'violet',
+      path: '/admin/ota-diagnostics',
+      bgColor: 'bg-violet-100 dark:bg-violet-900/30',
+      iconColor: 'text-violet-600 dark:text-violet-400',
+      borderColor: 'border-violet-500',
+      hoverColor: 'hover:border-violet-500 dark:hover:border-violet-500 hover:bg-violet-50 dark:hover:bg-violet-900/10',
     },
   ];
 

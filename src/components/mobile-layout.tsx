@@ -94,6 +94,10 @@ const BartenderTasksPage = dynamic(() => import('@/app/(app)/bartender-tasks/pag
 const ComprehensiveChecklistPage = dynamic(() => import('@/app/(app)/comprehensive-checklist/page'), { ssr: false, loading: () => <LoadingPage /> });
 const InventoryManagementPage = dynamic(() => import('@/app/(app)/inventory-management/page'), { ssr: false, loading: () => <LoadingPage /> });
 const ProductManagementPage = dynamic(() => import('@/app/(app)/product-management/page'), { ssr: false, loading: () => <LoadingPage /> });
+const AdminOtaDiagnosticsPage = dynamic(
+  () => import('@/app/(app)/admin/ota-diagnostics/page'),
+  { ssr: false, loading: () => <LoadingPage /> },
+);
 const InventoryHistoryPage = dynamic(() => import('@/app/(app)/inventory-history/page'), { ssr: false, loading: () => <LoadingPage /> });
 const ViolationsPage = dynamic(() => import('@/app/(app)/violations/page'), { ssr: false, loading: () => <LoadingPage /> });
 const ReportsFeedPage = dynamic(() => import('@/app/(app)/reports-feed/page'), { ssr: false, loading: () => <LoadingPage /> });
@@ -486,6 +490,8 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
         return <InventoryManagementPage />;
       case '/product-management':
         return <ProductManagementPage />;
+      case '/admin/ota-diagnostics':
+        return <AdminOtaDiagnosticsPage />;
       case '/inventory-history':
         return <InventoryHistoryPage />;
       case '/violations':

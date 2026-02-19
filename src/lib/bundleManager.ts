@@ -109,7 +109,7 @@ export class BundleManager {
 
     if (expected.length === 64) {
       if (actualHex !== expected) {
-        throw new Error('OTA checksum validation failed');
+        throw new Error('OTA checksum validation failed, actual: ' + actualHex + ', expected: ' + expected);
       }
       return;
     }
@@ -263,7 +263,7 @@ export class BundleManager {
         return { version: manifest.version, path: bundlePath };
       } catch (error) {
         lastError = error;
-        try { console.debug('[OTA][bundle] download attempt failed', { version: manifest.version, attempt, error: _serializeError(error) }); } catch { /* ignore */ }
+        try { console.debug('[OTA][bundle] download attempt failed', JSON.stringify({ version: manifest.version, attempt, error: _serializeError(error) })); } catch { /* ignore */ }
       }
     }
 
