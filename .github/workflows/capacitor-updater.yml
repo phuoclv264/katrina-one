@@ -48,23 +48,6 @@ jobs:
           zip -r ../dist.zip .
           cd ..
 
-      - name: Compute checksum & version
-        id: build-info
-        run: |
-          # derive version from package.json + commit count (unchanged logic)
-          COMMITS=$(git rev-list --count HEAD)
-          VERSION=$(node -e "const commits=${COMMITS}; const pkg=require('./package.json'); const v=pkg.version.split('.').map(Number); const maj=v[0]||0; const min=v[1]||0; const addMinor=Math.floor(commits/100); const newPatch=commits%100; const totalMinor=min+addMinor; const carryMajor=Math.floor(totalMinor/100); const newMinor=totalMinor%100; const newMajor=maj+carryMajor; console.log('v'+newMajor+'.'+newMinor+'.'+newPatch);")
-
-          # rename the single-output ZIP to a versioned filename so CDN/storage caching is safe
-          ZIP="${VERSION}.zip"
-          mv dist.zip "${ZIP}"
-
-          # compute checksum for the versioned ZIP and export outputs
-          CHECKSUM=$(sha256sum "${ZIP}" | awk '{print $1}')
-          echo "checksum=$CHECKSUM" >> $GITHUB_OUTPUT
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "zipfile=$(basename "${ZIP}")" >> $GITHUB_OUTPUT
-
       - name: Detect Firebase storage bucket
         id: detect-bucket
         env:
@@ -86,6 +69,63 @@ jobs:
           # keep the storage bucket value exactly as provided (supports *.firebasestorage.app)
           # do NOT convert to .appspot.com — use the value from src/lib/firebase.ts or FIREBASE_STORAGE_BUCKET
           echo "bucket=$BUCKET" >> $GITHUB_OUTPUT
+
+      - name: Compute checksum & version
+        id: build-info
+        run: |
+          # Use previous manifest version (if available) and bump patch by +1.
+          # Fallback to the existing commit-count-derived version when manifest is missing or invalid.
+          UPDATES_DIR=${UPDATES_DIR:-updates}
+          MANIFEST_URL="https://storage.googleapis.com/${{ steps.detect-bucket.outputs.bucket }}/${UPDATES_DIR}/manifest.json"
+
+          echo "Trying to read previous manifest at: ${MANIFEST_URL}"
+          PREV_VERSION=""
+          if curl -fsS "${MANIFEST_URL}" -o prev-manifest.json; then
+            PREV_VERSION=$(node -e "let s=''; try{ const fs=require('fs'); const m=JSON.parse(fs.readFileSync('prev-manifest.json','utf8')); s=m.version||'' }catch(e){} console.log(s)") || true
+            echo "previous manifest version: ${PREV_VERSION}"
+          else
+            echo "no previous manifest found at ${MANIFEST_URL} — will fall back to commit-count scheme"
+          fi
+
+          if [ -n "${PREV_VERSION}" ]; then
+            # bump patch with rollover at 100 per part (patch -> minor -> major)
+            VERSION=$(node -e "const prev='${PREV_VERSION}'; const parts=prev.replace(/^v/,'').split('.').map(n=>parseInt(n||0,10)); parts[2]=(parts[2]||0)+1; if(parts[2]>=100){parts[2]=0; parts[1]=(parts[1]||0)+1;} if(parts[1]>=100){parts[1]=0; parts[0]=(parts[0]||0)+1;} console.log('v'+parts.join('.'))")
+          else
+            # fallback: derive version from package.json + commit count (existing logic)
+            COMMITS=$(git rev-list --count HEAD)
+            VERSION=$(node -e "const commits=${COMMITS}; const pkg=require('./package.json'); const v=pkg.version.split('.').map(Number); const maj=v[0]||0; const min=v[1]||0; const addMinor=Math.floor(commits/100); const newPatch=commits%100; const totalMinor=min+addMinor; const carryMajor=Math.floor(totalMinor/100); const newMinor=totalMinor%100; const newMajor=maj+carryMajor; console.log('v'+newMajor+'.'+newMinor+'.'+newPatch);")
+          fi
+
+          echo "Using initial version ${VERSION}"
+
+          # ensure the chosen version doesn't already exist in storage — bump patch until unique
+          TRY=0
+          while true; do
+            ZIP_URL="https://storage.googleapis.com/${{ steps.detect-bucket.outputs.bucket }}/${UPDATES_DIR}/${VERSION}.zip"
+            if curl -fsI "${ZIP_URL}" >/dev/null 2>&1; then
+              echo "Detected existing ZIP for ${VERSION} at ${ZIP_URL}, bumping patch..."
+              VERSION=$(node -e "const prev='${VERSION}'; const parts=prev.replace(/^v/,'').split('.').map(n=>parseInt(n||0,10)); parts[2]=(parts[2]||0)+1; if(parts[2]>=100){parts[2]=0; parts[1]=(parts[1]||0)+1;} if(parts[1]>=100){parts[1]=0; parts[0]=(parts[0]||0)+1;} console.log('v'+parts.join('.'))")
+              TRY=$((TRY+1))
+              if [ $TRY -gt 50 ]; then
+                echo "Too many version collisions when choosing a version" >&2
+                exit 1
+              fi
+              continue
+            fi
+            break
+          done
+
+          echo "Final version selected: ${VERSION}"
+
+          # rename the single-output ZIP to a versioned filename so CDN/storage caching is safe
+          ZIP="${VERSION}.zip"
+          mv dist.zip "${ZIP}"
+
+          # compute checksum for the versioned ZIP and export outputs
+          CHECKSUM=$(sha256sum "${ZIP}" | awk '{print $1}')
+          echo "checksum=$CHECKSUM" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "zipfile=$(basename "${ZIP}")" >> $GITHUB_OUTPUT
 
       - name: Authenticate to Google Cloud (auth)
         uses: google-github-actions/auth@v1
