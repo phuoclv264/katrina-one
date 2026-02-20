@@ -213,6 +213,47 @@ export class OTAUpdater {
     }
   }
 
+  private async pathHasIndexHtml(path: string | null): Promise<boolean> {
+    if (!path) return false;
+
+    const normalized = path.replace(/\/+$/, '');
+    const statCandidates = [
+      `${normalized}/index.html`,
+      normalized.startsWith('file://') ? `${normalized.replace(/^file:\/\//, '')}/index.html` : null,
+    ].filter((candidate): candidate is string => Boolean(candidate));
+
+    for (const candidate of statCandidates) {
+      try {
+        if (candidate.startsWith('/') || candidate.startsWith('file://')) {
+          await Filesystem.stat({ path: candidate } as any);
+        } else {
+          await Filesystem.stat({ path: candidate, directory: Directory.Data });
+        }
+        return true;
+      } catch {
+        // try next candidate
+      }
+    }
+
+    return false;
+  }
+
+  private async pickValidWebViewBasePath(path: string): Promise<string> {
+    const base = path.replace(/\/+$/, '');
+    const withoutScheme = base.replace(/^file:\/\//, '');
+    const withScheme = withoutScheme.startsWith('file://') ? withoutScheme : `file://${withoutScheme}`;
+
+    const candidates = Array.from(new Set([base, withoutScheme, withScheme]));
+
+    for (const candidate of candidates) {
+      if (await this.pathHasIndexHtml(candidate)) {
+        return candidate;
+      }
+    }
+
+    return base;
+  }
+
   /**
    * Resolve a VersionStore bundle path (usually relative like `ota/bundles/x.y.z`)
    * to the platform path/URI format expected by Capacitor WebView.
@@ -222,8 +263,10 @@ export class OTAUpdater {
   private async normalizePathForWebView(path: string | null): Promise<string | null> {
     if (!path) return null;
 
-    // If already absolute or a file URI, return as-is
-    if (path.startsWith('/') || path.startsWith('file://')) return path;
+    // If already absolute or a file URI, pick a variant that actually contains index.html
+    if (path.startsWith('/') || path.startsWith('file://')) {
+      return this.pickValidWebViewBasePath(path);
+    }
 
     try {
       const uriResult: any = await Filesystem.getUri({ path, directory: Directory.Data });
@@ -245,10 +288,10 @@ export class OTAUpdater {
         // ignore and return resolved as-is
       }
 
-      return resolved;
+      return this.pickValidWebViewBasePath(resolved);
     } catch (err) {
       otaLog('normalizePathForWebView failed, falling back to original path', path, err);
-      return path;
+      return this.pickValidWebViewBasePath(path);
     }
   }
 
@@ -308,7 +351,11 @@ export class OTAUpdater {
 
         otaLog('Set server base path ->', { requested: state.stagedPath, resolved: resolvedPath, applied: appliedPath });
 
-        if (!appliedPath) {
+        const appliedHasIndex = await this.pathHasIndexHtml(appliedPath ?? resolvedPath);
+
+        otaLog('Applied path has index.html?', appliedHasIndex);
+
+        if (!appliedPath || !appliedHasIndex) {
           // Try an alternate form (toggle file:// prefix) as a best-effort fallback
           const alt = resolvedPath?.startsWith('file://') ? resolvedPath.replace(/^file:\/\//, '') : `file://${resolvedPath}`;
           otaLog('Retrying setServerBasePath with alternate format', alt);
@@ -316,7 +363,10 @@ export class OTAUpdater {
           await WebView.persistServerBasePath();
           const after2 = await WebView.getServerBasePath();
           otaLog('Retry result', after2?.path ?? null);
-          if (!after2?.path) throw new Error('WebView failed to apply server base path');
+          const retryHasIndex = await this.pathHasIndexHtml(after2?.path ?? alt);
+          if (!after2?.path || !retryHasIndex) {
+            throw new Error('WebView failed to apply a bundle path with index.html');
+          }
         }
 
         await this.versionStore.setActive(state.stagedVersion, state.stagedPath);

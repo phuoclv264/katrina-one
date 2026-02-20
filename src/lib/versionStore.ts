@@ -111,6 +111,12 @@ export class VersionStore {
     return { ...this.state };
   }
 
+  async addDownloaded(version: string): Promise<void> {
+    return this.enqueueWrite((state) => {
+      state.downloadedVersions = uniq([...state.downloadedVersions, version]);
+    });
+  }
+
   async setActive(version: string, path: string): Promise<void> {
     return this.enqueueWrite((state) => {
       state.activeVersion = version;
@@ -181,5 +187,20 @@ export class VersionStore {
   async hasDownloaded(version: string): Promise<boolean> {
     const state = await this.getSnapshot();
     return state.downloadedVersions.includes(version);
+  }
+
+  async removeDownloaded(version: string): Promise<void> {
+    return this.enqueueWrite((state) => {
+      state.downloadedVersions = state.downloadedVersions.filter((v) => v !== version);
+      if (state.stagedVersion === version) {
+        state.stagedVersion = null;
+        state.stagedPath = null;
+        state.pendingApply = false;
+      }
+      if (state.activeVersion === version) {
+        state.activeVersion = null;
+        state.activePath = null;
+      }
+    });
   }
 }

@@ -223,10 +223,11 @@ export class BundleManager {
     try {
       await Filesystem.stat({ path: `${bundlePath}/index.html`, directory: Directory.Data });
       const nextDir = await Filesystem.readdir({ path: `${bundlePath}/_next`, directory: Directory.Data });
-      // const assetsDir = await Filesystem.readdir({ path: `${bundlePath}/assets`, directory: Directory.Data });
-      // return nextDir.files.length > 0 && assetsDir.files.length > 0;
+      console.debug('[OTA][bundle] Detected _next folder with', nextDir.files.length, 'items');
+
       return nextDir.files.length > 0;
-    } catch {
+    } catch (err) {
+      console.error('[OTA][bundle] Validation error', err);
       return false;
     }
   }
@@ -276,6 +277,44 @@ export class BundleManager {
 
     throw new Error(`downloadAndPrepareBundle failed for ${manifest.version}: ${String(lastError ?? 'unknown error')}`);
 
+  }
+
+  async deleteBundle(version: string): Promise<void> {
+    const bundlePath = await this.getBundlePath(version);
+    await removeDirIfExists(bundlePath);
+  }
+
+  async copyBundleToPublic(bundlePath: string): Promise<string> {
+    const publicPath = 'public';
+    console.log('[OTA][bundle] Copying bundle to public folder:', { from: bundlePath, to: publicPath });
+    
+    // Clear the destination first to ensure a clean copy
+    await removeDirIfExists(publicPath).catch(() => {});
+    
+    // Check if this is a virtual builtin bundle (marker only, no files to copy)
+    let isVirtualBuiltin = bundlePath === 'builtin';
+    if (!isVirtualBuiltin) {
+      try {
+        const verifyData = await Filesystem.readFile({ path: `${bundlePath}/ota-bundle.json`, directory: Directory.Data });
+        const payload = JSON.parse(atob(verifyData.data as string));
+        if (payload.isBuiltin) isVirtualBuiltin = true;
+      } catch { /* ignore */ }
+    }
+
+    if (isVirtualBuiltin) {
+      console.log('[OTA][bundle] Virtual builtin detected, returning sentinel for assets reset');
+      return 'builtin';
+    }
+
+    // Copy the contents of bundlePath to public
+    await Filesystem.copy({
+      from: bundlePath,
+      to: publicPath,
+      directory: Directory.Data,
+      toDirectory: Directory.Data
+    });
+    
+    return publicPath;
   }
 }
 
