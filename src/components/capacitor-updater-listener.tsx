@@ -10,6 +10,21 @@ const manifestUrl = process.env.NEXT_PUBLIC_UPDATER_MANIFEST_URL;
 const CHECK_INTERVAL_MS = Number(process.env.NEXT_PUBLIC_UPDATER_CHECK_INTERVAL_MS ?? 6 * 60 * 60 * 1000);
 const MANIFEST_TIMEOUT_MS = Number(process.env.NEXT_PUBLIC_UPDATER_MANIFEST_TIMEOUT_MS ?? 15000);
 
+// When the JavaScript bundle is loaded (which may occur while the app is
+// backgrounded), we need to notify the native updater plugin as soon as
+// possible.  Relying purely on a React effect means the notification can be
+// delayed until hydration, or skipped entirely if the webview is suspended
+// before React runs.  A top‑level call guarantees the plugin sees the
+// notification immediately.
+if (typeof window !== 'undefined' &&
+    Capacitor.isNativePlatform() &&
+    CapacitorUpdater?.notifyAppReady) {
+    console.log('CapacitorUpdater: early module init notifyAppReady');
+    CapacitorUpdater.notifyAppReady().catch(err => {
+        console.warn('CapacitorUpdater early notifyAppReady failed', err);
+    });
+}
+
 export function CapacitorUpdaterListener() {
     const isUpdatingRef = useRef(false);
     const hasLoggedManifestErrorRef = useRef(false);
@@ -17,10 +32,19 @@ export function CapacitorUpdaterListener() {
     const pendingVersionRef = useRef<BundleInfo | null>(null);
 
     useEffect(() => {
+            // make sure we're running inside the native web‑view; if not there is
+        // nothing for the plugin to do.  this also prevents logs from flooding
+        // the desktop browser during development.
         if (!Capacitor.isNativePlatform()) {
             console.log('CapacitorUpdater: not running on native platform — listener disabled');
             return;
         }
+
+        // provide some early diagnostics for debugging. developers will often
+        // look at Android/iOS logcat and not realise that the console messages
+        // live in the webview context, so we print the plugin object as well.
+        console.log('CapacitorUpdater: plugin object', CapacitorUpdater);
+
         if (!manifestUrl) {
             console.log('CapacitorUpdater: manifest URL is not set — aborting updater listener');
             console.warn('CapacitorUpdater: manifest URL is not set');
@@ -141,7 +165,7 @@ export function CapacitorUpdaterListener() {
             }
 
             try {
-                console.info('CapacitorUpdater: applying staged update', pending);
+                console.info('CapacitorUpdater: applying staged update', JSON.stringify(pending));
                 console.log('CapacitorUpdater: calling CapacitorUpdater.set(...)');
                 await CapacitorUpdater.set(pending);
                 pendingVersionRef.current = null;
@@ -159,6 +183,23 @@ export function CapacitorUpdaterListener() {
             checkForUpdates().catch(() => { });
         };
 
+        // the native side requires an explicit "ready" notification before
+        // it will talk to the webview plugin.  previously this was being called
+        // from the layout component on the server, which never executed on the
+        // device.  move the call inside the client effect so it actually runs
+        // and you start seeing logs.
+        const notifyReady = async () => {
+            try {
+                console.log('CapacitorUpdater: notifyAppReady() — notifying native plugin that app is ready');
+                await CapacitorUpdater.notifyAppReady();
+                console.log('CapacitorUpdater: notifyAppReady() succeeded');
+            } catch (err) {
+                console.warn('CapacitorUpdater notifyAppReady failed', err);
+                console.log('CapacitorUpdater: notifyAppReady() error', err);
+            }
+        };
+        notifyReady().catch(() => {});
+
         console.log('CapacitorUpdater: running initial update check');
         checkForUpdates();
 
@@ -169,9 +210,10 @@ export function CapacitorUpdaterListener() {
         // apply staged update when the app is backgrounded or paused
         const visibilityHandler = () => {
             console.log('CapacitorUpdater: visibilitychange', document.visibilityState);
+            // do not apply while hidden; we prefer to wait until resume so that
+            // the JS environment is guaranteed to run and call notifyAppReady.
             if (document.visibilityState === 'hidden') {
-                console.log('CapacitorUpdater: document hidden — attempting to apply staged update');
-                applyPendingVersion().catch(() => { });
+                console.log('CapacitorUpdater: document hidden — deferring apply until resume');
             }
         };
         window.addEventListener('visibilitychange', visibilityHandler);
@@ -182,6 +224,11 @@ export function CapacitorUpdaterListener() {
 
         App.addListener('resume', () => {
             console.log('CapacitorUpdater: App resume event received');
+            // on resume make sure the plugin knows we're ready again; this
+            // covers the case where a bundle was applied while we were
+            // backgrounded and the early module call may have been skipped.
+            notifyReady().catch(() => {});
+
             // refresh checks on resume and attempt to apply any staged update
             checkForUpdates().catch(() => { });
             applyPendingVersion().catch(() => { });
