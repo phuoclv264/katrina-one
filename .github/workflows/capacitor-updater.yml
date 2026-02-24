@@ -51,21 +51,19 @@ jobs:
       - name: Compute checksum & version
         id: build-info
         run: |
-          ZIP=dist.zip
-          CHECKSUM=$(sha256sum "$ZIP" | awk '{print $1}')
-
-          # derive major/minor from package.json and map commit-count into minor/patch
-          # behavior:
-          #  - addMinor = floor(commits / 100)
-          #  - patch = commits % 100
-          #  - totalMinor = baseMinor + addMinor
-          #  - carry any 100+ minor into major
+          # derive version from package.json + commit count (unchanged logic)
           COMMITS=$(git rev-list --count HEAD)
           VERSION=$(node -e "const commits=${COMMITS}; const pkg=require('./package.json'); const v=pkg.version.split('.').map(Number); const maj=v[0]||0; const min=v[1]||0; const addMinor=Math.floor(commits/100); const newPatch=commits%100; const totalMinor=min+addMinor; const carryMajor=Math.floor(totalMinor/100); const newMinor=totalMinor%100; const newMajor=maj+carryMajor; console.log('v'+newMajor+'.'+newMinor+'.'+newPatch);")
 
+          # rename the single-output ZIP to a versioned filename so CDN/storage caching is safe
+          ZIP="${VERSION}.zip"
+          mv dist.zip "${ZIP}"
+
+          # compute checksum for the versioned ZIP and export outputs
+          CHECKSUM=$(sha256sum "${ZIP}" | awk '{print $1}')
           echo "checksum=$CHECKSUM" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "zipfile=$(basename $ZIP)" >> $GITHUB_OUTPUT
+          echo "zipfile=$(basename "${ZIP}")" >> $GITHUB_OUTPUT
 
       - name: Detect Firebase storage bucket
         id: detect-bucket
@@ -101,14 +99,45 @@ jobs:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           export_default_credentials: true
 
-      - name: Upload dist.zip to Firebase Storage
+      - name: Upload update ZIP to Firebase Storage
         run: |
           BUCKET=${{ steps.detect-bucket.outputs.bucket }}
           ZIPFILE=${{ steps.build-info.outputs.zipfile }}
-          # Upload versioned zip with long-lived immutable cache (safe because filename is unique per run)
-          gsutil -h "Cache-Control: public, max-age=31536000, immutable" cp dist.zip gs://$BUCKET/$UPDATES_DIR/$ZIPFILE
+          # Upload versioned zip with long-lived immutable cache (filename is versioned by previous step)
+          gsutil -h "Cache-Control: public, max-age=31536000, immutable" cp "$ZIPFILE" gs://$BUCKET/$UPDATES_DIR/$ZIPFILE
           # best-effort: make the object readable publicly
           gsutil acl ch -u AllUsers:R gs://$BUCKET/$UPDATES_DIR/$ZIPFILE || true
+
+      - name: Cleanup old update ZIPs
+        env:
+          # number of most-recent ZIP files to keep in the bucket
+          KEEP_ZIPS: 5
+        run: |
+          BUCKET=${{ steps.detect-bucket.outputs.bucket }}
+          ZIPFILE=${{ steps.build-info.outputs.zipfile }}
+          PREFIX="gs://$BUCKET/$UPDATES_DIR"
+          CURRENT="$PREFIX/$ZIPFILE"
+          KEEP=${KEEP_ZIPS:-5}
+
+          echo "Keeping latest $KEEP zip files in $PREFIX (excluding current: $ZIPFILE)"
+
+          # list ZIPs sorted by timestamp descending (newest first)
+          ALL_FILES=$(gsutil ls -l "${PREFIX}/*.zip" 2>/dev/null | grep -v TOTAL | sort -k2 -r | awk '{print $3}') || true
+
+          # determine files to delete (everything after the first $KEEP entries)
+          TO_DELETE=$(echo "$ALL_FILES" | sed -n "$((KEEP+1)),\$p" || true)
+
+          # guard: never delete the ZIP uploaded in this run
+          TO_DELETE=$(echo "$TO_DELETE" | grep -vF "$CURRENT" || true)
+
+          if [ -n "$TO_DELETE" ]; then
+            echo "Deleting the following old ZIPs:"
+            echo "$TO_DELETE"
+            # delete in parallel
+            echo "$TO_DELETE" | xargs -r gsutil -m rm -I || true
+          else
+            echo "No old ZIPs to delete"
+          fi
 
       - name: Write & upload manifest.json (to storage)
         id: upload-manifest
@@ -144,7 +173,7 @@ jobs:
           prerelease: true
           make_latest: true
           files: |
-            dist.zip
+            ${{ steps.build-info.outputs.zipfile }}
             manifest.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

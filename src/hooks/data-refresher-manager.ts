@@ -62,7 +62,7 @@ function getEffectiveReturnAfterMs() {
   return min === Number.POSITIVE_INFINITY ? DEFAULTS.refreshOnReturnAfterMs : min;
 }
 
-async function tryRefresh(reason: string) {
+async function tryRefresh(reason: string): Promise<boolean> {
   const now = Date.now();
   const min = getEffectiveMinInterval();
   const sinceLast = now - lastRefreshAt;
@@ -71,12 +71,12 @@ async function tryRefresh(reason: string) {
 
   if (inFlight) {
     console.log(`[dataRefresher] Skipping refresh (in-flight). reason=${reason} wasOnline=${wasOnline}`);
-    return;
+    return false;
   }
 
   if (sinceLast < min) {
     console.log(`[dataRefresher] Skipping refresh (throttled). reason=${reason} sinceLast=${sinceLast}ms minIntervalMs=${min} wasOnline=${wasOnline}`);
-    return;
+    return false;
   }
 
   lastRefreshAt = now;
@@ -86,6 +86,7 @@ async function tryRefresh(reason: string) {
   try {
     const callbacks = Array.from(subscribers.values()).map(s => s.callback);
     await Promise.allSettled(callbacks.map(cb => Promise.resolve().then(() => cb())));
+    return true;
   } finally {
     inFlight = false;
     console.log(`[dataRefresher] Refresh complete (${reason}) — lastRefreshAt=${lastRefreshAt} inFlight=${inFlight}`);
@@ -206,6 +207,6 @@ export function getSubscriberCount() {
   return subscribers.size;
 }
 
-export function triggerManualRefresh(reason = 'manual') {
-  void tryRefresh(reason);
+export function triggerManualRefresh(reason = 'manual'): Promise<boolean> {
+  return tryRefresh(reason);
 }

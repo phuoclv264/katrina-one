@@ -4,6 +4,7 @@ import { ProToastProvider } from '@/components/ui/pro-toast';
 import { DialogProvider } from '@/contexts/dialog-context';
 import { CapacitorUpdaterListener } from '@/components/capacitor-updater-listener';
 import { CapacitorUpdater } from '@capgo/capacitor-updater'
+import PullToRefresh from '@/components/pull-to-refresh';
 
 export const metadata: Metadata = {
   title: 'Katrina One',
@@ -41,6 +42,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="https://firebasestorage.googleapis.com/v0/b/katrinaone.firebasestorage.app/o/logo_coffee.png?alt=media&token=c4832ac1-b277-425e-9d35-8108cd2c3fe6" />
       </head>
       <body className="font-body antialiased">
+        <PullToRefresh />
         <DialogProvider>
           <CapacitorUpdaterListener />
           {children}
