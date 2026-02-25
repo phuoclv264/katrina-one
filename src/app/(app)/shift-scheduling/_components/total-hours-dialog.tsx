@@ -18,12 +18,14 @@ import { Separator } from '@/components/ui/separator'
 import { UserAvatar } from '@/components/user-avatar';
 import type { Schedule, ManagedUser, UserRole, Availability, AssignedShift, AssignedUser } from '@/lib/types';
 import { calculateTotalHours } from '@/lib/schedule-utils';
-import { Users, Search, AlertCircle, Clock, ChevronLeft, ChevronRight, Loader2, Calendar, History as HistoryIcon, Hourglass, CalendarDays, LayoutGrid, User, TrendingUp, Filter, ArrowRight, Plus, Trash2, CalendarCheck, Check, LayoutDashboard } from 'lucide-react';
+import { Users, Search, AlertCircle, Clock, ChevronLeft, ChevronRight, Loader2, Calendar, History as HistoryIcon, Hourglass, CalendarDays, LayoutGrid, User, TrendingUp, Filter, ArrowRight, Plus, Trash2, CalendarCheck, Check, LayoutDashboard, Info } from 'lucide-react';
+import { getShiftMissingDetails } from './understaffed-evidence-utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { cn, advancedSearch } from '@/lib/utils';
+import { cn, advancedSearch, generateShortName } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'; // popover now used for shift info instead of tooltip
 import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { dataStore } from '@/lib/data-store';
@@ -67,7 +69,8 @@ function AvailabilityTab({
     canManage, 
     onUpdateSchedule,
     daysOfWeek,
-    container
+    container,
+    allUsers
 }: { 
     weekAvailability: Availability[], 
     schedule: Schedule | null, 
@@ -75,9 +78,11 @@ function AvailabilityTab({
     canManage: boolean,
     onUpdateSchedule?: (data: Partial<Schedule>) => void,
     daysOfWeek?: Date[],
-    container?: HTMLElement | null
+    container?: HTMLElement | null,
+    allUsers: ManagedUser[]
 }) {
     const [openDateKey, setOpenDateKey] = useState<string | null>(null);
+    const [infoDateKey, setInfoDateKey] = useState<string | null>(null); // state for shift-info popover
 
     // 1. Get assigned shifts for this user
     const userAssignedShifts = useMemo(() => {
@@ -163,10 +168,13 @@ function AvailabilityTab({
                 const dayAvail = weekAvailability.find(a => a.date === dateKey);
                 const assignedShifts = userAssignedShifts.filter(s => s.date === dateKey);
                 
-                // Shifts on this day NOT assigned to this user
-                const otherShiftsOnDay = schedule?.shifts.filter(s => 
-                    s.date === dateKey && !s.assignedUsers.some(au => au.userId === user.uid)
-                ) || [];
+                // All shifts on this day (for informational purposes)
+                const allShiftsOnDay = schedule?.shifts.filter(s => s.date === dateKey) || [];
+
+                // Shifts on this day NOT assigned to this user (for assignment dropdown)
+                const otherShiftsOnDay = allShiftsOnDay.filter(s =>
+                    !s.assignedUsers.some(au => au.userId === user.uid)
+                );
 
                 return (
                     <div key={dateKey} className="group bg-card border border-border/50 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all">
@@ -174,14 +182,98 @@ function AvailabilityTab({
                             {/* Date Header */}
                             <div className="flex items-center justify-between border-b border-border/30 pb-2">
                                 <div className="flex items-center gap-2.5">
-                                    <div className="h-8 w-8 rounded-lg bg-primary/5 flex items-center justify-center border border-primary/10">
-                                        <CalendarDays className="h-4 w-4 text-primary" />
-                                    </div>
-                                    <div className="space-y-0">
-                                        <h4 className="text-xs font-black capitalize tracking-tight leading-none">{format(date, 'eee, dd/MM', { locale: vi })}</h4>
-                                        <p className="text-[9px] text-muted-foreground/60 font-bold uppercase tracking-widest">{format(date, 'eeee', { locale: vi })}</p>
-                                    </div>
+                                <Popover 
+                                    modal={false}
+                                    open={infoDateKey === dateKey}
+                                    onOpenChange={(open) => setInfoDateKey(open ? dateKey : null)}
+                                >
+                                    <PopoverTrigger asChild>
+                                        <div className="h-8 w-8 rounded-lg bg-primary/5 flex items-center justify-center border border-primary/10 cursor-pointer hover:bg-primary/10 transition-colors">
+                                            <CalendarDays className="h-4 w-4 text-primary" />
+                                        </div>
+                                    </PopoverTrigger>
+                                    <PopoverContent 
+                                        container={container} 
+                                        side="right" 
+                                        sideOffset={12}
+                                        className="w-64 p-0 overflow-hidden border-border/40 shadow-2xl backdrop-blur-md bg-card/95"
+                                    >
+                                        <div className="p-2 bg-muted/30 border-b border-border/40">
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">
+                                                Chi tiết ca làm ({format(date, 'dd/MM')})
+                                            </p>
+                                        </div>
+                                        <div className="p-1.5 space-y-1.5 max-h-[300px] overflow-y-auto custom-scrollbar">
+                                            {allShiftsOnDay.length > 0 ? (
+                                                allShiftsOnDay.map((shift) => {
+                                                    const missingDetail = getShiftMissingDetails(shift, allUsers);
+                                                    const hasMissing = missingDetail.totalMissing > 0;
+                                                    
+                                                    return (
+                                                        <div key={shift.id} className="p-1.5 rounded-xl bg-background/50 border border-border/40 space-y-1.5">
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <div className="h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center">
+                                                                        <Clock className="h-2.5 w-2.5 text-primary" />
+                                                                    </div>
+                                                                    <div className="leading-none">
+                                                                        <p className="text-[9px] font-black uppercase tracking-tight">{shift.label}</p>
+                                                                        <p className="text-[8px] font-bold text-muted-foreground/60">{shift.timeSlot.start}-{shift.timeSlot.end}</p>
+                                                                    </div>
+                                                                </div>
+                                                                {hasMissing && (
+                                                                    <Badge variant="outline" className="h-4 px-1 py-0 border-none bg-destructive/10 text-destructive text-[7px] font-black uppercase animate-pulse">
+                                                                        -{missingDetail.totalMissing}
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+
+                                                            <div className="space-y-0.5">
+                                                                <p className="text-[7px] font-black uppercase tracking-widest text-muted-foreground/40 px-1">Nhân sự ({shift.assignedUsers.length})</p>
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {shift.assignedUsers.length > 0 ? (
+                                                                        shift.assignedUsers.map(u => (
+                                                                            <Badge 
+                                                                                key={u.userId} 
+                                                                                variant="secondary" 
+                                                                                className={cn(
+                                                                                    "text-[7px] h-4 px-1 rounded-md font-bold border-none bg-gradient-to-r",
+                                                                                    getRoleColors(u.assignedRole)
+                                                                                )}
+                                                                            >
+                                                                                {generateShortName(u.userName)}
+                                                                            </Badge>
+                                                                        ))
+                                                                    ) : (
+                                                                        <span className="text-[7px] text-muted-foreground/40 italic px-1">Chưa xếp người</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+
+                                                            {hasMissing && (
+                                                                <div className="pt-1 border-t border-border/20">
+                                                                    <p className="text-[7px] font-bold text-destructive/70 italic leading-tight flex items-center gap-1">
+                                                                        <AlertCircle className="h-2 w-2" />
+                                                                        {missingDetail.text}
+                                                                    </p>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })
+                                            ) : (
+                                                <div className="py-6 text-center">
+                                                    <p className="text-[9px] font-bold text-muted-foreground/40 uppercase">Không có ca nào</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
+                                <div className="space-y-0">
+                                    <h4 className="text-xs font-black capitalize tracking-tight leading-none">{format(date, 'eee, dd/MM', { locale: vi })}</h4>
+                                    <p className="text-[9px] text-muted-foreground/60 font-bold uppercase tracking-widest">{format(date, 'eeee', { locale: vi })}</p>
                                 </div>
+                            </div>
 
                                 {canManage && otherShiftsOnDay.length > 0 && (
                                     <Popover 
@@ -713,7 +805,7 @@ export default function TotalHoursDialog({ open, onOpenChange, schedule, availab
                                 <ScrollArea className="flex-1">
                                     <div className="p-4">
                                         <TabsContent value="availability" className="mt-0 outline-none">
-                                            <AvailabilityTab 
+                                                                    <AvailabilityTab 
                                                 weekAvailability={weekAvailabilityForSelectedUser} 
                                                 schedule={schedule}
                                                 user={selectedUser}
@@ -721,6 +813,7 @@ export default function TotalHoursDialog({ open, onOpenChange, schedule, availab
                                                 onUpdateSchedule={onUpdateSchedule}
                                                 daysOfWeek={daysOfWeek}
                                                 container={containerRef.current}
+                                                allUsers={allUsers}
                                             />
                                         </TabsContent>
                                         <TabsContent value="history" className="mt-0 outline-none">
