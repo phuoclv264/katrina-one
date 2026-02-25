@@ -13,7 +13,7 @@ import type { AuthUser } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 import { addWeeks, eachDayOfInterval, endOfWeek, format, getISOWeek, getISOWeekYear, getYear, startOfWeek } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { getRelevantUnderstaffedShifts } from '../../shift-scheduling/_components/understaffed-evidence-utils';
+import { getRelevantUnderstaffedShifts, getShiftMissingDetails } from '../../shift-scheduling/_components/understaffed-evidence-utils';
 import { dataStore } from '@/lib/data-store';
 import { toast } from '@/components/ui/pro-toast';
 
@@ -184,7 +184,7 @@ export default function WeekScheduleDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} dialogTag="week-schedule-dialog" parentDialogTag={parentDialogTag}>
-      <DialogContent className="max-w-6xl p-0 overflow-hidden flex flex-col border-none sm:rounded-2xl h-[90vh] sm:h-auto">
+      <DialogContent className="max-w-6xl lg:min-w-[90vw] p-0 overflow-hidden flex flex-col border-none sm:rounded-2xl h-[90vh] sm:h-auto">
         <DialogHeader iconkey="calendar" className="shrink-0">
           <div className="flex items-center justify-between gap-4 w-full">
             <div className="flex flex-col">
@@ -283,7 +283,7 @@ export default function WeekScheduleDialog({
             </div>
           </div>
 
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 overflow-y-auto">
             {/* Desktop Table */}
             <div className="min-w-[1000px] hidden md:block p-4 sm:p-6 text-foreground">
               {hasSchedule ? (
@@ -401,6 +401,15 @@ export default function WeekScheduleDialog({
                                     )}
                                   </div>
 
+                                  {isUnderstaffed && (
+                                    (() => {
+                                      const missing = getShiftMissingDetails(shiftForCell, allUsers);
+                                      return missing.totalMissing > 0 ? (
+                                        <p className="text-[8px] italic text-destructive mt-1">{missing.text}</p>
+                                      ) : null;
+                                    })()
+                                  )}
+
                                   {currentUser && isUnderstaffed && !isAssigned && (
                                     <div className="mt-2">
                                       {hasApplied ? (
@@ -501,15 +510,17 @@ export default function WeekScheduleDialog({
                                 return assignedOfRole < req.count;
                               }));
 
-                              if (sortedUsers.length === 0 && !isUnderstaffed) {
-                                return null;
-                              }
+                            if (sortedUsers.length === 0 && !isUnderstaffed) {
+                              return null;
+                            }
 
                             const isRelevantToMe = relevantUnderstaffedShifts.some(s => s.id === shiftForCell.id);
 
                             const isAssigned = currentUser ? shiftForCell.assignedUsers.some(u => u.userId === currentUser.uid) : false;
                             const hasApplied = currentUser ? shiftForCell.applicants?.some(a => a.userId === currentUser.uid) : false;
                             const isProcessing = processingShiftId === shiftForCell.id;
+
+                            const missing = getShiftMissingDetails(shiftForCell, allUsers);
 
                             return (
                               <div
@@ -550,7 +561,7 @@ export default function WeekScheduleDialog({
                                         isRelevantToMe ? "bg-amber-100 border-amber-200 text-amber-600" : "bg-destructive/5 border-destructive/10 text-destructive"
                                       )}>
                                         <AlertTriangle className="h-3.5 w-3.5" />
-                                        <span className="text-[10px] font-bold">Thiếu</span>
+                                        <span className="text-[10px] font-bold">{missing.text ?? "Thiếu"}</span>
                                       </div>
                                     )}
                                   </div>
@@ -574,7 +585,7 @@ export default function WeekScheduleDialog({
                                           className="w-full h-8 text-xs bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800"
                                         >
                                           {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Check className="w-3.5 h-3.5 mr-1.5" />}
-                                          Đã ứng tuyển nhận ca này
+                                          Đã đăng ký nhận ca này
                                         </Button>
                                       ) : (
                                         <Button
