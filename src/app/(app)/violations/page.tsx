@@ -28,6 +28,7 @@ import { SubmitAllDialog } from './_components/submit-all-dialog';
 import { OwnerBulkPayDialog, UnpaidItem } from './_components/owner-bulk-pay-dialog';
 import { getQueryParamWithMobileHashFallback } from '@/lib/url-params';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useAppNavigation } from '@/contexts/app-navigation-context';
 
 /**
  * Type guard to check if an item is a MediaAttachment.
@@ -42,7 +43,7 @@ function ViolationsView() {
   const router = useRouter();
   const routerRef = useRef(router);
   const searchParams = useSearchParams();
-  const isMobile = useIsMobile();
+  const nav = useAppNavigation();
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const handleDataRefresh = useCallback(() => {
@@ -143,9 +144,7 @@ function ViolationsView() {
       setTimeout(() => {
         el.classList.remove('highlight-animation');
       }, 2500);
-      if (!isMobile) {
-        routerRef.current.replace('/violations', { scroll: false });
-      }
+      nav.replace('/violations', { clearParam: 'highlight' });
       return true;
     };
 
