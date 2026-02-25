@@ -5,6 +5,7 @@ import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { CapacitorUpdater, type BundleInfo } from '@capgo/capacitor-updater';
 import { ManifestPayload, parseManifestPayload } from '@/lib/capacitor-updater-status';
+import { log } from 'console';
 
 const manifestUrl = process.env.NEXT_PUBLIC_UPDATER_MANIFEST_URL;
 const CHECK_INTERVAL_MS = Number(process.env.NEXT_PUBLIC_UPDATER_CHECK_INTERVAL_MS ?? 6 * 60 * 60 * 1000);
@@ -42,6 +43,7 @@ export function CapacitorUpdaterListener() {
     }, [manifestUrl]);
 
     const checkForUpdates = useCallback(async () => {
+        console.log('CapacitorUpdaterListener: Checking for updates...');
         if (typeof window === 'undefined') {
             return;
         }
@@ -51,13 +53,17 @@ export function CapacitorUpdaterListener() {
         }
 
         if (!manifestUrl) {
+            console.log('CapacitorUpdaterListener: No manifest URL configured, skipping update check.');
             return;
         }
 
         if (isUpdatingRef.current) {
+            console.log('CapacitorUpdaterListener: Update check already in progress, skipping.');
             return;
         }
         isUpdatingRef.current = true;
+
+        console.log('CapacitorUpdaterListener: Fetching manifest from', manifestUrl);
 
         const fetchManifest = async (): Promise<ManifestPayload | null> => {
             const controller = new AbortController();

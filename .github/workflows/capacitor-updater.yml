@@ -37,6 +37,10 @@ jobs:
         run: npm ci
 
       - name: Build web bundle
+        env:
+          # add any environment variable(s) needed by the build
+          NEXT_PUBLIC_UPDATER_MANIFEST_URL: ${{ secrets.NEXT_PUBLIC_UPDATER_MANIFEST_URL }}
+          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
         run: |
           npm run build
           npx cap sync
@@ -51,9 +55,36 @@ jobs:
       - name: Compute checksum & version
         id: build-info
         run: |
-          # derive version from package.json + commit count (unchanged logic)
-          COMMITS=$(git rev-list --count HEAD)
-          VERSION=$(node -e "const commits=${COMMITS}; const pkg=require('./package.json'); const v=pkg.version.split('.').map(Number); const maj=v[0]||0; const min=v[1]||0; const addMinor=Math.floor(commits/100); const newPatch=commits%100; const totalMinor=min+addMinor; const carryMajor=Math.floor(totalMinor/100); const newMinor=totalMinor%100; const newMajor=maj+carryMajor; console.log('v'+newMajor+'.'+newMinor+'.'+newPatch);")
+          # version is previous manifest version +1; rollover 100 -> minor/major
+          # determine bucket same as downstream step so we can fetch existing manifest
+          BUCKET=$(grep -oP 'storageBucket:\s*"\K[^\"]+' src/lib/firebase.ts || true)
+          if [ -z "$BUCKET" ]; then
+            BUCKET="${FIREBASE_STORAGE_BUCKET:-}"
+          fi
+
+          PREV_VERSION=""
+          if [ -n "$BUCKET" ]; then
+            # try to read manifest from storage; ignore errors
+            PREV_VERSION=$(gsutil cat "gs://$BUCKET/$UPDATES_DIR/manifest.json" 2>/dev/null | \
+              node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{console.log(JSON.parse(s).version)}catch{} });') || true
+          fi
+
+          if [ -z "$PREV_VERSION" ]; then
+            # fallback to package.json if we couldn't fetch previous manifest
+            PREV_VERSION=$(node -e "const pkg=require('./package.json');console.log(pkg.version);")
+          fi
+
+          # split into components and default to 0
+          IFS='.' read -r prevMaj prevMin prevPatch <<<"$PREV_VERSION"
+          prevMaj=${prevMaj:-0}; prevMin=${prevMin:-0}; prevPatch=${prevPatch:-0}
+
+          # convert to a single number (base 100 for patch/minor, base 10000 for major)
+          COUNT=$((prevMaj*10000 + prevMin*100 + prevPatch + 1))
+          newMaj=$((COUNT / 10000))
+          rest=$((COUNT % 10000))
+          newMin=$((rest / 100))
+          newPatch=$((rest % 100))
+          VERSION="v${newMaj}.${newMin}.${newPatch}"
 
           # rename the single-output ZIP to a versioned filename so CDN/storage caching is safe
           ZIP="${VERSION}.zip"
