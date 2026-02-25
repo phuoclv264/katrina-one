@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { CapacitorUpdater, type BundleInfo } from '@capgo/capacitor-updater';
@@ -19,44 +19,51 @@ const MANIFEST_TIMEOUT_MS = Number(process.env.NEXT_PUBLIC_UPDATER_MANIFEST_TIME
 if (typeof window !== 'undefined' &&
     Capacitor.isNativePlatform() &&
     CapacitorUpdater?.notifyAppReady) {
-    console.log('CapacitorUpdater: early module init notifyAppReady');
-    CapacitorUpdater.notifyAppReady().catch(err => {
-        console.warn('CapacitorUpdater early notifyAppReady failed', err);
-    });
+    CapacitorUpdater.notifyAppReady().catch(() => { /* best-effort early notify */ });
 }
 
 export function CapacitorUpdaterListener() {
     const isUpdatingRef = useRef(false);
     const hasLoggedManifestErrorRef = useRef(false);
     const promptedVersionRef = useRef<string | null>(null);
-    const pendingVersionRef = useRef<BundleInfo | null>(null);
 
-    useEffect(() => {
-            // make sure we're running inside the native web‑view; if not there is
-        // nothing for the plugin to do.  this also prevents logs from flooding
-        // the desktop browser during development.
-        if (!Capacitor.isNativePlatform()) {
-            console.log('CapacitorUpdater: not running on native platform — listener disabled');
+    type UpdatePhase = 'idle' | 'checking' | 'downloading' | 'applying' | 'reloading' | 'error';
+    const [phase, setPhase] = useState<UpdatePhase>('idle');
+    const [statusText, setStatusText] = useState('');
+    const [progress, setProgress] = useState<number | null>(null);
+    const [errorText, setErrorText] = useState<string | null>(null);
+
+    const notifyReady = useCallback(async () => {
+        try {
+            await CapacitorUpdater.notifyAppReady();
+        } catch {
+            /* ignore */
+        }
+    }, [manifestUrl]);
+
+    const checkForUpdates = useCallback(async () => {
+        if (typeof window === 'undefined') {
             return;
         }
 
-        // provide some early diagnostics for debugging. developers will often
-        // look at Android/iOS logcat and not realise that the console messages
-        // live in the webview context, so we print the plugin object as well.
-        console.log('CapacitorUpdater: plugin object', CapacitorUpdater);
+        if (!Capacitor.isNativePlatform()) {
+            return;
+        }
 
         if (!manifestUrl) {
-            console.log('CapacitorUpdater: manifest URL is not set — aborting updater listener');
-            console.warn('CapacitorUpdater: manifest URL is not set');
             return;
         }
+
+        if (isUpdatingRef.current) {
+            return;
+        }
+        isUpdatingRef.current = true;
 
         const fetchManifest = async (): Promise<ManifestPayload | null> => {
             const controller = new AbortController();
             const timeoutId = window.setTimeout(() => controller.abort(), MANIFEST_TIMEOUT_MS);
 
             try {
-                console.log('CapacitorUpdater: fetching manifest from', manifestUrl);
                 const response = await fetch(manifestUrl, { cache: 'no-store', signal: controller.signal });
                 if (!response.ok) {
                     throw new Error(`Manifest request failed: ${response.status}`);
@@ -64,174 +71,120 @@ export function CapacitorUpdaterListener() {
 
                 const data = await response.json();
                 const parsed = parseManifestPayload(data);
-                console.log('CapacitorUpdater: manifest fetched', parsed);
                 return parsed;
             } finally {
                 clearTimeout(timeoutId);
             }
         };
 
-        const checkForUpdates = async () => {
-            if (isUpdatingRef.current) {
-                console.log('CapacitorUpdater: update check already in progress — skipping');
-                return;
-            }
-            isUpdatingRef.current = true;
-            console.log('CapacitorUpdater: checkForUpdates started');
+        try {
+            const manifest = await fetchManifest();
 
-            try {
-                // plugin handles retries/rollbacks — always attempt to fetch manifest
-                const manifest = await fetchManifest();
-
-                if (!manifest) {
-                    console.log('CapacitorUpdater: fetched manifest is invalid or malformed');
-                    if (!hasLoggedManifestErrorRef.current) {
-                        console.warn('CapacitorUpdater: manifest payload is invalid');
-                        hasLoggedManifestErrorRef.current = true;
-                    }
-                    return;
+            if (!manifest) {
+                if (!hasLoggedManifestErrorRef.current) {
+                    hasLoggedManifestErrorRef.current = true;
                 }
-
-                hasLoggedManifestErrorRef.current = false;
-
-                const current = await CapacitorUpdater.current();
-                console.log('CapacitorUpdater: current bundle version=', current.bundle?.version, 'manifest version=', manifest.version, 'manifest payload=', JSON.stringify(manifest), 'current bundle info=', JSON.stringify(current.bundle));
-
-                // check currently active plugin bundle version
-                if (manifest.version === current.bundle?.version) {
-                    console.log('CapacitorUpdater: versions match — no update needed');
-                    return;
-                }
-
-                if (promptedVersionRef.current === manifest.version) {
-                    console.log('CapacitorUpdater: already prompted for version', manifest.version);
-                    return;
-                }
-                promptedVersionRef.current = manifest.version;
-
-                console.log('CapacitorUpdater: starting download for version', manifest.version, manifest.url);
-                const version = await CapacitorUpdater.download({
-                    url: manifest.url,
-                    version: manifest.version
-                });
-                console.log('CapacitorUpdater: download() returned', version);
-
-                if (!version) {
-                    throw new Error('CapacitorUpdater download returned empty version');
-                }
-
-                // Stage the downloaded bundle but DO NOT apply it while the app is active.
-                // Applying here can cause Android WebViewLocalServer to switch to the
-                // pending bundle immediately and fail to find `public/index.html`.
-                // Defer calling `set()` until the app is backgrounded/paused or hidden.
-                pendingVersionRef.current = version;
-                console.info('CapacitorUpdater: download complete — staging update for background apply', version);
-            } catch (err: unknown) {
-                const errorMessage = err instanceof Error ? err.message : String(err);
-                // include manifest URL + target version (if set) and full error object to aid native/plugin debugging
-                console.log('CapacitorUpdater: checkForUpdates error:', errorMessage, { manifestUrl, targetVersion: promptedVersionRef.current, err });
-
-                // give an explicit hint when the native/plugin download fails
-                if (errorMessage.toLowerCase().includes('failed to download') || errorMessage.toLowerCase().includes('download failed')) {
-                    console.warn('CapacitorUpdater: download failed — verify manifest.url is reachable, server TLS/config, checksum, and plugin responseTimeout.');
-                }
-
-                if (errorMessage.toLowerCase().includes('manifest request failed') || errorMessage.toLowerCase().includes('abort')) {
-                    if (!hasLoggedManifestErrorRef.current) {
-                        console.warn('CapacitorUpdater: manifest request failed');
-                        hasLoggedManifestErrorRef.current = true;
-                    }
-                } else {
-                    console.warn('CapacitorUpdater update check failed', err);
-                }
-            } finally {
-                isUpdatingRef.current = false;
-            }
-        };
-
-        const applyPendingVersion = async () => {
-            const pending = pendingVersionRef.current;
-            if (!pending) {
-                console.log('CapacitorUpdater: no staged update to apply');
-                return;
-            }
-            console.log('CapacitorUpdater: applyPendingVersion invoked for', pending);
-
-            // Only apply when app is not visible (background / paused).
-            if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-                console.info('CapacitorUpdater: deferring apply until backgrounded', pending);
-                console.log('CapacitorUpdater: document.visibilityState is visible — deferring apply');
+                setPhase('idle');
+                setStatusText('');
+                setProgress(null);
+                setErrorText(null);
                 return;
             }
 
+            hasLoggedManifestErrorRef.current = false;
+
+            const current = await CapacitorUpdater.current();
+            if (manifest.version === current.bundle?.version) {
+                setPhase('idle');
+                setStatusText('');
+                setProgress(null);
+                setErrorText(null);
+                return;
+            }
+
+            if (promptedVersionRef.current === manifest.version) {
+                setPhase('idle');
+                setStatusText('');
+                setProgress(null);
+                setErrorText(null);
+                return;
+            }
+
+            promptedVersionRef.current = manifest.version;
+
+            setPhase('downloading');
+            setStatusText('Downloading update...');
+            setProgress(30);
+            setErrorText(null);
+
+            const version: BundleInfo | null = await CapacitorUpdater.download({
+                url: manifest.url,
+                version: manifest.version
+            });
+
+            if (!version) {
+                throw new Error('CapacitorUpdater download returned empty version');
+            }
+
+            setPhase('applying');
+            setStatusText('Applying update...');
+            setProgress(70);
+            await CapacitorUpdater.set(version);
+
+            setPhase('reloading');
+            setStatusText('Reloading to finish update...');
+            setProgress(100);
             try {
-                console.info('CapacitorUpdater: applying staged update', JSON.stringify(pending));
-                console.log('CapacitorUpdater: calling CapacitorUpdater.set(...)');
-                await CapacitorUpdater.set(pending);
-                pendingVersionRef.current = null;
-                console.info('CapacitorUpdater: staged update applied');
-                console.log('CapacitorUpdater: applyPendingVersion completed successfully');
-            } catch (err) {
-                console.warn('CapacitorUpdater: failed to apply staged update', err);
-                console.log('CapacitorUpdater: applyPendingVersion error', err);
+                await CapacitorUpdater.reload();
+            } catch {
+                window.location.reload();
             }
-        };
+        } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : String(err);
 
-        const manualEventName = 'cap-updater-check';
-        const manualCheckHandler = () => {
-            console.log('CapacitorUpdater: manual check event received');
-            checkForUpdates().catch(() => { });
-        };
-
-        // the native side requires an explicit "ready" notification before
-        // it will talk to the webview plugin.  previously this was being called
-        // from the layout component on the server, which never executed on the
-        // device.  move the call inside the client effect so it actually runs
-        // and you start seeing logs.
-        const notifyReady = async () => {
-            try {
-                console.log('CapacitorUpdater: notifyAppReady() — notifying native plugin that app is ready');
-                await CapacitorUpdater.notifyAppReady();
-                console.log('CapacitorUpdater: notifyAppReady() succeeded');
-            } catch (err) {
-                console.warn('CapacitorUpdater notifyAppReady failed', err);
-                console.log('CapacitorUpdater: notifyAppReady() error', err);
+            if (errorMessage.toLowerCase().includes('manifest request failed') || errorMessage.toLowerCase().includes('abort')) {
+                if (!hasLoggedManifestErrorRef.current) {
+                    hasLoggedManifestErrorRef.current = true;
+                }
             }
-        };
-        notifyReady().catch(() => {});
 
-        console.log('CapacitorUpdater: running initial update check');
-        checkForUpdates();
+            setPhase('error');
+            setStatusText('Update failed.');
+            setErrorText('Could not complete the update. Please retry.');
+            setProgress(null);
+        } finally {
+            isUpdatingRef.current = false;
+        }
+    }, [manifestUrl]);
 
-        const intervalId = window.setInterval(() => checkForUpdates().catch(() => { }), CHECK_INTERVAL_MS);
-        console.log('CapacitorUpdater: scheduled periodic checks every', CHECK_INTERVAL_MS, 'ms');
-        window.addEventListener(manualEventName, manualCheckHandler);
+    useEffect(() => {
+        // ensure we are inside a native webview; otherwise no updater is available
+        if (!Capacitor.isNativePlatform()) {
+            return;
+        }
 
-        // apply staged update when the app is backgrounded or paused
-        const visibilityHandler = () => {
-            console.log('CapacitorUpdater: visibilitychange', document.visibilityState);
-            // do not apply while hidden; we prefer to wait until resume so that
-            // the JS environment is guaranteed to run and call notifyAppReady.
-            if (document.visibilityState === 'hidden') {
-                console.log('CapacitorUpdater: document hidden — deferring apply until resume');
-            }
-        };
-        window.addEventListener('visibilitychange', visibilityHandler);
+        if (!manifestUrl) {
+            return;
+        }
 
         let isDisposed = false;
         let resumeListener: Awaited<ReturnType<typeof App.addListener>> | undefined;
-        let pauseListener: Awaited<ReturnType<typeof App.addListener>> | undefined;
+
+        const manualEventName = 'cap-updater-check';
+        const manualCheckHandler = () => {
+            checkForUpdates().catch(() => { });
+        };
+
+        notifyReady().catch(() => { });
+
+        checkForUpdates();
+
+        const intervalId = window.setInterval(() => checkForUpdates().catch(() => { }), CHECK_INTERVAL_MS);
+        window.addEventListener(manualEventName, manualCheckHandler);
 
         App.addListener('resume', () => {
-            console.log('CapacitorUpdater: App resume event received');
-            // on resume make sure the plugin knows we're ready again; this
-            // covers the case where a bundle was applied while we were
-            // backgrounded and the early module call may have been skipped.
-            notifyReady().catch(() => {});
-
-            // refresh checks on resume and attempt to apply any staged update
+            notifyReady().catch(() => { });
             checkForUpdates().catch(() => { });
-            applyPendingVersion().catch(() => { });
         }).then((listener) => {
             if (isDisposed) {
                 listener.remove();
@@ -240,28 +193,58 @@ export function CapacitorUpdaterListener() {
             resumeListener = listener;
         });
 
-        App.addListener('pause', () => {
-            console.log('CapacitorUpdater: App pause event received — applying staged update if any');
-            // apply staged update when the app is paused (Android lifecycle)
-            applyPendingVersion().catch(() => { });
-        }).then((listener) => {
-            if (isDisposed) {
-                listener.remove();
-                return;
-            }
-            pauseListener = listener;
-        });
-
         return () => {
             isDisposed = true;
-            console.log('CapacitorUpdater: disposing listeners and timers');
             window.removeEventListener(manualEventName, manualCheckHandler);
-            window.removeEventListener('visibilitychange', visibilityHandler);
             clearInterval(intervalId);
             resumeListener?.remove();
-            pauseListener?.remove();
         };
-    }, []);
+    }, [checkForUpdates, notifyReady]);
 
-    return null;
+    if (phase === 'idle') {
+        return null;
+    }
+
+    const effectiveProgress = progress ?? 100;
+
+    return (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-6">
+            <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-black/10 dark:bg-slate-900 dark:text-white">
+                <div className="flex items-start justify-between gap-3">
+                    <div>
+                        <p className="text-base font-semibold">Updating app</p>
+                        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{statusText}</p>
+                        {errorText ? (
+                            <p className="mt-2 text-sm text-red-600 dark:text-red-400">{errorText}</p>
+                        ) : null}
+                    </div>
+                </div>
+
+                <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700" aria-label="Update progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={effectiveProgress}>
+                    <div
+                        className="h-full bg-blue-600 transition-[width] duration-300 ease-out dark:bg-blue-400"
+                        style={{ width: `${effectiveProgress}%` }}
+                    />
+                </div>
+
+                {phase === 'error' ? (
+                    <div className="mt-4 flex justify-end gap-3">
+                        <button
+                            type="button"
+                            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400"
+                            onClick={() => {
+                                setPhase('checking');
+                                setStatusText('Checking for updates...');
+                                setErrorText(null);
+                                setProgress(10);
+                                checkForUpdates().catch(() => { });
+                            }}
+                        >
+                            Retry update
+                        </button>
+                    </div>
+                ) : null}
+            </div>
+        </div>
+    );
 }
