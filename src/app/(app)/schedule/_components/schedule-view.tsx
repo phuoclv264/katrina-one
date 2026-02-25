@@ -70,6 +70,7 @@ import ShiftInfoDialog from './shift-info-dialog';
 import WeekScheduleDialog from './week-schedule-dialog';
 import { getQueryParamWithMobileHashFallback } from '@/lib/url-params';
 import { BusyEvidenceDialog } from './busy-evidence-dialog';
+import { useAppNavigation } from '@/contexts/app-navigation-context';
 
 
 export default function ScheduleView() {
@@ -78,6 +79,7 @@ export default function ScheduleView() {
     const routerRef = useRef(router);
     const searchParams = useSearchParams();
     const isMobile = useIsMobile();
+    const nav = useAppNavigation();
 
     const [currentDate, setCurrentDate] = useState(new Date());
     const [schedule, setSchedule] = useState<Schedule | null>(null);
@@ -154,7 +156,7 @@ export default function ScheduleView() {
             return;
         }
         if (user.role === 'Chủ nhà hàng') {
-            routerRef.current.replace('/shift-scheduling');
+            nav.replace('/shift-scheduling');
             return;
         }
 
@@ -230,9 +232,10 @@ export default function ScheduleView() {
 
         if (openPassRequest === 'true') {
             setIsPassRequestsDialogOpen(true);
-            if (!isMobile)
-                // Optional: remove the query param from URL without reloading
-                routerRef.current.replace('/schedule', { scroll: false });
+            // Only wipe the hash/query segment; keep the rest of the URL and
+            // avoid triggering route logic so the dialog remains open.  Providing
+            // the current path allows mobile history to mirror the cleaned URL.
+            nav.replace('/schedule', { clearParam: 'openPassRequest' });
         }
     }, [searchParams]);
 

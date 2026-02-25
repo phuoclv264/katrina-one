@@ -70,6 +70,7 @@ import { useRouter } from 'nextjs-toploader/app';
 import { Label } from '@/components/ui/label';
 import AutoScheduleDialog from './auto-schedule-dialog';
 import { UnderstaffedEvidenceDialog } from './understaffed-evidence-dialog';
+import { useAppNavigation } from '@/contexts/app-navigation-context';
 
 
 // Helper function to abbreviate names
@@ -146,6 +147,8 @@ export default function ScheduleView() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const routerRef = useRef(router);
+    const nav = useAppNavigation();
+
 
     const getInitialDate = () => {
         const today = new Date();
@@ -268,9 +271,9 @@ export default function ScheduleView() {
 
         if (openPassRequest === 'true') {
             setIsPassRequestsDialogOpen(true);
-            if (!isMobile) {
-                routerRef.current.replace('/shift-scheduling', { scroll: false });
-            }
+            // clear any parameters encoded in the hash/search without triggering
+            // navigation or disrupting the dialog state
+            nav.replace('/shift-scheduling', { clearParam: 'openPassRequest' });
         }
 
         // Handle opening specific shift from notification
@@ -304,9 +307,7 @@ export default function ScheduleView() {
                 setActiveShift(shift);
                 setIsAssignmentDialogOpen(true);
 
-                if (!isMobile) {
-                    routerRef.current.replace('/shift-scheduling', { scroll: false });
-                }
+                nav.replace('/shift-scheduling', { scroll: false });
             }
         }
     }, [searchParams, localSchedule, weekId, isMobile]);
