@@ -16,9 +16,59 @@ import {
   initMobileHistory,
 } from '@/lib/mobile-history';
 
+// Utility used by the navigation helpers.  Given a full href, remove one or
+// more query parameters from either the normal search string or, when the
+// link is encoded in a mobile hash (#page=...), the inner search string.
+function stripParamsFromHref(href: string, params: string[]): string {
+  try {
+    const url = new URL(href, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+    params.forEach(p => url.searchParams.delete(p));
+
+    // handle mobile-style hash as well
+    if (url.hash.startsWith('#page=')) {
+      const inner = decodeURIComponent(url.hash.slice('#page='.length));
+      const innerUrl = new URL(inner, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+      params.forEach(p => innerUrl.searchParams.delete(p));
+      url.hash = `#page=${encodeURIComponent(innerUrl.pathname + innerUrl.search + innerUrl.hash)}`;
+    }
+
+    // reconstruct relative portion
+    return url.pathname + url.search + url.hash;
+  } catch {
+    // fallback naive removal
+    let result = href;
+    params.forEach(p => {
+      // remove from query
+      const regex = new RegExp(`[?&]${p}=[^&]*`);
+      result = result.replace(regex, '');
+    });
+    // collapse stray ? or &
+    result = result.replace(/\?&/, '?').replace(/&\?$/, '');
+    return result;
+  }
+}
+
 export type AppNavigationApi = {
-  push: (href: string) => void;
-  replace: (href: string) => void;
+  push: (
+    href: string,
+    options?: { scroll?: boolean; clearHashOnly?: boolean; clearParam?: string | string[] },
+  ) => void;
+  /**
+   * Replace the current entry in history.
+   *
+   * The `options` object supports several flags:
+   *   * `scroll` – forwarded to Next.js router on desktop (same as before).
+   *   * `clearHashOnly` – strip the hash/search segment entirely (legacy
+   *     behaviour still used in a few places).
+   *   * `clearParam` – remove the named query parameter(s) from the URL;
+   *     when the value lives inside a mobile hash we update only that portion
+   *     and leave the hash itself untouched.  This is the preferred solution
+   *     when you want to drop a single param without affecting other state.
+   */
+  replace: (
+    href: string,
+    options?: { scroll?: boolean; clearHashOnly?: boolean; clearParam?: string | string[] },
+  ) => void;
   /**
    * Navigate back in history. `delta` behaves like `history.go(-delta)`;
    * default is 1 (one step back).
@@ -43,7 +93,42 @@ const buildAppNavigationApi = (
     } catch {}
   };
 
-  const push = (href: string) => {
+  const push = (
+    href: string,
+    options?: { scroll?: boolean; clearHashOnly?: boolean; clearParam?: string | string[] },
+  ) => {
+    // Handle clearing specific query parameters first.  This may operate on
+    // either the normal search string or the encoded search inside a mobile
+    // hash.  We do not alter any other portion of the URL.
+    if (options?.clearParam) {
+      const params = Array.isArray(options.clearParam) ? options.clearParam : [options.clearParam];
+      if (typeof window !== 'undefined') {
+        const current = window.location.href;
+        const updated = stripParamsFromHref(current, params);
+        window.history.replaceState(null, '', updated);
+      }
+      if (isMobile) {
+        const entry = createHistoryEntry(href || window.location.pathname);
+        recordReplaceEntry(entry);
+      }
+      return;
+    }
+
+    // `clearHashOnly` is a legacy helper used in a couple of places when we
+    // simply wanted to drop all query/hash information. It remains supported
+    // for now.
+    if (options?.clearHashOnly) {
+      if (typeof window !== 'undefined') {
+        const url = `${window.location.pathname}${window.location.search}`;
+        window.history.replaceState(null, '', url);
+      }
+      if (isMobile) {
+        const entry = createHistoryEntry(href || (typeof window !== 'undefined' ? `${window.location.pathname}${window.location.search}` : ''));
+        recordReplaceEntry(entry);
+      }
+      return;
+    }
+
     if (isMobile) {
       safePersistScroll();
       const entry = createHistoryEntry(href);
@@ -53,10 +138,44 @@ const buildAppNavigationApi = (
     }
 
     // Desktop behavior: keep normal routing semantics.
-    router.push(href);
+    // Forward options if supplied so callers can control scrolling, etc.
+    if (options) {
+      router.push(href, options);
+    } else {
+      router.push(href);
+    }
   };
 
-  const replace = (href: string) => {
+  const replace = (
+    href: string,
+    options?: { scroll?: boolean; clearHashOnly?: boolean; clearParam?: string | string[] },
+  ) => {
+    if (options?.clearParam) {
+      const params = Array.isArray(options.clearParam) ? options.clearParam : [options.clearParam];
+      if (typeof window !== 'undefined') {
+        const current = window.location.href;
+        const updated = stripParamsFromHref(current, params);
+        window.history.replaceState(null, '', updated);
+      }
+      if (isMobile) {
+        const entry = createHistoryEntry(href || window.location.pathname);
+        recordReplaceEntry(entry);
+      }
+      return;
+    }
+
+    if (options?.clearHashOnly) {
+      if (typeof window !== 'undefined') {
+        const url = `${window.location.pathname}${window.location.search}`;
+        window.history.replaceState(null, '', url);
+      }
+      if (isMobile) {
+        const entry = createHistoryEntry(href || (typeof window !== 'undefined' ? `${window.location.pathname}${window.location.search}` : ''));
+        recordReplaceEntry(entry);
+      }
+      return;
+    }
+
     if (isMobile) {
       safePersistScroll();
       const entry = createHistoryEntry(href);
@@ -64,7 +183,11 @@ const buildAppNavigationApi = (
       applyHistoryEntry(entry, 'replace');
       return;
     }
-    router.replace(href);
+    if (options) {
+      router.replace(href, options);
+    } else {
+      router.replace(href);
+    }
   };
 
   const back = (delta?: number) => {

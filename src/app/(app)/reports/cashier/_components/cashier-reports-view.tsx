@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
 import { useLightbox } from '@/contexts/lightbox-context';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useAppNavigation } from '@/contexts/app-navigation-context';
 
 interface CashierReportsViewProps {
   isStandalone?: boolean;
@@ -40,7 +41,7 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
   const router = useRouter();
   const routerRef = useRef(router);
   const searchParams = useSearchParams();
-  const isMobile = useIsMobile();
+  const nav = useAppNavigation();
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const handleDataRefresh = useCallback(() => {
@@ -249,8 +250,7 @@ export default function CashierReportsView({ isStandalone = true }: CashierRepor
       setTimeout(() => {
         el.classList.remove('highlight-animation');
       }, 2500);
-      if (!isMobile)
-        routerRef.current.replace('/reports/cashier', { scroll: false });
+      nav.replace('/reports/cashier', { clearParam: 'highlight' });
       return true;
     };
 
