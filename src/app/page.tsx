@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'nextjs-toploader/app';
 import Image from '@/components/ui/image';
 import { KeyRound, Loader2, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,7 @@ import Link from 'next/link';
 
 export default function AuthPage() {
   const { user, login, register, loading } = useAuth();
+  const router = useRouter();
 
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -29,13 +31,24 @@ export default function AuthPage() {
   const [registerPassword, setRegisterPassword] = useState('');
   const [registerName, setRegisterName] = useState('');
   const [registerRole, setRegisterRole] = useState<UserRole | ''>('');
-  const [registerGender, setRegisterGender] = useState<'Nam'|'Nữ'|'Khác'>('Nam');
+  const [registerGender, setRegisterGender] = useState<'Nam' | 'Nữ' | 'Khác'>('Nam');
 
 
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
 
   const [isProcessingAuth, setIsProcessingAuth] = useState(false);
+
+  useEffect(() => {
+    // If the user is already logged in, redirect to the main app page
+    if (user && !loading) {
+      if (user.role === 'Phục vụ') router.replace('/shifts');
+      else if (user.role === 'Pha chế') router.replace('/bartender');
+      else if (user.role === 'Quản lý') router.replace('/manager');
+      else if (user.role === 'Chủ nhà hàng') router.replace('/admin');
+      else if (user.role === 'Thu ngân') router.replace('/cashier');
+    }
+  }, [user, loading, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -180,7 +193,7 @@ export default function AuthPage() {
                       { value: 'Khác', label: 'Khác' },
                     ]}
                     value={registerGender}
-                    onChange={(value) => setRegisterGender(value as 'Nam'|'Nữ'|'Khác')}
+                    onChange={(value) => setRegisterGender(value as 'Nam' | 'Nữ' | 'Khác')}
                     placeholder="Chọn giới tính"
                     disabled={isProcessing}
                     className="w-full"
