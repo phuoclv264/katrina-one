@@ -246,12 +246,39 @@ export const dataStore = {
   async submitJobApplication(application: Omit<JobApplication, 'id' | 'createdAt' | 'updatedAt' | 'status'>): Promise<void> {
     const appRef = collection(db, 'jobApplications');
     const now = new Date().toISOString();
-    await addDoc(appRef, {
+    const docRef = await addDoc(appRef, {
       ...application,
       status: 'pending',
       createdAt: now,
       updatedAt: now,
     });
+
+    // Handle notification sending on client side
+    try {
+      const q = query(collection(db, 'users'), where('role', 'in', ['Chủ nhà hàng']));
+      const snapshot = await getDocs(q);
+      const recipientUids = snapshot.docs.map(doc => doc.id);
+
+      if (recipientUids.length > 0) {
+        const isRead = recipientUids.reduce((acc, uid) => ({ ...acc, [uid]: false }), {});
+
+        await addDoc(collection(db, 'notifications'), {
+          type: 'new_recruitment_application',
+          createdAt: serverTimestamp(),
+          recipientUids,
+          isRead,
+          messageTitle: 'Ứng tuyển mới',
+          messageBody: `${application.fullName} vừa nộp hồ sơ ứng tuyển vị trí ${application.position}.`,
+          payload: {
+            applicationId: docRef.id,
+            applicantName: application.fullName,
+            position: application.position
+          }
+        });
+      }
+    } catch (error) {
+      console.warn('Failed to send recruitment notification:', error);
+    }
   },
 
   subscribeToJobApplications(callback: (applications: JobApplication[]) => void): () => void {

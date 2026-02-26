@@ -210,6 +210,13 @@ export const getNotificationDetails = (notification: Notification, currentUserId
                 href: href,
             };
         }
+        case 'new_recruitment_application':
+            return {
+                icon: UserPlus,
+                title: messageTitle,
+                description: messageBody,
+                href: `/admin/recruitment?highlight=${payload.applicationId}`,
+            };
         default:
             return {
                 icon: MailQuestion,

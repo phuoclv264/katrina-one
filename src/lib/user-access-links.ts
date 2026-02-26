@@ -122,7 +122,7 @@ const ACCESS_RULES: AccessRule[] = [
   { key: 'owner-inventory-management', href: '/inventory-management', label: 'QL Hàng tồn kho', icon: Package, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'blue', subLabel: 'Chủ nhà hàng', group: 'Quản lý công việc', order: 62 },
   { key: 'owner-product-management', href: '/product-management', label: 'QL Mặt hàng & Công thức', icon: FileSignature, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'blue', subLabel: 'Chủ nhà hàng', group: 'Quản lý công việc', order: 63 },
   { key: 'owner-inventory-history', href: '/inventory-history', label: 'Lịch sử Kho', icon: History, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'blue', subLabel: 'Chủ nhà hàng', group: 'Quản lý công việc', order: 64 },
-  { key: 'owner-recruitment', href: '/admin/recruitment', label: 'Quản lý Tuyển dụng', icon: UserCog, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'blue', subLabel: 'Chủ nhà hàng', group: 'Quản lý công việc', order: 65 },
+  { key: 'owner-recruitment', href: '/admin/recruitment', label: 'Quản lý Tuyển dụng', icon: UserCog, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'blue', subLabel: 'Tuyển dụng', group: 'Quản lý công việc', order: 65 },
 
   // Common
   {

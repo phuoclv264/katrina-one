@@ -616,7 +616,8 @@ export type NotificationType =
   | 'new_cash_handover_report'
   | 'new_ballot_draw'
   | 'salary_update'
-  | 'shift_application';
+  | 'shift_application'
+  | 'new_recruitment_application';
 
 export type ShiftApplicationPayload = {
   notificationType?: 'shift_application';
@@ -626,6 +627,13 @@ export type ShiftApplicationPayload = {
   shiftDate: string;
   applicantId: string;
   applicantName: string;
+}
+
+export type RecruitmentApplicationPayload = {
+  notificationType?: 'new_recruitment_application';
+  applicationId: string;
+  applicantName: string;
+  position: string;
 }
 
 export type PassRequestPayload = {
@@ -669,7 +677,7 @@ export type NewViolationPayload = {
   title: string;
 }
 
-export type AnyNotificationPayload = PassRequestPayload | NewSchedulePayload | NewViolationPayload | DailyTaskReportPayload | ShiftApplicationPayload;
+export type AnyNotificationPayload = PassRequestPayload | NewSchedulePayload | NewViolationPayload | DailyTaskReportPayload | ShiftApplicationPayload | RecruitmentApplicationPayload;
 
 export type Notification = {
   id: string;
