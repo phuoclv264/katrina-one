@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { dataStore } from '@/lib/data-store';
+import { useSearchParams } from 'next/navigation';
 import type { JobApplication } from '@/lib/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -32,15 +33,15 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn, advancedSearch } from '@/lib/utils';
-import { 
-  Search, 
-  Filter, 
-  Trash2, 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
-  User, 
-  Briefcase, 
+import {
+  Search,
+  Filter,
+  Trash2,
+  CheckCircle,
+  XCircle,
+  Clock,
+  User,
+  Briefcase,
   Calendar,
   Phone,
   Mail,
@@ -62,7 +63,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ApplicationDetailDialog } from './_components/application-detail-dialog';
 import { RecruitmentSettingsDialog } from './_components/recruitment-settings-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { 
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -80,10 +81,13 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { UserAvatar } from '@/components/user-avatar';
+import { getQueryParamWithMobileHashFallback } from '@/lib/url-params';
 
 export default function RecruitmentManagementPage() {
   const { user, loading: authLoading } = useAuth();
   const nav = useAppNavigation();
+  const searchParams = useSearchParams();
+
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -92,14 +96,14 @@ export default function RecruitmentManagementPage() {
   const [filterPosition, setFilterPosition] = useState<string>('all');
   const [selectedApp, setSelectedApp] = useState<JobApplication | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  
+
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && user?.role !== 'Chủ nhà hàng') {
+    if (!authLoading && user?.role !== 'Chủ nhà hàng' && user?.role !== 'Quản lý') {
       nav.replace('/');
     }
   }, [user, authLoading, nav]);
@@ -111,6 +115,21 @@ export default function RecruitmentManagementPage() {
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    const highlightId = getQueryParamWithMobileHashFallback({
+        param: 'highlight',
+        searchParams,
+        hash: typeof window !== 'undefined' ? window.location.hash : '',
+      });
+
+    if (highlightId && applications.length > 0) {
+      const app = applications.find(a => a.id === highlightId);
+      if (app) {
+        setSelectedApp(app);
+      }
+    }
+  }, [applications, searchParams]);
 
   const stats = useMemo(() => {
     return {
@@ -151,7 +170,7 @@ export default function RecruitmentManagementPage() {
       await dataStore.deleteJobApplication(id);
       toast.success('Đã xóa hồ sơ.');
       if (selectedApp?.id === id) setSelectedApp(null);
-      
+
       // Remove from selection if deleted
       const newSelected = new Set(selectedIds);
       newSelected.delete(id);
@@ -237,8 +256,8 @@ export default function RecruitmentManagementPage() {
             <p className="text-slate-500 font-medium md:text-lg">Theo dõi và quản lý hồ sơ ứng viên hiệu quả hơn.</p>
           </div>
           <div className="flex items-center gap-3">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="rounded-2xl h-12 px-6 border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-sm shadow-sm transition-all gap-2"
               onClick={() => setShowSettings(true)}
             >
@@ -266,7 +285,7 @@ export default function RecruitmentManagementPage() {
           </motion.div>
 
           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3, delay: 0.1 }}>
-            <Card 
+            <Card
               className="border-none shadow-xl shadow-yellow-900/5 bg-white overflow-hidden relative group cursor-pointer"
               onClick={() => setFilterStatus('pending')}
             >
@@ -285,7 +304,7 @@ export default function RecruitmentManagementPage() {
           </motion.div>
 
           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3, delay: 0.2 }}>
-            <Card 
+            <Card
               className="border-none shadow-xl shadow-green-900/5 bg-white overflow-hidden relative group cursor-pointer"
               onClick={() => setFilterStatus('hired')}
             >
@@ -304,7 +323,7 @@ export default function RecruitmentManagementPage() {
           </motion.div>
 
           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3, delay: 0.3 }}>
-            <Card 
+            <Card
               className="border-none shadow-xl shadow-red-900/5 bg-white overflow-hidden relative group cursor-pointer"
               onClick={() => setFilterStatus('rejected')}
             >
@@ -397,20 +416,19 @@ export default function RecruitmentManagementPage() {
                           <Button
                             key={s}
                             variant={filterStatus === s ? 'default' : 'outline'}
-                            className={`h-12 rounded-xl font-bold ${
-                              filterStatus === s 
+                            className={`h-12 rounded-xl font-bold ${filterStatus === s
                                 ? s === 'pending' ? 'bg-yellow-500 hover:bg-yellow-600' :
                                   s === 'reviewed' ? 'bg-blue-600 hover:bg-blue-700' :
-                                  s === 'hired' ? 'bg-green-600 hover:bg-green-700' :
-                                  s === 'rejected' ? 'bg-red-600 hover:bg-red-700' : ''
+                                    s === 'hired' ? 'bg-green-600 hover:bg-green-700' :
+                                      s === 'rejected' ? 'bg-red-600 hover:bg-red-700' : ''
                                 : ''
-                            }`}
+                              }`}
                             onClick={() => setFilterStatus(s)}
                           >
-                            {s === 'all' ? 'Tất cả' : 
-                             s === 'pending' ? 'Chờ duyệt' : 
-                             s === 'reviewed' ? 'Đã xem' : 
-                             s === 'hired' ? 'Đã nhận' : 'Từ chối'}
+                            {s === 'all' ? 'Tất cả' :
+                              s === 'pending' ? 'Chờ duyệt' :
+                                s === 'reviewed' ? 'Đã xem' :
+                                  s === 'hired' ? 'Đã nhận' : 'Từ chối'}
                           </Button>
                         ))}
                       </div>
@@ -470,9 +488,9 @@ export default function RecruitmentManagementPage() {
                   <span className="text-[11px] md:text-sm font-medium text-slate-200 truncate">
                     <span className="hidden sm:inline">hồ sơ </span>đã chọn
                   </span>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     className="h-7 md:h-8 px-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg text-[10px] md:text-xs shrink-0"
                     onClick={() => setSelectedIds(new Set())}
                   >
@@ -480,13 +498,13 @@ export default function RecruitmentManagementPage() {
                   </Button>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <Button 
-                    variant="destructive" 
-                    size="sm" 
+                  <Button
+                    variant="destructive"
+                    size="sm"
                     className="h-9 md:h-10 px-3 md:px-5 rounded-xl text-[10px] md:text-xs font-bold shadow-lg shadow-red-500/20 active:scale-95 transition-transform"
                     onClick={() => setShowBulkDeleteConfirm(true)}
                   >
-                    <Trash2 className="h-3.5 w-3.5 md:mr-2" /> 
+                    <Trash2 className="h-3.5 w-3.5 md:mr-2" />
                     <span className="hidden sm:inline">Xóa <span className="hidden md:inline">hàng loạt</span></span>
                     <span className="sm:hidden ml-1">Xóa</span>
                   </Button>
@@ -520,20 +538,19 @@ export default function RecruitmentManagementPage() {
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9 }}
                 >
-                  <Card 
-                    className={`border-none shadow-xl shadow-slate-200/50 transition-all rounded-3xl overflow-hidden relative ${
-                      selectedIds.has(app.id) ? 'ring-4 ring-blue-500/20 bg-blue-50/10' : 'bg-white'
-                    }`}
+                  <Card
+                    className={`border-none shadow-xl shadow-slate-200/50 transition-all rounded-3xl overflow-hidden relative ${selectedIds.has(app.id) ? 'ring-4 ring-blue-500/20 bg-blue-50/10' : 'bg-white'
+                      }`}
                   >
                     <div className="p-5">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center gap-3">
-                          <Checkbox 
+                          <Checkbox
                             checked={selectedIds.has(app.id)}
                             onCheckedChange={() => toggleSelect(app.id)}
                             className="h-6 w-6 rounded-lg data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
                           />
-                          <div 
+                          <div
                             className="h-12 w-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-500 overflow-hidden"
                             onClick={() => setSelectedApp(app)}
                           >
@@ -579,42 +596,42 @@ export default function RecruitmentManagementPage() {
                       <div className={cn(
                         "mt-1 mb-4 py-2.5 px-4 rounded-2xl flex items-center justify-center gap-2 border shadow-sm transition-all",
                         app.status === 'pending' ? "bg-amber-50 border-amber-100/50 text-amber-700 shadow-amber-200/20" :
-                        app.status === 'reviewed' ? "bg-blue-50 border-blue-100/50 text-blue-700 shadow-blue-200/20" :
-                        app.status === 'hired' ? "bg-emerald-50 border-emerald-100/50 text-emerald-700 shadow-emerald-200/20" :
-                        "bg-rose-50 border-rose-100/50 text-rose-700 shadow-rose-200/20"
+                          app.status === 'reviewed' ? "bg-blue-50 border-blue-100/50 text-blue-700 shadow-blue-200/20" :
+                            app.status === 'hired' ? "bg-emerald-50 border-emerald-100/50 text-emerald-700 shadow-emerald-200/20" :
+                              "bg-rose-50 border-rose-100/50 text-rose-700 shadow-rose-200/20"
                       )}>
                         {app.status === 'pending' && <Clock className="h-3.5 w-3.5" />}
                         {app.status === 'reviewed' && <Inbox className="h-3.5 w-3.5" />}
                         {app.status === 'hired' && <CheckCircle className="h-3.5 w-3.5" />}
                         {app.status === 'rejected' && <XCircle className="h-3.5 w-3.5" />}
                         <span className="text-[10px] font-black uppercase tracking-[0.1em]">
-                          {app.status === 'pending' ? 'Hồ sơ mới - Đang chờ duyệt' : 
-                           app.status === 'reviewed' ? 'Đã xem thông tin ứng viên' : 
-                           app.status === 'hired' ? 'Đã trúng tuyển & Nhận việc' : 'Hồ sơ không đáp ứng yêu cầu'}
+                          {app.status === 'pending' ? 'Hồ sơ mới - Đang chờ duyệt' :
+                            app.status === 'reviewed' ? 'Đã xem thông tin ứng viên' :
+                              app.status === 'hired' ? 'Đã trúng tuyển & Nhận việc' : 'Hồ sơ không đáp ứng yêu cầu'}
                         </span>
                       </div>
 
                       <div className="flex items-center justify-between pt-2 border-t border-slate-50">
                         <div className="flex gap-2">
-                           <Button 
-                            variant="ghost" 
-                            size="icon" 
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-10 w-10 rounded-xl bg-green-50 text-green-600 hover:bg-green-100"
                             onClick={() => handleUpdateStatus(app.id, 'hired')}
                           >
                             <CheckCircle className="h-5 w-5" />
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-10 w-10 rounded-xl bg-red-50 text-red-600 hover:bg-red-100"
                             onClick={() => handleUpdateStatus(app.id, 'rejected')}
                           >
                             <XCircle className="h-5 w-5" />
                           </Button>
                         </div>
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           className="font-black text-blue-600 gap-1 pr-0"
                           onClick={() => setSelectedApp(app)}
                         >
@@ -637,7 +654,7 @@ export default function RecruitmentManagementPage() {
                 <TableHeader className="bg-slate-50/50 border-b border-slate-100">
                   <TableRow className="hover:bg-transparent h-16">
                     <TableHead className="w-[80px] text-center">
-                      <Checkbox 
+                      <Checkbox
                         checked={selectedIds.size === filteredApplications.length && filteredApplications.length > 0}
                         onCheckedChange={() => toggleSelectAll(filteredApplications.map(a => a.id))}
                         className="h-5 w-5 rounded-lg border-slate-300"
@@ -663,15 +680,14 @@ export default function RecruitmentManagementPage() {
                       ))
                     ) : (
                       filteredApplications.map((app) => (
-                        <TableRow 
-                          key={app.id} 
-                          className={`h-22 group transition-all cursor-pointer border-b border-slate-50 ${
-                            selectedIds.has(app.id) ? 'bg-blue-50/30' : 'hover:bg-slate-50/50'
-                          }`}
+                        <TableRow
+                          key={app.id}
+                          className={`h-22 group transition-all cursor-pointer border-b border-slate-50 ${selectedIds.has(app.id) ? 'bg-blue-50/30' : 'hover:bg-slate-50/50'
+                            }`}
                           onClick={() => setSelectedApp(app)}
                         >
                           <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                            <Checkbox 
+                            <Checkbox
                               checked={selectedIds.has(app.id)}
                               onCheckedChange={() => toggleSelect(app.id)}
                               className="h-5 w-5 rounded-lg border-slate-300 data-[state=checked]:bg-blue-600"
@@ -716,25 +732,25 @@ export default function RecruitmentManagementPage() {
                           </TableCell>
                           <TableCell className="text-right pr-8" onClick={(e) => e.stopPropagation()}>
                             <div className="flex justify-end gap-2">
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 className="h-10 w-10 rounded-xl bg-green-50/50 text-green-600 hover:bg-green-100 border border-green-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all"
                                 onClick={() => handleUpdateStatus(app.id, 'hired')}
                               >
                                 <CheckCircle className="h-5 w-5" />
                               </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 className="h-10 w-10 rounded-xl bg-red-50/50 text-red-600 hover:bg-red-100 border border-red-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all"
                                 onClick={() => handleUpdateStatus(app.id, 'rejected')}
                               >
                                 <XCircle className="h-5 w-5" />
                               </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 className="h-10 w-10 rounded-xl bg-slate-50/50 text-slate-400 hover:bg-slate-100 border border-slate-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all"
                                 onClick={() => handleDelete(app.id)}
                               >
@@ -763,7 +779,7 @@ export default function RecruitmentManagementPage() {
         onDelete={handleDelete}
       />
 
-      <RecruitmentSettingsDialog 
+      <RecruitmentSettingsDialog
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
       />
@@ -773,13 +789,13 @@ export default function RecruitmentManagementPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Xác nhận xóa hàng loạt?</AlertDialogTitle>
             <AlertDialogDescription>
-              Bạn đang chuẩn bị xóa <strong>{selectedIds.size}</strong> hồ sơ ứng tuyển. 
+              Bạn đang chuẩn bị xóa <strong>{selectedIds.size}</strong> hồ sơ ứng tuyển.
               Hành động này không thể hoàn tác.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2">
             <AlertDialogCancel className="rounded-xl border-slate-200">Hủy bỏ</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={handleBulkDelete}
               className="rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold"
               disabled={isDeleting}
