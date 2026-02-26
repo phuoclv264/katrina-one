@@ -1,6 +1,6 @@
 /// <reference types="@capgo/capacitor-updater" />
 import type { CapacitorConfig, PluginsConfig } from '@capacitor/cli';
-import { KeyboardResize, KeyboardStyle } from '@capacitor/keyboard';
+import { KeyboardResize } from '@capacitor/keyboard';
 
 const updaterConfig: PluginsConfig['CapacitorUpdater'] = {
   appId: 'com.katrinaone.app',
@@ -19,9 +19,7 @@ const config: CapacitorConfig = {
   plugins: {
     CapacitorUpdater: updaterConfig,
     Keyboard: {
-      resize: KeyboardResize.Body,
-      style: KeyboardStyle.Dark,
-      resizeOnFullScreen: true,
+      resize: KeyboardResize.None,
     },
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"],
