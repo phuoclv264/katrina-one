@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { dataStore } from '@/lib/data-store';
 import { useSearchParams } from 'next/navigation';
 import type { JobApplication } from '@/lib/types';
@@ -84,6 +84,18 @@ import { UserAvatar } from '@/components/user-avatar';
 import { getQueryParamWithMobileHashFallback } from '@/lib/url-params';
 
 export default function RecruitmentManagementPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen bg-[#f8fafc]">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent shadow-lg shadow-blue-200"></div>
+      </div>
+    }>
+      <RecruitmentManagementContent />
+    </Suspense>
+  );
+}
+
+function RecruitmentManagementContent() {
   const { user, loading: authLoading } = useAuth();
   const nav = useAppNavigation();
   const searchParams = useSearchParams();
