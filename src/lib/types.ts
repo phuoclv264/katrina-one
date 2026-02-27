@@ -40,6 +40,7 @@ export type AppSettings = {
   lastIssueNoteScan?: string | Timestamp;
   managerApprovalEnabled?: boolean;
   recruitmentQuestions?: RecruitmentQuestion[];
+  houseRules?: string;
 };
 
 export type RecruitmentQuestionType = 'text' | 'yes_no' | 'multiple_choice';

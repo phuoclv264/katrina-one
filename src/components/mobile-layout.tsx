@@ -104,7 +104,9 @@ const ReportsInventoryPage = dynamic(() => import('@/app/(app)/reports/inventory
 const BartenderHygienePage = dynamic(() => import('@/app/(app)/bartender/hygiene-report/page'), { ssr: false, loading: () => <LoadingPage /> });
 const BartenderInventoryPage = dynamic(() => import('@/app/(app)/bartender/inventory/page'), { ssr: false, loading: () => <LoadingPage /> });
 const ManagerComprehensiveReportPage = dynamic(() => import('@/app/(app)/manager/comprehensive-report/page'), { ssr: false, loading: () => <LoadingPage /> });
-
+// rule pages added for mobile layout
+const RulesPage = dynamic(() => import('@/app/(app)/rules/page'), { ssr: false, loading: () => <LoadingPage /> });
+const ManageRulesPage = dynamic(() => import('@/app/(app)/rules/manage/page'), { ssr: false, loading: () => <LoadingPage /> });
 const AttendancePageComponent = dynamic(
   () => import('@/app/(app)/attendance/_components/attendance-page-client'),
   { ssr: false, loading: () => <LoadingPage /> },
@@ -288,6 +290,9 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
       setIsTabContent(true);
     } else if (pathname.includes('/cashier')) {
       setActiveTab('cashier');
+      setIsTabContent(true);
+    } else if (pathname.includes('/rules')) {
+      setActiveTab('house-rules');
       setIsTabContent(true);
     } else if (HOME_PATHS.some((path) => pathname === path || pathname === '/')) {
       setIsTabContent(true);
@@ -496,6 +501,10 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
         return <BartenderInventoryPage />;
       case '/manager/comprehensive-report':
         return <ManagerComprehensiveReportPage />;
+      case '/rules':
+        return <RulesPage />;
+      case '/rules/manage':
+        return <ManageRulesPage />;
       default:
         return <div key={`children-${refreshTrigger}`}>{children}</div>;
     }
@@ -532,6 +541,8 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
         return <CashierReportsView isStandalone={false} />;
       case 'cashier':
         return <CashierHomeView isStandalone={false} />;
+      case 'rules':
+        return <RulesPage />;
       default:
         return <HomeView />;
     }
