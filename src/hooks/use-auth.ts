@@ -9,7 +9,7 @@ import { toast } from '@/components/ui/pro-toast';
 import { dataStore } from '@/lib/data-store';
 import { useDataRefresher } from './useDataRefresher';
 import { isUserOnActiveShift, getActiveShifts } from '@/lib/schedule-utils';
-import type { Schedule, AssignedShift, Notification, ManagedUser } from '@/lib/types';
+import type { Schedule, AssignedShift, Notification, ManagedUser, UserBadge } from '@/lib/types';
 import { getISOWeek, getISOWeekYear, format } from 'date-fns';
 
 export type UserRole = 'Phục vụ' | 'Pha chế' | 'Quản lý' | 'Chủ nhà hàng' | 'Thu ngân';
@@ -22,6 +22,7 @@ export interface AuthUser extends User {
   secondaryRoles?: UserRole[];
   anonymousName?: string;
   photoURL: string | null;
+  badges?: UserBadge[]; // recognition badges
   /** Internal/dev flag: test accounts can see test-only events/features */
   isTestAccount?: boolean;
   bankId?: string | null;
@@ -75,7 +76,7 @@ export const useAuth = () => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         const userDocRef = doc(db, 'users', firebaseUser.uid);
-        
+
         // First, try to get the document from the cache for a fast initial load.
         let userDoc, isFromCache = false;
         try {
@@ -103,6 +104,7 @@ export const useAuth = () => {
             secondaryRoles: userData.secondaryRoles || [],
             anonymousName: userData.anonymousName,
             photoURL: userData.photoURL || firebaseUser.photoURL || null,
+            badges: userData.badges || [],
             isTestAccount: userData.isTestAccount,
             bankId: userData.bankId || null,
             bankAccountNumber: userData.bankAccountNumber || null,
@@ -132,14 +134,15 @@ export const useAuth = () => {
                   secondaryRoles: serverData.secondaryRoles || [],
                   anonymousName: serverData.anonymousName,
                   photoURL: serverData.photoURL || firebaseUser.photoURL || null,
+                  badges: serverData.badges || [],
                   isTestAccount: serverData.isTestAccount,
                   bankId: serverData.bankId || null,
                   bankAccountNumber: serverData.bankAccountNumber || null,
                 } as AuthUser;
                 // Update state only if there's a change to avoid unnecessary re-renders
-                setUser(currentUser => 
-                  JSON.stringify(currentUser) !== JSON.stringify(serverAuthUser) 
-                    ? serverAuthUser 
+                setUser(currentUser =>
+                  JSON.stringify(currentUser) !== JSON.stringify(serverAuthUser)
+                    ? serverAuthUser
                     : currentUser
                 );
               }
@@ -183,6 +186,7 @@ export const useAuth = () => {
         secondaryRoles: data.secondaryRoles || [],
         anonymousName: data.anonymousName,
         photoURL: data.photoURL || user.photoURL || null,
+        badges: data.badges || user.badges || [],
         isTestAccount: data.isTestAccount,
         bankId: data.bankId || null,
         bankAccountNumber: data.bankAccountNumber || null,

@@ -12,6 +12,15 @@ export type UserRole = 'Phục vụ' | 'Pha chế' | 'Quản lý' | 'Chủ nhà 
 
 export type EmploymentStatus = 'Đang làm việc' | 'Nghỉ việc';
 
+export type UserBadge = {
+  id: string;
+  label: string;
+  color?: string;
+  icon?: string;
+  grantedAt: number;
+  grantedBy: string; // uid of the granter
+};
+
 export type ManagedUser = {
   uid: string;
   email: string;
@@ -27,6 +36,7 @@ export type ManagedUser = {
   isTestAccount?: boolean;
   bankId?: string | null;
   bankAccountNumber?: string | null;
+  badges?: UserBadge[];
 };
 
 export type SimpleUser = {

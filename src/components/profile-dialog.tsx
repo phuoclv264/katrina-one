@@ -22,6 +22,9 @@ import { toast } from '@/components/ui/pro-toast';
 import { Loader2, Save, User, CreditCard } from 'lucide-react';
 import { Combobox } from '@/components/combobox';
 import { VIETQR_BANKS } from '@/lib/vietqr-banks';
+import { Badge } from '@/components/ui/badge';
+import { Trophy, Zap, Heart, Star, Award } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ProfileDialogProps {
   open: boolean;
@@ -128,6 +131,27 @@ export function ProfileDialog({ open, onOpenChange, parentDialogTag }: ProfileDi
                   {user.role}
                 </div>
               </div>
+
+              {user.badges && user.badges.length > 0 && (
+                <div className="space-y-3 pt-2">
+                  <Label className="text-[10px] font-black uppercase tracking-wider text-zinc-500 ml-1">Huy hiệu</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {user.badges.map((badge) => (
+                      <Badge 
+                        key={badge.id} 
+                        variant="secondary" 
+                        className={cn(
+                          "h-10 px-3 rounded-xl text-white border-none flex items-center gap-2 transition-all",
+                          badge.color ? `${badge.color} hover:brightness-110` : "bg-primary hover:bg-primary/90"
+                        )}
+                      >
+                        <Award className="w-3.5 h-3.5" />
+                        <span className="font-bold text-[11px]">{badge.label}</span>
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="pt-4 border-t border-zinc-100">
                 <div className="flex items-center gap-2 mb-4">

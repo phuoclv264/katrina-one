@@ -43,7 +43,7 @@ import * as idbKeyvalStore from './idb-keyval-store';
 import * as cashierStore from './cashier-store';
 import * as dailyTaskStore from './daily-task-store';
 import { deleteFileByUrl, uploadFile } from './data-store-helpers';
-import { isActiveUser } from './user-status';
+import { isActiveUser, isTestAccount } from './user-status';
 import { error } from 'console';
 import { InventoryItemRow } from '@/app/(app)/bartender/inventory/_components/inventory-item-row';
 
@@ -926,9 +926,16 @@ export const dataStore = {
 
   subscribeToUsers(
     callback: (users: ManagedUser[]) => void,
-    options?: { includeResigned?: boolean }
+    options?: { includeResigned?: boolean, includeTestAccounts?: boolean }
   ): () => void {
     const includeResigned = options?.includeResigned ?? false;
+    // always exclude test accounts in production environments regardless of caller
+    let includeTestAccounts: boolean;
+    if (process.env.NODE_ENV === 'production') {
+      includeTestAccounts = false;
+    } else {
+      includeTestAccounts = options?.includeTestAccounts ?? true;
+    }
     const usersCollection = collection(db, 'users');
     const q = query(usersCollection, orderBy('displayName'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -940,6 +947,10 @@ export const dataStore = {
         } as ManagedUser;
 
         if (!includeResigned && !isActiveUser(managedUser)) {
+          return;
+        }
+
+        if (!includeTestAccounts && isTestAccount(managedUser)) {
           return;
         }
 
