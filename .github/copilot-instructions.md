@@ -46,8 +46,8 @@ The project uses `.npmrc` with `legacy-peer-deps=true` to handle peer dependency
    ```
    - Runs Next.js ESLint via `next lint`
    - **Known Issue:** Currently fails with `Invalid project directory provided` error under Next.js 16
-   - **Workaround:** Do NOT run `npm run lint` — it is broken and not required for builds
-   - There is no `eslint.ignoreDuringBuilds` setting in `next.config.ts` but the build does not run lint as a separate step
+   - **Workaround:** Do NOT run `npm run lint` — it is broken
+   - Note: `next build` does not run ESLint by default in Next.js 16, so the broken lint command does not affect builds
 
 4. **Production Build**
    ```bash
@@ -199,7 +199,7 @@ src/
 - Turbopack file system cache enabled for dev and build
 - Custom redirects for apple-touch-icon
 - Remote image patterns: allows all HTTPS hostnames
-- Note: There is NO `eslint.ignoreDuringBuilds` setting
+- Note: `next build` does not run ESLint by default in Next.js 16
 
 **Firebase Config:**
 - Hardcoded API keys in `src/lib/firebase.ts` (intentional for this client-side app)
@@ -299,7 +299,7 @@ For development:
 
 ### 1. Build Failure — useSearchParams Suspense Boundary (CRITICAL)
 - **Error:** `useSearchParams() should be wrapped in a suspense boundary at page "/admin/recruitment"`
-- **File:** `src/app/(app)/admin/recruitment/page.tsx` line 89
+- **File:** `src/app/(app)/admin/recruitment/page.tsx` (in the main page component where `useSearchParams` is called)
 - **Cause:** Next.js 16 requires `useSearchParams()` to be wrapped in `<Suspense>` for static prerendering
 - **Impact:** `npm run build` fails — cannot produce a production build
 - **Workaround:** Use `npm run dev` for development testing. If a production build is needed, wrap the component using `useSearchParams()` in a `<Suspense>` boundary or add `export const dynamic = 'force-dynamic'` to the page
