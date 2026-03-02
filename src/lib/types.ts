@@ -85,11 +85,7 @@ export type ParsedServerTask = Omit<Task, 'id'> & {
 };
 
 
-export type ComprehensiveTask = {
-  id: string;
-  text: string;
-  type: 'photo' | 'boolean' | 'opinion';
-}
+export type ComprehensiveTask = Task;
 
 // Type for AI-parsed comprehensive tasks
 export type ParsedComprehensiveTask = Omit<ComprehensiveTask, 'id'>;

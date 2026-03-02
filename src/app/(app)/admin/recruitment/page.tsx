@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { dataStore } from '@/lib/data-store';
 import { useSearchParams } from 'next/navigation';
 import type { JobApplication } from '@/lib/types';
@@ -82,8 +82,9 @@ import {
 } from "@/components/ui/sheet";
 import { UserAvatar } from '@/components/user-avatar';
 import { getQueryParamWithMobileHashFallback } from '@/lib/url-params';
+import { LoadingPage } from '@/components/loading/LoadingPage';
 
-export default function RecruitmentManagementPage() {
+function RecruitmentManagementContent() {
   const { user, loading: authLoading } = useAuth();
   const nav = useAppNavigation();
   const searchParams = useSearchParams();
@@ -806,5 +807,14 @@ export default function RecruitmentManagementPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+// Suspense wrapper page component to satisfy useSearchParams requirement
+export default function RecruitmentManagementPage() {
+  return (
+    <Suspense fallback={<LoadingPage />}>
+      <RecruitmentManagementContent />
+    </Suspense>
   );
 }

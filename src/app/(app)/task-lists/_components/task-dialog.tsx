@@ -8,6 +8,7 @@ import CameraDialog from '@/components/camera-dialog';
 import { photoStore } from '@/lib/photo-store';
 import { useLightbox } from '@/contexts/lightbox-context';
 import { Button } from '@/components/ui/button';
+import { uploadFile } from '@/lib/data-store-helpers';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -187,20 +188,46 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
     }
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!text.trim()) return;
     
-    onConfirm({
-      text: text.trim(),
-      isCritical,
-      type,
-      minCompletions,
-      instruction: {
-        text: instructionText.trim() || undefined,
-        images: instructionImages.length ? instructionImages : undefined,
-      }
-    });
-    onClose();
+    setIsCompressing(true); // Show a loading indicator using the existing state
+    try {
+      // Process images: upload any data: or blob: URLs to server
+      const processedImages = await Promise.all(
+        instructionImages.map(async (img) => {
+          if (img.url.startsWith('data:') || img.url.startsWith('blob:')) {
+            try {
+              const response = await fetch(img.url);
+              const blob = await response.blob();
+              const fileName = `instruction-${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+              const serverUrl = await uploadFile(blob, `task-instructions/${fileName}`);
+              return { ...img, url: serverUrl };
+            } catch (err) {
+              console.error('Failed to upload instruction image:', err);
+              return img; // Fallback to original, though it might be invalid on server
+            }
+          }
+          return img;
+        })
+      );
+
+      onConfirm({
+        text: text.trim(),
+        isCritical,
+        type,
+        minCompletions,
+        instruction: {
+          text: instructionText.trim() || undefined,
+          images: processedImages.length ? processedImages : undefined,
+        }
+      });
+      onClose();
+    } catch (error) {
+      console.error('Error during task confirmation:', error);
+    } finally {
+      setIsCompressing(false);
+    }
   };
 
   return (

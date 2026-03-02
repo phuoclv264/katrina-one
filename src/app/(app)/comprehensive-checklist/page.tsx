@@ -1,12 +1,18 @@
-
+﻿
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { dataStore } from '@/lib/data-store';
-import type { ComprehensiveTask, ComprehensiveTaskSection, ParsedComprehensiveTask } from '@/lib/types';
+import type { ComprehensiveTask, ComprehensiveTaskSection, ParsedComprehensiveTask, Task, TaskSection } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, Building, ListChecks, MessageSquare, Image as ImageIcon, CheckSquare, Pencil, ArrowDown, ArrowUp, ChevronsDownUp, Wand2, Loader2, FileText, Shuffle, Check, Download, Badge } from 'lucide-react';
+import {
+    Trash2, Plus, Building, ListChecks, MessageSquare,
+    Image as ImageIcon, CheckSquare, Pencil, ArrowDown,
+    ArrowUp, ChevronsDownUp, Wand2, Loader2, FileText,
+    Shuffle, Check, Download, AlertCircle, MoreVertical,
+    LayoutDashboard
+} from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { useAuth } from '@/hooks/use-auth';
@@ -14,22 +20,26 @@ import { useRouter } from 'nextjs-toploader/app';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Combobox } from "@/components/combobox";
 import { Label } from '@/components/ui/label';
-import { 
-    AlertDialog, 
-    AlertDialogAction, 
-    AlertDialogCancel, 
-    AlertDialogContent, 
-    AlertDialogDescription, 
-    AlertDialogFooter, 
-    AlertDialogHeader, 
-    AlertDialogTitle, 
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
     AlertDialogTrigger,
-    AlertDialogIcon 
+    AlertDialogIcon
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { callGenerateComprehensiveTasks } from '@/lib/ai-service';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogAction, DialogCancel } from '@/components/ui/dialog';
+import { TaskDialog } from '../task-lists/_components/task-dialog';
+import { Badge } from '@/components/ui/badge';
+import { useDataRefresher } from '@/hooks/useDataRefresher';
+import { toast } from 'react-hot-toast';
 
 function AiAssistant({
     sections,
@@ -190,21 +200,22 @@ function AiAssistant({
 export default function ComprehensiveChecklistPage() {
     const { user, loading: authLoading } = useAuth();
     const router = useRouter();
-    const { toast } = useToast();
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [sections, setSections] = useState<ComprehensiveTaskSection[] | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isSorting, setIsSorting] = useState(false);
 
-    const [newText, setNewText] = useState('');
-    const [newType, setNewType] = useState<'photo' | 'boolean' | 'opinion'>('boolean');
-    const [newSection, setNewSection] = useState('');
+    const [addingToSection, setAddingToSection] = useState<string | null>(null);
+    const [editingTask, setEditingTask] = useState<{ sectionTitle: string; taskId: string; text: string; type: Task['type']; minCompletions: number; isCritical: boolean; instruction?: { text?: string; images?: { url: string; caption?: string }[] } } | null>(null);
 
     const [newSectionTitle, setNewSectionTitle] = useState('');
     const [editingSection, setEditingSection] = useState<{ title: string; newTitle: string } | null>(null);
-    const [editingTask, setEditingTask] = useState<{ sectionTitle: string; taskId: string; newText: string; newType: 'photo' | 'boolean' | 'opinion' } | null>(null);
-
 
     const [openItems, setOpenItems] = useState<string[]>([]);
+
+    const handleReconnect = useCallback(() => {
+        setRefreshTrigger(prev => prev + 1);
+    }, []);
 
     useEffect(() => {
         if (!authLoading) {
@@ -212,48 +223,33 @@ export default function ComprehensiveChecklistPage() {
                 router.replace('/');
             }
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user, authLoading, router]);
 
+    useDataRefresher(handleReconnect);
 
-
-    // This useEffect will now handle all data subscriptions based on the dateRange.
     useEffect(() => {
         if (!user) return;
 
         const unsubscribe = dataStore.subscribeToComprehensiveTasks((data) => {
             setSections(data);
-            if (data.length > 0) {
-                if (!newSection) {
-                    setNewSection(data[0].title);
-                }
-                if (openItems.length === 0) {
-                    setOpenItems(data.map(s => s.title));
-                }
+            if (data.length > 0 && openItems.length === 0) {
+                setOpenItems(data.map(s => s.title));
             }
             setIsLoading(false);
         });
 
         return () => unsubscribe();
-    }, [user, newSection, openItems]);
+    }, [user, refreshTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleUpdateAndSave = (newSections: ComprehensiveTaskSection[], showToast: boolean = true) => {
         setSections(newSections); // Optimistic update
         dataStore.updateComprehensiveTasks(newSections).then(() => {
             if (showToast) {
-                toast({
-                    title: "Đã lưu thay đổi!",
-                    description: "Danh sách kiểm tra đã được cập nhật.",
-                });
+                toast.success("Đã lưu thay đổi!");
             }
         }).catch(err => {
-            toast({
-                title: "Lỗi!",
-                description: "Không thể lưu thay đổi. Vui lòng thử lại.",
-                variant: "destructive"
-            });
+            toast.error("Không thể lưu thay đổi. Vui lòng thử lại.");
             console.error(err);
-            // Optional: revert optimistic update if needed
         });
     }
 
@@ -282,7 +278,7 @@ export default function ComprehensiveChecklistPage() {
     const handleAddSection = () => {
         if (!sections || newSectionTitle.trim() === '') return;
         if (sections.some(s => s.title === newSectionTitle.trim())) {
-            toast({ title: "Lỗi", description: "Khu vực này đã tồn tại.", variant: "destructive" });
+            toast.error("Khu vực này đã tồn tại.");
             return;
         }
         const newSectionToAdd: ComprehensiveTaskSection = { title: newSectionTitle.trim(), tasks: [] };
@@ -303,7 +299,7 @@ export default function ComprehensiveChecklistPage() {
             return;
         };
         if (sections.some(s => s.title === editingSection.newTitle.trim())) {
-            toast({ title: "Lỗi", description: "Tên khu vực này đã tồn tại.", variant: "destructive" });
+            toast.error("Tên khu vực này đã tồn tại.");
             return;
         }
         const newSectionsState = sections.map(s =>
@@ -323,26 +319,32 @@ export default function ComprehensiveChecklistPage() {
     };
 
     // Task Management
-    const handleAddTask = () => {
-        if (!sections || newText.trim() === '' || !newSection || !newType) {
-            toast({ title: "Lỗi", description: "Vui lòng điền đầy đủ thông tin.", variant: "destructive" });
-            return;
-        };
+    const handleAddTask = (sectionTitle: string, taskData: Omit<Task, 'id'>) => {
+        if (!sections) return;
 
         const newTaskToAdd: ComprehensiveTask = {
             id: `comp-task-${Date.now()}`,
-            text: newText.trim(),
-            type: newType,
+            text: taskData.text,
+            type: taskData.type,
+            isCritical: !!taskData.isCritical,
+            minCompletions: taskData.minCompletions ?? 1
         };
 
+        if (taskData.instruction) {
+            newTaskToAdd.instruction = {
+                text: taskData.instruction.text ?? "",
+                images: taskData.instruction.images ?? []
+            };
+        }
+
         const newSectionsState = JSON.parse(JSON.stringify(sections));
-        const section = newSectionsState.find((s: ComprehensiveTaskSection) => s.title === newSection);
+        const section = newSectionsState.find((s: ComprehensiveTaskSection) => s.title === sectionTitle);
         if (section) {
             section.tasks.push(newTaskToAdd);
         }
 
         handleUpdateAndSave(newSectionsState);
-        setNewText('');
+        setAddingToSection(null);
     };
 
     const handleDeleteTask = (sectionTitle: string, taskId: string) => {
@@ -355,19 +357,33 @@ export default function ComprehensiveChecklistPage() {
         handleUpdateAndSave(newSectionsState);
     };
 
-    const handleUpdateTask = () => {
-        if (!sections || !editingTask || editingTask.newText.trim() === '') {
+    const handleUpdateTask = (data: Omit<Task, 'id'>) => {
+        if (!sections || !editingTask) {
             setEditingTask(null);
             return;
         };
 
+        const { sectionTitle, taskId } = editingTask;
+        const { text, type, minCompletions, isCritical, instruction } = data;
+
         const newSectionsState = JSON.parse(JSON.stringify(sections));
-        const section = newSectionsState.find((s: ComprehensiveTaskSection) => s.title === editingTask.sectionTitle);
+        const section = newSectionsState.find((s: ComprehensiveTaskSection) => s.title === sectionTitle);
         if (section) {
-            const task = section.tasks.find((t: ComprehensiveTask) => t.id === editingTask.taskId);
+            const task = section.tasks.find((t: ComprehensiveTask) => t.id === taskId);
             if (task) {
-                task.text = editingTask.newText.trim();
-                task.type = editingTask.newType;
+                task.text = text.trim();
+                task.type = type;
+                task.minCompletions = minCompletions || 1;
+                task.isCritical = !!isCritical;
+
+                if (instruction) {
+                    task.instruction = {
+                        text: instruction.text ?? "",
+                        images: instruction.images ?? []
+                    };
+                } else {
+                    delete task.instruction;
+                }
             }
         }
         handleUpdateAndSave(newSectionsState);
@@ -385,11 +401,11 @@ export default function ComprehensiveChecklistPage() {
         handleUpdateAndSave(newSections, false);
     };
 
-    const getTaskTypeIcon = (type: 'photo' | 'boolean' | 'opinion') => {
+    const getTaskTypeIcon = (type: Task['type']) => {
         switch (type) {
-            case 'photo': return <ImageIcon className="h-4 w-4 text-green-500 shrink-0" />;
-            case 'boolean': return <CheckSquare className="h-4 w-4 text-sky-500 shrink-0" />;
-            case 'opinion': return <MessageSquare className="h-4 w-4 text-orange-500 shrink-0" />;
+            case 'photo': return <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-md"><ImageIcon className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" /></div>;
+            case 'boolean': return <div className="p-1.5 bg-sky-100 dark:bg-sky-900/30 rounded-md"><CheckSquare className="h-4 w-4 text-sky-600 dark:text-sky-400 shrink-0" /></div>;
+            case 'opinion': return <div className="p-1.5 bg-orange-100 dark:bg-orange-900/30 rounded-md"><MessageSquare className="h-4 w-4 text-orange-600 dark:text-orange-400 shrink-0" /></div>;
             default: return null;
         }
     }
@@ -407,9 +423,7 @@ export default function ComprehensiveChecklistPage() {
         const newSortState = !isSorting;
         setIsSorting(newSortState);
         if (!newSortState) {
-            toast({
-                title: "Đã lưu thứ tự mới!",
-            });
+            toast.success("Đã lưu thứ tự mới!");
         }
     };
 
@@ -418,19 +432,13 @@ export default function ComprehensiveChecklistPage() {
         const textToCopy = sections.map(section =>
             `# ${section.title}\n` +
             section.tasks.map(task => `- ${task.text}`).join('\n')
+
         ).join('\n\n');
 
         navigator.clipboard.writeText(textToCopy).then(() => {
-            toast({
-                title: "Đã sao chép!",
-                description: "Danh sách hạng mục đã được sao chép vào bộ nhớ tạm.",
-            });
+            toast.success("Danh sách hạng mục đã được sao chép vào bộ nhớ tạm.");
         }).catch(err => {
-            toast({
-                title: "Lỗi",
-                description: "Không thể sao chép.",
-                variant: "destructive",
-            });
+            toast.error("Không thể sao chép.");
         });
     };
 
@@ -439,127 +447,114 @@ export default function ComprehensiveChecklistPage() {
     }
 
     if (!sections) {
-        return <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">Không thể tải danh sách công việc.</div>;
+        return <div className="container mx-auto p-4 sm:p-6 md:p-8">Không thể tải danh sách công việc.</div>;
     }
 
     const areAllSectionsOpen = sections && openItems.length === sections.length;
+    const totalTasks = sections?.reduce((acc, s) => acc + (s.tasks?.length || 0), 0) || 0;
 
     return (
-        <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
-            <header className="mb-8">
-                <h1 className="text-2xl md:text-3xl font-bold font-headline flex items-center gap-3"><ListChecks /> Quản lý Hạng mục Kiểm tra</h1>
-                <p className="text-muted-foreground">Thêm, sửa, xóa và sắp xếp các khu vực, hạng mục kiểm tra cho Quản lý.</p>
-            </header>
-
-            <AiAssistant sections={sections} onTasksGenerated={onAiTasksGenerated} />
-
-            <Card className="mb-8">
-                <CardHeader>
-                    <CardTitle className="text-xl sm:text-2xl">Quản lý Khu vực</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                        <Input
-                            placeholder="Tên khu vực mới, ví dụ: Tầng 3"
-                            value={newSectionTitle}
-                            onChange={e => setNewSectionTitle(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && handleAddSection()}
-                        />
-                        <Button onClick={handleAddSection} className="w-full sm:w-auto"><Plus className="mr-2 h-4 w-4" /> Thêm khu vực</Button>
+        <div className="container mx-auto p-4 sm:p-6 lg:p-8 max-w-5xl">
+            <header className="mb-8 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+                            <div className="p-2 bg-primary/10 rounded-xl">
+                                <ListChecks className="h-8 w-8 text-primary" />
+                            </div>
+                            Hạng mục Tổng hợp
+                        </h1>
+                        <p className="text-muted-foreground">
+                            Quản lý {sections?.length || 0} khu vực và {totalTasks} hạng mục kiểm tra.
+                        </p>
                     </div>
-                </CardContent>
-            </Card>
-
-            <Card className="mb-8">
-                <CardHeader>
-                    <CardTitle className="text-xl sm:text-2xl">Thêm hạng mục mới (Thủ công)</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="space-y-2 col-span-1 md:col-span-3">
-                            <Label htmlFor="new-task-text">Nội dung hạng mục</Label>
-                            <Input
-                                id="new-task-text"
-                                placeholder="ví dụ: 'Sàn nhà sạch sẽ'"
-                                value={newText}
-                                onChange={e => setNewText(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && handleAddTask()}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="new-task-section">Khu vực</Label>
-                            <Combobox
-                                value={newSection}
-                                onChange={value => setNewSection(value)}
-                                options={sections.map(section => ({ value: section.title, label: section.title }))}
-                                placeholder="Chọn khu vực..."
-                                disabled={sections.length === 0}
-                                compact
-                                searchable={false}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="new-task-type">Loại báo cáo</Label>
-                            <Combobox
-                                value={newType}
-                                onChange={(value) => setNewType(value as 'photo' | 'boolean' | 'opinion')}
-                                options={[
-                                    { value: "boolean", label: "Đảm bảo / Không đảm bảo" },
-                                    { value: "photo", label: "Hình ảnh" },
-                                    { value: "opinion", label: "Ý kiến" }
-                                ]}
-                                placeholder="Chọn loại báo cáo..."
-                                compact
-                                searchable={false}
-                            />
-                        </div>
-                    </div>
-                    <Button onClick={handleAddTask} className="w-full md:w-auto" disabled={sections.length === 0}>
-                        <Plus className="mr-2 h-4 w-4" /> Thêm hạng mục
-                    </Button>
-                    {sections.length === 0 && <p className="text-sm text-muted-foreground text-center">Vui lòng thêm một khu vực trước khi thêm hạng mục.</p>}
-                </CardContent>
-            </Card>
-
-            <Card>
-                <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div className="space-y-1.5">
-                        <CardTitle>Danh sách hạng mục</CardTitle>
-                        <CardDescription>Xem và quản lý các hạng mục trong từng khu vực.</CardDescription>
-                    </div>
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
-                        <Button variant="outline" size="sm" onClick={handleExport} className="w-full sm:w-auto">
-                            <Download className="mr-2 h-4 w-4" />
-                            Xuất dữ liệu
-                        </Button>
+                    <div className="flex items-center gap-2">
                         {isSorting ? (
-                            <Button variant="default" size="sm" onClick={toggleSortMode} className="w-full sm:w-auto">
+                            <Button
+                                variant="default"
+                                size="sm"
+                                onClick={toggleSortMode}
+                                className="shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90"
+                            >
                                 <Check className="mr-2 h-4 w-4" />
                                 Xong
                             </Button>
                         ) : (
-                            <Button variant="outline" size="sm" onClick={toggleSortMode} className="w-full sm:w-auto">
-                                <Shuffle className="mr-2 h-4 w-4" />
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={toggleSortMode}
+                                className="bg-background/50 backdrop-blur-sm border-primary/20 hover:border-primary/50 transition-all"
+                            >
+                                <Shuffle className="mr-2 h-4 w-4 text-primary" />
                                 Sắp xếp
                             </Button>
                         )}
-                        {sections && sections.length > 0 && (
-                            <Button variant="outline" size="sm" onClick={handleToggleAll} className="w-full sm:w-auto">
-                                <ChevronsDownUp className="mr-2 h-4 w-4" />
-                                {areAllSectionsOpen ? 'Thu gọn' : 'Mở rộng'}
-                            </Button>
-                        )}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleExport}
+                            className="bg-background/50 backdrop-blur-sm"
+                        >
+                            <Download className="mr-2 h-4 w-4" />
+                            Xuất
+                        </Button>
                     </div>
-                </CardHeader>
-                <CardContent>
-                    <Accordion type="multiple" value={openItems} onValueChange={setOpenItems} className="w-full space-y-4">
-                        {sections.map((section, sectionIndex) => (
-                            <AccordionItem value={section.title} key={section.title} className="border rounded-lg">
-                                <div className="flex items-center p-2">
-                                    <AccordionTrigger className="text-lg font-medium hover:no-underline flex-1 p-2" disabled={isSorting}>
-                                        <div className="flex items-center gap-3">
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <Card className="md:col-span-3 border-dashed bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer group">
+                        <CardContent className="p-4 flex items-center justify-between" onClick={() => (document.getElementById('new-section-input') as HTMLInputElement)?.focus()}>
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
+                                    <Plus className="h-5 w-5 text-primary" />
+                                </div>
+                                <div className="flex-1">
+                                    <Input
+                                        id="new-section-input"
+                                        placeholder="Tên khu vực mới (ví dụ: Tầng 3)"
+                                        value={newSectionTitle}
+                                        onChange={e => setNewSectionTitle(e.target.value)}
+                                        onKeyDown={e => e.key === 'Enter' && handleAddSection()}
+                                        className="border-none bg-transparent p-0 focus-visible:ring-0 text-lg font-medium placeholder:text-muted-foreground/50"
+                                    />
+                                    <p className="text-xs text-muted-foreground">Nhấn Enter để thêm nhanh</p>
+                                </div>
+                            </div>
+                            <Button size="sm" onClick={handleAddSection} disabled={!newSectionTitle.trim()}>
+                                Thêm
+                            </Button>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="bg-primary/5 border-primary/20">
+                        <CardContent className="p-4 flex items-center justify-between">
+                            <div className="space-y-0.5">
+                                <p className="text-sm font-medium">Trạng thái</p>
+                                <p className="text-xs text-muted-foreground">{areAllSectionsOpen ? 'Đang mở hết' : 'Đang thu gọn'}</p>
+                            </div>
+                            <Button variant="ghost" size="icon" onClick={handleToggleAll} className="hover:bg-primary/10">
+                                <ChevronsDownUp className={areAllSectionsOpen ? "h-5 w-5 rotate-180 transition-transform" : "h-5 w-5 transition-transform"} />
+                            </Button>
+                        </CardContent>
+                    </Card>
+                </div>
+            </header>
+
+            <AiAssistant sections={sections || []} onTasksGenerated={onAiTasksGenerated} />
+
+            <div className="space-y-6">
+                <Accordion type="multiple" value={openItems} onValueChange={setOpenItems} className="space-y-4">
+                    {sections?.map((section, sectionIndex) => (
+                        <div key={section.title} className="group/section">
+                            <AccordionItem value={section.title} className="border rounded-2xl bg-card overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 border-muted/60">
+                                <div className="flex items-center px-4 py-2 bg-muted/30 group-hover/section:bg-muted/50 transition-colors">
+                                    <div className="flex items-center gap-3 flex-1">
+                                        <div className="p-2 bg-background rounded-lg shadow-sm border border-muted/50">
                                             <Building className="h-5 w-5 text-primary" />
-                                            {editingSection?.title === section.title ? (
+                                        </div>
+                                        {editingSection?.title === section.title ? (
+                                            <div className="flex items-center gap-2 flex-1 max-w-md">
                                                 <Input
                                                     value={editingSection.newTitle}
                                                     onChange={(e) => setEditingSection({ ...editingSection, newTitle: e.target.value })}
@@ -569,138 +564,215 @@ export default function ComprehensiveChecklistPage() {
                                                     }}
                                                     onBlur={() => handleRenameSection(section.title)}
                                                     autoFocus
-                                                    className="text-lg font-medium h-9"
-                                                    onClick={(e) => e.stopPropagation()}
+                                                    className="h-9 font-semibold"
                                                 />
-                                            ) : (
-                                                <span className="flex-1 text-left">{section.title}</span>
-                                            )}
-                                        </div>
-                                    </AccordionTrigger>
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col">
+                                                <span className="font-bold text-lg">{section.title}</span>
+                                                <span className="text-xs text-muted-foreground">{section.tasks.length} hạng mục</span>
+                                            </div>
+                                        )}
+                                    </div>
 
-                                    <div className="flex items-center gap-1 ml-auto pl-4">
+                                    <div className="flex items-center gap-1">
                                         {isSorting ? (
-                                            <>
+                                            <div className="flex items-center bg-background/80 rounded-lg border border-muted/50 p-1 shadow-sm">
                                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveSection(sectionIndex, 'up')} disabled={sectionIndex === 0}>
                                                     <ArrowUp className="h-4 w-4" />
                                                 </Button>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveSection(sectionIndex, 'down')} disabled={sectionIndex === sections.length - 1}>
+                                                <div className="w-[1px] h-4 bg-muted mx-1" />
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveSection(sectionIndex, 'down')} disabled={sectionIndex === (sections?.length || 0) - 1}>
                                                     <ArrowDown className="h-4 w-4" />
                                                 </Button>
-                                            </>
+                                            </div>
                                         ) : (
-                                            <>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingSection({ title: section.title, newTitle: section.title })}>
+                                            <div className="flex items-center gap-1 transition-opacity">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-9 w-9 text-muted-foreground hover:bg-background hover:text-primary transition-all rounded-full"
+                                                    onClick={() => setEditingSection({ title: section.title, newTitle: section.title })}
+                                                >
                                                     <Pencil className="h-4 w-4" />
                                                 </Button>
-                                                <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
+                                                <AlertDialog dialogTag={`delete-section-${section.title}`} parentDialogTag="root" variant="destructive">
                                                     <AlertDialogTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-9 w-9 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all rounded-full"
+                                                        >
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>
                                                     </AlertDialogTrigger>
                                                     <AlertDialogContent>
                                                         <AlertDialogHeader>
                                                             <AlertDialogIcon icon={Trash2} />
-                                                            <div className="space-y-2 text-center sm:text-left">
+                                                            <div className="space-y-2">
                                                                 <AlertDialogTitle>Xóa khu vực "{section.title}"?</AlertDialogTitle>
                                                                 <AlertDialogDescription>
-                                                                    Hành động này không thể được hoàn tác. Việc này sẽ xóa vĩnh viễn khu vực và tất cả các hạng mục công việc bên trong nó.
+                                                                    Hành động này không thể được hoàn tác. Tất cả <strong>{section.tasks.length}</strong> hạng mục kiểm tra sẽ bị xóa vĩnh viễn.
                                                                 </AlertDialogDescription>
                                                             </div>
                                                         </AlertDialogHeader>
                                                         <AlertDialogFooter>
                                                             <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                            <AlertDialogAction onClick={() => handleDeleteSection(section.title)}>Xóa</AlertDialogAction>
+                                                            <AlertDialogAction onClick={() => handleDeleteSection(section.title)} className="bg-destructive hover:bg-destructive/90">Xóa vĩnh viễn</AlertDialogAction>
                                                         </AlertDialogFooter>
                                                     </AlertDialogContent>
                                                 </AlertDialog>
-                                            </>
+                                            </div>
                                         )}
+                                        <AccordionTrigger className="h-9 w-9 p-0 flex items-center justify-center hover:bg-background rounded-full transition-all ml-1" />
                                     </div>
                                 </div>
 
-                                <AccordionContent className="p-4 border-t">
-                                    <div className="space-y-2">
-                                        {section.tasks.map((task, taskIndex) => (
-                                            <div key={task.id} className="flex items-center gap-3 rounded-md border bg-card p-3">
-
-                                                {editingTask?.taskId === task.id ? (
-                                                    <div className="flex-1 flex flex-col sm:flex-row gap-2">
-                                                        <Input
-                                                            value={editingTask.newText}
-                                                            onChange={(e) => setEditingTask({ ...editingTask, newText: e.target.value })}
-                                                            onKeyDown={(e) => {
-                                                                if (e.key === 'Enter') handleUpdateTask();
-                                                                if (e.key === 'Escape') setEditingTask(null);
-                                                            }}
-                                                            autoFocus
-                                                            className="text-sm h-9 flex-1"
-                                                        />
-                                                        <Combobox
-                                                            value={editingTask.newType}
-                                                            onChange={(value) => {
-                                                                if (editingTask) {
-                                                                    setEditingTask({ ...editingTask, newType: value as 'photo' | 'boolean' | 'opinion' });
-                                                                }
-                                                            }}
-                                                            options={[
-                                                                { value: "boolean", label: "Đảm bảo / Không đảm bảo" },
-                                                                { value: "photo", label: "Hình ảnh" },
-                                                                { value: "opinion", label: "Ý kiến" }
-                                                            ]}
-                                                            compact
-                                                            searchable={false}
-                                                            className="h-9 w-full sm:w-[220px]"
-                                                        />
-                                                    </div>
-                                                ) : (
-                                                    <>
+                                <AccordionContent className="p-0 border-t border-muted/50 bg-background/50">
+                                    <div className="divide-y divide-muted/30">
+                                        {section.tasks.length > 0 ? (
+                                            section.tasks.map((task, taskIndex) => (
+                                                <div
+                                                    key={task.id || taskIndex}
+                                                    className="group/task flex items-center gap-4 px-6 py-4 hover:bg-muted/30 transition-all duration-200"
+                                                >
+                                                    <div className="flex-shrink-0">
                                                         {getTaskTypeIcon(task.type)}
-                                                        <p className="flex-1 text-sm">{task.text}</p>
-                                                    </>
-                                                )}
+                                                    </div>
 
-                                                <div className="flex items-center gap-0">
-                                                    {isSorting ? (
-                                                        <>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveTask(sectionIndex, taskIndex, 'up')} disabled={taskIndex === 0}>
-                                                                <ArrowUp className="h-4 w-4" />
-                                                            </Button>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveTask(sectionIndex, taskIndex, 'down')} disabled={taskIndex === section.tasks.length - 1}>
-                                                                <ArrowDown className="h-4 w-4" />
-                                                            </Button>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            {editingTask?.taskId === task.id ? (
-                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={handleUpdateTask}>
-                                                                    <Check className="h-4 w-4 text-green-500" />
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className="text-sm font-semibold text-foreground/90 leading-tight">
+                                                                {task.text}
+                                                            </span>
+                                                            {task.isCritical && (
+                                                                <Badge variant="destructive" className="h-5 px-1.5 text-[10px] uppercase tracking-wider font-bold animate-pulse">
+                                                                    <AlertCircle className="h-3 w-3 mr-1" /> Tối quan trọng
+                                                                </Badge>
+                                                            )}
+                                                            {task.minCompletions && task.minCompletions > 1 && (
+                                                                <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-medium bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300 border-none">
+                                                                    <Check className="h-3 w-3 mr-1" /> {task.minCompletions} lần
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                        {task.instruction && (
+                                                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 w-fit px-2 py-0.5 rounded-md border border-muted/50">
+                                                                <FileText className="h-3 w-3" />
+                                                                <span>Có hướng dẫn</span>
+                                                                {task.instruction.images && task.instruction.images.length > 0 && (
+                                                                    <Badge variant="outline" className="h-4 px-1 text-[9px] border-muted-foreground/30 font-normal">
+                                                                        +{task.instruction.images.length} ảnh
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="flex-shrink-0 flex items-center gap-1 transition-all">
+                                                        {isSorting ? (
+                                                            <div className="flex items-center bg-background rounded-lg border border-muted/50 shadow-sm p-0.5">
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveTask(sectionIndex, taskIndex, 'up')} disabled={taskIndex === 0}>
+                                                                    <ArrowUp className="h-4 w-4" />
                                                                 </Button>
-                                                            ) : (
-                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => setEditingTask({ sectionTitle: section.title, taskId: task.id, newText: task.text, newType: task.type })}>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveTask(sectionIndex, taskIndex, 'down')} disabled={taskIndex === section.tasks.length - 1}>
+                                                                    <ArrowDown className="h-4 w-4" />
+                                                                </Button>
+                                                            </div>
+                                                        ) : (
+                                                            <>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-8 w-8 text-muted-foreground hover:bg-background hover:text-primary transition-colors"
+                                                                    onClick={() => setEditingTask({
+                                                                        sectionTitle: section.title,
+                                                                        taskId: task.id,
+                                                                        text: task.text,
+                                                                        type: task.type,
+                                                                        minCompletions: task.minCompletions || 1,
+                                                                        isCritical: !!task.isCritical,
+                                                                        instruction: task.instruction
+                                                                    })}
+                                                                >
                                                                     <Pencil className="h-4 w-4" />
                                                                 </Button>
-                                                            )}
-
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteTask(section.title, task.id)}>
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </Button>
-                                                        </>
-                                                    )}
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                                                                    onClick={() => handleDeleteTask(section.title, task.id)}
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </Button>
+                                                            </>
+                                                        )}
+                                                    </div>
                                                 </div>
+                                            ))
+                                        ) : (
+                                            <div className="py-12 flex flex-col items-center justify-center text-center px-4 bg-muted/10">
+                                                <div className="p-4 bg-background rounded-full shadow-sm border border-muted/50 mb-4">
+                                                    <ListChecks className="h-8 w-8 text-muted-foreground/40" />
+                                                </div>
+                                                <h3 className="text-lg font-semibold text-muted-foreground">Chưa có hạng mục nào</h3>
+                                                <p className="text-sm text-muted-foreground/60 max-w-[250px] mt-1">
+                                                    Khu vực này đang trống. Hãy thêm các hạng mục kiểm tra để bắt đầu.
+                                                </p>
                                             </div>
-                                        ))}
-                                        {section.tasks.length === 0 && (
-                                            <p className="text-sm text-muted-foreground text-center py-4">Chưa có hạng mục nào trong khu vực này.</p>
                                         )}
+
+                                        <div className="p-3 bg-muted/10 flex justify-center border-t border-muted/30">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setAddingToSection(section.title)}
+                                                className="w-full max-w-[200px] border border-dashed border-primary/20 text-primary hover:bg-primary/10 hover:border-primary/40 transition-all font-medium rounded-xl h-10"
+                                            >
+                                                <Plus className="mr-2 h-4 w-4" /> Thêm hạng mục
+                                            </Button>
+                                        </div>
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>
-                        ))}
-                    </Accordion>
-                </CardContent>
-            </Card>
+                        </div>
+                    ))}
+                </Accordion>
+
+                {sections?.length === 0 && (
+                    <div className="text-center py-24 bg-card border rounded-3xl shadow-sm border-dashed border-muted-foreground/20">
+                        <div className="p-6 bg-primary/5 rounded-full w-fit mx-auto mb-6">
+                            <Building className="h-12 w-12 text-primary/40" />
+                        </div>
+                        <h2 className="text-2xl font-bold mb-2">Chưa có khu vực nào</h2>
+                        <p className="text-muted-foreground mb-8 max-w-md mx-auto px-4">
+                            Hãy bắt đầu bằng cách thêm một khu vực (ví dụ: Tầng 1, Nhà vệ sinh) và thêm các hạng mục kiểm tra bên trong.
+                        </p>
+                        <Button size="lg" onClick={() => (document.getElementById('new-section-input') as HTMLInputElement)?.focus()} className="shadow-lg shadow-primary/20 h-14 px-8 rounded-2xl font-bold">
+                            <Plus className="mr-2 h-6 w-6" /> Tạo khu vực đầu tiên
+                        </Button>
+                    </div>
+                )}
+            </div>
+
+            {addingToSection && (
+                <TaskDialog
+                    isOpen={!!addingToSection}
+                    onClose={() => setAddingToSection(null)}
+                    onConfirm={(data) => handleAddTask(addingToSection, data)}
+                    sectionTitle={addingToSection}
+                />
+            )}
+
+            {editingTask && (
+                <TaskDialog
+                    isOpen={!!editingTask}
+                    onClose={() => setEditingTask(null)}
+                    onConfirm={handleUpdateTask}
+                    initialData={editingTask}
+                    sectionTitle={editingTask.sectionTitle}
+                />
+            )}
         </div>
     );
 }

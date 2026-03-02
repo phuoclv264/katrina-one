@@ -1029,6 +1029,16 @@ export const dataStore = {
     await deleteDoc(userRef);
   },
 
+  async getServerTasks(): Promise<TasksByShift | null> {
+    const docSnap = await getDoc(doc(db, 'app-data', 'tasks'));
+    return docSnap.exists() ? docSnap.data() as TasksByShift : null;
+  },
+
+  async getBartenderTasks(): Promise<TaskSection[] | null> {
+    const docSnap = await getDoc(doc(db, 'app-data', 'bartenderTasks'));
+    return docSnap.exists() ? docSnap.data().tasks as TaskSection[] : null;
+  },
+
   subscribeToTasks(callback: (tasks: TasksByShift) => void): () => void {
     const docRef = doc(db, 'app-data', 'tasks');
     const unsubscribe = onSnapshot(docRef, async (docSnap) => {
@@ -1043,6 +1053,29 @@ export const dataStore = {
     });
     return unsubscribe;
   },
+
+  /**
+     * Fetch all shift reports for the current day matching `shiftKey`.
+     * Used for shared checklist items that only need to be completed once per
+     * shift by any user.
+     */
+    async getShiftReports(shiftKey: string): Promise<ShiftReport[]> {
+      const date = getTodaysDateKey();
+      const reportsCollection = collection(db, 'reports');
+      const q = query(
+        reportsCollection,
+        where('shiftKey', '==', shiftKey),
+        where('date', '==', date)
+      );
+      const querySnap = await getDocs(q);
+      const results: ShiftReport[] = [];
+      querySnap.forEach(docSnap => {
+        if (docSnap.exists()) {
+          results.push(docSnap.data() as ShiftReport);
+        }
+      });
+      return results;
+    },
 
   async updateTasks(newTasks: TasksByShift) {
     const docRef = doc(db, 'app-data', 'tasks');
