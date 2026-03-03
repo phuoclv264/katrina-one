@@ -15,9 +15,10 @@ import {
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Camera, ShieldCheck, Edit, FileText, Users, Image as ImageIcon, Search, Calendar, ChevronRight } from 'lucide-react';
+import { Loader2, Camera, ShieldCheck, Edit, FileText, Users, Image as ImageIcon, Search, Calendar, ChevronRight, X, Video } from 'lucide-react';
 import { ManagedUser, MediaItem, DailyTaskTargetMode, UserRole } from '@/lib/types';
 import { cn, advancedSearch } from '@/lib/utils';
+import Image from 'next/image';
 
 type NewTaskShape = {
   title: string;
@@ -219,31 +220,54 @@ export default function CreateTaskDialog({ isOpen, onOpenChange, newTask, setNew
                    <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Ảnh hướng dẫn</h3>
                 </div>
 
-                <div
-                  onClick={() => setInstructionCameraOpen(true)}
-                  className={cn(
-                    "relative flex aspect-square sm:aspect-auto sm:h-full min-h-[160px] cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed transition-all overflow-hidden group shadow-sm",
-                    newTask.media.length > 0
-                      ? "border-primary/40 bg-primary/5"
-                      : "border-muted-foreground/20 bg-muted/10 hover:bg-muted/20 hover:border-primary/30"
-                  )}
-                >
-                  {newTask.media.length > 0 ? (
-                    <div className="space-y-1 text-center animate-in zoom-in-95 duration-300">
-                      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary shadow-lg shadow-primary/20 text-primary-foreground mb-3 rotate-3 group-hover:rotate-0 transition-transform">
-                        <Camera className="h-7 w-7" />
-                      </div>
-                      <span className="text-4xl font-black text-primary leading-none tabular-nums tracking-tighter">{newTask.media.length}</span>
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/70">Ảnh đính kèm</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {newTask.media.map((item, idx) => (
+                    <div key={item.id || idx} className="relative aspect-square rounded-2xl overflow-hidden group/item border border-muted-foreground/10 bg-muted/20">
+                      {item.type === 'video' ? (
+                        <div className="w-full h-full flex items-center justify-center bg-slate-900">
+                          <Video className="h-8 w-8 text-white/50" />
+                        </div>
+                      ) : (
+                        <Image
+                          src={item.url || ''}
+                          alt="Instruction"
+                          fill
+                          className="object-cover transition-transform group-hover/item:scale-105"
+                          unoptimized={item.url?.startsWith('blob:')}
+                        />
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setNewTask(prev => ({
+                            ...prev,
+                            media: prev.media.filter((_, i) => i !== idx)
+                          }));
+                        }}
+                        className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-black/50 text-white flex items-center justify-center backdrop-blur-md opacity-0 group-hover/item:opacity-100 transition-opacity hover:bg-red-500"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
                     </div>
-                  ) : (
-                    <>
-                      <div className="rounded-2xl bg-white p-5 text-muted-foreground group-hover:scale-110 group-hover:text-primary group-hover:shadow-md transition-all duration-300 mb-3 grayscale group-hover:grayscale-0">
-                        <Camera className="h-8 w-8" />
-                      </div>
-                      <p className="text-[11px] font-black text-muted-foreground/50 text-center px-8 uppercase tracking-widest group-hover:text-primary transition-colors">Chụp ảnh/Video</p>
-                    </>
-                  )}
+                  ))}
+
+                  <div
+                    onClick={() => setInstructionCameraOpen(true)}
+                    className={cn(
+                      "relative flex aspect-square cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed transition-all overflow-hidden group shadow-sm",
+                      newTask.media.length > 0
+                        ? "border-primary/40 bg-primary/5 h-full"
+                        : "border-muted-foreground/20 bg-muted/10 hover:bg-muted/20 hover:border-primary/30 min-h-[160px] col-span-2 sm:col-span-1 sm:aspect-auto"
+                    )}
+                  >
+                    <div className="rounded-xl bg-white p-3 text-muted-foreground group-hover:scale-110 group-hover:text-primary group-hover:shadow-md transition-all duration-300 mb-2 grayscale group-hover:grayscale-0">
+                      <Camera className="h-5 w-5" />
+                    </div>
+                    <p className="text-[10px] font-black text-muted-foreground/50 text-center px-4 uppercase tracking-widest group-hover:text-primary transition-colors">
+                      {newTask.media.length > 0 ? 'Thêm ảnh' : 'Chụp ảnh/Video'}
+                    </p>
+                  </div>
                 </div>
              </div>
            </div>

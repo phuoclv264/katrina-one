@@ -164,7 +164,11 @@ function DailyAssignmentsPageContent() {
       targetMode: original.targetMode,
       targetRoles: original.targetMode === 'roles' ? (original.targetRoles || []) : [],
       targetUserIds: original.targetMode === 'users' ? (original.targetUserIds || []) : [],
-      media: (original.media || []).map((m: any) => ({ id: m.url || m.id, type: m.type })),
+      media: (original.media || []).map((m: any) => ({ 
+        id: m.url, 
+        type: m.type,
+        url: m.url 
+      })),
     });
 
     setIsCreateDialogOpen(true);
