@@ -27,11 +27,13 @@ import { v4 as uuidv4 } from 'uuid';
 import WorkHistoryDialog from './work-history-dialog';
 import PendingWorkDialog from './pending-work-dialog';
 import { DEFAULT_MAIN_SHIFT_TIMEFRAMES, getActiveShiftKeys } from '@/lib/shift-utils';
+import { createUndoneTasksViolation } from '@/lib/violations-service';
 
 type PendingWorkItem = {
     category: 'monthly' | 'daily' | 'checklist';
     title: string;
     items: string[];
+    isStared?: boolean;
 };
 
 const shiftLabels: Record<string, string> = {
@@ -201,7 +203,8 @@ export default function CheckInCard() {
                 category: 'daily',
                 title: 'Giao việc trong ngày',
                 items: pendingDaily.map(task => task.title + (task.status === 'in_review' ? ' (cần được duyệt, báo quản lý để hoàn tất)' : '')),
-            });
+                isStared: true, // Mark daily tasks as high priority
+            } as PendingWorkItem);
         }
 
         // only consider monthly assignments that apply to this user
@@ -225,7 +228,8 @@ export default function CheckInCard() {
                 category: 'monthly',
                 title: 'Công việc định kỳ',
                 items: pendingMonthly.map(assignment => assignment.taskName),
-            });
+                isStared: true, // Mark monthly tasks as high priority
+            } as PendingWorkItem);
         }
 
         if (effectiveRoles.includes('Phục vụ')) {
@@ -282,24 +286,31 @@ export default function CheckInCard() {
                                         return c.length >= required;
                                     });
                                     if (!doneByAnyone) {
-                                        undoneList.push(task.text);
+                                        const remaining = required - (serverReport?.completedTasks[task.id]?.length || 0);
+                                        const countLabel = required > 1 ? ` (còn ${remaining}/${required} lần)` : '';
+                                        undoneList.push(task.isCritical ? `_CRITICAL_${task.text}${countLabel}` : `${task.text}${countLabel}`);
                                     }
                                 } else {
                                     // each user must complete their own
                                     const completions = serverReport ? serverReport.completedTasks[task.id] || [] : [];
                                     if (completions.length < required) {
-                                        undoneList.push(task.text);
+                                        const remaining = required - completions.length;
+                                        const countLabel = required > 1 ? ` (còn ${remaining}/${required} lần)` : '';
+                                        undoneList.push(task.isCritical ? `_CRITICAL_${task.text}${countLabel}` : `${task.text}${countLabel}`);
                                     }
                                 }
                             }
                         }
                     }
 
+                    const hasCriticalTasks = tasksMap && tasksMap[shiftKey] && tasksMap[shiftKey].sections.some(s => s.tasks.some(t => t.isCritical && undoneList.some(item => item === `_CRITICAL_${t.text}`)));
+
                     items.push({
                         category: 'checklist',
                         title: shiftLabels[shiftKey] || 'Checklist ca',
                         items: undoneList.length > 0 ? undoneList : ['Báo cáo checklist chưa hoàn tất.'],
-                    });
+                        isStared: hasCriticalTasks,
+                    } as PendingWorkItem);
                 } catch (error) {
                     console.error('Không thể kiểm tra checklist ca:', error);
                 }
@@ -336,7 +347,9 @@ export default function CheckInCard() {
                             const completions = serverReport ? serverReport.completedTasks[task.id] || [] : [];
                             const required = task.minCompletions || 1;
                             if (completions.length < required) {
-                                undoneList.push(task.text);
+                                const remaining = required - completions.length;
+                                const countLabel = required > 1 ? ` (còn ${remaining}/${required} lần)` : '';
+                                undoneList.push(`${task.text}${countLabel}`);
                             }
                         }
                     }
@@ -357,10 +370,24 @@ export default function CheckInCard() {
         return items;
     }, [dailyTasks, getMonthlyCompletionStatus, isUserTargetedDailyTask, monthlyAssignments, user, activeShift, effectiveRoles]);
 
-    const openCheckoutCamera = useCallback(() => {
+    const openCheckoutCamera = useCallback((violate: boolean = false) => {
+        if (violate && user) {
+            const problematicTasks = pendingWorkItems
+                .filter(block => block.category === 'monthly' || block.category === 'daily' || (block as any).isStared)
+                .flatMap(block => block.items);
+
+            if (problematicTasks.length > 0) {
+                void createUndoneTasksViolation(
+                    { uid: user.uid, displayName: user.displayName || 'Nhân viên' },
+                    problematicTasks,
+                    latestInProgressRecord?.id
+                );
+                toast.error('Ghi nhận vi phạm không hoàn thành nhiệm vụ.');
+            }
+        }
         setCameraAction('check-in-out');
         setIsCameraOpen(true);
-    }, []);
+    }, [user, pendingWorkItems, latestInProgressRecord]);
 
     const handleCheckoutReminderFlow = useCallback(async () => {
         setIsPendingCheckLoading(true);
@@ -813,7 +840,7 @@ export default function CheckInCard() {
                 onOpenChange={setIsPendingDialogOpen}
                 pendingWorkItems={pendingWorkItems}
                 loading={isPendingCheckLoading}
-                onProceed={openCheckoutCamera}
+                onProceed={(violate) => openCheckoutCamera(violate)}
             />
 
             <CameraDialog

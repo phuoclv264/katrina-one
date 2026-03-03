@@ -155,6 +155,61 @@ export async function addOrUpdateViolation(
   await recalculateViolationsForCurrentMonth();
 }
 
+/**
+ * Automatically creates a violation for undone tasks.
+ * Searches for a category with name containing "Không" and "nhiệm vụ".
+ */
+export async function createUndoneTasksViolation(
+  user: { uid: string; displayName: string },
+  tasks: string[],
+  attendanceRecordId?: string
+): Promise<void> {
+  // If an attendanceRecordId is provided, do not create duplicate violations for the same record
+  if (attendanceRecordId) {
+    const q = query(
+      collection(db, 'violations'),
+      where('attendanceRecordId', '==', attendanceRecordId),
+      where('reporterId', '==', 'system')
+    );
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      console.log(`Violation already exists for attendance record ${attendanceRecordId}. Skipping.`);
+      return;
+    }
+  }
+
+  const categories = await getViolationCategories();
+  const targetCategory = categories.list.find(c => 
+    c.name.toLowerCase().includes('không hoàn thành') && 
+    c.name.toLowerCase().includes('công việc')
+  );
+
+  if (!targetCategory) {
+    console.error('Could not find suitable violation category for undone tasks.');
+    return;
+  }
+
+  const cleanTasks = tasks.map(t => t.replace('_CRITICAL_', ' ★ '));
+  const content = `Tự động ghi nhận vi phạm do chưa hoàn thành các nhiệm vụ quan trọng khi checkout:\n- ${cleanTasks.join('\n- ')}`;
+
+  const violationData: any = {
+    content,
+    users: [{ id: user.uid, name: user.displayName }],
+    reporterId: 'system',
+    reporterName: 'Hệ thống (Kiểm tra Checkout)',
+    categoryId: targetCategory.id,
+    categoryName: targetCategory.name,
+    severity: targetCategory.severity,
+    cost: targetCategory.fineAmount,
+    photos: [],
+    createdAt: serverTimestamp(),
+    attendanceRecordId, // Tag the violation with the record ID to prevent double-logging
+  };
+
+  await addDoc(collection(db, 'violations'), violationData);
+  await recalculateViolationsForCurrentMonth();
+}
+
 export async function recalculateViolationsForCurrentMonth(): Promise<void> {
   const categoryData = await getViolationCategories();
 
