@@ -1,10 +1,10 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, AlertDialogOverlay, AlertDialogIcon } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
-import type { AssignedShift, AttendanceRecord } from '@/lib/types';
+import type { AssignedShift, AttendanceRecord, MonthlyTaskAssignment, DailyTask } from '@/lib/types';
 import { Camera, CheckCircle, Loader2, Info, Clock, X, History, AlertTriangle, Coffee, LogOut, Play, Pause, ArrowRight, ArrowLeft, ChevronRight, User as UserIcon, Upload } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import LateReasonDialog from '@/components/late-reason-dialog';
@@ -25,6 +25,23 @@ import { photoStore } from '@/lib/photo-store';
 import { isToday } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import WorkHistoryDialog from './work-history-dialog';
+import PendingWorkDialog from './pending-work-dialog';
+import { DEFAULT_MAIN_SHIFT_TIMEFRAMES, getActiveShiftKeys } from '@/lib/shift-utils';
+import { createUndoneTasksViolation } from '@/lib/violations-service';
+
+type PendingWorkItem = {
+    category: 'monthly' | 'daily' | 'checklist';
+    title: string;
+    items: string[];
+    isStared?: boolean;
+};
+
+const shiftLabels: Record<string, string> = {
+    sang: 'Ca sáng',
+    trua: 'Ca trưa',
+    toi: 'Ca tối',
+    bartender_hygiene: 'Vệ sinh quầy bar',
+};
 
 export default function CheckInCard() {
     const { user, loading: authLoading, activeShifts, todaysShifts } = useAuth();
@@ -51,6 +68,12 @@ export default function CheckInCard() {
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [isWorkHistoryOpen, setIsWorkHistoryOpen] = useState(false);
     const [checkInPhotoUrl, setCheckInPhotoUrl] = useState<string | null>(null);
+
+    const [monthlyAssignments, setMonthlyAssignments] = useState<MonthlyTaskAssignment[]>([]);
+    const [dailyTasks, setDailyTasks] = useState<DailyTask[]>([]);
+    const [pendingWorkItems, setPendingWorkItems] = useState<PendingWorkItem[]>([]);
+    const [isPendingDialogOpen, setIsPendingDialogOpen] = useState(false);
+    const [isPendingCheckLoading, setIsPendingCheckLoading] = useState(false);
 
     const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -115,10 +138,281 @@ export default function CheckInCard() {
 
     }, [user, authLoading]);
 
+    useEffect(() => {
+        if (!user) {
+            setMonthlyAssignments([]);
+            setDailyTasks([]);
+            return;
+        }
+
+        const today = new Date();
+        const unsubMonthly = dataStore.subscribeToMonthlyTasksForDateForStaff(today, user.uid, setMonthlyAssignments);
+        const unsubDaily = dataStore.subscribeToDailyTasksForDate(today, setDailyTasks);
+
+        return () => {
+            try { unsubMonthly && unsubMonthly(); } catch { }
+            try { unsubDaily && unsubDaily(); } catch { }
+        };
+    }, [user]);
+
+    const getMonthlyCompletionStatus = useCallback((assignment: MonthlyTaskAssignment) => {
+        if (!user) return { done: false, reported: false };
+        const completion = assignment.completions.find(c => c.completedBy?.userId === user.uid) || assignment.otherCompletions.find(c => c.completedBy?.userId === user.uid);
+        const done = Boolean(completion?.completedAt);
+        const reported = done || Boolean(completion?.note);
+        return { done, reported };
+    }, [user]);
+
+    // derive effective roles: if the user is currently on an active shift, use the assigned role from that shift
+    const effectiveRoles = useMemo(() => {
+        if (!user) return [];
+        // start with basic roles from profile
+        if (activeShift) {
+            const assigned =
+                activeShift.assignedUsers.find(u => u.userId === user.uid)?.assignedRole;
+            if (assigned) {
+                return [assigned];
+            }
+        }
+        return [];
+    }, [user, activeShift]);
+
+    const isUserTargetedDailyTask = useCallback((task: DailyTask) => {
+        if (!user) return false;
+        if (task.targetMode === 'roles') {
+            return (task.targetRoles || []).some(role => effectiveRoles.includes(role));
+        }
+        if (task.targetMode === 'users') {
+            return (task.targetUserIds || []).includes(user.uid);
+        }
+        return false;
+    }, [user, effectiveRoles]);
+
+    const collectPendingWorkItems = useCallback(async (): Promise<PendingWorkItem[]> => {
+        if (!user) return [];
+
+        const items: PendingWorkItem[] = [];
+        const todayKey = format(new Date(), 'yyyy-MM-dd');
+
+        if (effectiveRoles.length === 0) return [];
+
+        const targetedDaily = dailyTasks.filter(task => task.assignedDate === todayKey && isUserTargetedDailyTask(task));
+        const pendingDaily = targetedDaily.filter(task => (task.status === 'open' || task.status === 'in_review'));
+        if (pendingDaily.length > 0) {
+            items.push({
+                category: 'daily',
+                title: 'Giao việc trong ngày',
+                items: pendingDaily.map(task => task.title + (task.status === 'in_review' ? ' (cần được duyệt, báo quản lý để hoàn tất)' : '')),
+                isStared: true, // Mark daily tasks as high priority
+            } as PendingWorkItem);
+        }
+
+        // only consider monthly assignments that apply to this user
+        const relevantMonthly = monthlyAssignments.filter(assignment => {
+            // role-based filter (including 'Tất cả')
+            if (assignment.appliesToRole && assignment.appliesToRole !== 'Tất cả' && !effectiveRoles.includes(assignment.appliesToRole)) {
+                return false;
+            }
+            // check responsible users for the current shift if available
+            if (assignment.responsibleUsersByShift && activeShift) {
+                const entry = assignment.responsibleUsersByShift.find(e => e.shiftId === activeShift.id);
+                if (entry && !entry.users.some(u => u.userId === user.uid)) {
+                    return false;
+                }
+            }
+            return true;
+        });
+        const pendingMonthly = relevantMonthly.filter(assignment => !getMonthlyCompletionStatus(assignment).done && !getMonthlyCompletionStatus(assignment).reported);
+        if (pendingMonthly.length > 0) {
+            items.push({
+                category: 'monthly',
+                title: 'Công việc định kỳ',
+                items: pendingMonthly.map(assignment => assignment.taskName),
+                isStared: true, // Mark monthly tasks as high priority
+            } as PendingWorkItem);
+        }
+
+        if (effectiveRoles.includes('Phục vụ')) {
+            let shiftKey = '';
+
+            // Try to infer shiftKey from the user's actively scheduled shift
+            if (activeShift && activeShift.label) {
+                const labelLower = activeShift.label.toLowerCase();
+                if (labelLower.includes('sáng')) shiftKey = 'sang';
+                else if (labelLower.includes('trưa')) shiftKey = 'trua';
+                else if (labelLower.includes('tối')) shiftKey = 'toi';
+            }
+
+            // Fallback to time-based if no active shift
+            if (!shiftKey) {
+                shiftKey = getActiveShiftKeys(DEFAULT_MAIN_SHIFT_TIMEFRAMES, new Date())[0];
+            }
+
+            if (shiftKey) {
+                try {
+                    // we fetch the current local report too only to detect unsent edits
+                    const { status } = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Nhân viên', shiftKey);
+                    const hasLocalEdits = status === 'local-newer';
+
+                    const allShiftReports = await dataStore.getShiftReports(shiftKey);
+                    const serverReport = allShiftReports.find(r => r.userId === user.uid);
+
+                    // if the local copy is newer than the server we want to warn the user
+                    if (hasLocalEdits) {
+                        items.push({
+                            category: 'checklist',
+                            title: shiftLabels[shiftKey] || 'Checklist ca',
+                            items: ['Bạn có báo cáo chưa gửi lên máy chủ. Hãy nhấn gửi trước khi kết ca.'],
+                        });
+                    }
+
+                    const tasksMap = await dataStore.getServerTasks();
+                    const undoneList: string[] = [];
+
+                    if (tasksMap && tasksMap[shiftKey]) {
+                        for (const section of tasksMap[shiftKey].sections) {
+                            const isGlobalSection = section.title === 'Đầu ca' || section.title === 'Cuối ca';
+                            for (const task of section.tasks) {
+                                // Filter by gender preference
+                                if (task.genderPreference && task.genderPreference !== 'Tất cả' && task.genderPreference !== user.gender) {
+                                    continue;
+                                }
+
+                                const required = task.minCompletions || 1;
+                                if (isGlobalSection) {
+                                    // if any user has satisfied this task, skip it
+                                    const doneByAnyone = allShiftReports.some(r => {
+                                        const c = r.completedTasks[task.id] || [];
+                                        return c.length >= required;
+                                    });
+                                    if (!doneByAnyone) {
+                                        const remaining = required - (serverReport?.completedTasks[task.id]?.length || 0);
+                                        const countLabel = required > 1 ? ` (còn ${remaining}/${required} lần)` : '';
+                                        undoneList.push(task.isCritical ? `_CRITICAL_${task.text}${countLabel}` : `${task.text}${countLabel}`);
+                                    }
+                                } else {
+                                    // each user must complete their own
+                                    const completions = serverReport ? serverReport.completedTasks[task.id] || [] : [];
+                                    if (completions.length < required) {
+                                        const remaining = required - completions.length;
+                                        const countLabel = required > 1 ? ` (còn ${remaining}/${required} lần)` : '';
+                                        undoneList.push(task.isCritical ? `_CRITICAL_${task.text}${countLabel}` : `${task.text}${countLabel}`);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    const hasCriticalTasks = tasksMap && tasksMap[shiftKey] && tasksMap[shiftKey].sections.some(s => s.tasks.some(t => t.isCritical && undoneList.some(item => item === `_CRITICAL_${t.text}`)));
+
+                    items.push({
+                        category: 'checklist',
+                        title: shiftLabels[shiftKey] || 'Checklist ca',
+                        items: undoneList.length > 0 ? undoneList : ['Báo cáo checklist chưa hoàn tất.'],
+                        isStared: hasCriticalTasks,
+                    } as PendingWorkItem);
+                } catch (error) {
+                    console.error('Không thể kiểm tra checklist ca:', error);
+                }
+            }
+        }
+
+        if (effectiveRoles.includes('Pha chế')) {
+            try {
+                const { status } = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Nhân viên', 'bartender_hygiene');
+                const hasLocalEdits = status === 'local-newer';
+                const allShiftReports = await dataStore.getShiftReports('bartender_hygiene');
+                const serverReport = allShiftReports.find(r => r.userId === user.uid);
+
+                // if the local copy is newer than the server we want to warn the user
+                if (hasLocalEdits) {
+                    items.push({
+                        category: 'checklist',
+                        title: 'Báo cáo vệ sinh quầy bar',
+                        items: ['Bạn có báo cáo chưa gửi lên máy chủ. Hãy nhấn gửi trước khi kết ca.'],
+                    });
+                }
+
+                const bartenderTasks = await dataStore.getBartenderTasks();
+                console.log('Bartender tasks:', bartenderTasks);
+                const undoneList: string[] = [];
+                if (bartenderTasks) {
+                    for (const section of bartenderTasks) {
+                        for (const task of section.tasks) {
+                            // Filter by gender preference
+                            if (task.genderPreference && task.genderPreference !== 'Tất cả' && task.genderPreference !== user.gender) {
+                                continue;
+                            }
+
+                            const completions = serverReport ? serverReport.completedTasks[task.id] || [] : [];
+                            const required = task.minCompletions || 1;
+                            if (completions.length < required) {
+                                const remaining = required - completions.length;
+                                const countLabel = required > 1 ? ` (còn ${remaining}/${required} lần)` : '';
+                                undoneList.push(`${task.text}${countLabel}`);
+                            }
+                        }
+                    }
+                }
+
+                if (undoneList.length > 0) {
+                    items.push({
+                        category: 'checklist',
+                        title: "Báo cáo vệ sinh quầy bar",
+                        items: undoneList,
+                    });
+                }
+            } catch (error) {
+                console.error('Không thể kiểm tra báo cáo pha chế:', error);
+            }
+        }
+
+        return items;
+    }, [dailyTasks, getMonthlyCompletionStatus, isUserTargetedDailyTask, monthlyAssignments, user, activeShift, effectiveRoles]);
+
+    const openCheckoutCamera = useCallback((violate: boolean = false) => {
+        if (violate && user) {
+            const problematicTasks = pendingWorkItems
+                .filter(block => block.category === 'monthly' || block.category === 'daily' || (block as any).isStared)
+                .flatMap(block => block.items);
+
+            if (problematicTasks.length > 0) {
+                void createUndoneTasksViolation(
+                    { uid: user.uid, displayName: user.displayName || 'Nhân viên' },
+                    problematicTasks,
+                    latestInProgressRecord?.id
+                );
+                toast.error('Ghi nhận vi phạm không hoàn thành nhiệm vụ.');
+            }
+        }
+        setCameraAction('check-in-out');
+        setIsCameraOpen(true);
+    }, [user, pendingWorkItems, latestInProgressRecord]);
+
+    const handleCheckoutReminderFlow = useCallback(async () => {
+        setIsPendingCheckLoading(true);
+        try {
+            const items = await collectPendingWorkItems();
+            setPendingWorkItems(items);
+            if (items.length > 0) {
+                setIsPendingDialogOpen(true);
+            } else {
+                openCheckoutCamera();
+            }
+        } catch (error) {
+            console.error('Không thể tải danh sách công việc chưa làm:', error);
+            openCheckoutCamera();
+        } finally {
+            setIsPendingCheckLoading(false);
+        }
+    }, [collectPendingWorkItems, openCheckoutCamera]);
+
     const handleCheckInOrOut = () => {
+        const isCurrentlyCheckedIn = !!latestInProgressRecord && latestInProgressRecord.status === 'in-progress';
+
         if (!latestInProgressRecord && !activeShift) {
-            setCameraAction('check-in-out'); // It's still a form of check-in
-            setOffShiftReason(''); // Reset reason
+            setCameraAction('check-in-out');
+            setOffShiftReason('');
             setIsOffShiftReasonDialogOpen(true);
         } else {
             if (latestInProgressRecord?.checkInTime) {
@@ -128,8 +422,13 @@ export default function CheckInCard() {
                     return;
                 }
             }
-            setCameraAction('check-in-out');
-            setIsCameraOpen(true);
+
+            if (isCurrentlyCheckedIn) {
+                void handleCheckoutReminderFlow();
+                return;
+            }
+
+            openCheckoutCamera();
         }
     };
 
@@ -536,6 +835,14 @@ export default function CheckInCard() {
             </Card>
 
             {/* Dialogs */}
+            <PendingWorkDialog
+                open={isPendingDialogOpen}
+                onOpenChange={setIsPendingDialogOpen}
+                pendingWorkItems={pendingWorkItems}
+                loading={isPendingCheckLoading}
+                onProceed={(violate) => openCheckoutCamera(violate)}
+            />
+
             <CameraDialog
                 isOpen={isCameraOpen}
                 onClose={() => setIsCameraOpen(false)}

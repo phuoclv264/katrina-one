@@ -82,18 +82,7 @@ import {
 } from "@/components/ui/sheet";
 import { UserAvatar } from '@/components/user-avatar';
 import { getQueryParamWithMobileHashFallback } from '@/lib/url-params';
-
-export default function RecruitmentManagementPage() {
-  return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center min-h-screen bg-[#f8fafc]">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent shadow-lg shadow-blue-200"></div>
-      </div>
-    }>
-      <RecruitmentManagementContent />
-    </Suspense>
-  );
-}
+import { LoadingPage } from '@/components/loading/LoadingPage';
 
 function RecruitmentManagementContent() {
   const { user, loading: authLoading } = useAuth();
@@ -818,5 +807,14 @@ function RecruitmentManagementContent() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+// Suspense wrapper page component to satisfy useSearchParams requirement
+export default function RecruitmentManagementPage() {
+  return (
+    <Suspense fallback={<LoadingPage />}>
+      <RecruitmentManagementContent />
+    </Suspense>
   );
 }

@@ -7,6 +7,7 @@ import { CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/use-auth';
 
 type Props = {
   shift: any;
@@ -28,6 +29,7 @@ type Props = {
 };
 
 export default function ChecklistTabs({ shift, report, otherStaffReports, activeTab, setActiveTab, expandedTaskIds, toggleExpandTask, handleBooleanTaskAction, handlePhotoTaskAction, handleOpinionTaskAction, handleNoteTaskAction, handleDeletePhoto, handleDeleteCompletion, onOpenLightbox, isReadonly, isSubmitting }: Props) {
+  const { user } = useAuth();
 
   const renderCompletionIndicator = (taskId: string, sectionTitle: string) => {
     const task = shift.sections.flatMap((s: any) => s.tasks).find((t: any) => t.id === taskId);
@@ -97,8 +99,22 @@ export default function ChecklistTabs({ shift, report, otherStaffReports, active
       </TabsList>
 
       {shift.sections.map((section: any) => {
-        const sectionTasks = section.tasks.filter((t: any) => t.type !== 'opinion');
-        const sectionOpinions = section.tasks.filter((t: any) => t.type === 'opinion');
+        const sectionTasks = section.tasks.filter((t: any) => {
+          if (t.type === 'opinion') return false;
+          if (t.genderPreference && t.genderPreference !== 'Tất cả') {
+            if (!user?.gender) return true; // Default to show if gender not set
+            return t.genderPreference === user.gender;
+          }
+          return true;
+        });
+        const sectionOpinions = section.tasks.filter((t: any) => {
+          if (t.type !== 'opinion') return false;
+          if (t.genderPreference && t.genderPreference !== 'Tất cả') {
+            if (!user?.gender) return true;
+            return t.genderPreference === user.gender;
+          }
+          return true;
+        });
 
         return (
           <TabsContent key={section.title} value={section.title} className="mt-0 focus-visible:outline-none">

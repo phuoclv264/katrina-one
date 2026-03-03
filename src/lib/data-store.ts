@@ -45,7 +45,7 @@ import * as idbKeyvalStore from './idb-keyval-store';
 import * as cashierStore from './cashier-store';
 import * as dailyTaskStore from './daily-task-store';
 import { deleteFileByUrl, uploadFile } from './data-store-helpers';
-import { isActiveUser } from './user-status';
+import { isActiveUser, isTestAccount } from './user-status';
 import { error } from 'console';
 import { InventoryItemRow } from '@/app/(app)/bartender/inventory/_components/inventory-item-row';
 
@@ -968,9 +968,16 @@ export const dataStore = {
 
   subscribeToUsers(
     callback: (users: ManagedUser[]) => void,
-    options?: { includeResigned?: boolean }
+    options?: { includeResigned?: boolean, includeTestAccounts?: boolean }
   ): () => void {
     const includeResigned = options?.includeResigned ?? false;
+    // always exclude test accounts in production environments regardless of caller
+    let includeTestAccounts: boolean;
+    if (process.env.NODE_ENV === 'production') {
+      includeTestAccounts = false;
+    } else {
+      includeTestAccounts = options?.includeTestAccounts ?? true;
+    }
     const usersCollection = collection(db, 'users');
     const q = query(usersCollection, orderBy('displayName'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -982,6 +989,10 @@ export const dataStore = {
         } as ManagedUser;
 
         if (!includeResigned && !isActiveUser(managedUser)) {
+          return;
+        }
+
+        if (!includeTestAccounts && isTestAccount(managedUser)) {
           return;
         }
 
@@ -1060,6 +1071,16 @@ export const dataStore = {
     await deleteDoc(userRef);
   },
 
+  async getServerTasks(): Promise<TasksByShift | null> {
+    const docSnap = await getDoc(doc(db, 'app-data', 'tasks'));
+    return docSnap.exists() ? docSnap.data() as TasksByShift : null;
+  },
+
+  async getBartenderTasks(): Promise<TaskSection[] | null> {
+    const docSnap = await getDoc(doc(db, 'app-data', 'bartenderTasks'));
+    return docSnap.exists() ? docSnap.data().tasks as TaskSection[] : null;
+  },
+
   subscribeToTasks(callback: (tasks: TasksByShift) => void): () => void {
     const docRef = doc(db, 'app-data', 'tasks');
     const unsubscribe = onSnapshot(docRef, async (docSnap) => {
@@ -1074,6 +1095,29 @@ export const dataStore = {
     });
     return unsubscribe;
   },
+
+  /**
+     * Fetch all shift reports for the current day matching `shiftKey`.
+     * Used for shared checklist items that only need to be completed once per
+     * shift by any user.
+     */
+    async getShiftReports(shiftKey: string): Promise<ShiftReport[]> {
+      const date = getTodaysDateKey();
+      const reportsCollection = collection(db, 'reports');
+      const q = query(
+        reportsCollection,
+        where('shiftKey', '==', shiftKey),
+        where('date', '==', date)
+      );
+      const querySnap = await getDocs(q);
+      const results: ShiftReport[] = [];
+      querySnap.forEach(docSnap => {
+        if (docSnap.exists()) {
+          results.push(docSnap.data() as ShiftReport);
+        }
+      });
+      return results;
+    },
 
   async updateTasks(newTasks: TasksByShift) {
     const docRef = doc(db, 'app-data', 'tasks');

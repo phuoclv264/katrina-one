@@ -14,6 +14,7 @@ import {
   MessageSquare,
   Moon,
   Package,
+  ScrollText,
   ShieldX,
   Sparkles,
   Sun,
@@ -123,6 +124,7 @@ const ACCESS_RULES: AccessRule[] = [
   { key: 'owner-product-management', href: '/product-management', label: 'QL Mặt hàng & Công thức', icon: FileSignature, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'blue', subLabel: 'Chủ nhà hàng', group: 'Quản lý công việc', order: 63 },
   { key: 'owner-inventory-history', href: '/inventory-history', label: 'Lịch sử Kho', icon: History, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'blue', subLabel: 'Chủ nhà hàng', group: 'Quản lý công việc', order: 64 },
   { key: 'owner-recruitment', href: '/admin/recruitment', label: 'Quản lý Tuyển dụng', icon: UserCog, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'blue', subLabel: 'Tuyển dụng', group: 'Quản lý công việc', order: 65 },
+  { key: 'owner-rules', href: '/rules/manage', label: 'QL Nội quy', icon: ScrollText, roles: ['Chủ nhà hàng'], requiresCheckIn: false, color: 'blue', subLabel: 'Chủ nhà hàng', group: 'Quản lý công việc', order: 66 },
 
   // Common
   {
@@ -150,6 +152,14 @@ const ACCESS_RULES: AccessRule[] = [
     icon: MessageSquare,
     requiresCheckIn: false,
     order: 92,
+  },
+  {
+    key: 'house-rules',
+    href: '/rules',
+    label: 'Nội quy',
+    icon: ScrollText,
+    requiresCheckIn: false,
+    order: 93,
   },
 ];
 

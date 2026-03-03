@@ -219,17 +219,23 @@ export async function updateDailyTask(taskId: string, input: UpdateDailyTaskInpu
   // Handle media updates: upload new items and delete removed remote files
   if (input.media !== undefined) {
     const uploadPath = `daily-tasks/${input.assignedDate || existing.assignedDate}/${taskId}/instructions`;
-    const newMedia = input.media && input.media.length > 0 ? await uploadMedia(input.media, uploadPath) : [];
+    
+    // Separate existing attachments from new local media items
+    const existingAttachments = (input.media || []).filter(m => m.url && m.url.startsWith('http')) as any as MediaAttachment[];
+    const localMediaItems = (input.media || []).filter(m => !m.url || !m.url.startsWith('http'));
+
+    const newMedia = localMediaItems.length > 0 ? await uploadMedia(localMediaItems, uploadPath) : [];
+    const combinedMedia = [...existingAttachments, ...newMedia];
 
     // Delete old attachments that are not present in the new list
     const existingUrls = (existing.media || []).map((m) => m.url);
-    const newUrls = (newMedia || []).map((m) => m.url);
-    const toDelete = existingUrls.filter((u) => !newUrls.includes(u));
+    const updatedUrls = combinedMedia.map((m) => m.url);
+    const toDelete = existingUrls.filter((u) => !updatedUrls.includes(u));
     if (toDelete.length > 0) {
       await Promise.all(toDelete.map((u) => deleteFileByUrl(u)));
     }
 
-    updates.media = newMedia;
+    updates.media = combinedMedia;
   }
 
   await updateDoc(taskRef, updates);

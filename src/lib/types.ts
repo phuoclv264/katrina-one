@@ -12,6 +12,15 @@ export type UserRole = 'Phục vụ' | 'Pha chế' | 'Quản lý' | 'Chủ nhà 
 
 export type EmploymentStatus = 'Đang làm việc' | 'Nghỉ việc';
 
+export type UserBadge = {
+  id: string;
+  label: string;
+  color?: string;
+  icon?: string;
+  grantedAt: number;
+  grantedBy: string; // uid of the granter
+};
+
 export type ManagedUser = {
   uid: string;
   email: string;
@@ -27,6 +36,7 @@ export type ManagedUser = {
   isTestAccount?: boolean;
   bankId?: string | null;
   bankAccountNumber?: string | null;
+  badges?: UserBadge[];
 };
 
 export type SimpleUser = {
@@ -40,6 +50,7 @@ export type AppSettings = {
   lastIssueNoteScan?: string | Timestamp;
   managerApprovalEnabled?: boolean;
   recruitmentQuestions?: RecruitmentQuestion[];
+  houseRules?: string;
 };
 
 export type RecruitmentQuestionType = 'text' | 'yes_no' | 'multiple_choice';
@@ -58,6 +69,7 @@ export type Task = {
   isCritical?: boolean;
   type: 'photo' | 'boolean' | 'opinion';
   minCompletions?: number; // Minimum number of completions required to mark task as done (default: 1)
+  genderPreference?: 'Nam' | 'Nữ' | 'Tất cả'; // Add gender preference for filtering
   instruction?: {
     text?: string;
     images?: {
@@ -74,11 +86,7 @@ export type ParsedServerTask = Omit<Task, 'id'> & {
 };
 
 
-export type ComprehensiveTask = {
-  id: string;
-  text: string;
-  type: 'photo' | 'boolean' | 'opinion';
-}
+export type ComprehensiveTask = Task;
 
 // Type for AI-parsed comprehensive tasks
 export type ParsedComprehensiveTask = Omit<ComprehensiveTask, 'id'>;

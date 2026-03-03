@@ -14,3 +14,7 @@ export function isResignedUser(user?: Partial<ManagedUser> | null): boolean {
 export function isActiveUser(user?: Partial<ManagedUser> | null): boolean {
   return !isResignedUser(user);
 }
+
+export function isTestAccount(user?: Partial<ManagedUser> | null): boolean {
+  return user?.isTestAccount === true;
+}

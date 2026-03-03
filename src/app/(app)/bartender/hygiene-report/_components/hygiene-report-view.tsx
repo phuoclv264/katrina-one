@@ -623,7 +623,13 @@ export default function HygieneReportView({ isStandalone = true }: HygieneReport
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {tasks.find(s => s.title === activeTab)?.tasks.map((task) => (
+                                {tasks.find(s => s.title === activeTab)?.tasks.filter(t => {
+                                    if (t.genderPreference && t.genderPreference !== 'Tất cả') {
+                                        if (!user?.gender) return true;
+                                        return t.genderPreference === user.gender;
+                                    }
+                                    return true;
+                                }).map((task) => (
                                     <div key={task.id} className="relative">
                                         <TaskItem
                                             task={task}
