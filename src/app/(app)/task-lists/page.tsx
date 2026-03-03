@@ -43,7 +43,17 @@ export default function TaskListsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSorting, setIsSorting] = useState(false);
     const [addingToSection, setAddingToSection] = useState<{ shiftKey: string; sectionTitle: string } | null>(null);
-    const [editingTask, setEditingTask] = useState<{ shiftKey: string; sectionTitle: string; taskId: string; text: string; type: Task['type']; minCompletions: number; isCritical: boolean; instruction?: { text?: string; images?: { url: string; caption?: string }[] } } | null>(null);
+    const [editingTask, setEditingTask] = useState<{ 
+        shiftKey: string; 
+        sectionTitle: string; 
+        taskId: string; 
+        text: string; 
+        type: Task['type']; 
+        minCompletions: number; 
+        isCritical: boolean; 
+        genderPreference: Task['genderPreference'];
+        instruction?: { text?: string; images?: { url: string; caption?: string }[] } 
+    } | null>(null);
 
     const [openSections, setOpenSections] = useState<{ [shiftKey: string]: string[] }>({});
 
@@ -162,7 +172,7 @@ export default function TaskListsPage() {
         }
 
         const { shiftKey, sectionTitle, taskId } = editingTask;
-        const { text, type, minCompletions, isCritical, instruction } = data;
+        const { text, type, minCompletions, isCritical, genderPreference, instruction } = data;
         const newTasksState = JSON.parse(JSON.stringify(tasksByShift));
         const section = newTasksState[shiftKey]?.sections.find((s: TaskSection) => s.title === sectionTitle);
         if (section) {
@@ -172,6 +182,7 @@ export default function TaskListsPage() {
                 task.type = type;
                 task.minCompletions = minCompletions || 1;
                 task.isCritical = isCritical;
+                task.genderPreference = genderPreference;
                 task.instruction = instruction;
             }
         }
@@ -415,6 +426,14 @@ export default function TaskListsPage() {
                                                                                     {task.minCompletions && task.minCompletions > 1 && (
                                                                                         <Badge variant="secondary" className="h-5 md:h-6 px-1.5 text-[9px] md:text-[10px] font-bold bg-muted text-muted-foreground rounded-md">{task.minCompletions} lần</Badge>
                                                                                     )}
+                                                                                    {task.genderPreference && task.genderPreference !== 'Tất cả' && (
+                                                                                        <Badge variant="outline" className={cn(
+                                                                                            "h-5 md:h-6 px-1.5 text-[9px] md:text-[10px] font-bold rounded-md",
+                                                                                            task.genderPreference === 'Nam' ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-pink-50 text-pink-700 border-pink-200"
+                                                                                        )}>
+                                                                                            {task.genderPreference === 'Nam' ? 'Nam' : 'Nữ'}
+                                                                                        </Badge>
+                                                                                    )}
                                                                                     <span className="sm:hidden text-[10px] text-muted-foreground/60 italic self-center ml-auto">
                                                                                         {task.type === 'photo' ? 'Ảnh' : task.type === 'boolean' ? 'Tích' : 'Ghi chú'}
                                                                                     </span>
@@ -437,7 +456,17 @@ export default function TaskListsPage() {
                                                                                     <Button variant="ghost" size="icon" className="h-9 w-9 md:h-10 md:w-10 text-muted-foreground hover:text-amber-500 hover:bg-amber-100/50 rounded-lg md:rounded-xl" onClick={() => handleToggleCritical(shiftKey, section.title, task.id)}>
                                                                                         <Star className={cn("h-4 w-4 md:h-5 md:w-5 transition-all", task.isCritical && "fill-amber-500 text-amber-500")} />
                                                                                     </Button>
-                                                                                    <Button variant="ghost" size="icon" className="h-9 w-9 md:h-10 md:w-10 text-muted-foreground hover:text-blue-500 hover:bg-blue-100/50 rounded-lg md:rounded-xl" onClick={() => setEditingTask({ shiftKey, sectionTitle: section.title, taskId: task.id, text: task.text, type: task.type, minCompletions: task.minCompletions || 1, isCritical: !!task.isCritical, instruction: task.instruction })}>
+                                                                                    <Button variant="ghost" size="icon" className="h-9 w-9 md:h-10 md:w-10 text-muted-foreground hover:text-blue-500 hover:bg-blue-100/50 rounded-lg md:rounded-xl" onClick={() => setEditingTask({ 
+                                                                                        shiftKey, 
+                                                                                        sectionTitle: section.title, 
+                                                                                        taskId: task.id, 
+                                                                                        text: task.text, 
+                                                                                        type: task.type, 
+                                                                                        minCompletions: task.minCompletions || 1, 
+                                                                                        isCritical: !!task.isCritical, 
+                                                                                        genderPreference: task.genderPreference || 'Tất cả',
+                                                                                        instruction: task.instruction 
+                                                                                    })}>
                                                                                         <Pencil className="h-4 w-4 md:h-5 md:w-5" />
                                                                                     </Button>
                                                                                     <Button variant="ghost" size="icon" className="h-9 w-9 md:h-10 md:w-10 text-muted-foreground hover:text-destructive hover:bg-red-100/50 rounded-lg md:rounded-xl" onClick={() => handleDeleteTask(shiftKey, section.title, task.id)}>
@@ -509,6 +538,7 @@ export default function TaskListsPage() {
                     type: editingTask.type,
                     minCompletions: editingTask.minCompletions,
                     isCritical: editingTask.isCritical,
+                    genderPreference: editingTask.genderPreference,
                     instruction: editingTask.instruction
                 } : null}
                 shiftName={editingTask ? tasksByShift?.[editingTask.shiftKey]?.name || '' : ''}

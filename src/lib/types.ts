@@ -69,6 +69,7 @@ export type Task = {
   isCritical?: boolean;
   type: 'photo' | 'boolean' | 'opinion';
   minCompletions?: number; // Minimum number of completions required to mark task as done (default: 1)
+  genderPreference?: 'Nam' | 'Nữ' | 'Tất cả'; // Add gender preference for filtering
   instruction?: {
     text?: string;
     images?: {

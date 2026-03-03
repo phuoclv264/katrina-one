@@ -269,6 +269,11 @@ export default function CheckInCard() {
                         for (const section of tasksMap[shiftKey].sections) {
                             const isGlobalSection = section.title === 'Đầu ca' || section.title === 'Cuối ca';
                             for (const task of section.tasks) {
+                                // Filter by gender preference
+                                if (task.genderPreference && task.genderPreference !== 'Tất cả' && task.genderPreference !== user.gender) {
+                                    continue;
+                                }
+
                                 const required = task.minCompletions || 1;
                                 if (isGlobalSection) {
                                     // if any user has satisfied this task, skip it
@@ -323,6 +328,11 @@ export default function CheckInCard() {
                 if (bartenderTasks) {
                     for (const section of bartenderTasks) {
                         for (const task of section.tasks) {
+                            // Filter by gender preference
+                            if (task.genderPreference && task.genderPreference !== 'Tất cả' && task.genderPreference !== user.gender) {
+                                continue;
+                            }
+
                             const completions = serverReport ? serverReport.completedTasks[task.id] || [] : [];
                             const required = task.minCompletions || 1;
                             if (completions.length < required) {

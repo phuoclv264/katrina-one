@@ -40,6 +40,7 @@ import { TaskDialog } from '../task-lists/_components/task-dialog';
 import { Badge } from '@/components/ui/badge';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { toast } from 'react-hot-toast';
+import { cn } from '@/lib/utils';
 
 function AiAssistant({
     sections,
@@ -206,7 +207,16 @@ export default function ComprehensiveChecklistPage() {
     const [isSorting, setIsSorting] = useState(false);
 
     const [addingToSection, setAddingToSection] = useState<string | null>(null);
-    const [editingTask, setEditingTask] = useState<{ sectionTitle: string; taskId: string; text: string; type: Task['type']; minCompletions: number; isCritical: boolean; instruction?: { text?: string; images?: { url: string; caption?: string }[] } } | null>(null);
+    const [editingTask, setEditingTask] = useState<{ 
+        sectionTitle: string; 
+        taskId: string; 
+        text: string; 
+        type: Task['type']; 
+        minCompletions: number; 
+        isCritical: boolean; 
+        genderPreference: Task['genderPreference'],
+        instruction?: { text?: string; images?: { url: string; caption?: string }[] } 
+    } | null>(null);
 
     const [newSectionTitle, setNewSectionTitle] = useState('');
     const [editingSection, setEditingSection] = useState<{ title: string; newTitle: string } | null>(null);
@@ -327,7 +337,8 @@ export default function ComprehensiveChecklistPage() {
             text: taskData.text,
             type: taskData.type,
             isCritical: !!taskData.isCritical,
-            minCompletions: taskData.minCompletions ?? 1
+            minCompletions: taskData.minCompletions ?? 1,
+            genderPreference: taskData.genderPreference ?? 'Tất cả'
         };
 
         if (taskData.instruction) {
@@ -364,7 +375,7 @@ export default function ComprehensiveChecklistPage() {
         };
 
         const { sectionTitle, taskId } = editingTask;
-        const { text, type, minCompletions, isCritical, instruction } = data;
+        const { text, type, minCompletions, isCritical, genderPreference, instruction } = data;
 
         const newSectionsState = JSON.parse(JSON.stringify(sections));
         const section = newSectionsState.find((s: ComprehensiveTaskSection) => s.title === sectionTitle);
@@ -375,6 +386,7 @@ export default function ComprehensiveChecklistPage() {
                 task.type = type;
                 task.minCompletions = minCompletions || 1;
                 task.isCritical = !!isCritical;
+                task.genderPreference = genderPreference || 'Tất cả';
 
                 if (instruction) {
                     task.instruction = {
@@ -634,44 +646,62 @@ export default function ComprehensiveChecklistPage() {
                                             section.tasks.map((task, taskIndex) => (
                                                 <div
                                                     key={task.id || taskIndex}
-                                                    className="group/task flex items-center gap-4 px-6 py-4 hover:bg-muted/30 transition-all duration-200"
+                                                    className="group/task flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-4 p-3.5 sm:px-6 sm:py-4 hover:bg-muted/30 transition-all duration-200"
                                                 >
-                                                    <div className="flex-shrink-0">
-                                                        {getTaskTypeIcon(task.type)}
-                                                    </div>
-
                                                     <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-2 mb-1">
-                                                            <span className="text-sm font-semibold text-foreground/90 leading-tight">
+                                                        <div className="flex items-start gap-3">
+                                                            <div className="flex-shrink-0 mt-0.5 p-1 bg-muted/50 rounded-md">
+                                                                {getTaskTypeIcon(task.type)}
+                                                            </div>
+
+                                                            <div className="flex-1 min-w-0 space-y-0.5 overflow-hidden">
+                                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                                    <span className="text-[14px] sm:text-[15px] font-semibold text-foreground/90 leading-tight group-hover/task:whitespace-normal">
                                                                 {task.text}
                                                             </span>
+                                                                    <div className="flex items-center gap-1 shrink-0">
                                                             {task.isCritical && (
-                                                                <Badge variant="destructive" className="h-5 px-1.5 text-[10px] uppercase tracking-wider font-bold animate-pulse">
-                                                                    <AlertCircle className="h-3 w-3 mr-1" /> Tối quan trọng
+                                                                            <Badge variant="destructive" className="h-4 px-1 text-[8px] uppercase tracking-wider font-bold shrink-0">
+                                                                                Mới
                                                                 </Badge>
                                                             )}
                                                             {task.minCompletions && task.minCompletions > 1 && (
-                                                                <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-medium bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300 border-none">
-                                                                    <Check className="h-3 w-3 mr-1" /> {task.minCompletions} lần
+                                                                            <Badge variant="secondary" className="h-4 px-1 text-[8px] font-mono shrink-0">
+                                                                                x{task.minCompletions}
+                                                                            </Badge>
+                                                                        )}
+                                                                        {task.genderPreference && task.genderPreference !== 'Tất cả' && (
+                                                                            <Badge variant="outline" className={cn(
+                                                                                "h-4 px-1 text-[8px] font-bold shrink-0",
+                                                                                task.genderPreference === 'Nam' ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-pink-50 text-pink-700 border-pink-200"
+                                                                            )}>
+                                                                                {task.genderPreference === 'Nam' ? 'Nam' : 'Nữ'}
                                                                 </Badge>
                                                             )}
+                                                                    </div>
                                                         </div>
                                                         {task.instruction && (
-                                                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 w-fit px-2 py-0.5 rounded-md border border-muted/50">
-                                                                <FileText className="h-3 w-3" />
-                                                                <span>Có hướng dẫn</span>
+                                                                    <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-muted-foreground overflow-hidden">
+                                                                        {task.instruction.text && (
+                                                                            <div className="flex items-center gap-1 bg-muted/40 px-1.5 py-0.5 rounded border border-muted/50 max-w-[150px] xs:max-w-none">
+                                                                                <span className="italic">💡 {task.instruction.text}</span>
+                                                                            </div>
+                                                                        )}
                                                                 {task.instruction.images && task.instruction.images.length > 0 && (
-                                                                    <Badge variant="outline" className="h-4 px-1 text-[9px] border-muted-foreground/30 font-normal">
-                                                                        +{task.instruction.images.length} ảnh
-                                                                    </Badge>
+                                                                            <div className="flex items-center gap-1 bg-primary/5 text-primary px-1.5 py-0.5 rounded border border-primary/20 shrink-0">
+                                                                                <ImageIcon className="h-2.5 w-2.5" />
+                                                                                <span className="font-bold">{task.instruction.images.length} ảnh</span>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
                                                                 )}
                                                             </div>
-                                                        )}
+                                                        </div>
                                                     </div>
 
-                                                    <div className="flex-shrink-0 flex items-center gap-1 transition-all">
+                                                    <div className="flex-shrink-0 flex items-center justify-end gap-1.5 sm:gap-1 pl-10 sm:pl-2">
                                                         {isSorting ? (
-                                                            <div className="flex items-center bg-background rounded-lg border border-muted/50 shadow-sm p-0.5">
+                                                            <div className="flex items-center bg-background rounded-lg border border-muted/50 shadow-sm p-0.5 shrink-0">
                                                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleMoveTask(sectionIndex, taskIndex, 'up')} disabled={taskIndex === 0}>
                                                                     <ArrowUp className="h-4 w-4" />
                                                                 </Button>
@@ -692,6 +722,7 @@ export default function ComprehensiveChecklistPage() {
                                                                         type: task.type,
                                                                         minCompletions: task.minCompletions || 1,
                                                                         isCritical: !!task.isCritical,
+                                                                        genderPreference: task.genderPreference || 'Tất cả',
                                                                         instruction: task.instruction
                                                                     })}
                                                                 >

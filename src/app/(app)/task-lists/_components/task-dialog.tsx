@@ -42,6 +42,7 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
   const [isCritical, setIsCritical] = useState(false);
   const [type, setType] = useState<Task['type']>('photo');
   const [minCompletions, setMinCompletions] = useState(1);
+  const [genderPreference, setGenderPreference] = useState<Task['genderPreference']>('Tất cả');
 
   // instruction fields
   const [instructionText, setInstructionText] = useState('');
@@ -100,6 +101,7 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
         setIsCritical(!!initialData.isCritical);
         setType(initialData.type || 'photo');
         setMinCompletions(initialData.minCompletions || 1);
+        setGenderPreference(initialData.genderPreference || 'Tất cả');
         setInstructionText(initialData.instruction?.text || '');
         setInstructionImages(
           (initialData.instruction?.images || []).map((img: any) => 
@@ -111,6 +113,7 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
         setIsCritical(false);
         setType('photo');
         setMinCompletions(1);
+        setGenderPreference('Tất cả');
         setInstructionText('');
         setInstructionImages(prev => {
           prev.forEach(img => {
@@ -217,6 +220,7 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
         isCritical,
         type,
         minCompletions,
+        genderPreference,
         instruction: {
           text: instructionText.trim() || undefined,
           images: processedImages.length ? processedImages : undefined,
@@ -264,6 +268,19 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
                   { value: 'photo', label: 'Cần chụp ảnh' },
                   { value: 'boolean', label: 'Đánh dấu' },
                   { value: 'opinion', label: 'Ghi chú' },
+                ]}
+                className="w-full h-12 rounded-xl bg-muted/20 border-transparent focus:bg-background transition-all"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Giới tính thực hiện</Label>
+              <Combobox
+                value={genderPreference}
+                onChange={(value) => setGenderPreference(value as Task['genderPreference'])}
+                options={[
+                  { value: 'Nam', label: 'Chỉ Nam' },
+                  { value: 'Nữ', label: 'Chỉ Nữ' },
+                  { value: 'Tất cả', label: 'Tất cả' },
                 ]}
                 className="w-full h-12 rounded-xl bg-muted/20 border-transparent focus:bg-background transition-all"
               />

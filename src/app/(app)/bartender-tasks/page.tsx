@@ -51,7 +51,16 @@ export default function BartenderTasksPage() {
     const [editingSection, setEditingSection] = useState<{ title: string; newTitle: string } | null>(null);
     // section for which the "add task" dialog is open
     const [addingToSection, setAddingToSection] = useState<string | null>(null);
-    const [editingTask, setEditingTask] = useState<{ sectionTitle: string; taskId: string; text: string; type: Task['type']; minCompletions: number; isCritical: boolean; instruction?: { text?: string; images?: { url: string; caption?: string }[] } } | null>(null);
+    const [editingTask, setEditingTask] = useState<{ 
+        sectionTitle: string; 
+        taskId: string; 
+        text: string; 
+        type: Task['type']; 
+        minCompletions: number; 
+        isCritical: boolean; 
+        genderPreference: Task['genderPreference'];
+        instruction?: { text?: string; images?: { url: string; caption?: string }[] } 
+    } | null>(null);
     const [openItems, setOpenItems] = useState<string[]>([]);
 
 
@@ -142,7 +151,8 @@ export default function BartenderTasksPage() {
             text: taskData.text,
             type: taskData.type,
             isCritical: !!taskData.isCritical,
-            minCompletions: taskData.minCompletions ?? 1
+            minCompletions: taskData.minCompletions ?? 1,
+            genderPreference: taskData.genderPreference ?? 'Tất cả'
         };
 
         if (taskData.instruction) {
@@ -169,7 +179,7 @@ export default function BartenderTasksPage() {
         }
 
         const { sectionTitle, taskId } = editingTask;
-        const { text, type, minCompletions, isCritical, instruction } = data;
+        const { text, type, minCompletions, isCritical, genderPreference, instruction } = data;
         const newSectionsState = JSON.parse(JSON.stringify(sections));
         const section = newSectionsState.find((s: TaskSection) => s.title === sectionTitle);
         if (section) {
@@ -179,6 +189,7 @@ export default function BartenderTasksPage() {
                 task.type = type;
                 task.minCompletions = minCompletions ?? 1;
                 task.isCritical = !!isCritical;
+                task.genderPreference = genderPreference ?? 'Tất cả';
                 if (instruction) {
                     task.instruction = {
                         text: instruction.text ?? "",
@@ -511,7 +522,7 @@ export default function BartenderTasksPage() {
                                             <div 
                                                 key={task.id} 
                                                 className={cn(
-                                                    "flex items-center gap-3 sm:gap-4 p-3.5 sm:p-4 transition-colors hover:bg-muted/10",
+                                                    "flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-4 p-3 sm:p-4 transition-colors hover:bg-muted/10",
                                                     task.isCritical && "bg-destructive/5"
                                                 )}
                                             >
@@ -523,37 +534,55 @@ export default function BartenderTasksPage() {
                                                         )}>
                                                             {getTaskTypeIcon(task.type)}
                                                         </div>
-                                                        <div className="flex-1 space-y-1 overflow-hidden">
-                                                            <div className="flex items-start gap-1.5 flex-wrap">
+                                                        <div className="flex-1 space-y-0.5 overflow-hidden">
+                                                            <div className="flex items-center gap-1.5 min-w-0">
                                                                 <p className={cn(
-                                                                    "text-sm sm:text-[15px] font-medium leading-tight sm:leading-snug break-words",
+                                                                    "text-[14px] sm:text-[15px] font-semibold sm:font-medium leading-tight sm:leading-snug group-hover:whitespace-normal",
                                                                     task.isCritical ? "text-destructive underline decoration-destructive/20 underline-offset-4" : "text-foreground"
                                                                 )}>
                                                                     {task.text}
                                                                 </p>
-                                                                <div className="flex items-center gap-1 shrink-0 mt-0.5">
+                                                                <div className="flex items-center gap-1 shrink-0">
                                                                     {task.isCritical && (
-                                                                        <Badge variant="destructive" className="h-3.5 px-1 text-[8px] sm:text-[10px] uppercase tracking-wider font-bold shrink-0">
+                                                                        <Badge variant="destructive" className="h-3.5 px-0.5 text-[8px] uppercase tracking-wider font-bold shrink-0">
                                                                             Mới
                                                                         </Badge>
                                                                     )}
                                                                     {task.minCompletions && task.minCompletions > 1 && (
-                                                                        <Badge variant="secondary" className="h-3.5 px-1 text-[8px] sm:text-[10px] font-mono shrink-0">
+                                                                        <Badge variant="secondary" className="h-3.5 px-1 text-[8px] font-mono shrink-0">
                                                                             x{task.minCompletions}
+                                                                        </Badge>
+                                                                    )}
+                                                                    {task.genderPreference && task.genderPreference !== 'Tất cả' && (
+                                                                        <Badge variant="outline" className={cn(
+                                                                            "h-3.5 px-1 text-[8px] font-bold shrink-0",
+                                                                            task.genderPreference === 'Nam' ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-pink-50 text-pink-700 border-pink-200"
+                                                                        )}>
+                                                                            {task.genderPreference === 'Nam' ? 'Nam' : 'Nữ'}
                                                                         </Badge>
                                                                     )}
                                                                 </div>
                                                             </div>
-                                                            {task.instruction?.text && (
-                                                                <p className="text-[11px] sm:text-xs text-muted-foreground line-clamp-1 italic">
-                                                                    💡 {task.instruction.text}
-                                                                </p>
+                                                            {task.instruction && (
+                                                                <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-muted-foreground overflow-hidden">
+                                                                    {task.instruction.text && (
+                                                                        <div className="flex items-center gap-1 bg-muted/40 px-1.5 py-0.5 rounded border border-muted/50 max-w-[150px] xs:max-w-none">
+                                                                            <span className="truncate italic">💡 {task.instruction.text}</span>
+                                                                        </div>
+                                                                    )}
+                                                                    {task.instruction.images && task.instruction.images.length > 0 && (
+                                                                        <div className="flex items-center gap-1 bg-primary/5 text-primary px-1.5 py-0.5 rounded border border-primary/20 shrink-0">
+                                                                            <ImageIcon className="h-2.5 w-2.5" />
+                                                                            <span className="font-bold">{task.instruction.images.length} ảnh</span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
                                                             )}
                                                         </div>
                                                     </div>
                                                 </div>
 
-                                                    <div className="flex items-center gap-0.5 sm:gap-1 pl-2">
+                                                <div className="flex-shrink-0 flex items-center justify-end gap-1.5 sm:gap-1 pl-10 sm:pl-2 pb-1 sm:pb-0">
                                                         {isSorting ? (
                                                             <div className="flex items-center bg-background rounded-lg border border-muted/50 shadow-[0_1px_2px_rgba(0,0,0,0.05)] p-0.5">
                                                                 <Button 
@@ -600,6 +629,7 @@ export default function BartenderTasksPage() {
                                                                         type: task.type,
                                                                         isCritical: !!task.isCritical,
                                                                         minCompletions: task.minCompletions || 1,
+                                                                        genderPreference: task.genderPreference || 'Tất cả',
                                                                         instruction: task.instruction
                                                                     })}
                                                                 >
@@ -680,6 +710,7 @@ export default function BartenderTasksPage() {
                     type: editingTask.type,
                     isCritical: editingTask.isCritical,
                     minCompletions: editingTask.minCompletions,
+                    genderPreference: editingTask.genderPreference,
                     instruction: editingTask.instruction
                 } : null}
             />
