@@ -7,7 +7,7 @@ import { useSearchParams } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import { getQueryParamWithMobileHashFallback } from '@/lib/url-params';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Check, Camera, MessageSquareWarning, Clock, X, Droplets, UtensilsCrossed, Wind, Users, Trash2, Loader2, AlertCircle, MessageSquareText } from 'lucide-react';
+import { ArrowLeft, Check, Camera, MessageSquareWarning, Clock, X, Droplets, UtensilsCrossed, Wind, Users, Trash2, Loader2, AlertCircle, MessageSquareText, LayoutDashboard, CheckCircle2, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import type { ShiftReport, CompletionRecord, TaskSection } from '@/lib/types';
@@ -176,21 +176,55 @@ function HygieneReportView() {
 
     const getSectionIcon = (title: string) => {
         switch (title) {
-            case 'Vệ sinh khu vực pha chế': return <Droplets className="mr-3 h-5 w-5 text-blue-500" />;
-            case 'Vệ sinh dụng cụ': return <UtensilsCrossed className="mr-3 h-5 w-5 text-green-500" />;
-            case 'Vệ sinh thiết bị': return <Wind className="mr-3 h-5 w-5 text-purple-500" />;
+            case 'Vệ sinh khu vực pha chế': return <Droplets className="h-5 w-5" />;
+            case 'Vệ sinh dụng cụ': return <UtensilsCrossed className="h-5 w-5" />;
+            case 'Vệ sinh thiết bị': return <Wind className="h-5 w-5" />;
             default: return null;
         }
     }
 
-    const getSectionBorderColor = (title: string) => {
-        switch (title) {
-            case 'Vệ sinh khu vực pha chế': return 'border-blue-500/80';
-            case 'Vệ sinh dụng cụ': return 'border-green-500/80';
-            case 'Vệ sinh thiết bị': return 'border-purple-500/80';
-            default: return 'border-border';
+    const SECTION_STYLES = [
+        {
+            bg: 'bg-blue-100 dark:bg-blue-900/30',
+            text: 'text-blue-600 dark:text-blue-400',
+            border: 'border-blue-200 dark:border-blue-800',
+            cardBg: 'bg-blue-50/30 dark:bg-blue-900/10',
+            cardBorder: 'border-blue-100 dark:border-blue-900',
+            iconBg: 'bg-blue-500 shadow-blue-500/20'
+        },
+        {
+            bg: 'bg-green-100 dark:bg-green-900/30',
+            text: 'text-green-600 dark:text-green-400',
+            border: 'border-green-200 dark:border-green-800',
+            cardBg: 'bg-green-50/30 dark:bg-green-900/10',
+            cardBorder: 'border-green-100 dark:border-green-900',
+            iconBg: 'bg-green-500 shadow-green-500/20'
+        },
+        {
+            bg: 'bg-purple-100 dark:bg-purple-900/30',
+            text: 'text-purple-600 dark:text-purple-400',
+            border: 'border-purple-200 dark:border-purple-800',
+            cardBg: 'bg-purple-50/30 dark:bg-purple-900/10',
+            cardBorder: 'border-purple-100 dark:border-purple-900',
+            iconBg: 'bg-purple-500 shadow-purple-500/20'
+        },
+        {
+            bg: 'bg-amber-100 dark:bg-amber-900/30',
+            text: 'text-amber-600 dark:text-amber-400',
+            border: 'border-amber-200 dark:border-amber-800',
+            cardBg: 'bg-amber-50/30 dark:bg-amber-900/10',
+            cardBorder: 'border-amber-100 dark:border-amber-900',
+            iconBg: 'bg-amber-500 shadow-amber-500/20'
+        },
+        {
+            bg: 'bg-cyan-100 dark:bg-cyan-900/30',
+            text: 'text-cyan-600 dark:text-cyan-400',
+            border: 'border-cyan-200 dark:border-cyan-800',
+            cardBg: 'bg-cyan-50/30 dark:bg-cyan-900/10',
+            cardBorder: 'border-cyan-100 dark:border-cyan-900',
+            iconBg: 'bg-cyan-500 shadow-cyan-500/20'
         }
-    }
+    ];
 
     const handleDeleteReport = async () => {
         if (!reportToView || reportToView.id === 'summary' || user?.role !== 'Chủ nhà hàng') return;
@@ -213,6 +247,27 @@ function HygieneReportView() {
             setIsProcessing(false);
         }
     }
+
+    const totalTasksCount = useMemo(() => {
+        if (!taskSections) return 0;
+        return taskSections.reduce((acc, section) => acc + section.tasks.length, 0);
+    }, [taskSections]);
+
+    const completedTasksStats = useMemo(() => {
+        if (!reportToView || !taskSections) return { count: 0, percentage: 0 };
+        let count = 0;
+        taskSections.forEach(section => {
+            section.tasks.forEach(task => {
+                if (reportToView.completedTasks[task.id] && reportToView.completedTasks[task.id].length > 0) {
+                    count++;
+                }
+            });
+        });
+        return {
+            count,
+            percentage: totalTasksCount > 0 ? Math.round((count / totalTasksCount) * 100) : 0
+        };
+    }, [reportToView, taskSections, totalTasksCount]);
 
     if (isLoading || authLoading) {
         return <LoadingPage />;
@@ -237,178 +292,291 @@ function HygieneReportView() {
     }
 
     return (
-        <>
-            <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
-                <header className="mb-8">
-                    <div className="flex flex-col md:flex-row justify-between md:items-start gap-4">
-                        <div>
-                            <h1 className="text-2xl md:text-3xl font-bold font-headline">Báo cáo Vệ sinh quầy</h1>
-                            <p className="text-muted-foreground">
-                                Ngày {new Date(date).toLocaleDateString('vi-VN')}
-                            </p>
+        <div className="container mx-auto max-w-5xl p-4 sm:p-6 md:p-8 space-y-8">
+            <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div>
+                    <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight font-headline bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400">
+                        Báo cáo Vệ sinh quầy
+                    </h1>
+                    <div className="flex items-center gap-2 mt-2 text-muted-foreground bg-muted/50 w-fit px-3 py-1 rounded-full border">
+                        <History className="h-4 w-4" />
+                        <span className="text-sm font-medium">
+                            {new Date(date).toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                        </span>
+                    </div>
+                </div>
+
+                <Card className="w-full md:w-auto overflow-hidden border-2 shadow-lg shadow-blue-500/5">
+                    <CardContent className="p-3">
+                        <div className="flex items-center gap-2">
+                            <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg">
+                                <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                            </div>
+                            <div className="flex-1 min-w-[200px]">
+                                <Combobox
+                                    value={selectedReportId || ''}
+                                    onChange={(val) => setSelectedReportId(val as string)}
+                                    options={[
+                                        ...(reports.length > 1 ? [{ value: "summary", label: "Tổng hợp toàn bộ" }] : []),
+                                        ...reports.map(r => ({ value: r.id, label: r.staffName }))
+                                    ]}
+                                    placeholder="Chọn nhân viên xem báo cáo..."
+                                    compact
+                                    searchable={false}
+                                    disabled={isProcessing}
+                                    className="w-full border-none focus-visible:ring-0 shadow-none bg-transparent"
+                                />
+                            </div>
+                            {user?.role === 'Chủ nhà hàng' && selectedReportId && selectedReportId !== 'summary' && (
+                                <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" disabled={isProcessing} className="text-destructive hover:bg-destructive/10">
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogIcon icon={Trash2} />
+                                            <div className="space-y-2 text-center sm:text-left">
+                                                <AlertDialogTitle>Xác nhận xóa báo cáo?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    Hành động này sẽ xóa vĩnh viễn báo cáo của <span className="font-bold">{reportToView?.staffName}</span> và tất cả hình ảnh liên quan. Hành động này không thể được hoàn tác.
+                                                </AlertDialogDescription>
+                                            </div>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                            <AlertDialogAction onClick={handleDeleteReport}>Xóa vĩnh viễn</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            )}
                         </div>
-                        <Card className="w-full md:w-auto md:min-w-[250px]">
-                            <CardHeader className="p-3">
-                                <CardTitle className="text-sm font-medium flex items-center gap-2"><Users className="h-4 w-4" />Chọn nhân viên</CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-3 pt-0">
-                                <div className="flex items-center gap-2">
-                                    <Combobox
-                                        value={selectedReportId || ''}
-                                        onChange={(val) => setSelectedReportId(val as string)}
-                                        options={[
-                                            ...(reports.length > 1 ? [{ value: "summary", label: "Tổng hợp" }] : []),
-                                            ...reports.map(r => ({ value: r.id, label: r.staffName }))
-                                        ]}
-                                        placeholder="Chọn một nhân viên..."
-                                        compact
-                                        searchable={false}
-                                        disabled={isProcessing}
-                                        className="w-full"
-                                    />
-                                    {user?.role === 'Chủ nhà hàng' && selectedReportId && selectedReportId !== 'summary' && (
-                                        <AlertDialog dialogTag="alert-dialog" parentDialogTag="root" variant="destructive">
-                                            <AlertDialogTrigger asChild>
-                                                <Button variant="destructive" size="icon" disabled={isProcessing}>
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                    <AlertDialogIcon icon={Trash2} />
-                                                    <div className="space-y-2 text-center sm:text-left">
-                                                        <AlertDialogTitle>Xác nhận xóa báo cáo?</AlertDialogTitle>
-                                                        <AlertDialogDescription>
-                                                            Hành động này sẽ xóa vĩnh viễn báo cáo của <span className="font-bold">{reportToView?.staffName}</span> và tất cả hình ảnh liên quan. Hành động này không thể được hoàn tác.
-                                                        </AlertDialogDescription>
-                                                    </div>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={handleDeleteReport}>Xóa vĩnh viễn</AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
-                                    )}
+                    </CardContent>
+                </Card>
+            </header>
+
+            {!reportToView ? (
+                <div className="text-center py-24 bg-muted/20 border-2 border-dashed rounded-3xl">
+                    <div className="bg-background w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
+                        <Users className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                    <p className="text-xl font-medium text-muted-foreground">Vui lòng chọn một nhân viên để xem báo cáo.</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 gap-8">
+                    {/* Summary Stats Card */}
+                    <Card className="overflow-hidden border-none shadow-2xl bg-gradient-to-br from-blue-600 via-indigo-600 to-indigo-700 text-white rounded-[2rem]">
+                        <CardContent className="p-0">
+                            <div className="grid grid-cols-1 md:grid-cols-12">
+                                <div className="md:col-span-8 p-8 md:p-10 space-y-6">
+                                    <div className="space-y-2">
+                                        <h3 className="text-blue-100 font-medium flex items-center gap-2">
+                                            <LayoutDashboard className="h-4 w-4" />
+                                            Trạng thái hoàn thành
+                                        </h3>
+                                        <div className="flex items-baseline gap-3">
+                                            <span className="text-5xl md:text-6xl font-black tracking-tighter">
+                                                {completedTasksStats.percentage}%
+                                            </span>
+                                            <span className="text-xl text-blue-100/80 font-medium">Hoàn thành</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-6 pt-4 border-t border-white/10">
+                                        <div>
+                                            <div className="text-blue-100/60 text-sm mb-1 uppercase tracking-wider font-bold">Người thực hiện</div>
+                                            <div className="text-xl font-bold flex items-center gap-2">
+                                                {selectedReportId === 'summary' ? (
+                                                    <><Users className="h-5 w-5" /> {reports.length} Nhân viên</>
+                                                ) : (
+                                                    reportToView.staffName
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div className="text-blue-100/60 text-sm mb-1 uppercase tracking-wider font-bold">Thời gian nộp</div>
+                                            <div className="text-xl font-bold flex items-center gap-2">
+                                                <Clock className="h-5 w-5 text-blue-200" />
+                                                {selectedReportId === 'summary' ? '—' : new Date(reportToView.submittedAt as string).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                            </CardContent>
-                        </Card>
-                    </div>
-                </header>
 
-                {!reportToView ? (
-                    <div className="text-center py-16 text-muted-foreground">
-                        <p>Vui lòng chọn một nhân viên để xem báo cáo.</p>
-                    </div>
-                ) : (
-                    <div className="space-y-8">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Nhiệm vụ đã hoàn thành</CardTitle>
-                                <CardDescription>
-                                    {selectedReportId === 'summary'
-                                        ? `Tổng hợp báo cáo từ ${reports.length} nhân viên.`
-                                        : `Báo cáo từ ${reportToView.staffName}, nộp lúc ${new Date(reportToView.submittedAt as string).toLocaleString('vi-VN', { hour12: false })}.`
-                                    }
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <Accordion type="multiple" defaultValue={taskSections.map(s => s.title)} className="w-full space-y-4">
-                                    {taskSections.map((section) => (
-                                        <AccordionItem value={section.title} key={section.title} className={`rounded-lg border-[3px] bg-card ${getSectionBorderColor(section.title)}`}>
-                                            <AccordionTrigger className="text-lg font-bold p-4 hover:no-underline">
-                                                <div className="flex items-center">
-                                                    {getSectionIcon(section.title)}
-                                                    {section.title}
-                                                </div>
-                                            </AccordionTrigger>
-                                            <AccordionContent className="border-t p-4">
-                                                <div className="space-y-4 pt-2">
-                                                    {section.tasks.map((task) => {
-                                                        const completions = (reportToView.completedTasks[task.id] || []) as CompletionRecord[];
-                                                        const isCompleted = completions.length > 0;
+                                <div className="md:col-span-4 bg-white/10 backdrop-blur-md p-8 flex flex-col items-center justify-center border-l border-white/10">
+                                    <div className="relative h-32 w-32 md:h-40 md:w-40">
+                                        <svg className="h-full w-full" viewBox="0 0 100 100">
+                                            <circle
+                                                className="text-white/20 stroke-current"
+                                                strokeWidth="8"
+                                                cx="50"
+                                                cy="50"
+                                                r="40"
+                                                fill="transparent"
+                                            ></circle>
+                                            <circle
+                                                className="text-white stroke-current transition-all duration-1000 ease-out"
+                                                strokeWidth="8"
+                                                strokeDasharray={251.2}
+                                                strokeDashoffset={251.2 * (1 - completedTasksStats.percentage / 100)}
+                                                strokeLinecap="round"
+                                                cx="50"
+                                                cy="50"
+                                                r="40"
+                                                fill="transparent"
+                                                transform="rotate(-90 50 50)"
+                                            ></circle>
+                                        </svg>
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                            <div className="text-2xl font-black">{completedTasksStats.count}</div>
+                                            <div className="text-[10px] uppercase font-bold text-white/60 tracking-tighter">/ {totalTasksCount} Công việc</div>
+                                        </div>
+                                    </div>
+                                    <div className="mt-4 text-center">
+                                        <div className="flex items-center gap-1 text-sm font-semibold bg-white/20 px-3 py-1 rounded-full">
+                                            <CheckCircle2 className="h-3 w-3" />
+                                            {completedTasksStats.count === totalTasksCount ? 'Tất cả đã xử lý' : 'Đang xử lý'}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
 
-                                                        return (
-                                                            <div key={task.id} className={`rounded-md border p-4 transition-colors ${isCompleted ? 'bg-accent/20' : ''}`}>
-                                                                <div className="flex items-start gap-4">
-                                                                    <div className="flex-1">
-                                                                        <div className="flex items-center gap-3">
-                                                                            <div className={`flex h-5 w-5 items-center justify-center rounded-full flex-shrink-0 mt-0.5 ${isCompleted ? 'bg-green-500/20 text-green-700' : 'bg-muted'}`}>
-                                                                                {isCompleted ? <Check className="h-4 w-4" /> : <X className="h-4 w-4 text-muted-foreground" />}
-                                                                            </div>
-                                                                            <p className={`font-semibold ${!isCompleted ? 'text-muted-foreground' : ''}`}>
-                                                                                {task.text}
-                                                                            </p>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
+                    {/* Content Section */}
+                    {/* Content Section moved inside taskSections map for better flow */}
+                    <div className="space-y-12">
+                        {taskSections.map((section, index) => {
+                            const sectionIcon = getSectionIcon(section.title);
+                            const styles = SECTION_STYLES[index % SECTION_STYLES.length];
 
-                                                                {isCompleted && (
-                                                                    <div className="mt-4 ml-8 space-y-3 pl-3 border-l-2">
-                                                                        {completions.map((completion, cIndex) => (
-                                                                            <div key={cIndex} className="rounded-md border bg-card p-3">
-                                                                                <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-                                                                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                                                        <Clock className="h-4 w-4 flex-shrink-0" />
-                                                                                        <span>Thực hiện lúc: {completion.timestamp}</span>
-                                                                                    </div>
-                                                                                    {selectedReportId === 'summary' && (
-                                                                                        <Badge variant="secondary" className="font-normal">
-                                                                                            {(completion as any).staffName}
-                                                                                        </Badge>
-                                                                                    )}
-                                                                                </div>
-                                                                                {completion.photos && completion.photos.length > 0 ? (
-                                                                                    <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-                                                                                        {completion.photos.map((photo, pIndex) => (
-                                                                                            <button
-                                                                                                onClick={() => handleOpenLightbox(photo)}
-                                                                                                key={photo.slice(0, 50) + pIndex}
-                                                                                                className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted"
-                                                                                            >
-                                                                                                <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
-                                                                                            </button>
-                                                                                        ))}
-                                                                                    </div>
-                                                                                ) : (
-                                                                                    <p className="text-xs text-muted-foreground italic">Không có ảnh nào được chụp cho lần thực hiện này.</p>
-                                                                                )}
+                            return (
+                                <section key={section.title} className="space-y-6">
+                                    <div className="flex items-center gap-4">
+                                        <div className={`p-3 rounded-2xl ${styles.bg} ${styles.text} shadow-sm border ${styles.border}`}>
+                                            {sectionIcon}
+                                        </div>
+                                        <div>
+                                            <h2 className="text-2xl font-bold font-headline">{section.title}</h2>
+                                            <p className="text-sm text-muted-foreground">{section.tasks.length} hạng mục kiểm tra</p>
+                                        </div>
+                                    </div>
 
-                                                                                {completion.note && (
-                                                                                    <div className="mt-2 flex items-start gap-1.5 p-2 bg-amber-500/5 border border-amber-500/10 rounded-lg">
-                                                                                        <MessageSquareText className="h-3 w-3 text-amber-500 mt-1 shrink-0" />
-                                                                                        <p className="text-xs italic text-amber-900 leading-relaxed font-medium">"{completion.note}"</p>
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                        ))}
-                                                                    </div>
-                                                                )}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                        {section.tasks.map((task) => {
+                                            const completions = (reportToView.completedTasks[task.id] || []) as CompletionRecord[];
+                                            const isCompleted = completions.length > 0;
+
+                                            return (
+                                                <Card
+                                                    key={task.id}
+                                                    className={`overflow-hidden border-2 transition-all duration-300 rounded-2xl group ${isCompleted
+                                                        ? `${styles.cardBorder} ${styles.cardBg} shadow-sm`
+                                                        : 'border-muted bg-card opacity-80 hover:opacity-100 hover:border-muted-foreground/30 grayscale-[0.5] hover:grayscale-0'
+                                                        }`}
+                                                >
+                                                    <CardContent className="p-0">
+                                                        <div className={`p-5 flex items-start gap-4 ${isCompleted ? styles.cardBg : 'bg-muted/30'}`}>
+                                                            <div className={`mt-0.5 flex h-6 w-6 items-center justify-center rounded-full flex-shrink-0 transition-transform group-hover:scale-110 ${isCompleted
+                                                                ? `${styles.iconBg} text-white shadow-lg`
+                                                                : 'bg-muted-foreground/20 text-muted-foreground'
+                                                                }`}>
+                                                                {isCompleted ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
                                                             </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </AccordionContent>
-                                        </AccordionItem>
-                                    ))}
-                                </Accordion>
-                            </CardContent>
-                        </Card>
+                                                            <h4 className={`font-bold leading-snug ${isCompleted ? 'text-foreground' : 'text-muted-foreground font-medium'}`}>
+                                                                {task.text}
+                                                            </h4>
+                                                        </div>
+
+                                                        {isCompleted ? (
+                                                            <div className="p-5 space-y-4">
+                                                                {completions.map((completion, cIndex) => (
+                                                                    <div key={cIndex} className="space-y-4">
+                                                                        <div className="flex items-center justify-between text-xs font-bold text-muted-foreground uppercase tracking-widest bg-muted/30 px-3 py-1.5 rounded-lg border border-border/50">
+                                                                            <span className="flex items-center gap-1.5">
+                                                                                <Clock className="h-3 w-3" />
+                                                                                {completion.timestamp}
+                                                                            </span>
+                                                                            {selectedReportId === 'summary' && (
+                                                                                <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
+                                                                                    <Users className="h-3 w-3" />
+                                                                                    {(completion as any).staffName}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+
+                                                                        {completion.photos && completion.photos.length > 0 && (
+                                                                            <div className="grid grid-cols-2 gap-2">
+                                                                                {completion.photos.map((photo, pIndex) => (
+                                                                                    <button
+                                                                                        onClick={() => handleOpenLightbox(photo)}
+                                                                                        key={photo.slice(0, 50) + pIndex}
+                                                                                        className="relative group/photo overflow-hidden aspect-[4/3] rounded-xl bg-muted border-2 border-transparent hover:border-blue-500 transition-all duration-300 shadow-sm"
+                                                                                    >
+                                                                                        <Image
+                                                                                            src={photo}
+                                                                                            alt={`Ảnh bằng chứng ${pIndex + 1}`}
+                                                                                            fill
+                                                                                            className="object-cover transition-transform duration-500 group-hover/photo:scale-110"
+                                                                                        />
+                                                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center">
+                                                                                            <Camera className="text-white h-6 w-6" />
+                                                                                        </div>
+                                                                                    </button>
+                                                                                ))}
+                                                                            </div>
+                                                                        )}
+
+                                                                        {completion.note && (
+                                                                            <div className="bg-amber-100/50 dark:bg-amber-900/20 p-4 rounded-xl border border-amber-200/50 dark:border-amber-800/50 relative overflow-hidden group/note">
+                                                                                <div className="absolute top-0 right-0 p-1 opacity-20">
+                                                                                    <MessageSquareText className="h-8 w-8 text-amber-600" />
+                                                                                </div>
+                                                                                <p className="text-sm font-medium italic text-amber-900 dark:text-amber-400 relative z-10 leading-relaxed">
+                                                                                    &ldquo;{completion.note}&rdquo;
+                                                                                </p>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="p-10 flex flex-col items-center justify-center text-center opacity-40 grayscale">
+                                                                <AlertCircle className="h-8 w-8 text-muted-foreground mb-2" />
+                                                                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Chưa thực hiện</p>
+                                                            </div>
+                                                        )}
+                                                    </CardContent>
+                                                </Card>
+                                            );
+                                        })}
+                                    </div>
+                                </section>
+                            );
+                        })}
 
                         {reportToView.issues && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2 text-xl"><MessageSquareWarning /> Vấn đề được báo cáo</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="text-sm italic bg-amber-100/60 p-4 rounded-md border border-amber-200 whitespace-pre-wrap">{reportToView.issues}</div>
-                                </CardContent>
-                            </Card>
+                            <section className="mt-12">
+                                <Card className="border-none shadow-2xl bg-gradient-to-br from-rose-50 to-rose-100 dark:from-rose-950/20 dark:to-rose-900/20 rounded-[2rem] overflow-hidden">
+                                    <div className="grid grid-cols-1 md:grid-cols-4">
+                                        <div className="md:col-span-1 bg-rose-500 p-8 flex flex-col items-center justify-center text-white text-center">
+                                            <MessageSquareWarning className="h-12 w-12 mb-4 drop-shadow-lg animate-pulse" />
+                                            <h3 className="text-xl font-black">CÁC VẤN ĐỀ<br />GHI NHẬN</h3>
+                                        </div>
+                                        <div className="md:col-span-3 p-8 md:p-10">
+                                            <div className="text-lg font-medium text-rose-900 dark:text-rose-200 leading-relaxed italic whitespace-pre-wrap">
+                                                {reportToView.issues}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </Card>
+                            </section>
                         )}
                     </div>
-                )}
-            </div>
-        </>
+                </div>
+            )}
+        </div>
     );
 }
 
