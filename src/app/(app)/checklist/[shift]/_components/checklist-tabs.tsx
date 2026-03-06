@@ -84,19 +84,21 @@ export default function ChecklistTabs({ shift, report, otherStaffReports, active
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
-      <TabsList className="sticky top-14 md:top-0 z-30 flex w-full h-12 p-1.5 bg-background/60 backdrop-blur-xl rounded-2xl border shadow-sm gap-1.5">
-        {shift.sections.map((section: any) => (
-          <TabsTrigger
-            key={section.title}
-            value={section.title}
-            className="flex-1 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all duration-300
-                  data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/25
-                  data-[state=inactive]:text-muted-foreground/70 data-[state=inactive]:hover:bg-muted/50"
-          >
-            {section.title}
-          </TabsTrigger>
-        ))}
-      </TabsList>
+      {shift.sections.length > 1 && (
+        <TabsList className="sticky top-14 md:top-0 z-30 flex w-full h-12 p-1.5 bg-background/60 backdrop-blur-xl rounded-2xl border shadow-sm gap-1.5">
+          {shift.sections.map((section: any) => (
+            <TabsTrigger
+              key={section.title}
+              value={section.title}
+              className="flex-1 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all duration-300
+                    data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/25
+                    data-[state=inactive]:text-muted-foreground/70 data-[state=inactive]:hover:bg-muted/50"
+            >
+              {section.title}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      )}
 
       {shift.sections.map((section: any) => {
         const sectionTasks = section.tasks.filter((t: any) => {

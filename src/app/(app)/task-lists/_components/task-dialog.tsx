@@ -1,14 +1,15 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Star, ArrowUp, ArrowDown, Image as ImageIcon, Trash2, Loader2, Camera } from 'lucide-react';
+import { Plus, Star, ArrowUp, ArrowDown, Image as ImageIcon, Trash2, Loader2, Camera, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Task } from '@/lib/types';
 import CameraDialog from '@/components/camera-dialog';
+import { ImageReuseDialog } from './image-reuse-dialog';
 import { photoStore } from '@/lib/photo-store';
 import { useLightbox } from '@/contexts/lightbox-context';
 import { Button } from '@/components/ui/button';
-import { uploadFile } from '@/lib/data-store-helpers';
+import { uploadFile, deleteFileByUrl } from '@/lib/data-store-helpers';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -46,7 +47,8 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
 
   // instruction fields
   const [instructionText, setInstructionText] = useState('');
-  const [instructionImages, setInstructionImages] = useState<{ url: string; caption: string }[]>([]);
+  const [instructionImages, setInstructionImages] = useState<{ url: string; caption: string; shouldCopy?: boolean }[]>([]);
+  const [deletedServerImages, setDeletedServerImages] = useState<string[]>([]);
   const [isCompressing, setIsCompressing] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const { openLightbox } = useLightbox();
@@ -108,6 +110,7 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
             typeof img === 'string' ? { url: img, caption: '' } : { url: img.url, caption: img.caption || '' }
           )
         );
+        setDeletedServerImages([]); // Clear when starting session
       } else {
         setText('');
         setIsCritical(false);
@@ -121,6 +124,7 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
           });
           return [];
         });
+        setDeletedServerImages([]); // Clear when starting session
         if (fileRef.current) fileRef.current.value = '';
       }
     }
@@ -155,6 +159,11 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
   const removeImage = (index: number) => {
     setInstructionImages(prev => {
       const img = prev[index];
+      // Track server URLs for deletion later when confirmed
+      if (img.url.includes('firebasestorage.googleapis.com')) {
+        setDeletedServerImages(prevDeleted => [...prevDeleted, img.url]);
+      }
+      
       if (img.url && img.url.startsWith('blob:')) {
         URL.revokeObjectURL(img.url);
       }
@@ -166,8 +175,22 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
     setInstructionImages(prev => prev.map((img, i) => i === index ? { ...img, caption } : img));
   };
 
+  const moveImage = (index: number, direction: 'up' | 'down') => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= instructionImages.length) return;
+
+    setInstructionImages(prev => {
+      const nextArr = [...prev];
+      const item = nextArr[index];
+      nextArr.splice(index, 1);
+      nextArr.splice(newIndex, 0, item);
+      return nextArr;
+    });
+  };
+
   // Camera dialog state: allow taking photos to add as instruction images
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [isReuseOpen, setIsReuseOpen] = useState(false);
 
   const handleCameraSubmit = async (media: { id: string; type: 'photo' | 'video' }[]) => {
     // media contains local photo IDs stored in photoStore
@@ -191,14 +214,33 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
     }
   };
 
+  const handleReuseSelect = (instruction: { text?: string; images: { url: string; caption?: string }[] }) => {
+    // Optionally update text if it's currently empty
+    if (!instructionText && instruction.text) {
+      setInstructionText(instruction.text);
+    }
+    
+    // Append images - Always mark for copying even if they are already server URLs
+    // by adding a temporary flag or checking for typical server URL patterns
+    setInstructionImages(prev => [
+      ...prev,
+      ...instruction.images.map(img => ({ 
+        url: img.url, 
+        caption: img.caption || '',
+        shouldCopy: img.url.includes('firebasestorage.googleapis.com') // Mark for duplication
+      }))
+    ]);
+  };
+
   const handleConfirm = async () => {
     if (!text.trim()) return;
     
     setIsCompressing(true); // Show a loading indicator using the existing state
     try {
-      // Process images: upload any data: or blob: URLs to server
+      // Process images: upload any data:, blob:, or server URLs flagged for duplication
       const processedImages = await Promise.all(
         instructionImages.map(async (img) => {
+          // Case 1: New uploads from camera or library
           if (img.url.startsWith('data:') || img.url.startsWith('blob:')) {
             try {
               const response = await fetch(img.url);
@@ -208,12 +250,36 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
               return { ...img, url: serverUrl };
             } catch (err) {
               console.error('Failed to upload instruction image:', err);
-              return img; // Fallback to original, though it might be invalid on server
+              return img;
             }
           }
+          
+          // Case 2: Reused image from another task - needs duplication
+          if (img.shouldCopy && img.url.includes('firebasestorage.googleapis.com')) {
+            try {
+              const response = await fetch(img.url);
+              const blob = await response.blob();
+              const fileName = `reused-instruction-${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+              const serverUrl = await uploadFile(blob, `task-instructions/${fileName}`);
+              // Clean up flag once duplicated
+              const { shouldCopy, ...cleanImg } = img;
+              return { ...cleanImg, url: serverUrl };
+            } catch (err) {
+              console.error('Failed to duplicate reused image:', err);
+              return img;
+            }
+          }
+          
           return img;
         })
       );
+
+      // Final Cleanup: Physically delete images marked for removal from server
+      if (deletedServerImages.length > 0) {
+        await Promise.all(
+          deletedServerImages.map(url => deleteFileByUrl(url))
+        );
+      }
 
       onConfirm({
         text: text.trim(),
@@ -241,9 +307,9 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
           <DialogTitle>{initialData ? 'Chỉnh sửa công việc' : 'Thêm công việc mới'}</DialogTitle>
           <DialogDescription>
             {initialData ? (
-              <>Cập nhật công việc trong mục <span className="font-bold">"{sectionTitle}"</span> của <span className="font-bold">Ca {shiftName}</span>.</>
+              <>Cập nhật công việc trong mục <span className="font-bold">"{sectionTitle}"</span> của <span className="font-bold">{shiftName}</span>.</>
             ) : (
-              <>Tạo nhiệm vụ cho <span className="font-bold">Ca {shiftName}</span> trong mục <span className="font-bold">{sectionTitle}</span>.</>
+              <>Tạo nhiệm vụ cho <span className="font-bold">{shiftName}</span> trong mục <span className="font-bold">{sectionTitle}</span>.</>
             )}
           </DialogDescription>
         </DialogHeader>
@@ -335,6 +401,17 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
                   </div>
                   <span className="text-[10px] font-black uppercase tracking-wider">Máy ảnh</span>
                 </button>
+
+                <button
+                  onClick={() => setIsReuseOpen(true)}
+                  className="flex-1 flex items-center justify-center gap-2 py-2 rounded-[16px] bg-white shadow-sm border border-zinc-100 hover:bg-indigo-50/50 hover:border-indigo-100 hover:text-indigo-600 transition-all group active:scale-[0.98]"
+                  type="button"
+                >
+                  <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-500 group-hover:bg-indigo-100 transition-colors">
+                    <Copy className="h-3.5 w-3.5" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-wider">Dùng lại</span>
+                </button>
               </div>
 
               {instructionImages.length > 0 && (
@@ -365,6 +442,26 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
                             {img.url.startsWith('data:') || img.url.startsWith('blob:') ? 'Chờ tải lên...' : 'Đã tải lên hệ thống'}
                           </div>
                         </div>
+                        
+                        <div className="flex flex-col gap-1 pr-1 border-r border-zinc-100">
+                          <button 
+                            type="button" 
+                            disabled={idx === 0}
+                            onClick={(e) => { e.stopPropagation(); moveImage(idx, 'up'); }} 
+                            className="p-1 rounded-md text-muted-foreground/30 hover:text-indigo-500 hover:bg-indigo-50 disabled:opacity-0 active:scale-90 transition-all"
+                          >
+                            <ArrowUp className="h-3 w-3" />
+                          </button>
+                          <button 
+                            type="button" 
+                            disabled={idx === instructionImages.length - 1}
+                            onClick={(e) => { e.stopPropagation(); moveImage(idx, 'down'); }} 
+                            className="p-1 rounded-md text-muted-foreground/30 hover:text-indigo-500 hover:bg-indigo-50 disabled:opacity-0 active:scale-90 transition-all"
+                          >
+                            <ArrowDown className="h-3 w-3" />
+                          </button>
+                        </div>
+
                         <button 
                           type="button" 
                           onClick={(e) => { e.stopPropagation(); removeImage(idx); }} 
@@ -417,6 +514,13 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
           singlePhotoMode={false}
           captureMode="photo"
           isHD={true}
+        />
+
+        <ImageReuseDialog 
+          isOpen={isReuseOpen}
+          onClose={() => setIsReuseOpen(false)}
+          onSelect={handleReuseSelect}
+          parentDialogTag={parentDialogTag}
         />
 
         <DialogFooter>

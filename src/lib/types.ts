@@ -95,6 +95,7 @@ export type ParsedComprehensiveTask = Omit<ComprehensiveTask, 'id'>;
 export type TaskSection = {
   title: string;
   tasks: Task[];
+  shiftTemplateId?: string; // Optional: Link section to a specific shift template
 }
 
 export type ComprehensiveTaskSection = {

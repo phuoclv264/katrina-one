@@ -270,7 +270,19 @@ export default function CheckInCard() {
                     const undoneList: string[] = [];
 
                     if (tasksMap && tasksMap[shiftKey]) {
-                        for (const section of tasksMap[shiftKey].sections) {
+                        // Filter sections based on shiftTemplateId pinning (mirroring ChecklistView logic)
+                        const userTemplateId = activeShift?.templateId;
+                        const filteredSections = tasksMap[shiftKey].sections.filter(s => {
+                            if (!s.shiftTemplateId) return true;
+                            return userTemplateId === s.shiftTemplateId;
+                        });
+
+                        const hasAnyPinnedSection = filteredSections.some(s => s.shiftTemplateId && s.shiftTemplateId === userTemplateId);
+                        const finalSections = hasAnyPinnedSection
+                            ? filteredSections.filter(s => !!s.shiftTemplateId)
+                            : filteredSections;
+
+                        for (const section of finalSections) {
                             const isGlobalSection = section.title === 'Đầu ca' || section.title === 'Cuối ca';
                             for (const task of section.tasks) {
                                 // Filter by gender preference
@@ -335,9 +347,21 @@ export default function CheckInCard() {
 
                 const bartenderTasks = await dataStore.getBartenderTasks();
                 console.log('Bartender tasks:', bartenderTasks);
-                const undoneList: string[] = [];
                 if (bartenderTasks) {
-                    for (const section of bartenderTasks) {
+                    const undoneList: string[] = [];
+                    // Filter sections based on shiftTemplateId pinning (mirroring ChecklistView logic)
+                    const userTemplateId = activeShift?.templateId;
+                    const filteredSectionsForBartenders = bartenderTasks.filter(s => {
+                        if (!s.shiftTemplateId) return true;
+                        return userTemplateId === s.shiftTemplateId;
+                    });
+
+                    const hasAnyPinnedSectionForBartenders = filteredSectionsForBartenders.some(s => s.shiftTemplateId && s.shiftTemplateId === userTemplateId);
+                    const finalSectionsForBartenders = hasAnyPinnedSectionForBartenders
+                        ? filteredSectionsForBartenders.filter(s => !!s.shiftTemplateId)
+                        : filteredSectionsForBartenders;
+
+                    for (const section of finalSectionsForBartenders) {
                         for (const task of section.tasks) {
                             // Filter by gender preference
                             if (task.genderPreference && task.genderPreference !== 'Tất cả' && task.genderPreference !== user.gender) {
@@ -353,14 +377,14 @@ export default function CheckInCard() {
                             }
                         }
                     }
-                }
 
-                if (undoneList.length > 0) {
-                    items.push({
-                        category: 'checklist',
-                        title: "Báo cáo vệ sinh quầy bar",
-                        items: undoneList,
-                    });
+                    if (undoneList.length > 0) {
+                        items.push({
+                            category: 'checklist',
+                            title: "Báo cáo vệ sinh quầy bar",
+                            items: undoneList,
+                        });
+                    }
                 }
             } catch (error) {
                 console.error('Không thể kiểm tra báo cáo pha chế:', error);

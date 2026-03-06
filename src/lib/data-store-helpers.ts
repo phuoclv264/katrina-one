@@ -51,6 +51,37 @@ export async function deleteFileByUrl(fileUrl: string): Promise<void> {
     }
 }
 
+/**
+ * Copies a file from an existing Firebase Storage URL to a new path.
+ * This is used for "Copy-on-Reuse" logic to ensure that modifications to one task 
+ * don't break others that were copied from it.
+ */
+export async function copyFileFromUrl(originalUrl: string, newPath: string): Promise<string> {
+  if (!originalUrl || !originalUrl.includes('firebasestorage.googleapis.com')) {
+    return originalUrl;
+  }
+
+  try {
+    // 1. Fetch the original file as a Blob
+    const response = await fetch(originalUrl);
+    const blob = await response.blob();
+    
+    // 2. Upload the blob to the new path
+    const storageRef = ref(storage, newPath);
+    const metadata = {
+      cacheControl: 'public,max-age=31536000,immutable',
+    };
+    await uploadBytes(storageRef, blob, metadata);
+    
+    // 3. Return the new download URL
+    return await getDownloadURL(storageRef);
+  } catch (error) {
+    console.error("Failed to copy file from URL:", error);
+    // Fallback to original URL if copy fails to avoid breaking the feature
+    return originalUrl;
+  }
+}
+
 export async function uploadMedia(mediaItems: MediaItem[], path: string): Promise<MediaAttachment[]> {
   // Ensure anonymous auth before batch uploads so storage rules allow writes
   if (!auth.currentUser) {
