@@ -346,7 +346,6 @@ export default function CheckInCard() {
                 }
 
                 const bartenderTasks = await dataStore.getBartenderTasks();
-                console.log('Bartender tasks:', bartenderTasks);
                 if (bartenderTasks) {
                     const undoneList: string[] = [];
                     // Filter sections based on shiftTemplateId pinning (mirroring ChecklistView logic)
@@ -591,25 +590,25 @@ export default function CheckInCard() {
         setIsCameraOpen(true);
     };
 
+    // Determine if the user can apply for a late request.
+    // We should only allow it if there's a shift today that hasn't started yet.
+    // If multiple shifts exist, we find the first one that starts in the future.
+    const nextUnstartedShift = todaysShifts.find(shift => {
+        const [h, m] = shift.timeSlot.start.split(':').map(Number);
+        const shiftDate = new Date(shift.date);
+        shiftDate.setHours(h, m, 0, 0);
+        
+        return currentTime.getTime() < shiftDate.getTime();
+    });
+
     const isCheckedIn = !!latestInProgressRecord && latestInProgressRecord.status === 'in-progress';
     const isOnBreak = latestInProgressRecord?.onBreak;
     const mainButtonText = isCheckedIn ? 'Chấm công ra' : 'Chấm công vào';
 
-    const hasPendingLateRequest = attendanceRecords[0]?.status === 'pending_late';
+    // const hasPendingLateRequest = attendanceRecords[0]?.status === 'pending_late';
+    const hasPendingLateRequest = attendanceRecords.some(record => record.status === 'pending_late');
 
-    // Determine if the next (earliest) shift has already started. If it has, we should not allow late requests.
-    const nextShift = todaysShifts.length > 0 ? todaysShifts[0] : null;
-    const hasShiftStarted = (shift: AssignedShift | null) => {
-        if (!shift) return false;
-        const [h, m] = shift.timeSlot.start.split(':').map(Number);
-        const shiftDate = new Date(shift.date);
-        shiftDate.setHours(h, m, 0, 0);
-        if (user?.role === 'Quản lý' && h === 6) {
-            shiftDate.setHours(7, m, 0, 0);
-        }
-        return currentTime.getTime() >= shiftDate.getTime();
-    };
-    const showLateRequestButton = !isCheckedIn && !!nextShift && !hasShiftStarted(nextShift);
+    const showLateRequestButton = !isCheckedIn && !!nextUnstartedShift;
 
     // Calculate duration if checked in
     const getDuration = () => {
@@ -761,7 +760,7 @@ export default function CheckInCard() {
                                     disabled={isProcessing || hasPendingLateRequest}
                                 >
                                     <Clock className="mr-2 h-4 w-4" />
-                                    {hasPendingLateRequest ? 'Đã xin trễ' : 'Xin đi trễ'}
+                                    {hasPendingLateRequest ? 'Đã xin trễ' : `Xin đi trễ cho ca ${nextUnstartedShift?.label}`}
                                 </Button>
                             )}
 

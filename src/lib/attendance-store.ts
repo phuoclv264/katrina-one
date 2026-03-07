@@ -1,6 +1,6 @@
 'use client';
 
-import { db, storage } from './firebase';
+import { db, storage, auth } from './firebase';
 import {
     collection,
     doc,
@@ -22,7 +22,7 @@ import {
 } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
 import { ref } from 'firebase/storage';
-import type { AssignedShift, AttendanceRecord, AuthUser, Schedule, SpecialPeriod } from './types';
+import type { AssignedShift, AttendanceRecord, AuthUser, ManagedUser, Schedule, SpecialPeriod } from './types';
 import { getISOWeek, getISOWeekYear, startOfMonth, endOfMonth, format, startOfToday, endOfToday, differenceInMinutes, parse } from 'date-fns';
 import * as violationsService from './violations-service';
 import { getActiveShifts } from './schedule-utils';
@@ -104,20 +104,26 @@ export function subscribeToLatestUserRecordForToday(userId: string, callback: (r
     });
 }
 
-export async function requestLateCheckIn(user: AuthUser, reason: string, minutes: number, photoId?: string): Promise<void> {
+export async function requestLateCheckIn(user: AuthUser, reason: string, minutes: number, photoId?: string, shiftId?: string): Promise<string> {
     const attendanceCollection = collection(db, 'attendance_records');
     const todayStart = startOfToday();
 
     // Check for existing pending or in-progress records for today
-    const q = query(
-        attendanceCollection,
+    // If shiftId is provided, we only block it if that specific shift already has a request
+    // If no shiftId, we fall back to the old "one-per-day" behavior
+    const baseQueries = [
         where('userId', '==', user.uid),
         where('createdAt', '>=', todayStart),
         where('status', 'in', ['in-progress', 'pending_late'])
-    );
+    ];
+    if (shiftId) {
+        baseQueries.push(where('shiftId', '==', shiftId));
+    }
+
+    const q = query(attendanceCollection, ...baseQueries);
     const existingRecords = await getDocs(q);
     if (!existingRecords.empty) {
-        throw new Error("Bạn đã có một yêu cầu đi trễ hoặc đã chấm công trong ngày hôm nay.");
+        throw new Error(shiftId ? "Bạn đã có một yêu cầu đi trễ hoặc đang làm việc cho ca này." : "Bạn đã có một yêu cầu đi trễ hoặc đã chấm công trong ngày hôm nay.");
     }
 
     let photoUrl: string | undefined = undefined;
@@ -129,23 +135,33 @@ export async function requestLateCheckIn(user: AuthUser, reason: string, minutes
         photoUrl = await uploadFile(photoBlob, storagePath);
     }
 
-    const newRecord: Omit<AttendanceRecord, 'id'> = {
+    const docRef = await addDoc(attendanceCollection, {
         userId: user.uid,
         status: 'pending_late',
+        lateRequestId: uuidv4(), // Generate a unique ID for the request cycle
         lateReason: reason,
         estimatedLateMinutes: minutes,
         ...(photoUrl && { lateReasonPhotoUrl: photoUrl }),
         createdAt: serverTimestamp() as Timestamp,
         updatedAt: serverTimestamp() as Timestamp,
-    };
+        shiftId: shiftId || null // Track which shift this request is for
+    });
 
-    await addDoc(attendanceCollection, newRecord);
     if (photoId) await photoStore.deletePhoto(photoId);
+
+    return docRef.id;
 }
 
-export async function createAttendanceRecord(user: AuthUser, photoId: string, isOffShift: boolean = false, offShiftReason?: string): Promise<void> {
+export async function createAttendanceRecord(
+    user: AuthUser,
+    photoId: string,
+    isOffShift: boolean = false,
+    offShiftReason?: string
+): Promise<void> {
     const photoBlob = await photoStore.getPhoto(photoId);
     if (!photoBlob) throw new Error("Local photo not found for check-in.");
+
+    const activeShift = await getActiveShiftForUser(user.uid);
 
     const userDoc = await getDoc(doc(db, 'users', user.uid));
     const hourlyRate = userDoc.exists() ? (userDoc.data().hourlyRate || 0) : 0;
@@ -168,9 +184,12 @@ export async function createAttendanceRecord(user: AuthUser, photoId: string, is
 
     let recordToUpdate = null;
     let estimatedLateMinutes: number | undefined = undefined;
+    let isDeclined = false;
 
+    // We check for a matching pending record for the user today
+    // This allows us to update the status to 'in-progress' if it exists
     if (!pendingRecords.empty) {
-        //Check if any pendingRecords is not from today, then remove them from server
+        // Clean up old pending records
         const recordsToDelete = pendingRecords.docs.filter(pendingDoc => {
             const pendingData = pendingDoc.data();
             return pendingData.createdAt && (pendingData.createdAt as Timestamp).toDate() < todayStart;
@@ -180,14 +199,31 @@ export async function createAttendanceRecord(user: AuthUser, photoId: string, is
             await deleteDoc(docToDelete.ref);
         }
 
-        const pendingDoc = pendingRecords.docs[0];
-        const pendingData = pendingDoc.data();
-        // Ensure the pending record is from today
-        if (pendingData.createdAt && (pendingData.createdAt as Timestamp).toDate() >= todayStart) {
-            recordToUpdate = pendingDoc.ref;
+        // Find a matching pending request for the CURRENT shift
+        const matchingPendingDoc = pendingRecords.docs.find(pendingDoc => {
+            const pendingData = pendingDoc.data();
+            const isToday = pendingData.createdAt && (pendingData.createdAt as Timestamp).toDate() >= todayStart;
+            if (!isToday) return false;
+
+            // If the user has an active shift, prioritize matching shiftId
+            if (activeShift) {
+                // Return true if shiftId matches OR if it's a legacy record without a shiftId
+                return pendingData.shiftId === activeShift.id || !pendingData.shiftId;
+            }
+
+            // If off-shift, only accept records without a specific shiftId
+            return !pendingData.shiftId;
+        });
+
+        if (matchingPendingDoc) {
+            const pendingData = matchingPendingDoc.data();
+            recordToUpdate = matchingPendingDoc.ref;
             // Capture any estimated late minutes the user provided when requesting late check-in
             if (typeof pendingData.estimatedLateMinutes === 'number') {
                 estimatedLateMinutes = pendingData.estimatedLateMinutes;
+            }
+            if (pendingData.lateRequestStatus === 'declined') {
+                isDeclined = true;
             }
         }
     }
@@ -200,6 +236,7 @@ export async function createAttendanceRecord(user: AuthUser, photoId: string, is
             status: 'in-progress',
             hourlyRate: hourlyRate,
             updatedAt: serverTimestamp(),
+            ...(activeShift && { shiftId: activeShift.id }), // Ensure shiftId is recorded on the active record
             ...(isOffShift && { isOffShift: true }),
             ...(isOffShift && offShiftReason && { offShiftReason: offShiftReason }),
         });
@@ -213,6 +250,7 @@ export async function createAttendanceRecord(user: AuthUser, photoId: string, is
             hourlyRate: hourlyRate,
             createdAt: serverTimestamp() as Timestamp,
             updatedAt: serverTimestamp() as Timestamp,
+            ...(activeShift && { shiftId: activeShift.id }),
             ...(isOffShift && { isOffShift: true }),
             ...(isOffShift && offShiftReason && { offShiftReason: offShiftReason }),
         };
@@ -222,7 +260,6 @@ export async function createAttendanceRecord(user: AuthUser, photoId: string, is
     // After creating/updating the attendance record, check for automatic "late" violation.
     // We use the local time for the check-in moment (approximate) and the user's scheduled shift start.
     try {
-        const activeShift = await getActiveShiftForUser(user.uid);
         if (activeShift) {
             // Check if user role is "Quản lý" and the start time is 6:00 AM then set the start time to 7:00 AM
             let shiftStartTime = activeShift.timeSlot.start;
@@ -233,70 +270,16 @@ export async function createAttendanceRecord(user: AuthUser, photoId: string, is
             const shiftStart = parse(`${activeShift.date} ${shiftStartTime}`, 'yyyy-MM-dd HH:mm', new Date());
             const now = new Date();
             const lateMinutes = differenceInMinutes(now, shiftStart);
-            const effectiveLate = lateMinutes - (estimatedLateMinutes || 0);
+            const effectiveLate = isDeclined ? lateMinutes : (lateMinutes - (estimatedLateMinutes || 0));
 
             if (effectiveLate > 5) {
-                // Create a minimal automatic violation record
                 const userDisplayName = userDoc.exists() ? (userDoc.data().displayName || '') : '';
-
-                // Try to find a configured category named "Đi trễ" so we can snapshot calculation rules
-                let categoryId = 'auto-late';
-                let categoryName = 'Đi trễ (tự động)';
-                let severity: 'low' | 'medium' | 'high' = 'low';
-                let cost = 0;
-                let unitCount: number | undefined = undefined;
-
-                try {
-                    const catDoc = await getDoc(doc(db, 'app-data', 'violationCategories'));
-                    if (catDoc.exists()) {
-                        const list = (catDoc.data() as any).list || [];
-                        const lateCat = list.find((c: any) => c.name === 'Đi trễ');
-                        if (lateCat) {
-                            categoryId = lateCat.id || categoryId;
-                            categoryName = lateCat.name || categoryName;
-                            severity = lateCat.severity || severity;
-
-                            // unitCount represents minutes late by default
-                            unitCount = Math.max(0, Math.round(effectiveLate));
-
-                            if (lateCat.calculationType === 'perUnit') {
-                                const finePerUnit = lateCat.finePerUnit || 0;
-                                cost = finePerUnit * (unitCount || 0);
-                            } else {
-                                cost = lateCat.fineAmount || 0;
-                            }
-                        } else {
-                            // No configured "Đi trễ" category: record minutes in unitCount
-                            unitCount = Math.max(0, Math.round(effectiveLate));
-                            cost = 0;
-                        }
-                    }
-                } catch (err) {
-                    console.error('[Auto Violation] Failed to read violation categories:', err);
-                    unitCount = Math.max(0, Math.round(effectiveLate));
-                    cost = 0;
-                }
-
-                const violation = {
-                    content: `Đi trễ ${effectiveLate} phút (tự động)`,
-                    users: [{ id: user.uid, name: userDisplayName }],
-                    reporterId: user.uid,
-                    reporterName: userDisplayName || 'Hệ thống',
-                    photos: [],
-                    createdAt: serverTimestamp() as Timestamp,
-                    categoryId: categoryId,
-                    categoryName: categoryName,
-                    severity: severity,
-                    cost: cost,
-                    unitCount: unitCount,
-                } as any;
-
-                try {
-                    // Use the centralized violations service so cost/severity recalculation runs
-                    await violationsService.addOrUpdateViolation({ ...violation, photosToUpload: [] } as any);
-                } catch (err) {
-                    console.error('[Auto Violation] Failed to create violation document via service:', err);
-                }
+                await recordLateViolation(
+                    user.uid,
+                    userDisplayName,
+                    effectiveLate,
+                    isDeclined
+                );
             }
         }
     } catch (err) {
@@ -385,6 +368,40 @@ export async function endBreak(recordId: string, photoId: string): Promise<void>
         onBreak: false,
         breaks: breaks, // Overwrite the entire array with the modified one
     });
+
+    // Check for "excessive break" violation for Managers
+    try {
+        const userDoc = await getDoc(doc(db, 'users', recordData.userId));
+        if (userDoc.exists() && userDoc.data().role === 'Quản lý') {
+            // Calculate total rest time across ALL breaks in the current attendance record
+            let totalRestMinutes = 0;
+            for (const b of breaks) {
+                if (b.breakStartTime && b.breakEndTime) {
+                    const start = b.breakStartTime instanceof Timestamp ? b.breakStartTime.toDate() : new Date(b.breakStartTime);
+                    const end = b.breakEndTime instanceof Timestamp ? b.breakEndTime.toDate() : new Date(b.breakEndTime);
+                    totalRestMinutes += differenceInMinutes(end, start);
+                }
+            }
+
+            if (totalRestMinutes > 60) {
+                const exceededMinutes = Math.round(totalRestMinutes - 60);
+                const userName = userDoc.data().displayName || 'Quản lý';
+                
+                await recordLateViolation(
+                    recordData.userId,
+                    userName,
+                    exceededMinutes,
+                    false,
+                    { id: 'system', name: 'Hệ thống' },
+                    `Nghỉ quá giờ tổng cộng ${Math.round(totalRestMinutes)} phút (Quy định 60 phút - Vượt ${exceededMinutes} phút)`,
+                    'Nghỉ quá giờ'
+                );
+            }
+        }
+    } catch (err) {
+        console.error('[Break Violation] Error checking excessive break time:', err);
+    }
+
     await photoStore.deletePhoto(photoId);
 }
 
@@ -477,7 +494,12 @@ export function subscribeToAttendanceRecordsForDateRange(
 
 
     // const q = query(collection(db, 'attendance_records'), where('checkInTime', '>=', fromDate), where('checkInTime', '<=', toDate), orderBy('checkInTime', 'desc'));
-    let q = query(collection(db, 'attendance_records'), where('createdAt', '>=', fromDate), where('updatedAt', '<=', toDate), orderBy('createdAt', 'desc'));
+    let q = query(
+        collection(db, 'attendance_records'),
+        where('createdAt', '>=', fromDate),
+        where('createdAt', '<=', toDate),
+        orderBy('createdAt', 'desc')
+    );
 
     return onSnapshot(q, (snapshot) => {
         const records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
@@ -487,6 +509,23 @@ export function subscribeToAttendanceRecordsForDateRange(
         } else {
             callback(records);
         }
+    });
+}
+
+export function subscribeToPendingLateRequests(
+    callback: (records: AttendanceRecord[]) => void,
+): () => void {
+    const q = query(
+        collection(db, 'attendance_records'),
+        where('status', '==', 'pending_late'),
+        orderBy('createdAt', 'desc')
+    );
+
+    return onSnapshot(q, (snapshot) => {
+        callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord)));
+    }, (error) => {
+        console.error("Error subscribing to pending late requests:", error);
+        callback([]);
     });
 }
 
@@ -596,4 +635,144 @@ export async function updateSpecialPeriod(id: string, period: Partial<Omit<Speci
 
 export async function deleteSpecialPeriod(id: string): Promise<void> {
     await deleteDoc(doc(db, 'special_periods', id));
+}
+
+// Utility to create or update an automatic "late" violation
+async function recordLateViolation(
+    userId: string,
+    userName: string,
+    lateMinutes: number,
+    isDeclined: boolean,
+    reporter?: { id: string, name: string },
+    customContent?: string,
+    customCategoryName: string = 'Đi trễ'
+): Promise<void> {
+    if (lateMinutes <= 0) return;
+
+    let categoryId = 'auto-late';
+    let categoryName = customCategoryName;
+    if (customCategoryName === 'Đi trễ') {
+        categoryName = isDeclined ? 'Đi trễ (Yêu cầu bị từ chối)' : 'Đi trễ (tự động)';
+    }
+    
+    let severity: 'low' | 'medium' | 'high' = 'low';
+    let cost = 0;
+    let unitCount = Math.max(0, Math.round(lateMinutes));
+
+    try {
+        const catDoc = await getDoc(doc(db, 'app-data', 'violationCategories'));
+        if (catDoc.exists()) {
+            const list = (catDoc.data() as any).list || [];
+            const lateCat = list.find((c: any) => c.name === customCategoryName);
+            if (lateCat) {
+                categoryId = lateCat.id || categoryId;
+                categoryName = lateCat.name || categoryName;
+                severity = lateCat.severity || severity;
+
+                if (lateCat.calculationType === 'perUnit') {
+                    const finePerUnit = lateCat.finePerUnit || 0;
+                    cost = finePerUnit * unitCount;
+                } else {
+                    cost = lateCat.fineAmount || 0;
+                }
+            }
+        }
+    } catch (err) {
+        console.error('[Auto Violation] Failed to read violation categories:', err);
+    }
+
+    const violation = {
+        content: customContent || (isDeclined ? `Đi trễ ${unitCount} phút (Yêu cầu xin trễ bị từ chối)` : `Đi trễ ${unitCount} phút (tự động)`),
+        users: [{ id: userId, name: userName }],
+        reporterId: reporter?.id || userId,
+        reporterName: reporter?.name || userName || 'Hệ thống',
+        photos: [],
+        createdAt: serverTimestamp() as Timestamp,
+        categoryId: categoryId,
+        categoryName: categoryName,
+        severity: severity,
+        cost: cost,
+        unitCount: unitCount,
+    };
+
+    try {
+        await violationsService.addOrUpdateViolation({ ...violation as any, photosToUpload: [] });
+    } catch (err) {
+        console.error('[Auto Violation] Failed to create violation document:', err);
+    }
+}
+
+export async function declineLateRequest(
+    lateRequestId: string
+): Promise<void> {
+    const attendanceCollection = collection(db, 'attendance_records');
+    const q = query(attendanceCollection, where('lateRequestId', '==', lateRequestId), limit(1));
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
+        throw new Error("Không tìm thấy bản ghi xin trễ.");
+    }
+
+    const docSnapshot = querySnapshot.docs[0];
+    const record = { id: docSnapshot.id, ...docSnapshot.data() } as AttendanceRecord;
+    const userId = record.userId;
+    const shiftId = record.shiftId;
+
+    const currentUser = auth.currentUser;
+    const reporter = {
+        id: currentUser?.uid || 'system',
+        name: currentUser?.displayName || 'Quản trị viên'
+    };
+
+    const userDoc = await getDoc(doc(db, 'users', userId));
+    const user = userDoc.exists() ? (userDoc.data() as ManagedUser) : null;
+    const userName = user?.displayName || "Nhân viên";
+
+    // If already checked in (in-progress), generate violation immediately
+    if (record.checkInTime) {
+        // Find shift to calculate late minutes
+        // Use either the record's shiftId or try to find one if it was missing
+        const usedShiftId = shiftId || (await getActiveShiftForUser(userId))?.id;
+        
+        if (usedShiftId) {
+            // We need a more reliable way to find the shift data if we only have the ID
+            // but for simplicity we'll try to find it in today's published schedule
+            const today = new Date();
+            const weekId = `${getISOWeekYear(today)}-W${getISOWeek(today)}`;
+            const schedule = await getSchedule(weekId);
+            const shiftData = schedule?.shifts.find(s => s.id === usedShiftId);
+            
+            if (shiftData) {
+                let shiftStartTime = shiftData.timeSlot.start;
+                const shiftStart = parse(`${shiftData.date} ${shiftStartTime}`, 'yyyy-MM-dd HH:mm', new Date());
+                const checkInDate = record.checkInTime instanceof Timestamp ? record.checkInTime.toDate() : new Date(record.checkInTime as any);
+                const lateMinutes = differenceInMinutes(checkInDate, shiftStart);
+
+                if (lateMinutes > 5) {
+                    await recordLateViolation(
+                        userId,
+                        userName,
+                        lateMinutes,
+                        true,
+                        reporter
+                    );
+                }
+            }
+        }
+        
+        // Update record to remove pending status and note refusal
+        await updateDoc(docSnapshot.ref, {
+            status: 'in-progress',
+            lateRequestStatus: 'declined',
+            lateReason: `[TỪ CHỐI] ${record.lateReason || ''}`,
+            updatedAt: serverTimestamp(),
+        });
+    } else {
+        // Not checked in yet: mark as declined so check-in process can handle it
+        await updateDoc(docSnapshot.ref, {
+            lateRequestStatus: 'declined',
+            lateReason: `[TỪ CHỐI] ${record.lateReason || ''}`,
+            updatedAt: serverTimestamp(),
+        });
+    }
 }

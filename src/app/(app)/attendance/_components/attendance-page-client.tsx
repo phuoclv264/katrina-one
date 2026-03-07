@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'nextjs-toploader/app';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { ArrowLeft, UserCheck, RefreshCw, Loader2, DollarSign, LayoutGrid, GanttChartSquare, X, Calendar as CalendarIcon, Calculator, UserX } from 'lucide-react';
+import { ArrowLeft, UserCheck, RefreshCw, Loader2, DollarSign, LayoutGrid, GanttChartSquare, X, Calendar as CalendarIcon, Calculator, UserX, Clock } from 'lucide-react';
 import { dataStore } from '@/lib/data-store';
 import type { AttendanceRecord, ManagedUser, Schedule, ShiftTemplate, UserRole, SpecialPeriod } from '@/lib/types';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, isSameMonth, startOfToday, endOfToday, getISOWeek, getISOWeekYear, getYear, getDay, parse, differenceInMinutes } from 'date-fns';
@@ -28,6 +28,7 @@ import SpecialPeriodsDialog from './special-periods-dialog';
 import { Combobox } from '@/components/combobox';
 import { Timestamp } from 'firebase/firestore';
 import AbsencePenaltyDialog from './absence-penalty-dialog';
+import PendingLateRequestsDialog from './pending-late-requests-dialog';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useLightbox } from '@/contexts/lightbox-context';
 import { AlertDialog } from '@/components/ui/alert-dialog';
@@ -42,6 +43,7 @@ export default function AttendancePageComponent() {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [allUsers, setAllUsers] = useState<ManagedUser[]>([]);
     const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+    const [pendingLateRecords, setPendingLateRecords] = useState<AttendanceRecord[]>([]);
     const [specialPeriods, setSpecialPeriods] = useState<SpecialPeriod[]>([]);
     const [schedules, setSchedules] = useState<Record<string, Schedule>>({});
     const [isLoading, setIsLoading] = useState(true);
@@ -52,6 +54,7 @@ export default function AttendancePageComponent() {
     const [isManualAttendanceDialogOpen, setIsManualAttendanceDialogOpen] = useState(false);
     const [isSpecialPeriodsDialogOpen, setIsSpecialPeriodsDialogOpen] = useState(false);
     const [isAbsencePenaltyDialogOpen, setIsAbsencePenaltyDialogOpen] = useState(false);
+    const [isPendingLateRequestsDialogOpen, setIsPendingLateRequestsDialogOpen] = useState(false);
     const [isSavingSalaries, setIsSavingSalaries] = useState(false);
 
     const handleCreateSpecialPeriod = useCallback(
@@ -101,11 +104,13 @@ export default function AttendancePageComponent() {
         });
 
         const unsubRecords = dataStore.subscribeToAttendanceRecordsForDateRange(dateRange, setAttendanceRecords);
+        const unsubPendingLate = dataStore.subscribeToPendingLateRequests(setPendingLateRecords);
         const unsubSpecialPeriods = dataStore.subscribeToSpecialPeriods(setSpecialPeriods);
 
         return () => {
             unsubUsers();
             unsubRecords();
+            unsubPendingLate();
             unsubSchedules();
             unsubSpecialPeriods();
         };
@@ -366,6 +371,10 @@ export default function AttendancePageComponent() {
                             <UserX className="mr-2 h-4 w-4" />
                             Phạt vắng mặt
                         </Button>
+                        <Button variant="outline" onClick={() => setIsPendingLateRequestsDialogOpen(true)}>
+                            <Clock className="mr-2 h-4 w-4" />
+                            Yêu cầu xin trễ
+                        </Button>
                         <Button variant="outline" onClick={() => setIsBulkSalaryDialogOpen(true)}>
                             <DollarSign className="mr-2 h-4 w-4" />
                             Quản lý Lương
@@ -595,6 +604,14 @@ export default function AttendancePageComponent() {
                 attendanceRecords={attendanceRecords}
                 users={allUsers}
                 currentUser={user}
+                parentDialogTag="root"
+            />
+
+            <PendingLateRequestsDialog
+                isOpen={isPendingLateRequestsDialogOpen}
+                onClose={() => setIsPendingLateRequestsDialogOpen(false)}
+                records={pendingLateRecords}
+                users={allUsers}
                 parentDialogTag="root"
             />
         </>

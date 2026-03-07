@@ -4,9 +4,12 @@ import React, { useMemo, useState } from 'react';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { dataStore } from '@/lib/data-store';
+import { useAuth } from '@/hooks/use-auth';
+import { showToast } from '@/components/ui/pro-toast';
 import type { AssignedShift } from '@/lib/types';
 import { generateShortName, formatTime, cn } from '@/lib/utils';
-import { AlertCircle, Eye, ChevronDown } from 'lucide-react';
+import { AlertCircle, Eye, ChevronDown, XCircle, Loader2 } from 'lucide-react';
 import type { EmployeeAttendance, EmployeeStatus } from '@/lib/types';
 import { parse, isAfter, differenceInMinutes } from 'date-fns';
 import { useLightbox } from '@/contexts/lightbox-context';
@@ -24,8 +27,33 @@ interface TodaysScheduleSectionProps {
 export function TodaysScheduleSection({ shifts, offShiftEmployees, onViewDetails }: TodaysScheduleSectionProps) {
   const navigation = useAppNavigation();
   const { openLightbox } = useLightbox();
+  const { user } = useAuth();
   const now = new Date();
   const [showOffShift, setShowOffShift] = useState(true);
+  const [decliningId, setDecliningId] = useState<string | null>(null);
+
+  const handleDeclineLate = async (employeeId: string, lateRequestId: string) => {
+    if (!user) return;
+    if (!window.confirm("Bạn có chắc chắn muốn từ chối yêu cầu xin trễ này? Hệ thống sẽ ghi nhận vi phạm đi trễ cho nhân viên này.")) return;
+
+    setDecliningId(employeeId);
+    try {
+      await dataStore.declineLateRequest(lateRequestId);
+      showToast({
+        title: "Đã từ chối",
+        message: "Yêu cầu xin trễ đã bị từ chối và vi phạm đã được ghi nhận.",
+        type: 'success',
+      });
+    } catch (error: any) {
+      showToast({
+        title: "Lỗi",
+        message: error.message || "Không thể từ chối yêu cầu.",
+        type: 'error',
+      });
+    } finally {
+      setDecliningId(null);
+    }
+  };
 
   const visibleShifts = useMemo(() => shifts.filter(shift => shift.assignedUsers.length > 0), [shifts]);
 
@@ -59,8 +87,8 @@ export function TodaysScheduleSection({ shifts, offShiftEmployees, onViewDetails
   }, [visibleShifts]);
 
   return (
-    <div className="bg-card dark:bg-zinc-900 rounded-[2rem] shadow-soft border border-zinc-100/80 dark:border-zinc-800/50 p-4 flex-1"> 
-      <div className="flex justify-between items-center mb-3"> 
+    <div className="bg-card dark:bg-zinc-900 rounded-[2rem] shadow-soft border border-zinc-100/80 dark:border-zinc-800/50 p-4 flex-1">
+      <div className="flex justify-between items-center mb-3">
         <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-50 tracking-tight leading-none">Lịch làm việc hôm nay</h3>
         <Button
           variant="ghost"
@@ -86,10 +114,10 @@ export function TodaysScheduleSection({ shifts, offShiftEmployees, onViewDetails
           <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Không có ca nào được lên lịch hôm nay</p>
         </div>
       ) : (
-        <div className="space-y-6"> 
+        <div className="space-y-6">
           {offShiftEmployees && offShiftEmployees.length > 0 && (
-            <div className="relative border-l border-zinc-100 dark:border-zinc-800/80 ml-2 space-y-4 pb-1"> 
-              <div className="relative pl-5 pt-1"> 
+            <div className="relative border-l border-zinc-100 dark:border-zinc-800/80 ml-2 space-y-4 pb-1">
+              <div className="relative pl-5 pt-1">
                 <div className="absolute -left-[7px] top-4 w-3 h-3 rounded-full border-2 border-white dark:border-zinc-900 bg-orange-400 shadow-sm"></div>
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-orange-600 dark:text-orange-400">
@@ -106,25 +134,32 @@ export function TodaysScheduleSection({ shifts, offShiftEmployees, onViewDetails
                   </Button>
                 </div>
                 {showOffShift && (
-                  <div className="flex flex-col gap-2 mt-1"> 
+                  <div className="flex flex-col gap-2 mt-1">
                     {offShiftEmployees.map((emp) => (
-                      <div key={emp.id} className="flex items-center gap-2"> 
+                      <div key={emp.id} className="flex items-start gap-2">
                         <Badge
                           variant="outline"
-                          className="bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 border-0 shadow-sm ring-1 ring-orange-100 dark:ring-orange-900/20 text-[11px] font-bold px-2 py-0 h-5"
+                          className="bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 border-0 shadow-sm ring-1 ring-orange-100 dark:ring-orange-900/20 text-[11px] font-bold px-2 py-0 h-5 mt-0.5"
                         >
                           {generateShortName(emp.name)}
                         </Badge>
-                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400 flex items-center gap-2 tracking-tight">
-                          {formatTime(emp.checkInTime) && (
-                            <span className="font-semibold text-zinc-700 dark:text-zinc-200">
-                              {formatTime(emp.checkInTime)} - {formatTime(emp.checkOutTime) || '...'}
-                            </span>
-                          )}
+                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400 flex flex-col gap-0.5 tracking-tight min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {formatTime(emp.checkInTime) && (
+                              <span className="font-semibold text-zinc-700 dark:text-zinc-200">
+                                {formatTime(emp.checkInTime)} - {formatTime(emp.checkOutTime) || '...'}
+                              </span>
+                            )}
+                            {emp.shiftId && (
+                              <Badge variant="outline" className="text-[9px] bg-blue-50/50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-900/30 h-4 px-1.5 font-bold">
+                                {shifts.find(s => s.id === emp.shiftId)?.label || emp.shiftId}
+                              </Badge>
+                            )}
+                          </div>
                           {emp.lateReason ? (
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] text-orange-500 dark:text-orange-400 font-bold">
-                                {emp.estimatedLateMinutes != null ? `Xin trễ ${emp.estimatedLateMinutes} phút — ${emp.lateReason}` : emp.lateReason}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[10px] text-orange-500 dark:text-orange-400 font-bold bg-orange-50 dark:bg-orange-950/20 px-1 rounded">
+                                {emp.status === 'pending_late' ? 'XIN TRỄ' : 'VÀO TRỄ'} {emp.estimatedLateMinutes ?? emp.lateMinutes}p — {emp.lateReason}
                               </span>
                               {emp.lateReasonPhotoUrl && (
                                 <Button
@@ -138,6 +173,16 @@ export function TodaysScheduleSection({ shifts, offShiftEmployees, onViewDetails
                                   <Eye className="h-3.5 w-3.5" />
                                 </Button>
                               )}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                disabled={decliningId === emp.id || !emp.lateRequestId}
+                                className="h-6 w-6 rounded-md text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                                onClick={() => handleDeclineLate(emp.id, emp.lateRequestId!)}
+                                title="Từ chối yêu cầu xin trễ"
+                              >
+                                {decliningId === emp.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
+                              </Button>
                             </div>
                           ) : (
                             <span className="text-[10px] text-red-500 dark:text-red-400 font-bold bg-red-50 dark:bg-red-950/30 px-1.5 py-0.5 rounded uppercase tracking-wider">
@@ -179,22 +224,22 @@ export function TodaysScheduleSection({ shifts, offShiftEmployees, onViewDetails
                       const hasStarted = isAfter(now, shiftStartTime);
 
                       return (
-                        <div key={shift.id} className="relative pl-5"> 
+                        <div key={shift.id} className="relative pl-5">
                           {/* Timeline dot */}
                           <div
                             className={`absolute -left-[7px] top-1.5 w-3 h-3 rounded-full border-2 border-white dark:border-zinc-900 shadow-sm transition-all duration-300 ${activeShift
-                                ? 'bg-blue-600 ring-4 ring-blue-50 dark:ring-blue-900/30'
-                                : 'bg-emerald-500'
+                              ? 'bg-blue-600 ring-4 ring-blue-50 dark:ring-blue-900/30'
+                              : 'bg-emerald-500'
                               }`}
                           ></div>
 
                           {/* Shift info */}
-                          <div className="flex flex-col gap-1.5"> 
+                          <div className="flex flex-col gap-1.5">
                             <div className="flex items-center justify-between gap-2 flex-wrap leading-none">
                               <span
                                 className={`text-[11px] font-bold uppercase tracking-[0.08em] ${activeShift
-                                    ? 'text-blue-600 dark:text-blue-400'
-                                    : 'text-zinc-900 dark:text-zinc-100'
+                                  ? 'text-blue-600 dark:text-blue-400'
+                                  : 'text-zinc-900 dark:text-zinc-100'
                                   }`}
                               >
                                 {shift.timeSlot.start} - {shift.timeSlot.end}
@@ -212,14 +257,14 @@ export function TodaysScheduleSection({ shifts, offShiftEmployees, onViewDetails
                                 shift.assignedUsers.map((user) => {
                                   // Use the pre-processed attendance data from shift.employees
                                   const employeeData = shift.employees?.find(emp => emp.id === user.userId);
-                                  
+
                                   // Use multiple records if available, otherwise fallback to legacy single fields
-                                  const timeRecords = employeeData?.records && employeeData.records.length > 0 
-                                    ? employeeData.records 
+                                  const timeRecords = employeeData?.records && employeeData.records.length > 0
+                                    ? employeeData.records
                                     : (employeeData?.checkInTime ? [{ checkInTime: employeeData.checkInTime, checkOutTime: employeeData.checkOutTime }] : []);
 
                                   const hasCheckIn = timeRecords.length > 0;
-                                  
+
                                   let lateMessage = null;
                                   if (employeeData?.lateReason) {
                                     lateMessage = `Xin trễ${employeeData?.estimatedLateMinutes ? ` ${employeeData.estimatedLateMinutes} phút` : ''}${employeeData?.lateReason ? ` — ${employeeData.lateReason.trim()}` : ''}`;
@@ -234,8 +279,8 @@ export function TodaysScheduleSection({ shifts, offShiftEmployees, onViewDetails
                                           (!hasCheckIn && hasStarted)
                                             ? "bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 shadow-sm ring-1 ring-red-100 dark:ring-red-900/30"
                                             : employeeData?.status === 'late'
-                                            ? "bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 shadow-sm ring-1 ring-amber-100 dark:ring-amber-900/20"
-                                            : "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 shadow-sm ring-1 ring-emerald-100 dark:ring-emerald-900/20"
+                                              ? "bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 shadow-sm ring-1 ring-amber-100 dark:ring-amber-900/20"
+                                              : "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 shadow-sm ring-1 ring-emerald-100 dark:ring-emerald-900/20"
                                         )}
                                       >
                                         {generateShortName(user.userName)}
@@ -273,6 +318,18 @@ export function TodaysScheduleSection({ shifts, offShiftEmployees, onViewDetails
                                                     <Eye className="h-3.5 w-3.5" />
                                                   </Button>
                                                 )}
+                                                {employeeData?.lateRequestId && (
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    disabled={decliningId === user.userId}
+                                                    className="h-6 w-6 rounded-md text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                                                    onClick={() => handleDeclineLate(user.userId, employeeData.lateRequestId!)}
+                                                    title="Từ chối yêu cầu xin trễ"
+                                                  >
+                                                    {decliningId === user.userId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
+                                                  </Button>
+                                                )}
                                               </span>
                                             )}
                                             {employeeData?.status === 'late' && (
@@ -288,6 +345,18 @@ export function TodaysScheduleSection({ shifts, offShiftEmployees, onViewDetails
                                                     aria-label={`Xem minh chứng của ${user.userName}`}
                                                   >
                                                     <Eye className="h-3.5 w-3.5" />
+                                                  </Button>
+                                                )}
+                                                {employeeData?.lateReason && employeeData?.lateRequestId && (
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    disabled={decliningId === user.userId}
+                                                    className="h-6 w-6 rounded-md text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                                                    onClick={() => handleDeclineLate(user.userId, employeeData.lateRequestId!)}
+                                                    title="Từ chối yêu cầu xin trễ"
+                                                  >
+                                                    {decliningId === user.userId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
                                                   </Button>
                                                 )}
                                               </span>
