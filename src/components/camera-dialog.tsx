@@ -277,9 +277,12 @@ export default function CameraDialog({
       // Prefer camera native resolution close to our target dimensions so
       // captured photos/videos are higher resolution. We still request a
       // portrait aspect ratio and the rear camera.
+      // Avoid contradictory aspectRatio and width/height constraints that cause
+      // zooming on some devices (like iPhone X).
+      // Use 'max' constraints to request the highest possible resolution from the sensor.
       const videoConstraints: MediaTrackConstraints = isHD
-            ? { facingMode: 'environment', aspectRatio: PORTRAIT_ASPECT_RATIO, width: { ideal: 1920 }, height: { ideal: 1080 } }
-            : { facingMode: 'environment', aspectRatio: PORTRAIT_ASPECT_RATIO, width: { ideal: 1280 }, height: { ideal: 720 } };
+        ? { facingMode: 'environment', width: { ideal: 4032, max: 8192 }, height: { ideal: 3024, max: 8192 } }
+        : { facingMode: 'environment', width: { ideal: 1920, max: 4096 }, height: { ideal: 1080, max: 4096 } };
 
       // Start camera with video-only. Defer microphone permission until recording starts to avoid
       // blocking camera on devices without a microphone or when microphone permission is denied.
@@ -577,7 +580,7 @@ export default function CameraDialog({
 
       try {
         // Now use the combined stream for the recorder
-        mediaRecorderRef.current = new MediaRecorder(combinedStream, { 
+        mediaRecorderRef.current = new MediaRecorder(combinedStream, {
           mimeType: supportedMimeType as string,
           videoBitsPerSecond: 2500000 // Limit bitrate to ~2.5Mbps to reduce file size and memory usage
         });
@@ -860,10 +863,10 @@ export default function CameraDialog({
                 <div ref={previewRef} className="flex gap-3 px-6 pb-2 items-center">
                   {previewItems.map((media, idx) => {
                     const hasCaption = !!(media as any).caption;
-                     const isLastPreview = idx === previewItems.length - 1 && extraCount > 0;
+                    const isLastPreview = idx === previewItems.length - 1 && extraCount > 0;
                     const extraPeeks = capturedMedia.slice(previewItems.length, previewItems.length + 3); // show up to 3 peeks
                     return (
-                        <div
+                      <div
                         key={media.id}
                         // Left-first alignment: previews flow left-to-right and start flush at the left edge.
                         // - Single item: aligned left (no auto margins)
@@ -872,31 +875,31 @@ export default function CameraDialog({
                           "group relative flex-shrink-0 w-[15vw] min-w-0 rounded-2xl border-2 border-white/10 bg-transparent shadow-xl transition-all hover:scale-110 active:scale-95",
                           isLastPreview ? "overflow-visible" : "overflow-hidden",
                           previewItems.length === 1
-                          ? ""
-                          : idx === previewItems.length - 1
-                            ? "mr-auto"
-                            : ""
+                            ? ""
+                            : idx === previewItems.length - 1
+                              ? "mr-auto"
+                              : ""
                         )}
                         role={isLastPreview ? 'button' : undefined}
                         aria-label={isLastPreview ? `Mở thư viện — còn ${extraCount} ảnh/video` : undefined}
                         tabIndex={isLastPreview ? 0 : undefined}
                         onKeyDown={(e) => { if (isLastPreview && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setShowGallery(true); } }}
                         onClick={() => { if (isLastPreview) setShowGallery(true); }}
-                        >
+                      >
                         <div className="relative overflow-hidden rounded-2xl" style={{ aspectRatio: `${PORTRAIT_ASPECT_RATIO}`, width: '100%' }}>
                           {media.type === 'photo' ? (
-                          <Image src={media.url} alt="Preview" fill className="object-cover bg-black" />
+                            <Image src={media.url} alt="Preview" fill className="object-cover bg-black" />
                           ) : (
-                          <video src={media.url} className="w-full h-full object-cover" muted />
+                            <video src={media.url} className="w-full h-full object-cover" muted />
                           )}
                         </div>
 
                         {!isLastPreview && (
                           <button
-                          className="absolute inset-0 bg-red-600/90 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20"
-                          onClick={(e) => { e.stopPropagation(); handleDeleteMedia(media.id); }}
+                            className="absolute inset-0 bg-red-600/90 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                            onClick={(e) => { e.stopPropagation(); handleDeleteMedia(media.id); }}
                           >
-                          <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         )}
 
@@ -906,32 +909,32 @@ export default function CameraDialog({
 
                         {hasCaption && (
                           <div className="absolute left-1 bottom-1 text-white text-[10px] px-2 py-0.5 rounded-md opacity-90" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.85)' }}>
-                          <span className="truncate max-w-[64px]" title={(media as any).caption}>{(media as any).caption}</span>
+                            <span className="truncate max-w-[64px]" title={(media as any).caption}>{(media as any).caption}</span>
                           </div>
                         )}
 
                         {isLastPreview && (
                           <>
-                          {extraPeeks.map((m, i) => (
-                            <div
-                            key={m.id}
-                            className="absolute w-14 h-9 rounded-md overflow-hidden border-2 border-white/10 shadow-sm"
-                            style={{ right: -(i + 1) * 16 }}
-                            >
-                            {m.type === 'photo' ? (
-                              <Image src={m.url} alt="peek" className="object-cover" />
-                            ) : (
-                              <video src={m.url} className="w-full h-full object-cover" muted />
-                            )}
-                            </div>
-                          ))}
+                            {extraPeeks.map((m, i) => (
+                              <div
+                                key={m.id}
+                                className="absolute w-14 h-9 rounded-md overflow-hidden border-2 border-white/10 shadow-sm"
+                                style={{ right: -(i + 1) * 16 }}
+                              >
+                                {m.type === 'photo' ? (
+                                  <Image src={m.url} alt="peek" className="object-cover" />
+                                ) : (
+                                  <video src={m.url} className="w-full h-full object-cover" muted />
+                                )}
+                              </div>
+                            ))}
 
-                          <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/30 z-10 text-white text-sm font-bold pointer-events-none">
-                            {extraCount}+
-                          </div>
+                            <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/30 z-10 text-white text-sm font-bold pointer-events-none">
+                              {extraCount}+
+                            </div>
                           </>
                         )}
-                        </div>
+                      </div>
                     );
                   })}
                 </div>
@@ -951,11 +954,11 @@ export default function CameraDialog({
       </DialogContent>
 
       {/* Discard-confirm dialog: shown when user attempts to close with unsent media */}
-      <AlertDialog 
-        open={showDiscardConfirm} 
-        onOpenChange={(open) => !open && setShowDiscardConfirm(false)} 
+      <AlertDialog
+        open={showDiscardConfirm}
+        onOpenChange={(open) => !open && setShowDiscardConfirm(false)}
         variant="destructive"
-        dialogTag="camera-discard-confirm" 
+        dialogTag="camera-discard-confirm"
         parentDialogTag="camera-dialog"
       >
         <AlertDialogContent maxWidth="md">
