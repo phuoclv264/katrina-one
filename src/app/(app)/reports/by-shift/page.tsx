@@ -14,7 +14,7 @@ import { LoadingPage } from '@/components/loading/LoadingPage';
 import { Combobox } from '@/components/combobox';
 import { useAuth } from '@/hooks/use-auth';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
-import { useToast } from '@/components/ui/use-toast';
+import { showToast } from '@/components/ui/pro-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogIcon, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
 import { getISOWeek, getISOWeekYear } from 'date-fns';
 import { useLightbox } from '@/contexts/lightbox-context';
@@ -444,7 +444,6 @@ function ReportView() {
     const { user, loading: authLoading } = useAuth();
     const router = useRouter();
     const navigation = useAppNavigation();
-    const { toast } = useToast();
     const searchParams = useSearchParams();
     const date = getQueryParamWithMobileHashFallback({
         param: 'date',
@@ -620,17 +619,18 @@ function ReportView() {
         const reportNameToDelete = reportToView.staffName;
         try {
             await dataStore.deleteShiftReport(reportToView.id);
-            toast({
+            showToast({
                 title: "Đã xóa báo cáo",
-                description: `Báo cáo của ${reportNameToDelete} đã được xóa thành công.`,
+                message: `Báo cáo của ${reportNameToDelete} đã được xóa thành công.`,
+                type: 'success',
             });
             // The useEffect will handle the state update and re-selection
         } catch (error) {
             console.error("Error deleting report:", error);
-            toast({
+            showToast({
                 title: "Lỗi",
-                description: "Không thể xóa báo cáo. Vui lòng thử lại.",
-                variant: "destructive"
+                message: "Không thể xóa báo cáo. Vui lòng thử lại.",
+                type: 'error',
             });
         } finally {
             setIsProcessing(false);

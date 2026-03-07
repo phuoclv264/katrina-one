@@ -13,7 +13,6 @@ import {
     Shuffle, Check, Download, AlertCircle, MoreVertical,
     LayoutDashboard
 } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'nextjs-toploader/app';
@@ -39,7 +38,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { TaskDialog } from '../task-lists/_components/task-dialog';
 import { Badge } from '@/components/ui/badge';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
-import { toast } from 'react-hot-toast';
+import { toast, showToast } from '@/components/ui/pro-toast';
 import { cn } from '@/lib/utils';
 
 function AiAssistant({
@@ -55,7 +54,6 @@ function AiAssistant({
     const [targetSection, setTargetSection] = useState('');
     const [previewTasks, setPreviewTasks] = useState<ParsedComprehensiveTask[]>([]);
     const [showPreview, setShowPreview] = useState(false);
-    const { toast } = useToast();
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -82,19 +80,19 @@ function AiAssistant({
             const input = source === 'text' ? { source, inputText: textInput } : { source, imageDataUri: imageInput! };
 
             if ((source === 'text' && !textInput.trim()) || (source === 'image' && !imageInput)) {
-                toast({ title: 'Lỗi', description: 'Vui lòng cung cấp đầu vào.', variant: 'destructive' });
+                showToast({ title: 'Lỗi', message: 'Vui lòng cung cấp đầu vào.', type: 'error' });
                 setIsGenerating(false);
                 return;
             }
             const defaultSection = sections.length > 0 ? sections[0].title : '';
             if (!defaultSection) {
-                toast({ title: "Lỗi", description: "Không có khu vực nào để thêm công việc vào.", variant: "destructive" });
+                showToast({ title: "Lỗi", message: "Không có khu vực nào để thêm công việc vào.", type: 'error' });
                 setIsGenerating(false);
                 return;
             }
             setTargetSection(defaultSection);
 
-            toast({ title: 'AI đang xử lý...', description: 'Quá trình này có thể mất một chút thời gian.' });
+            showToast({ title: 'AI đang xử lý...', message: 'Quá trình này có thể mất một chút thời gian.', type: 'info' });
 
             const result = await callGenerateComprehensiveTasks(input);
 
@@ -107,7 +105,7 @@ function AiAssistant({
 
         } catch (error) {
             console.error('Failed to generate comprehensive tasks:', error);
-            toast({ title: 'Lỗi', description: 'Không thể tạo danh sách hạng mục. Vui lòng thử lại.', variant: 'destructive' });
+            showToast({ title: 'Lỗi', message: 'Không thể tạo danh sách hạng mục. Vui lòng thử lại.', type: 'error' });
         } finally {
             setIsGenerating(false);
         }
@@ -115,7 +113,7 @@ function AiAssistant({
 
     const handleConfirmAdd = () => {
         onTasksGenerated(previewTasks, targetSection);
-        toast({ title: 'Hoàn tất!', description: `Đã thêm ${previewTasks.length} hạng mục mới.` });
+        showToast({ title: 'Hoàn tất!', message: `Đã thêm ${previewTasks.length} hạng mục mới.`, type: 'success' });
         resetAddState();
         setShowPreview(false);
         setPreviewTasks([]);
