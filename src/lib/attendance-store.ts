@@ -650,9 +650,9 @@ async function recordLateViolation(
     if (lateMinutes <= 0) return;
 
     let categoryId = 'auto-late';
-    let categoryName = customCategoryName;
-    if (customCategoryName === 'Đi trễ') {
-        categoryName = isDeclined ? 'Đi trễ (Yêu cầu bị từ chối)' : 'Đi trễ (tự động)';
+    let categoryName = isDeclined ? 'Đi trễ (Yêu cầu bị từ chối)' : 'Đi trễ (tự động)';;
+    if (customCategoryName === 'Nghỉ quá giờ') {
+        categoryName = 'Nghỉ quá giờ (tự động)';
     }
     
     let severity: 'low' | 'medium' | 'high' = 'low';
@@ -663,7 +663,7 @@ async function recordLateViolation(
         const catDoc = await getDoc(doc(db, 'app-data', 'violationCategories'));
         if (catDoc.exists()) {
             const list = (catDoc.data() as any).list || [];
-            const lateCat = list.find((c: any) => c.name === customCategoryName);
+            const lateCat = list.find((c: any) => c.name === 'Đi trễ');
             if (lateCat) {
                 categoryId = lateCat.id || categoryId;
                 categoryName = lateCat.name || categoryName;
