@@ -13,7 +13,7 @@ import { Loader2, Trash2, ShieldAlert, FileSignature, Settings, BarChartHorizont
 import type { ShiftReport, TasksByShift, InventoryReport, TaskSection, ComprehensiveTaskSection, InventoryItem, DailySummary } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { LoadingPage } from '@/components/loading/LoadingPage';
-import { useToast } from '@/components/ui/use-toast';
+import { showToast } from '@/components/ui/pro-toast';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogTrigger, DialogBody } from '@/components/ui/dialog'; // This is a duplicate import, but let's keep it for safety.
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogIcon, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
@@ -39,22 +39,22 @@ function CleanupDialog({ className }: CleanupDialogProps) {
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
     const [daysToKeep, setDaysToKeep] = useState(30);
     const [isProcessing, setIsProcessing] = useState(false);
-    const { toast } = useToast();
 
     const handleCleanup = async () => {
         setIsProcessing(true);
         try {
             const deletedCount = await dataStore.cleanupOldReports(daysToKeep);
-            toast({
+            showToast({
+                type: 'success',
                 title: "Dọn dẹp hoàn tất!",
-                description: `Đã xóa thành công ${deletedCount} báo cáo cũ.`,
+                message: `Đã xóa thành công ${deletedCount} báo cáo cũ.`,
             });
         } catch (error) {
             console.error("Failed to cleanup reports:", error);
-            toast({
+            showToast({
+                type: 'error',
                 title: "Lỗi",
-                description: "Không thể dọn dẹp báo cáo. Vui lòng thử lại.",
-                variant: "destructive",
+                message: "Không thể dọn dẹp báo cáo. Vui lòng thử lại.",
             });
         } finally {
             setIsProcessing(false);

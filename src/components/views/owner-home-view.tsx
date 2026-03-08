@@ -447,6 +447,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
             let lateReason: string | null = null;
             let lateReasonPhotoUrl: string | null = null;
             let estimatedLateMinutes: number | null = null;
+            let lateRequestId: string | null = null;
 
             // Use the first record for primary status determination
             const primaryRecord = assignedRecords[0];
@@ -458,6 +459,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
                 estimatedLateMinutes = typeof primaryRecord.estimatedLateMinutes === 'number' ? primaryRecord.estimatedLateMinutes : null;
                 lateReason = primaryRecord.lateReason || (estimatedLateMinutes ? `Dự kiến trễ ${estimatedLateMinutes} phút` : null);
                 lateReasonPhotoUrl = primaryRecord.lateReasonPhotoUrl || null;
+                lateRequestId = primaryRecord.lateRequestId || null;
               } else if (primaryRecord.checkInTime) {
                 const recStart = toDateSafe(primaryRecord.checkInTime)!;
                 const recEnd = primaryRecord.checkOutTime ? toDateSafe(primaryRecord.checkOutTime)! : null;
@@ -469,6 +471,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
                 if (primaryRecord.lateReason) lateReason = primaryRecord.lateReason;
                 if (primaryRecord.lateReasonPhotoUrl) lateReasonPhotoUrl = primaryRecord.lateReasonPhotoUrl;
                 if (primaryRecord.estimatedLateMinutes && primaryRecord.estimatedLateMinutes > 0) estimatedLateMinutes = primaryRecord.estimatedLateMinutes;
+                if (primaryRecord.lateRequestId) lateRequestId = primaryRecord.lateRequestId;
 
                 // Determine status and lateMinutes using the displayed checkInTime vs the adjusted shift start
                 const shiftStartTime = parse(shift.timeSlot.start, 'HH:mm', new Date(shift.date));
@@ -503,7 +506,9 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
               lateMinutes,
               lateReason,
               lateReasonPhotoUrl,
+              lateRequestId: lateRequestId || primaryRecord?.lateRequestId || null,
               estimatedLateMinutes,
+              shiftId: primaryRecord?.shiftId || null,
             };
           });
           return { ...shift, employees, isActive };
@@ -516,13 +521,15 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
         offShiftEmployees.push({
           id: record.id,
           name: user?.displayName || record.userId,
-          status: 'off-shift',
+          status: record.status,
           checkInTime: toDateSafe(record.checkInTime),
           checkOutTime: toDateSafe(record.checkOutTime),
           lateMinutes: null,
           lateReason: record.offShiftReason || record.lateReason || null,
           lateReasonPhotoUrl: record.lateReasonPhotoUrl || null,
+          lateRequestId: record.lateRequestId || (record.status === 'pending_late' ? record.id : null),
           estimatedLateMinutes: record.estimatedLateMinutes || null,
+          shiftId: record.shiftId || null,
         });
       }
     });

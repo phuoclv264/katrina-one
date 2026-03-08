@@ -15,7 +15,7 @@ import { LoadingPage } from '@/components/loading/LoadingPage';
 import { Combobox } from '@/components/combobox';
 import { useAuth } from '@/hooks/use-auth';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
-import { useToast } from '@/components/ui/use-toast';
+import { showToast } from '@/components/ui/pro-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogIcon, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -27,7 +27,6 @@ import { useRouter } from 'nextjs-toploader/app';
 function ComprehensiveReportView() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const { toast } = useToast();
   const searchParams = useSearchParams();
   const date = getQueryParamWithMobileHashFallback({
     param: 'date',
@@ -142,16 +141,17 @@ function ComprehensiveReportView() {
     const reportNameToDelete = report.staffName;
     try {
       await dataStore.deleteShiftReport(report.id);
-      toast({
+      showToast({
         title: "Đã xóa báo cáo",
-        description: `Báo cáo của ${reportNameToDelete} đã được xóa thành công.`,
+        message: `Báo cáo của ${reportNameToDelete} đã được xóa thành công.`,
+        type: 'success',
       });
     } catch (error) {
       console.error("Error deleting report:", error);
-      toast({
+      showToast({
         title: "Lỗi",
-        description: "Không thể xóa báo cáo. Vui lòng thử lại.",
-        variant: "destructive"
+        message: "Không thể xóa báo cáo. Vui lòng thử lại.",
+        type: 'error',
       });
     } finally {
       setIsProcessing(false);

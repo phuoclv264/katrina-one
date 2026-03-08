@@ -270,7 +270,19 @@ export default function CheckInCard() {
                     const undoneList: string[] = [];
 
                     if (tasksMap && tasksMap[shiftKey]) {
-                        for (const section of tasksMap[shiftKey].sections) {
+                        // Filter sections based on shiftTemplateId pinning (mirroring ChecklistView logic)
+                        const userTemplateId = activeShift?.templateId;
+                        const filteredSections = tasksMap[shiftKey].sections.filter(s => {
+                            if (!s.shiftTemplateId) return true;
+                            return userTemplateId === s.shiftTemplateId;
+                        });
+
+                        const hasAnyPinnedSection = filteredSections.some(s => s.shiftTemplateId && s.shiftTemplateId === userTemplateId);
+                        const finalSections = hasAnyPinnedSection
+                            ? filteredSections.filter(s => !!s.shiftTemplateId)
+                            : filteredSections;
+
+                        for (const section of finalSections) {
                             const isGlobalSection = section.title === 'Đầu ca' || section.title === 'Cuối ca';
                             for (const task of section.tasks) {
                                 // Filter by gender preference
@@ -334,10 +346,21 @@ export default function CheckInCard() {
                 }
 
                 const bartenderTasks = await dataStore.getBartenderTasks();
-                console.log('Bartender tasks:', bartenderTasks);
-                const undoneList: string[] = [];
                 if (bartenderTasks) {
-                    for (const section of bartenderTasks) {
+                    const undoneList: string[] = [];
+                    // Filter sections based on shiftTemplateId pinning (mirroring ChecklistView logic)
+                    const userTemplateId = activeShift?.templateId;
+                    const filteredSectionsForBartenders = bartenderTasks.filter(s => {
+                        if (!s.shiftTemplateId) return true;
+                        return userTemplateId === s.shiftTemplateId;
+                    });
+
+                    const hasAnyPinnedSectionForBartenders = filteredSectionsForBartenders.some(s => s.shiftTemplateId && s.shiftTemplateId === userTemplateId);
+                    const finalSectionsForBartenders = hasAnyPinnedSectionForBartenders
+                        ? filteredSectionsForBartenders.filter(s => !!s.shiftTemplateId)
+                        : filteredSectionsForBartenders;
+
+                    for (const section of finalSectionsForBartenders) {
                         for (const task of section.tasks) {
                             // Filter by gender preference
                             if (task.genderPreference && task.genderPreference !== 'Tất cả' && task.genderPreference !== user.gender) {
@@ -353,14 +376,14 @@ export default function CheckInCard() {
                             }
                         }
                     }
-                }
 
-                if (undoneList.length > 0) {
-                    items.push({
-                        category: 'checklist',
-                        title: "Báo cáo vệ sinh quầy bar",
-                        items: undoneList,
-                    });
+                    if (undoneList.length > 0) {
+                        items.push({
+                            category: 'checklist',
+                            title: "Báo cáo vệ sinh quầy bar",
+                            items: undoneList,
+                        });
+                    }
                 }
             } catch (error) {
                 console.error('Không thể kiểm tra báo cáo pha chế:', error);
@@ -567,25 +590,25 @@ export default function CheckInCard() {
         setIsCameraOpen(true);
     };
 
+    // Determine if the user can apply for a late request.
+    // We should only allow it if there's a shift today that hasn't started yet.
+    // If multiple shifts exist, we find the first one that starts in the future.
+    const nextUnstartedShift = todaysShifts.find(shift => {
+        const [h, m] = shift.timeSlot.start.split(':').map(Number);
+        const shiftDate = new Date(shift.date);
+        shiftDate.setHours(h, m, 0, 0);
+        
+        return currentTime.getTime() < shiftDate.getTime();
+    });
+
     const isCheckedIn = !!latestInProgressRecord && latestInProgressRecord.status === 'in-progress';
     const isOnBreak = latestInProgressRecord?.onBreak;
     const mainButtonText = isCheckedIn ? 'Chấm công ra' : 'Chấm công vào';
 
-    const hasPendingLateRequest = attendanceRecords[0]?.status === 'pending_late';
+    // const hasPendingLateRequest = attendanceRecords[0]?.status === 'pending_late';
+    const hasPendingLateRequest = attendanceRecords.some(record => record.status === 'pending_late');
 
-    // Determine if the next (earliest) shift has already started. If it has, we should not allow late requests.
-    const nextShift = todaysShifts.length > 0 ? todaysShifts[0] : null;
-    const hasShiftStarted = (shift: AssignedShift | null) => {
-        if (!shift) return false;
-        const [h, m] = shift.timeSlot.start.split(':').map(Number);
-        const shiftDate = new Date(shift.date);
-        shiftDate.setHours(h, m, 0, 0);
-        if (user?.role === 'Quản lý' && h === 6) {
-            shiftDate.setHours(7, m, 0, 0);
-        }
-        return currentTime.getTime() >= shiftDate.getTime();
-    };
-    const showLateRequestButton = !isCheckedIn && !!nextShift && !hasShiftStarted(nextShift);
+    const showLateRequestButton = !isCheckedIn && !!nextUnstartedShift;
 
     // Calculate duration if checked in
     const getDuration = () => {
@@ -737,7 +760,7 @@ export default function CheckInCard() {
                                     disabled={isProcessing || hasPendingLateRequest}
                                 >
                                     <Clock className="mr-2 h-4 w-4" />
-                                    {hasPendingLateRequest ? 'Đã xin trễ' : 'Xin đi trễ'}
+                                    {hasPendingLateRequest ? 'Đã xin trễ' : `Xin đi trễ cho ca ${nextUnstartedShift?.label}`}
                                 </Button>
                             )}
 

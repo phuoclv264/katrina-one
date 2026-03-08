@@ -2,12 +2,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { dataStore } from '@/lib/data-store';
+import { subscribeToShiftTemplates } from '@/lib/schedule-store';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
-import type { Task, TasksByShift, TaskSection, ParsedServerTask, GenerateServerTasksOutput } from '@/lib/types';
+import type { Task, TasksByShift, TaskSection, ParsedServerTask, ShiftTemplate } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, ListTodo, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon, Star, Shuffle, Check, Pencil, AlertCircle, Sparkles, CheckSquare, MessageSquare, Download, MapPin } from 'lucide-react';
+import { Trash2, Plus, ListTodo, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon, Star, Shuffle, Check, Pencil, AlertCircle, Sparkles, CheckSquare, MessageSquare, Download, MapPin, Info } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -16,43 +17,49 @@ import { Sun, Moon, Sunset } from 'lucide-react';
 import { toast } from '@/components/ui/pro-toast';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { useAuth } from '@/hooks/use-auth';
+import { useLightbox } from '@/contexts/lightbox-context';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { Textarea } from '@/components/ui/textarea';
 import { callGenerateServerTasks, callSortTasks } from '@/lib/ai-service';
 import { Combobox } from '@/components/combobox';
-import { 
-    Dialog, 
-    DialogContent, 
-    DialogTitle, 
-    DialogHeader, 
-    DialogDescription, 
-    DialogBody, 
-    DialogFooter, 
-    DialogAction, 
-    DialogCancel 
+import {
+    Dialog,
+    DialogContent,
+    DialogTitle,
+    DialogHeader,
+    DialogDescription,
+    DialogBody,
+    DialogFooter,
+    DialogAction,
+    DialogCancel
 } from '@/components/ui/dialog';
 import { diffChars } from 'diff';
 import { Badge } from '@/components/ui/badge';
 import { TaskDialog } from './_components/task-dialog';
+import { SectionCreationDialog } from './_components/section-creation-dialog';
+import { copyFileFromUrl, deleteFileByUrl } from '@/lib/data-store-helpers';
 
 export default function TaskListsPage() {
     const { user, loading: authLoading } = useAuth();
+    const { openLightbox } = useLightbox();
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
+    const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
     const navigation = useAppNavigation();
     const [isLoading, setIsLoading] = useState(true);
     const [isSorting, setIsSorting] = useState(false);
+    const [isAddingSection, setIsAddingSection] = useState<string | null>(null); // shiftKey
     const [addingToSection, setAddingToSection] = useState<{ shiftKey: string; sectionTitle: string } | null>(null);
-    const [editingTask, setEditingTask] = useState<{ 
-        shiftKey: string; 
-        sectionTitle: string; 
-        taskId: string; 
-        text: string; 
-        type: Task['type']; 
-        minCompletions: number; 
-        isCritical: boolean; 
+    const [editingTask, setEditingTask] = useState<{
+        shiftKey: string;
+        sectionTitle: string;
+        taskId: string;
+        text: string;
+        type: Task['type'];
+        minCompletions: number;
+        isCritical: boolean;
         genderPreference: Task['genderPreference'];
-        instruction?: { text?: string; images?: { url: string; caption?: string }[] } 
+        instruction?: { text?: string; images?: { url: string; caption?: string }[] }
     } | null>(null);
 
     const [openSections, setOpenSections] = useState<{ [shiftKey: string]: string[] }>({});
@@ -75,14 +82,22 @@ export default function TaskListsPage() {
                             initialOpenState[shiftKey] = tasks[shiftKey].sections.map(s => s.title);
                         }
                     }
-                    if (Object.keys(initialOpenState).length > 0) {
-                        setOpenSections(prev => ({ ...prev, ...initialOpenState }));
-                    }
-                });
-                return () => unsubscribe();
+                        if (Object.keys(initialOpenState).length > 0) {
+                            setOpenSections(prev => ({ ...prev, ...initialOpenState }));
+                        }
+                    });
+
+                    const unsubscribeTemplates = subscribeToShiftTemplates((templates) => {
+                        setShiftTemplates(templates);
+                    });
+
+                    return () => {
+                        unsubscribe();
+                        unsubscribeTemplates();
+                    };
+                }
             }
-        }
-    }, [user, authLoading, navigation, refreshTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
+        }, [user, authLoading, navigation, refreshTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useDataRefresher(handleDataRefresh);
 
@@ -203,11 +218,21 @@ export default function TaskListsPage() {
         handleUpdateAndSave(newTasksState);
     };
 
-    const handleDeleteTask = (shiftKey: string, sectionTitle: string, taskId: string) => {
+    const handleDeleteTask = async (shiftKey: string, sectionTitle: string, taskId: string) => {
         if (!tasksByShift) return;
+        if (!confirm("Bạn có chắc chắn muốn xóa nhiệm vụ này?")) return;
+
         const newTasksState = JSON.parse(JSON.stringify(tasksByShift));
         const section = newTasksState[shiftKey].sections.find((s: TaskSection) => s.title === sectionTitle);
         if (section) {
+            const taskToDelete = section.tasks.find((t: Task) => t.id === taskId);
+            
+            // Clean up instruction images from storage if they exist
+            if (taskToDelete?.instruction?.images) {
+                const deletePromises = taskToDelete.instruction.images.map((img: { url: string }) => deleteFileByUrl(img.url));
+                await Promise.all(deletePromises);
+            }
+
             section.tasks = section.tasks.filter((task: Task) => task.id !== taskId);
         }
         handleUpdateAndSave(newTasksState);
@@ -226,6 +251,33 @@ export default function TaskListsPage() {
         [tasks[taskIndex], tasks[newIndex]] = [tasks[newIndex], tasks[taskIndex]];
         handleUpdateAndSave(newTasksState, false);
     }
+
+    const handleDeleteSection = async (shiftKey: string, sectionTitle: string) => {
+        if (!tasksByShift) return;
+        if (!confirm(`Bạn có chắc chắn muốn xóa mục "${sectionTitle}" và toàn bộ công việc bên trong?`)) return;
+
+        const newTasksState = JSON.parse(JSON.stringify(tasksByShift));
+        if (!newTasksState[shiftKey]) return;
+
+        const sectionToDelete = newTasksState[shiftKey].sections.find((s: TaskSection) => s.title === sectionTitle);
+        
+        // Clean up images from storage for all tasks in the section
+        if (sectionToDelete) {
+            const allDeletePromises: Promise<void>[] = [];
+            sectionToDelete.tasks.forEach((task: Task) => {
+                if (task.instruction?.images) {
+                    task.instruction.images.forEach(img => {
+                        allDeletePromises.push(deleteFileByUrl(img.url));
+                    });
+                }
+            });
+            await Promise.all(allDeletePromises);
+        }
+
+        newTasksState[shiftKey].sections = newTasksState[shiftKey].sections.filter((s: TaskSection) => s.title !== sectionTitle);
+
+        handleUpdateAndSave(newTasksState);
+    };
 
     const handleToggleAll = (shiftKey: string) => {
         if (!tasksByShift?.[shiftKey]) return;
@@ -313,59 +365,59 @@ export default function TaskListsPage() {
     const totalTasks = Object.values(tasksByShift).reduce((acc, shift) => acc + shift.sections.reduce((sAcc, section) => sAcc + section.tasks.length, 0), 0);
 
     return (
-        <div className="container mx-auto max-w-5xl p-4 sm:p-6 md:p-8 space-y-8 pb-20">
-            <header className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 border-b pb-6">
-                <div className="space-y-1">
-                    <h1 className="text-3xl md:text-4xl font-extrabold font-headline tracking-tight text-foreground">
+        <div className="container mx-auto max-w-5xl p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6 pb-20">
+            <header className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-2 border-b pb-4">
+                <div className="space-y-0.5">
+                    <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-foreground">
                         Quản lý công việc
                     </h1>
-                    <p className="text-lg text-muted-foreground">
+                    <p className="text-sm md:text-base text-muted-foreground">
                         Hệ thống hóa quy trình vận hành cho từng ca làm việc.
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="px-3 py-1 text-sm font-medium bg-secondary/50 border-primary/20 text-primary">
+                    <Badge variant="outline" className="px-2 py-0.5 text-xs font-medium bg-secondary/50 border-primary/20 text-primary">
                         {totalTasks} nhiệm vụ đang áp dụng
                     </Badge>
                 </div>
             </header>
 
-            <Tabs defaultValue="sang" className="w-full space-y-6">
-                <TabsList className="grid w-full grid-cols-3 p-1.5 h-auto bg-muted/50 rounded-2xl border">
-                    <TabsTrigger value="sang" className="rounded-xl py-3 data-[state=active]:bg-amber-500 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-300">
-                        <Sun className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-                        <span className="font-semibold hidden sm:inline">Ca Sáng</span>
-                        <span className="font-semibold sm:hidden text-xs">Sáng</span>
+            <Tabs defaultValue="sang" className="w-full space-y-4">
+                <TabsList className="grid w-full grid-cols-3 p-1 h-auto bg-muted/50 rounded-xl border">
+                    <TabsTrigger value="sang" className="rounded-lg py-2 data-[state=active]:bg-amber-500 data-[state=active]:text-white data-[state=active]:shadow-md transition-all duration-300">
+                        <Sun className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                        <span className="font-semibold hidden sm:inline text-sm">Ca Sáng</span>
+                        <span className="font-semibold sm:hidden text-[11px]">Sáng</span>
                     </TabsTrigger>
-                    <TabsTrigger value="trua" className="rounded-xl py-3 data-[state=active]:bg-orange-500 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-300">
-                        <Sunset className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-                        <span className="font-semibold hidden sm:inline">Ca Trưa</span>
-                        <span className="font-semibold sm:hidden text-xs">Trưa</span>
+                    <TabsTrigger value="trua" className="rounded-lg py-2 data-[state=active]:bg-orange-500 data-[state=active]:text-white data-[state=active]:shadow-md transition-all duration-300">
+                        <Sunset className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                        <span className="font-semibold hidden sm:inline text-sm">Ca Trưa</span>
+                        <span className="font-semibold sm:hidden text-[11px]">Trưa</span>
                     </TabsTrigger>
-                    <TabsTrigger value="toi" className="rounded-xl py-3 data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-300">
-                        <Moon className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-                        <span className="font-semibold hidden sm:inline">Ca Tối</span>
-                        <span className="font-semibold sm:hidden text-xs">Tối</span>
+                    <TabsTrigger value="toi" className="rounded-lg py-2 data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md transition-all duration-300">
+                        <Moon className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                        <span className="font-semibold hidden sm:inline text-sm">Ca Tối</span>
+                        <span className="font-semibold sm:hidden text-[11px]">Tối</span>
                     </TabsTrigger>
                 </TabsList>
 
                 {Object.entries(tasksByShift).map(([shiftKey, shiftData]) => {
                     const areAllSectionsOpen = (openSections[shiftKey] || []).length === shiftData.sections.length;
                     return (
-                        <TabsContent value={shiftKey} key={shiftKey} className="animate-in fade-in slide-in-from-bottom-2 duration-500 mt-0">
-                            <Card className="border-none shadow-xl ring-1 ring-border overflow-hidden">
-                                <CardHeader className="border-b bg-muted/20 pb-4">
-                                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                                        <div className="flex items-center gap-3">
+                        <TabsContent value={shiftKey} key={shiftKey} className="animate-in fade-in slide-in-from-bottom-1 duration-400 mt-0">
+                            <Card className="border-none shadow-lg ring-1 ring-border overflow-hidden">
+                                <CardHeader className="border-b bg-muted/20 py-3 px-4 md:px-6">
+                                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                                        <div className="flex items-center gap-2.5">
                                             <div className={cn(
-                                                "p-3 rounded-2xl text-white shadow-inner",
+                                                "p-2 rounded-xl text-white shadow-inner",
                                                 shiftKey === 'sang' ? "bg-amber-500" : shiftKey === 'trua' ? "bg-orange-500" : "bg-indigo-600"
                                             )}>
-                                                <ListTodo className="h-6 w-6" />
+                                                <ListTodo className="h-5 w-5" />
                                             </div>
                                             <div>
-                                                <CardTitle className="text-2xl font-headline">Công việc {shiftData.name}</CardTitle>
-                                                <CardDescription className="text-sm">Tối ưu các hoạt động vận hành trong {shiftData.name.toLowerCase()}.</CardDescription>
+                                                <CardTitle className="text-xl font-headline leading-none">Công việc {shiftData.name}</CardTitle>
+                                                <CardDescription className="text-xs mt-1">Hoạt động vận hành trong {shiftData.name.toLowerCase()}.</CardDescription>
                                             </div>
                                         </div>
                                         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
@@ -377,9 +429,21 @@ export default function TaskListsPage() {
                                                 {isSorting ? <Check className="mr-2 h-4 w-4" /> : <Shuffle className="mr-2 h-4 w-4 text-muted-foreground" />}
                                                 {isSorting ? "Xong" : "Sắp xếp"}
                                             </Button>
-                                            <Button variant="outline" size="sm" onClick={() => handleToggleAll(shiftKey)} className="h-9 px-3 rounded-lg">
+                                            <Button variant="outline" size="sm" onClick={() => handleToggleAll(shiftKey)} className="h-9 px-3 rounded-lg text-[13px] font-semibold">
                                                 <ChevronsDownUp className="mr-2 h-4 w-4 text-muted-foreground" />
                                                 {areAllSectionsOpen ? 'Thu gọn' : 'Mở rộng'}
+                                            </Button>
+
+                                            <Button
+                                                variant="default"
+                                                size="sm"
+                                                onClick={() => {
+                                                    setIsAddingSection(shiftKey);
+                                                }}
+                                                className="h-9 px-3 rounded-lg bg-primary hover:bg-primary/90 text-white shadow-sm transition-all text-xs font-bold"
+                                            >
+                                                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                                                Thêm mục mới
                                             </Button>
                                         </div>
                                     </div>
@@ -392,20 +456,41 @@ export default function TaskListsPage() {
                                         className="w-full"
                                     >
                                         {shiftData.sections.map(section => (
-                                            <AccordionItem value={section.title} key={section.title} className="border-b last:border-0 px-4 sm:px-8">
-                                                <AccordionTrigger className="hover:no-underline py-5 group" disabled={isSorting}>
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="font-bold text-xl group-hover:text-primary transition-colors">{section.title}</span>
-                                                        <Badge variant="secondary" className="font-normal rounded-full px-2.5 h-6">{section.tasks.length}</Badge>
+                                            <AccordionItem value={section.title} key={section.title} className="border-b last:border-0 px-3 sm:px-6">
+                                                <AccordionTrigger className="hover:no-underline py-3.5 md:py-4 group" disabled={isSorting}>
+                                                    <div className="flex items-center justify-between w-full pr-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-bold text-lg group-hover:text-primary transition-colors">{section.title}</span>
+                                                            <Badge variant="secondary" className="font-normal rounded-full px-2 h-5 text-[10px]">{section.tasks.length}</Badge>
+                                                            {section.shiftTemplateId && (
+                                                                <Badge variant="outline" className="h-5 px-1.5 text-[9px] font-black uppercase tracking-widest bg-primary/10 text-primary border-primary/20 rounded-md flex items-center gap-1">
+                                                                    <Star className="h-2.5 w-2.5 fill-primary" />
+                                                                    {shiftTemplates.find(t => t.id === section.shiftTemplateId)?.label || 'Ghim mẫu'}
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleDeleteSection(shiftKey, section.title);
+                                                                }}
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
                                                     </div>
                                                 </AccordionTrigger>
-                                                <AccordionContent className="pb-8">
-                                                    <div className="space-y-5 pt-2">
-                                                        <div className="space-y-3">
+                                                <AccordionContent className="pb-4 sm:pb-6">
+                                                    <div className="space-y-3 pt-1">
+                                                        <div className="space-y-2">
                                                             {section.tasks.map((task, taskIndex) => (
                                                                 <div key={task.id} className={cn(
-                                                                    "group relative flex flex-col md:flex-row md:items-center gap-3 md:gap-4 rounded-2xl border p-3 md:p-4 transition-all duration-200 hover:shadow-lg",
-                                                                    task.isCritical ? "border-amber-200 bg-amber-50/50 dark:bg-amber-950/10 shadow-sm" : "bg-card border-muted/60"
+                                                                    "group relative flex flex-col md:flex-row md:items-center gap-2 md:gap-4 rounded-xl border p-2.5 md:p-3 transition-all duration-200 hover:shadow-md",
+                                                                    task.isCritical ? "border-amber-200 bg-amber-50/40 dark:bg-amber-950/5 shadow-sm" : "bg-card border-muted/50"
                                                                 )}>
                                                                     <>
                                                                         <div className="flex-1 flex items-start gap-3 md:gap-4 w-full">
@@ -414,8 +499,8 @@ export default function TaskListsPage() {
                                                                             </div>
                                                                             <div className="space-y-1.5 flex-1 min-w-0">
                                                                                 <p className={cn(
-                                                                                    "text-sm md:text-base font-medium leading-tight md:leading-relaxed tracking-tight break-words",
-                                                                                    task.isCritical && "text-amber-900 dark:text-amber-400 font-bold"
+                                                                                    "text-sm md:text-base font-medium leading-tight md:leading-relaxed tracking-tight break-words font-bold",
+                                                                                    task.isCritical && "text-amber-900 dark:text-amber-400"
                                                                                 )}>
                                                                                     {task.text}
                                                                                 </p>
@@ -438,39 +523,89 @@ export default function TaskListsPage() {
                                                                                         {task.type === 'photo' ? 'Ảnh' : task.type === 'boolean' ? 'Tích' : 'Ghi chú'}
                                                                                     </span>
                                                                                 </div>
+
+                                                                                {/* Instruction Preview */}
+                                                                                {(task.instruction?.text || (task.instruction?.images && task.instruction.images.length > 0)) && (
+                                                                                    <div className="mt-2.5 flex flex-col gap-2.5 p-3 rounded-2xl bg-indigo-50/40 border border-indigo-100/40 w-full md:max-w-2xl group/instruction transition-colors hover:bg-indigo-50/60">
+                                                                                        {task.instruction.text && (
+                                                                                            <div className="flex items-start gap-2">
+                                                                                                <div className="p-1 rounded-md bg-indigo-100/50 text-indigo-500 shrink-0">
+                                                                                                    <Info className="h-3 w-3" />
+                                                                                                </div>
+                                                                                                <div 
+                                                                                                    className="text-[11px] md:text-sm text-indigo-900/70 font-medium leading-relaxed prose prose-xs dark:prose-invert max-w-full overflow-hidden" 
+                                                                                                >
+                                                                                                    <div 
+                                                                                                        className="line-clamp-1 last:after:content-['...'] last:after:ml-0.5"
+                                                                                                        dangerouslySetInnerHTML={{ __html: task.instruction.text }} 
+                                                                                                    />
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        )}
+                                                                                        {task.instruction.images && task.instruction.images.length > 0 && (
+                                                                                            <div className="flex flex-wrap gap-2 pt-0.5">
+                                                                                                {task.instruction.images.map((img, i) => {
+                                                                                                    const images = task.instruction?.images || [];
+                                                                                                    const slides = images.map(image => ({
+                                                                                                        src: typeof image === 'string' ? image : image.url,
+                                                                                                        title: typeof image === 'string' ? '' : image.caption || ''
+                                                                                                    }));
+                                                                                                    
+                                                                                                    return (
+                                                                                                        <div 
+                                                                                                            key={i} 
+                                                                                                            className="relative h-12 w-16 md:h-14 md:w-20 flex-shrink-0 rounded-xl border-2 border-white shadow-sm overflow-hidden bg-white hover:scale-105 transition-transform cursor-zoom-in group/img"
+                                                                                                            onClick={(e) => {
+                                                                                                                e.stopPropagation();
+                                                                                                                openLightbox(slides, i);
+                                                                                                            }}
+                                                                                                        >
+                                                                                                            <img 
+                                                                                                                src={typeof img === 'string' ? img : img.url} 
+                                                                                                                className="w-full h-full object-cover" 
+                                                                                                                alt="" 
+                                                                                                            />
+                                                                                                            <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/10 transition-colors" />
+                                                                                                        </div>
+                                                                                                    );
+                                                                                                })}
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                )}
                                                                             </div>
                                                                         </div>
 
-                                                                        <div className="flex items-center gap-1 self-end md:self-center md:opacity-0 group-hover:opacity-100 transition-all duration-200 md:translate-x-2 group-hover:translate-x-0 pt-2 md:pt-0 border-t md:border-0 w-full md:w-auto justify-end">
+                                                                        <div className="flex items-center gap-1 self-end md:self-center md:opacity-0 group-hover:opacity-100 transition-all duration-200 md:translate-x-1 group-hover:translate-x-0 pt-1.5 md:pt-0 border-t md:border-0 w-full md:w-auto justify-end mt-1 md:mt-0">
                                                                             {isSorting ? (
                                                                                 <>
-                                                                                    <Button variant="ghost" size="icon" className="h-9 w-9 md:h-10 md:w-10 text-muted-foreground" onClick={() => handleMoveTask(shiftKey, section.title, taskIndex, 'up')} disabled={taskIndex === 0}>
-                                                                                        <ArrowUp className="h-4 w-4 md:h-5 md:w-5" />
+                                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground" onClick={() => handleMoveTask(shiftKey, section.title, taskIndex, 'up')} disabled={taskIndex === 0}>
+                                                                                        <ArrowUp className="h-4 w-4" />
                                                                                     </Button>
-                                                                                    <Button variant="ghost" size="icon" className="h-9 w-9 md:h-10 md:w-10 text-muted-foreground" onClick={() => handleMoveTask(shiftKey, section.title, taskIndex, 'down')} disabled={taskIndex === section.tasks.length - 1}>
-                                                                                        <ArrowDown className="h-4 w-4 md:h-5 md:w-5" />
+                                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground" onClick={() => handleMoveTask(shiftKey, section.title, taskIndex, 'down')} disabled={taskIndex === section.tasks.length - 1}>
+                                                                                        <ArrowDown className="h-4 w-4" />
                                                                                     </Button>
                                                                                 </>
                                                                             ) : (
                                                                                 <>
-                                                                                    <Button variant="ghost" size="icon" className="h-9 w-9 md:h-10 md:w-10 text-muted-foreground hover:text-amber-500 hover:bg-amber-100/50 rounded-lg md:rounded-xl" onClick={() => handleToggleCritical(shiftKey, section.title, task.id)}>
-                                                                                        <Star className={cn("h-4 w-4 md:h-5 md:w-5 transition-all", task.isCritical && "fill-amber-500 text-amber-500")} />
+                                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-amber-500 hover:bg-amber-100/50 rounded-lg" onClick={() => handleToggleCritical(shiftKey, section.title, task.id)}>
+                                                                                        <Star className={cn("h-4 w-4 transition-all", task.isCritical && "fill-amber-500 text-amber-500")} />
                                                                                     </Button>
-                                                                                    <Button variant="ghost" size="icon" className="h-9 w-9 md:h-10 md:w-10 text-muted-foreground hover:text-blue-500 hover:bg-blue-100/50 rounded-lg md:rounded-xl" onClick={() => setEditingTask({ 
-                                                                                        shiftKey, 
-                                                                                        sectionTitle: section.title, 
-                                                                                        taskId: task.id, 
-                                                                                        text: task.text, 
-                                                                                        type: task.type, 
-                                                                                        minCompletions: task.minCompletions || 1, 
-                                                                                        isCritical: !!task.isCritical, 
+                                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-blue-500 hover:bg-blue-100/50 rounded-lg" onClick={() => setEditingTask({
+                                                                                        shiftKey,
+                                                                                        sectionTitle: section.title,
+                                                                                        taskId: task.id,
+                                                                                        text: task.text,
+                                                                                        type: task.type,
+                                                                                        minCompletions: task.minCompletions || 1,
+                                                                                        isCritical: !!task.isCritical,
                                                                                         genderPreference: task.genderPreference || 'Tất cả',
-                                                                                        instruction: task.instruction 
+                                                                                        instruction: task.instruction
                                                                                     })}>
-                                                                                        <Pencil className="h-4 w-4 md:h-5 md:w-5" />
+                                                                                        <Pencil className="h-4 w-4" />
                                                                                     </Button>
-                                                                                    <Button variant="ghost" size="icon" className="h-9 w-9 md:h-10 md:w-10 text-muted-foreground hover:text-destructive hover:bg-red-100/50 rounded-lg md:rounded-xl" onClick={() => handleDeleteTask(shiftKey, section.title, task.id)}>
-                                                                                        <Trash2 className="h-4 w-4 md:h-5 md:w-5" />
+                                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-muted-foreground hover:text-destructive hover:bg-red-100/50 rounded-lg" onClick={() => handleDeleteTask(shiftKey, section.title, task.id)}>
+                                                                                        <Trash2 className="h-4 w-4" />
                                                                                     </Button>
                                                                                 </>
                                                                             )}
@@ -479,27 +614,27 @@ export default function TaskListsPage() {
                                                                 </div>
                                                             ))}
                                                             {section.tasks.length === 0 && (
-                                                                <div className="text-center py-12 border-2 border-dashed rounded-2xl border-muted bg-muted/5 transition-colors">
-                                                                   <AlertCircle className="h-8 w-8 text-muted-foreground mx-auto mb-3 opacity-20" />
-                                                                   <p className="text-sm text-muted-foreground">Chưa có công việc nào trong danh mục này.</p>
+                                                                <div className="text-center py-8 border-2 border-dashed rounded-xl border-muted bg-muted/5 transition-colors">
+                                                                    <AlertCircle className="h-6 w-6 text-muted-foreground mx-auto mb-2 opacity-20" />
+                                                                    <p className="text-xs text-muted-foreground">Chưa có công việc nào trong danh mục này.</p>
                                                                 </div>
                                                             )}
                                                         </div>
 
                                                         {/* Add Task Button */}
-                                                        <div className="mt-6">
+                                                        <div className="mt-4">
                                                             <Button
                                                                 variant="outline"
-                                                                className="w-full h-full border-dashed border-primary/30 hover:bg-primary/5 hover:border-primary/50 transition-all rounded-2xl group flex flex-col items-center gap-2"
+                                                                className="w-full h-auto py-3 border-dashed border-primary/30 hover:bg-primary/5 hover:border-primary/50 transition-all rounded-xl group flex flex-col items-center gap-1.5"
                                                                 onClick={() => setAddingToSection({
                                                                     shiftKey,
                                                                     sectionTitle: section.title,
                                                                 })}
                                                             >
-                                                                <div className="p-2 bg-primary/10 rounded-full group-hover:scale-110 transition-transform">
-                                                                    <Plus className="h-6 w-6 text-primary" />
+                                                                <div className="p-1.5 bg-primary/10 rounded-full group-hover:scale-110 transition-transform">
+                                                                    <Plus className="h-5 w-5 text-primary" />
                                                                 </div>
-                                                                <span className="font-bold text-muted-foreground group-hover:text-primary transition-colors whitespace-normal break-words text-center sm:text-left">Thêm công việc vào mục {section.title}</span>
+                                                                <span className="font-bold text-xs text-muted-foreground group-hover:text-primary transition-colors whitespace-normal break-words text-center sm:text-left">Thêm công việc vào mục {section.title}</span>
                                                             </Button>
                                                         </div>
                                                     </div>
@@ -525,6 +660,90 @@ export default function TaskListsPage() {
                 }}
                 shiftName={addingToSection ? tasksByShift?.[addingToSection.shiftKey]?.name || '' : ''}
                 sectionTitle={addingToSection?.sectionTitle || ''}
+            />
+
+            <SectionCreationDialog
+                open={isAddingSection !== null}
+                onOpenChange={(open) => !open && setIsAddingSection(null)}
+                shiftKey={isAddingSection}
+                shiftName={isAddingSection ? tasksByShift[isAddingSection]?.name || '...' : ''}
+                tasksByShift={tasksByShift}
+                shiftTemplates={shiftTemplates}
+                onConfirm={async (title, copyFrom, templateId) => {
+                    if (!isAddingSection) return;
+                    
+                    const shiftKey = isAddingSection;
+                    const newTasksState = JSON.parse(JSON.stringify(tasksByShift));
+                    if (!newTasksState[shiftKey]) return;
+
+                    // Check if section already exists
+                    if (newTasksState[shiftKey].sections.some((s: TaskSection) => s.title === title)) {
+                        toast.error("Mục này đã tồn tại trong ca!");
+                        return;
+                    }
+
+                    let copiedTasks: Task[] = [];
+                    if (Array.isArray(copyFrom) && copyFrom.length > 0) {
+                        toast.info(`Đang chuẩn bị ${copyFrom.length} mục...`);
+                        
+                        // We need to resolve all tasks first
+                        const sourceTasks: Task[] = [];
+                        copyFrom.forEach((source: { shiftKey: string; sectionTitle: string }) => {
+                            const sourceKey = source.shiftKey;
+                            const sourceSection = tasksByShift[sourceKey]?.sections.find(s => s.title === source.sectionTitle);
+                            if (sourceSection) {
+                                sourceTasks.push(...sourceSection.tasks);
+                            }
+                        });
+
+                        // Deep clone and uniquely ID each task
+                        // Also, explicitly copy instruction images to storage to avoid shared references
+                        const clonePromises = sourceTasks.map(async (t) => {
+                            const newTask = JSON.parse(JSON.stringify(t)) as Task;
+                            newTask.id = `task-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+                            
+                            // If task has instruction images, we MUST copy them in storage
+                            if (newTask.instruction?.images && newTask.instruction.images.length > 0) {
+                                const imageCopyPromises = newTask.instruction.images.map(async (img) => {
+                                    const originalUrl = img.url;
+                                    const extension = originalUrl.split('?')[0].split('.').pop() || 'jpg';
+                                    const newPath = `task-instructions/${shiftKey}/${newTask.id}/${Date.now()}-${Math.random().toString(36).substring(2, 5)}.${extension}`;
+                                    
+                                    const newUrl = await copyFileFromUrl(originalUrl, newPath);
+                                    return {
+                                        ...img,
+                                        url: newUrl
+                                    };
+                                });
+                                newTask.instruction.images = await Promise.all(imageCopyPromises);
+                            }
+                            
+                            return newTask;
+                        });
+
+                        copiedTasks = await Promise.all(clonePromises);
+                    }
+
+                    newTasksState[shiftKey].sections.push({
+                        title,
+                        tasks: copiedTasks,
+                        shiftTemplateId: templateId
+                    });
+
+                    handleUpdateAndSave(newTasksState);
+                    setIsAddingSection(null);
+
+                    setOpenSections(prev => ({
+                        ...prev,
+                        [shiftKey]: [...(prev[shiftKey] || []), title]
+                    }));
+
+                    if (copiedTasks.length > 0) {
+                        toast.success(`Đã tạo mục "${title}" với ${copiedTasks.length} nhiệm vụ được copy!`);
+                    } else {
+                        toast.success(`Đã tạo mục "${title}" thành công!`);
+                    }
+                }}
             />
 
             <TaskDialog

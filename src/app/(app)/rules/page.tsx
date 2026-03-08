@@ -36,7 +36,7 @@ import { Badge } from '@/components/ui/badge';
 import { UserAvatar } from '@/components/user-avatar';
 import { ManagedUser, UserBadge, UserRole } from '@/lib/types';
 import { BadgeAssignmentDialog } from '@/components/badge-assignment-dialog';
-import { toast } from '@/components/ui/use-toast';
+import { showToast } from '@/components/ui/pro-toast';
 import { cn } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -111,10 +111,10 @@ export default function HouseRulesPage() {
 
     const currentBadges = u.badges || [];
     if (currentBadges.some(b => b.label === label)) {
-      toast({
+      showToast({
         title: "Lỗi",
-        description: "Người dùng đã có huy hiệu này rồi!",
-        variant: "destructive"
+        message: "Người dùng đã có huy hiệu này rồi!",
+        type: 'error',
       });
       return;
     }
@@ -123,15 +123,16 @@ export default function HouseRulesPage() {
       await dataStore.updateUserData(u.uid, {
         badges: [...currentBadges, newBadge]
       });
-      toast({
+      showToast({
         title: "Thành công",
-        description: `Đã trao huy hiệu "${label}" cho ${u.displayName}`,
+        message: `Đã trao huy hiệu "${label}" cho ${u.displayName}`,
+        type: 'success',
       });
     } catch (error) {
-      toast({
+      showToast({
         title: "Lỗi",
-        description: "Không thể cập nhật huy hiệu",
-        variant: "destructive"
+        message: "Không thể cập nhật huy hiệu",
+        type: 'error',
       });
     }
   };
@@ -142,15 +143,16 @@ export default function HouseRulesPage() {
       await dataStore.updateUserData(u.uid, {
         badges: currentBadges.filter(b => b.id !== badgeId)
       });
-      toast({
+      showToast({
         title: "Đã xóa huy hiệu",
-        description: `Huy hiệu đã được gỡ bỏ khỏi ${u.displayName}`,
+        message: `Huy hiệu đã được gỡ bỏ khỏi ${u.displayName}`,
+        type: 'success',
       });
     } catch (error) {
-      toast({
+      showToast({
         title: "Lỗi",
-        description: "Không thể xóa huy hiệu",
-        variant: "destructive"
+        message: "Không thể xóa huy hiệu",
+        type: 'error',
       });
     }
   };

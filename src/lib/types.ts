@@ -95,6 +95,7 @@ export type ParsedComprehensiveTask = Omit<ComprehensiveTask, 'id'>;
 export type TaskSection = {
   title: string;
   tasks: Task[];
+  shiftTemplateId?: string; // Optional: Link section to a specific shift template
 }
 
 export type ComprehensiveTaskSection = {
@@ -444,11 +445,14 @@ export type EmployeeAttendance = {
     checkOutTime: Date | null;
   }[];
   lateMinutes: number | null;
+  lateRequestId?: string | null; // Link to the attendance record for late requests
   lateReason: string | null;
   lateReasonPhotoUrl?: string | null;
   lateReasonMediaType?: 'photo' | 'video' | null;
   /** If the user requested to be late, this is the estimated late minutes */
   estimatedLateMinutes?: number | null;
+  /** Link to a specific shift for this attendance record, useful for late requests */
+  shiftId?: string | null;
 };
 
 export type EmployeeStatus = 'present' | 'late' | 'absent' | 'pending_late' | 'off-shift';
@@ -1106,6 +1110,9 @@ export type AttendanceRecord = {
   estimatedLateMinutes?: number;
   lateReason?: string;
   lateReasonPhotoUrl?: string;
+  lateRequestId?: string | null; // Link to the attendance record for late requests
+  lateMinutes?: number | null;
+  shiftId?: string | null;
   onBreak?: boolean;
   breaks?: BreakRecord[];
   createdAt: string | Timestamp;
