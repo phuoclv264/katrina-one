@@ -750,7 +750,7 @@ export default function UnpaidSlipsDialog({ isOpen, onClose, bankTransferSlips, 
         </Dialog>
 
         <Dialog open={isQrPreviewOpen} onOpenChange={setIsQrPreviewOpen} dialogTag="supplier-transfer-qr-dialog" parentDialogTag="unpaid-slips-dialog">
-            <DialogContent className="max-w-3xl h-[90vh] sm:h-[80vh] flex flex-col p-0 overflow-hidden rounded-[2.5rem] border-none shadow-2xl">
+            <DialogContent className="max-w-3xl lg:max-w-3xl flex flex-col p-0 overflow-hidden rounded-[2.5rem] border-none shadow-2xl">
                 <DialogHeader iconkey="wallet" variant="info" >
                     <DialogTitle className="text-2xl font-black tracking-tight">Thanh toán Chuyển khoản VietQR</DialogTitle>
                     <DialogDescription className="text-sm font-medium">

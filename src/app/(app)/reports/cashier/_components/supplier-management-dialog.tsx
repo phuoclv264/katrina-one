@@ -210,7 +210,7 @@ export default function SupplierManagementDialog({ isOpen, onClose, suppliers, p
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose} dialogTag="cashier-supplier-management-dialog" parentDialogTag={parentDialogTag}>
-      <DialogContent className="max-w-5xl h-[88vh] p-0 overflow-hidden">
+      <DialogContent className="max-w-5xl lg:max-w-5xl h-[88vh] p-0 overflow-hidden">
         <DialogHeader iconkey="layout">
           <DialogTitle>Quản lý Nhà cung cấp</DialogTitle>
           <DialogDescription>Thêm nhà cung cấp và quản lý nhiều tài khoản ngân hàng cho từng nhà cung cấp.</DialogDescription>
