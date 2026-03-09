@@ -482,7 +482,7 @@ export const dataStore = {
     }
 
     // Create linked expense slip
-    if (!shouldCreateExpenseSlip) {
+    if (shouldCreateExpenseSlip) {
       try {
         const userDoc = await getDoc(doc(db, 'users', userId));
         const recipientName = userDoc.exists() ? ((userDoc.data() as any).displayName || userId) : userId;

@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { 
-    Dialog, 
-    DialogContent, 
-    DialogHeader, 
-    DialogTitle, 
-    DialogFooter, 
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
     DialogDescription,
     DialogBody,
     DialogAction,
@@ -65,21 +65,21 @@ export default function AbsencePenaltyDialog({
     const getShiftDurationHours = (start: string, end: string) => {
         const [startHour, startMinute] = start.split(':').map(Number);
         const [endHour, endMinute] = end.split(':').map(Number);
-        
+
         const startTime = new Date(2000, 0, 1, startHour, startMinute);
         let endTime = new Date(2000, 0, 1, endHour, endMinute);
-        
+
         if (endTime < startTime) {
             endTime.setDate(endTime.getDate() + 1);
         }
-        
+
         return (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
     };
 
     // 1. Identify all shifts with absences
     const shiftsWithAbsences = useMemo(() => {
         const results: ShiftWithAbsence[] = [];
-        
+
         // Determine the date range of attendance records to ensure consistency
         let minDate: Date | null = null;
         let maxDate: Date | null = null;
@@ -99,7 +99,7 @@ export default function AbsencePenaltyDialog({
 
             const [endHour, endMinute] = shift.timeSlot.end.split(':').map(Number);
             let end = set(shiftDate, { hours: endHour, minutes: endMinute });
-            
+
             if (end < start) end = addDays(end, 1);
             return { start, end };
         };
@@ -108,7 +108,6 @@ export default function AbsencePenaltyDialog({
         const shiftsByDate: Record<string, { shift: AssignedShift; weekId: string }[]> = {};
         Object.values(schedules).forEach(schedule => {
             schedule.shifts.forEach(shift => {
-                if (shift.isPenaltyProcessed) return; // Skip already done
                 const dateStr = shift.date;
                 if (!shiftsByDate[dateStr]) shiftsByDate[dateStr] = [];
                 shiftsByDate[dateStr].push({ shift, weekId: schedule.weekId });
@@ -118,7 +117,7 @@ export default function AbsencePenaltyDialog({
         // For each date, cluster overlapping shifts
         Object.keys(shiftsByDate).forEach(dateStr => {
             const rawShifts = shiftsByDate[dateStr];
-            
+
             // Filter by min/max date if applicable
             const shiftDateObj = new Date(dateStr);
             if (minDate && maxDate) {
@@ -139,14 +138,14 @@ export default function AbsencePenaltyDialog({
                 while (expanded) {
                     expanded = false;
                     const groupIntervals = group.map(item => getShiftInterval(item.shift));
-                    
+
                     for (let j = 0; j < rawShifts.length; j++) {
                         if (processedIndices.has(j)) continue;
-                        
+
                         const shiftJ = rawShifts[j];
                         const intervalJ = getShiftInterval(shiftJ.shift);
-                        
-                        const overlaps = groupIntervals.some(intervalI => 
+
+                        const overlaps = groupIntervals.some(intervalI =>
                             areIntervalsOverlapping(intervalI, intervalJ)
                         );
 
@@ -163,7 +162,7 @@ export default function AbsencePenaltyDialog({
                 type EnhancedAssignedUser = AssignedUser & { assignedDuration: number };
                 const collectiveAbsent = new Map<string, EnhancedAssignedUser>();
                 const collectivePresent = new Map<string, EnhancedAssignedUser>();
-                
+
                 let minStart = group[0].shift.timeSlot.start;
                 let maxEnd = group[0].shift.timeSlot.end;
                 const labels = new Set<string>();
@@ -172,7 +171,7 @@ export default function AbsencePenaltyDialog({
                     labels.add(shift.label);
                     const interval = getShiftInterval(shift);
                     const duration = getShiftDurationHours(shift.timeSlot.start, shift.timeSlot.end);
-                    
+
                     // Update bounds for the "Mega Shift" display
                     if (interval.start < getShiftInterval({ ...shift, timeSlot: { ...shift.timeSlot, start: minStart } } as any).start) minStart = shift.timeSlot.start;
                     if (interval.end > getShiftInterval({ ...shift, timeSlot: { ...shift.timeSlot, end: maxEnd } } as any).end) maxEnd = shift.timeSlot.end;
@@ -184,10 +183,10 @@ export default function AbsencePenaltyDialog({
                         const hasRecord = attendanceRecords.some(record => {
                             if (record.userId !== assignedUser.userId) return false;
                             if (!record.checkInTime) return false;
-                            
+
                             const recordStart = (record.checkInTime as any).toDate ? (record.checkInTime as any).toDate() : new Date(record.checkInTime as any);
-                            let recordEnd = record.checkOutTime 
-                                ? ((record.checkOutTime as any).toDate ? (record.checkOutTime as any).toDate() : new Date(record.checkOutTime as any)) 
+                            let recordEnd = record.checkOutTime
+                                ? ((record.checkOutTime as any).toDate ? (record.checkOutTime as any).toDate() : new Date(record.checkOutTime as any))
                                 : new Date();
                             if (recordEnd < recordStart) recordEnd = recordStart;
 
@@ -231,13 +230,13 @@ export default function AbsencePenaltyDialog({
         return results.sort((a, b) => new Date(b.shift.date).getTime() - new Date(a.shift.date).getTime());
     }, [schedules, attendanceRecords]);
 
-    const selectedShiftData = useMemo(() => 
+    const selectedShiftData = useMemo(() =>
         shiftsWithAbsences.find(s => s.shift.id === selectedShiftId),
-    [shiftsWithAbsences, selectedShiftId]);
+        [shiftsWithAbsences, selectedShiftId]);
 
-    const selectedAbsentUser = useMemo(() => 
+    const selectedAbsentUser = useMemo(() =>
         selectedShiftData?.absentUsers.find(u => u.userId === selectedAbsentUserId),
-    [selectedShiftData, selectedAbsentUserId]);
+        [selectedShiftData, selectedAbsentUserId]);
 
     const absentUserExpectedSalary = useMemo(() => {
         if (!selectedShiftData || !selectedAbsentUserId || !selectedAbsentUser) return 0;
@@ -271,7 +270,7 @@ export default function AbsencePenaltyDialog({
 
         // Logic: Bonus is proportional to assigned working hours
         const totalSelectedHours = activeBonusUsers.reduce((sum, u) => sum + u.assignedDuration, 0);
-        
+
         return activeBonusUsers.map(u => ({
             user: u,
             amount: Math.floor((u.assignedDuration / totalSelectedHours) * penaltyAmount),
@@ -282,24 +281,24 @@ export default function AbsencePenaltyDialog({
 
     const markShiftAsDone = async (shiftData: typeof selectedShiftData) => {
         if (!shiftData) return;
-        
+
         setIsProcessing(true);
         const toastId = toast.loading("Đang đánh dấu hoàn tất...");
         try {
             const weekId = shiftData.weekId;
             const schedule = schedules[weekId];
             if (schedule) {
-                const shiftIdsToMark = shiftData.shift.originalShifts 
+                const shiftIdsToMark = shiftData.shift.originalShifts
                     ? shiftData.shift.originalShifts.map((s: any) => s.id)
                     : [shiftData.shift.id];
-                
-                const updatedShifts = schedule.shifts.map(s => 
+
+                const updatedShifts = schedule.shifts.map(s =>
                     shiftIdsToMark.includes(s.id) ? { ...s, isPenaltyProcessed: true } : s
                 );
-                
+
                 await dataStore.updateSchedule(weekId, { shifts: updatedShifts });
                 toast.success("Đã hoàn tất xử lý ca này!", { id: toastId });
-                
+
                 // Reset state
                 setSelectedShiftId(null);
                 setSelectedAbsentUserId(null);
@@ -316,30 +315,30 @@ export default function AbsencePenaltyDialog({
 
     const handleConfirm = async () => {
         if (!selectedShiftData || !selectedAbsentUser || !penaltyAmount || typeof penaltyAmount !== 'number') return;
-        
-        const effectiveUser = users.find(u => u.uid === currentUser?.uid) || { uid: 'admin', displayName: 'Admin' } as any; 
-        
+
+        const effectiveUser = users.find(u => u.uid === currentUser?.uid) || { uid: 'admin', displayName: 'Admin' } as any;
+
         setIsProcessing(true);
         const toastId = toast.loading("Đang xử lý...");
 
         try {
             const monthId = format(new Date(selectedShiftData.shift.date), 'yyyy-MM');
-            
+
             // 1. Add Advance Payment (Penalty) for Absent User
             const penaltyNote = `Phạt vắng mặt ca ${selectedShiftData.shift.label} (${selectedShiftData.shift.date})`;
             await dataStore.addSalaryAdvance(
-                monthId, 
-                selectedAbsentUser.userId, 
-                penaltyAmount, 
-                penaltyNote, 
+                monthId,
+                selectedAbsentUser.userId,
+                penaltyAmount,
+                penaltyNote,
                 { userId: effectiveUser.uid || 'admin', userName: effectiveUser.displayName || 'Admin' },
                 false
             );
 
             // 2. Add Bonuses for Present Users
             const bonusNote = `Thưởng đi làm ca ${selectedShiftData.shift.label} (${selectedShiftData.shift.date}) - từ phạt nhân viên ${selectedAbsentUser.userName}`;
-            
-            await Promise.all(bonusCalculations.map(item => 
+
+            await Promise.all(bonusCalculations.map(item =>
                 dataStore.addSalaryBonus(
                     monthId,
                     item.user.userId,
@@ -354,20 +353,20 @@ export default function AbsencePenaltyDialog({
                 const weekId = selectedShiftData.weekId;
                 const schedule = schedules[weekId];
                 if (schedule) {
-                    const shiftIdsToMark = selectedShiftData.shift.originalShifts 
+                    const shiftIdsToMark = selectedShiftData.shift.originalShifts
                         ? selectedShiftData.shift.originalShifts.map((s: any) => s.id)
                         : [selectedShiftData.shift.id];
-                    
-                    const updatedShifts = schedule.shifts.map(s => 
+
+                    const updatedShifts = schedule.shifts.map(s =>
                         shiftIdsToMark.includes(s.id) ? { ...s, isPenaltyProcessed: true } : s
                     );
-                    
+
                     await dataStore.updateSchedule(weekId, { shifts: updatedShifts });
                 }
             }
 
             toast.success("Đã xử lý phạt và thưởng thành công!", { id: toastId });
-            
+
             // If we marked as done, the shift disappears, so we should deselect it
             if (shouldMarkAsDone) {
                 onClose();
@@ -392,7 +391,7 @@ export default function AbsencePenaltyDialog({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose} dialogTag="absence-penalty-dialog" parentDialogTag='root'>
-            <DialogContent className="max-w-4xl p-0 overflow-hidden" data-dialog-tag={parentDialogTag}>
+            <DialogContent className="max-w-4xl lg:max-w-4xl p-0 overflow-hidden" data-dialog-tag={parentDialogTag}>
                 <DialogHeader variant="warning" iconkey="alert">
                     <div>
                         <DialogTitle className="mb-1 text-amber-950">Xử lý Phạt Vắng Mặt</DialogTitle>
@@ -430,18 +429,29 @@ export default function AbsencePenaltyDialog({
                                             }}
                                             className={cn(
                                                 "w-full text-left p-4 rounded-[1.5rem] transition-all duration-200 group relative overflow-hidden",
-                                                selectedShiftId === shift.id 
-                                                    ? "bg-white shadow-md ring-1 ring-zinc-200/50" 
-                                                    : "hover:bg-white/60"
+                                                selectedShiftId === shift.id
+                                                    ? "bg-white shadow-md ring-1 ring-zinc-200/50"
+                                                    : "hover:bg-white/60",
+                                                shift.isPenaltyProcessed && "opacity-60 bg-zinc-100/30"
                                             )}
                                         >
                                             <div className="flex justify-between items-start relative z-10">
                                                 <div className="space-y-1">
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-sm font-bold text-zinc-900 line-clamp-1">{shift.label}</span>
-                                                        <span className="text-[10px] whitespace-nowrap font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-100">
-                                                            {absentUsers.length} vắng
-                                                        </span>
+                                                        <span className={cn(
+                                                            "text-sm font-bold line-clamp-1",
+                                                            shift.isPenaltyProcessed ? "text-zinc-500" : "text-zinc-900"
+                                                        )}>{shift.label}</span>
+                                                        {shift.isPenaltyProcessed ? (
+                                                            <span className="text-[10px] whitespace-nowrap font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center gap-1">
+                                                                <Check className="w-2.5 h-2.5" />
+                                                                Đã xử lý
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[10px] whitespace-nowrap font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-100">
+                                                                {absentUsers.length} vắng
+                                                            </span>
+                                                        )}
                                                     </div>
                                                     <div className="flex items-center gap-3 text-zinc-400">
                                                         <div className="flex items-center gap-1.5 grayscale opacity-70">
@@ -459,7 +469,7 @@ export default function AbsencePenaltyDialog({
                                                     selectedShiftId === shift.id ? "text-primary translate-x-1" : "text-zinc-300"
                                                 )} />
                                             </div>
-                                            
+
                                             <div className="mt-3 flex flex-wrap gap-1 relative z-10">
                                                 {absentUsers.map(u => (
                                                     <span key={u.userId} className="inline-flex items-center text-[10px] font-bold bg-red-50/50 text-red-700/70 px-2 py-0.5 rounded-lg border border-red-100/50">
@@ -497,7 +507,7 @@ export default function AbsencePenaltyDialog({
                                 <div className="space-y-4">
                                     <div>
                                         <div className="flex items-center justify-between mb-4 md:hidden">
-                                            <button 
+                                            <button
                                                 onClick={() => setSelectedShiftId(null)}
                                                 className="flex items-center gap-1.5 text-xs font-bold text-zinc-400 hover:text-zinc-600 transition-colors"
                                             >
@@ -533,8 +543,8 @@ export default function AbsencePenaltyDialog({
                                         {/* Skip/Mark as Done button */}
                                         <div className="pt-4 border-t border-zinc-100 flex flex-col items-center gap-3">
                                             <p className="text-[10px] text-zinc-400 font-medium text-center">Nếu không có ai cần phạt hoặc đã xử lý xong bên ngoài:</p>
-                                            <Button 
-                                                variant="outline" 
+                                            <Button
+                                                variant="outline"
                                                 className="rounded-xl h-10 px-6 border-zinc-200 text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 gap-2 text-xs font-bold"
                                                 onClick={() => markShiftAsDone(selectedShiftData)}
                                                 disabled={isProcessing}
@@ -550,7 +560,7 @@ export default function AbsencePenaltyDialog({
                             <div className="flex-1 flex flex-col p-5 sm:p-8 overflow-y-auto space-y-6 sm:space-y-8 animate-in slide-in-from-right-4 duration-300">
                                 {/* Back button & title */}
                                 <div className="flex items-center gap-4">
-                                    <button 
+                                    <button
                                         onClick={() => {
                                             setSelectedAbsentUserId(null);
                                             setConfigView(false);
@@ -596,7 +606,7 @@ export default function AbsencePenaltyDialog({
                                 {penaltyAmount && Number(penaltyAmount) > 0 && (
                                     <div className="space-y-4 pb-12">
                                         <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 ml-1">Phân chia thưởng cho nhân viên đi làm</h4>
-                                        
+
                                         {selectedShiftData.presentUsers.length === 0 ? (
                                             <div className="p-5 rounded-[1.25rem] sm:rounded-[1.5rem] bg-amber-50/50 border border-amber-100 flex items-start gap-4">
                                                 <div className="shrink-0 w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center mt-1">
@@ -622,10 +632,10 @@ export default function AbsencePenaltyDialog({
                                                     {selectedShiftData.presentUsers.map((pUser) => {
                                                         const bonusItem = bonusCalculations.find(b => b.user.userId === pUser.userId);
                                                         const isSelected = selectedBonusUserIds.includes(pUser.userId);
-                                                        
+
                                                         return (
-                                                            <div 
-                                                                key={pUser.userId} 
+                                                            <div
+                                                                key={pUser.userId}
                                                                 className={cn(
                                                                     "px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between transition-colors cursor-pointer",
                                                                     isSelected ? "bg-white hover:bg-zinc-50/30" : "bg-zinc-50/30 hover:bg-zinc-50/50 opacity-60"
@@ -680,9 +690,9 @@ export default function AbsencePenaltyDialog({
                         <DialogCancel className="w-full sm:w-auto px-8 border-none hover:bg-zinc-100 text-xs sm:text-sm">
                             Đóng lại
                         </DialogCancel>
-                        
+
                         {configView && (
-                            <button 
+                            <button
                                 onClick={() => setShouldMarkAsDone(!shouldMarkAsDone)}
                                 className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-zinc-200/50 transition-colors group"
                             >
@@ -697,8 +707,8 @@ export default function AbsencePenaltyDialog({
                         )}
                     </div>
 
-                    <DialogAction 
-                        variant="pastel-purple" 
+                    <DialogAction
+                        variant="pastel-purple"
                         className="w-full sm:w-auto px-8 sm:min-w-[200px] text-xs sm:text-sm"
                         onClick={handleConfirm}
                         isLoading={isProcessing}
