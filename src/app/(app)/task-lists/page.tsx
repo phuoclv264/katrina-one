@@ -470,17 +470,25 @@ export default function TaskListsPage() {
                                                             )}
                                                         </div>
                                                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                                                            <div
+                                                                role="button"
+                                                                tabIndex={0}
+                                                                className="h-8 w-8 flex items-center justify-center rounded-md text-destructive hover:bg-destructive/10 cursor-pointer"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
+                                                                    e.preventDefault();
                                                                     handleDeleteSection(shiftKey, section.title);
+                                                                }}
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === 'Enter' || e.key === ' ') {
+                                                                        e.stopPropagation();
+                                                                        e.preventDefault();
+                                                                        handleDeleteSection(shiftKey, section.title);
+                                                                    }
                                                                 }}
                                                             >
                                                                 <Trash2 className="h-4 w-4" />
-                                                            </Button>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </AccordionTrigger>
