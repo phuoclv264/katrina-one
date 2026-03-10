@@ -214,22 +214,38 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
     }
   };
 
-  const handleReuseSelect = (instruction: { text?: string; images: { url: string; caption?: string }[] }) => {
+  const handleReuseSelect = async (instruction: { text?: string; images: { url: string; caption?: string }[] }) => {
     // Optionally update text if it's currently empty
     if (!instructionText && instruction.text) {
       setInstructionText(instruction.text);
     }
     
-    // Append images - Always mark for copying even if they are already server URLs
-    // by adding a temporary flag or checking for typical server URL patterns
-    setInstructionImages(prev => [
-      ...prev,
-      ...instruction.images.map(img => ({ 
-        url: img.url, 
-        caption: img.caption || '',
-        shouldCopy: img.url.includes('firebasestorage.googleapis.com') // Mark for duplication
-      }))
-    ]);
+    // Append images - Download to local blob first to ensure they are re-uploaded
+    setIsCompressing(true);
+    try {
+      const newImages = await Promise.all(
+        instruction.images.map(async (img) => {
+          if (img.url.includes('firebasestorage.googleapis.com')) {
+            try {
+              const response = await fetch(img.url);
+              const blob = await response.blob();
+              const localUrl = URL.createObjectURL(blob);
+              return { url: localUrl, caption: img.caption || '' };
+            } catch (err) {
+              console.error('Failed to download reused image:', err);
+              return { url: img.url, caption: img.caption || '' };
+            }
+          }
+          return { url: img.url, caption: img.caption || '' };
+        })
+      );
+
+      setInstructionImages(prev => [...prev, ...newImages]);
+    } catch (error) {
+      console.error('Error processing reused images:', error);
+    } finally {
+      setIsCompressing(false);
+    }
   };
 
   const handleConfirm = async () => {
@@ -237,10 +253,10 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
     
     setIsCompressing(true); // Show a loading indicator using the existing state
     try {
-      // Process images: upload any data:, blob:, or server URLs flagged for duplication
+      // Process images: upload any data:, blob:, or server URLs
       const processedImages = await Promise.all(
         instructionImages.map(async (img) => {
-          // Case 1: New uploads from camera or library
+          // Case 1: New uploads from camera, library, or local blobs from reuse
           if (img.url.startsWith('data:') || img.url.startsWith('blob:')) {
             try {
               const response = await fetch(img.url);
@@ -250,22 +266,6 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
               return { ...img, url: serverUrl };
             } catch (err) {
               console.error('Failed to upload instruction image:', err);
-              return img;
-            }
-          }
-          
-          // Case 2: Reused image from another task - needs duplication
-          if (img.shouldCopy && img.url.includes('firebasestorage.googleapis.com')) {
-            try {
-              const response = await fetch(img.url);
-              const blob = await response.blob();
-              const fileName = `reused-instruction-${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
-              const serverUrl = await uploadFile(blob, `task-instructions/${fileName}`);
-              // Clean up flag once duplicated
-              const { shouldCopy, ...cleanImg } = img;
-              return { ...cleanImg, url: serverUrl };
-            } catch (err) {
-              console.error('Failed to duplicate reused image:', err);
               return img;
             }
           }
