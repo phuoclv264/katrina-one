@@ -714,6 +714,7 @@ export default function TotalHoursDialog({ open, onOpenChange, schedule, availab
                                     {filteredUsers.map((user) => {
                                         const workedHours = totalHoursByUser.get(user.uid) || 0;
                                         const availableHours = availableHoursByUser.get(user.uid) || 0;
+                                        const expectedSalary = workedHours * (user.hourlyRate || 0);
                                         const progressValue = availableHours > 0 ? (workedHours / availableHours) * 100 : 0;
                                         const isOverworked = workedHours > availableHours && availableHours > 0;
                                         const roleStyles = getRoleColors(user.role);
@@ -729,9 +730,16 @@ export default function TotalHoursDialog({ open, onOpenChange, schedule, availab
                                                         <UserAvatar user={user} rounded="xl" className={cn("shadow-inner border transition-transform group-hover:scale-105", roleStyles)} />
                                                         <div className="space-y-0.5">
                                                             <p className="font-black text-xs text-foreground group-hover:text-primary transition-colors">{user.displayName}</p>
-                                                            <Badge variant="outline" className={cn("text-[7px] px-1.5 py-0 h-4 border-none font-black uppercase bg-gradient-to-r rounded-md", roleStyles)}>
-                                                                {user.role}
-                                                            </Badge>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <Badge variant="outline" className={cn("text-[7px] px-1.5 py-0 h-4 border-none font-black uppercase bg-gradient-to-r rounded-md", roleStyles)}>
+                                                                    {user.role}
+                                                                </Badge>
+                                                                {user.hourlyRate && (
+                                                                    <Badge variant="secondary" className="text-[7px] px-1.5 py-0 h-4 border-none font-black bg-muted/50 text-muted-foreground/80 rounded-md">
+                                                                        {new Intl.NumberFormat('vi-VN').format(expectedSalary)}đ
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                     <div className="flex flex-col items-end">
