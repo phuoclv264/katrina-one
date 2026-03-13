@@ -456,6 +456,10 @@ export const dataStore = {
         if (existingSheet.salaryRecords[userId]?.bonus) {
           updatedRecords[userId].bonus = existingSheet.salaryRecords[userId].bonus;
         }
+        // Preserve existing bonuses list
+        if (existingSheet.salaryRecords[userId]?.bonuses) {
+          updatedRecords[userId].bonuses = existingSheet.salaryRecords[userId].bonuses;
+        }
         if (existingSheet.salaryRecords[userId]?.actualPaidAmount) {
           updatedRecords[userId].actualPaidAmount = existingSheet.salaryRecords[userId].actualPaidAmount;
         }
