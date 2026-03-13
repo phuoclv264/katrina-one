@@ -1269,7 +1269,12 @@ export default function ScheduleView() {
                                                             });
 
                                                             return (
-                                                                <div key={template.id} className={cn("p-3 border rounded-md bg-card", isUnderstaffed && "border-destructive bg-destructive/10", isPast && "opacity-60", isToday && "ring-1 ring-yellow-200")}>
+                                                                <div key={template.id} className={cn("p-3 border rounded-md bg-card relative", isUnderstaffed && "border-destructive bg-destructive/10", isPast && "opacity-60", isToday && "ring-1 ring-yellow-200")}>
+                                                                    {(shiftObject.applicants?.length || 0) > 0 && (
+                                                                        <div className="absolute top-1 right-1 flex items-center justify-center bg-emerald-500 text-white text-[9px] font-bold rounded-full w-4 h-4 shadow-sm z-10" title="Có ứng viên">
+                                                                            {shiftObject.applicants?.length}
+                                                                        </div>
+                                                                    )}
                                                                     <div className="flex items-center justify-between gap-2">
                                                                         <div className="flex-1">
                                                                             <p className="font-semibold">{template.label}</p>

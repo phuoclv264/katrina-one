@@ -231,7 +231,7 @@ export async function createAttendanceRecord(
     if (recordToUpdate) {
         // Update the existing 'pending_late' record
         await updateDoc(recordToUpdate, {
-            checkInTime: serverTimestamp(),
+            checkInTime: new Date(),
             photoInUrl: photoUrl,
             status: 'in-progress',
             hourlyRate: hourlyRate,
@@ -244,7 +244,7 @@ export async function createAttendanceRecord(
         // Create a new record
         const newRecord: Omit<AttendanceRecord, 'id'> = {
             userId: user.uid,
-            checkInTime: serverTimestamp() as Timestamp,
+            checkInTime: Timestamp.fromDate(new Date()),
             photoInUrl: photoUrl,
             status: 'in-progress',
             hourlyRate: hourlyRate,
@@ -314,7 +314,7 @@ export async function updateAttendanceRecord(recordId: string, photoId: string):
     const salary = Math.round(totalHours * hourlyRate);
 
     await updateDoc(recordRef, {
-        checkOutTime: checkOutTime,
+        checkOutTime: Timestamp.fromDate(checkOutTime),
         totalHours: totalHours,
         salary: salary,
         photoOutUrl: photoUrl,
@@ -332,7 +332,7 @@ export async function startBreak(recordId: string, photoId: string): Promise<voi
     const photoUrl = await uploadFile(photoBlob, storagePath);
 
     const newBreak = {
-        breakStartTime: Timestamp.now(),
+        breakStartTime: Timestamp.fromDate(new Date()),
         breakStartPhotoUrl: photoUrl,
     };
 
@@ -360,7 +360,7 @@ export async function endBreak(recordId: string, photoId: string): Promise<void>
 
     if (breaks.length > 0) {
         const lastBreak = breaks[breaks.length - 1];
-        lastBreak.breakEndTime = Timestamp.now();
+        lastBreak.breakEndTime = Timestamp.fromDate(new Date());
         lastBreak.breakEndPhotoUrl = photoUrl;
     }
 

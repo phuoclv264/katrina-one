@@ -448,7 +448,7 @@ export default function ItemEditPopover({
     return (
         <Dialog open={isOpen} onOpenChange={handleCloseDialog} dialogTag={`item-edit-dialog-${initialItem.id}`} parentDialogTag={parentDialogTag}>
             <DialogTrigger asChild>{children}</DialogTrigger>
-            <DialogContent className="max-w-3xl h-[92vh] sm:h-[85vh] flex flex-col p-0 overflow-hidden border-none shadow-2xl">
+            <DialogContent className="max-w-3xl lg:max-w-3xl h-full flex flex-col p-0 overflow-hidden border-none shadow-2xl">
                 <DialogHeader variant="premium" iconkey="edit">
                     <DialogTitle>Chỉnh sửa mặt hàng</DialogTitle>
                     <DialogDescription className="opacity-90">
