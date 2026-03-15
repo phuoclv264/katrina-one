@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Star, ArrowUp, ArrowDown, Image as ImageIcon, Trash2, Loader2, Camera, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Task } from '@/lib/types';
+import type { ShiftTemplate, Task } from '@/lib/types';
 import CameraDialog from '@/components/camera-dialog';
 import { ImageReuseDialog } from './image-reuse-dialog';
 import { photoStore } from '@/lib/photo-store';
@@ -36,14 +36,16 @@ interface TaskDialogProps {
   sectionTitle?: string;
   initialData?: Omit<Task, 'id'> | null;
   parentDialogTag?: string;
+  shiftTemplates?: any[];
 }
 
-export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', sectionTitle = '', initialData = null, parentDialogTag = 'root' }: TaskDialogProps) {
+export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', sectionTitle = '', initialData = null, parentDialogTag = 'root', shiftTemplates = [] }: TaskDialogProps) {
   const [text, setText] = useState('');
   const [isCritical, setIsCritical] = useState(false);
   const [type, setType] = useState<Task['type']>('photo');
   const [minCompletions, setMinCompletions] = useState(1);
   const [genderPreference, setGenderPreference] = useState<Task['genderPreference']>('Tất cả');
+  const [shiftPreference, setShiftPreference] = useState<string[]>([]);
 
   // instruction fields
   const [instructionText, setInstructionText] = useState('');
@@ -104,6 +106,7 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
         setType(initialData.type || 'photo');
         setMinCompletions(initialData.minCompletions || 1);
         setGenderPreference(initialData.genderPreference || 'Tất cả');
+        setShiftPreference(initialData.shiftPreference || []);
         setInstructionText(initialData.instruction?.text || '');
         setInstructionImages(
           (initialData.instruction?.images || []).map((img: any) => 
@@ -117,6 +120,7 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
         setType('photo');
         setMinCompletions(1);
         setGenderPreference('Tất cả');
+        setShiftPreference([]);
         setInstructionText('');
         setInstructionImages(prev => {
           prev.forEach(img => {
@@ -287,6 +291,7 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
         type,
         minCompletions,
         genderPreference,
+        shiftPreference: shiftPreference.length > 0 ? shiftPreference : undefined,
         instruction: {
           text: instructionText.trim() || undefined,
           images: processedImages.length ? processedImages : undefined,
@@ -492,7 +497,17 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
               )}
             </div>
           </div>
-
+            <div className="space-y-2">
+              <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground ml-1">Lọc theo Ca làm việc (Để trống nếu dành cho tất cả)</Label>
+              <Combobox
+                multiple
+                value={shiftPreference}
+                onChange={(value) => setShiftPreference(value as string[])}
+                options={shiftTemplates.map((t: ShiftTemplate) => ({ value: t.id, label: t.label }))}
+                placeholder="Chọn các ca được phép thấy..."
+                className="w-full h-12 rounded-xl bg-muted/20 border-transparent focus:bg-background transition-all"
+              />
+            </div>
           <div className={cn("flex items-center justify-between p-4 rounded-lg border transition-all duration-300 cursor-pointer", isCritical ? "bg-amber-50/50 border-amber-200" : "bg-muted/10 border-transparent")} onClick={() => setIsCritical(!isCritical)}>
             <div className="flex items-center gap-3">
               <div className={cn("p-2 rounded-lg", isCritical ? "bg-amber-100 text-amber-500" : "bg-muted/30 text-muted-foreground/40")}>

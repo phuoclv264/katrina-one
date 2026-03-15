@@ -33,6 +33,8 @@ import { useLightbox } from '@/contexts/lightbox-context';
 import { differenceInMinutes } from 'date-fns';
 // Avatar not needed for flattened other-staff completions
 import { Users } from 'lucide-react';
+import { calculateAdjustedMinCompletions } from '@/lib/shift-utils';
+import { useAuth } from '@/hooks/use-auth';
 
 type OtherStaffCompletion = {
   staffName: string;
@@ -75,7 +77,16 @@ const TaskItemComponent = ({
   otherStaffCompletions = [],
   className,
 }: TaskItemProps) => {
-  const minCompletions = task.minCompletions || 1;
+  const { activeShifts } = useAuth();
+  const activeTimeSlot = activeShifts?.[0]?.timeSlot;
+  // Note: shiftKey is not directly available here, but calculateAdjustedMinCompletions
+  // handles missing mainShiftKey by returning baseMinCompletions.
+  // In checklist pages, we pass it via ChecklistTabs.
+  // For other contexts, we try to infer it from activeShift if needed,
+  // but for TaskItem, we can try to get it from the environment if possible.
+  // Best to update props or use a hook to get current shift context.
+  const baseMinCompletions = task.minCompletions || 1;
+  const minCompletions = calculateAdjustedMinCompletions(baseMinCompletions, '', activeTimeSlot);
   const isCompleted = completions.length >= minCompletions;
   // Allow adding photos to single-completion photo tasks even if already completed.
   const isDisabledForNew = (isSingleCompletion && isCompleted && task.type !== 'opinion' && task.type !== 'photo') || isReadonly;

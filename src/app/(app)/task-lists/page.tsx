@@ -57,6 +57,7 @@ export default function TaskListsPage() {
         minCompletions: number;
         isCritical: boolean;
         genderPreference: Task['genderPreference'];
+        shiftPreference?: string[];
         instruction?: { text?: string; images?: { url: string; caption?: string }[] }
     } | null>(null);
 
@@ -185,7 +186,7 @@ export default function TaskListsPage() {
         }
 
         const { shiftKey, sectionTitle, taskId } = editingTask;
-        const { text, type, minCompletions, isCritical, genderPreference, instruction } = data;
+        const { text, type, minCompletions, isCritical, genderPreference, shiftPreference, instruction } = data;
         const newTasksState = JSON.parse(JSON.stringify(tasksByShift));
         const section = newTasksState[shiftKey]?.sections.find((s: TaskSection) => s.title === sectionTitle);
         if (section) {
@@ -196,6 +197,7 @@ export default function TaskListsPage() {
                 task.minCompletions = minCompletions || 1;
                 task.isCritical = isCritical;
                 task.genderPreference = genderPreference;
+                task.shiftPreference = shiftPreference;
                 task.instruction = instruction;
             }
         }
@@ -588,6 +590,7 @@ export default function TaskListsPage() {
                                                                                         minCompletions: task.minCompletions || 1,
                                                                                         isCritical: !!task.isCritical,
                                                                                         genderPreference: task.genderPreference || 'Tất cả',
+                                                                                        shiftPreference: task.shiftPreference || [],
                                                                                         instruction: task.instruction
                                                                                     })}>
                                                                                         <Pencil className="h-4 w-4" />
@@ -648,6 +651,7 @@ export default function TaskListsPage() {
                 }}
                 shiftName={addingToSection ? tasksByShift?.[addingToSection.shiftKey]?.name || '' : ''}
                 sectionTitle={addingToSection?.sectionTitle || ''}
+                shiftTemplates={shiftTemplates}
             />
 
             <TaskDialog
@@ -662,10 +666,12 @@ export default function TaskListsPage() {
                     minCompletions: editingTask.minCompletions,
                     isCritical: editingTask.isCritical,
                     genderPreference: editingTask.genderPreference,
+                    shiftPreference: editingTask.shiftPreference,
                     instruction: editingTask.instruction
                 } : null}
                 shiftName={editingTask ? tasksByShift?.[editingTask.shiftKey]?.name || '' : ''}
                 sectionTitle={editingTask?.sectionTitle || ''}
+                shiftTemplates={shiftTemplates}
             />
         </div>
     );

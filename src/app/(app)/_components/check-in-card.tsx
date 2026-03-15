@@ -26,7 +26,7 @@ import { isToday } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import WorkHistoryDialog from './work-history-dialog';
 import PendingWorkDialog from './pending-work-dialog';
-import { DEFAULT_MAIN_SHIFT_TIMEFRAMES, getActiveShiftKeys } from '@/lib/shift-utils';
+import { DEFAULT_MAIN_SHIFT_TIMEFRAMES, getActiveShiftKeys, calculateAdjustedMinCompletions } from '@/lib/shift-utils';
 import { createUndoneTasksViolation } from '@/lib/violations-service';
 
 type PendingWorkItem = {
@@ -270,15 +270,36 @@ export default function CheckInCard() {
                     const undoneList: string[] = [];
 
                     if (tasksMap && tasksMap[shiftKey]) {
-                        for (const section of tasksMap[shiftKey].sections) {
+                        const shift = tasksMap[shiftKey];
+                        const activeShiftLabels = activeShifts?.map(as => as.label) || [];
+                        const allTasksInShift = shift.sections.flatMap(s => s.tasks);
+
+                        // Determine if we have any tasks specifically matching our active shifts
+                        const hasSpecificTasks = allTasksInShift.some(t =>
+                            t.shiftPreference &&
+                            t.shiftPreference.length > 0 &&
+                            activeShiftLabels.some(label => t.shiftPreference!.includes(label))
+                        );
+
+                        for (const section of shift.sections) {
                             const isGlobalSection = section.title === 'Đầu ca' || section.title === 'Cuối ca';
                             for (const task of section.tasks) {
+                                // Apply the same filtering as ChecklistView
+                                const hasPreference = task.shiftPreference && task.shiftPreference.length > 0;
+                                const matchesActiveShift = hasPreference && activeShiftLabels.some(label => task.shiftPreference!.includes(label));
+
+                                if (hasSpecificTasks) {
+                                    // In Specific Mode: only check matching tasks
+                                    if (!matchesActiveShift) continue;
+                                }
+
                                 // Filter by gender preference
                                 if (task.genderPreference && task.genderPreference !== 'Tất cả' && task.genderPreference !== user.gender) {
                                     continue;
                                 }
 
-                                const required = task.minCompletions || 1;
+                                const baseRequired = task.minCompletions || 1;
+                                const required = calculateAdjustedMinCompletions(baseRequired, shiftKey, activeShift?.timeSlot);
                                 if (isGlobalSection) {
                                     // if any user has satisfied this task, skip it
                                     const doneByAnyone = allShiftReports.some(r => {
@@ -293,9 +314,11 @@ export default function CheckInCard() {
                                 } else {
                                     // each user must complete their own
                                     const completions = serverReport ? serverReport.completedTasks[task.id] || [] : [];
-                                    if (completions.length < required) {
-                                        const remaining = required - completions.length;
-                                        const countLabel = required > 1 ? ` (còn ${remaining}/${required} lần)` : '';
+                                    const baseRequiredForSelf = task.minCompletions || 1;
+                                    const requiredForSelf = calculateAdjustedMinCompletions(baseRequiredForSelf, shiftKey, activeShift?.timeSlot);
+                                    if (completions.length < requiredForSelf) {
+                                        const remaining = requiredForSelf - completions.length;
+                                        const countLabel = requiredForSelf > 1 ? ` (còn ${remaining}/${requiredForSelf} lần)` : '';
                                         undoneList.push(task.isCritical ? `_CRITICAL_${task.text}${countLabel}` : `${task.text}${countLabel}`);
                                     }
                                 }
@@ -344,7 +367,8 @@ export default function CheckInCard() {
                             }
 
                             const completions = serverReport ? serverReport.completedTasks[task.id] || [] : [];
-                            const required = task.minCompletions || 1;
+                            const baseRequired = task.minCompletions || 1;
+                            const required = calculateAdjustedMinCompletions(baseRequired, '', activeShift?.timeSlot);
                             if (completions.length < required) {
                                 const remaining = required - completions.length;
                                 const countLabel = required > 1 ? ` (còn ${remaining}/${required} lần)` : '';

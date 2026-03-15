@@ -24,16 +24,12 @@ import { Badge } from '@/components/ui/badge';
 import { photoStore } from '@/lib/photo-store';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { format, set } from 'date-fns';
-import { vi } from 'date-fns/locale';
-import SubmissionNotesSection from '../../_components/submission-notes-section';
-import { cn, generateShortName, getInitials } from '@/lib/utils';
-import { TaskItem } from '../../../_components/task-item';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useLightbox } from '@/contexts/lightbox-context';
 import { useRouter } from 'nextjs-toploader/app';
 import ChecklistHeader from './checklist-header';
 import ChecklistTabs from './checklist-tabs';
 import SubmitFab from './submit-fab';
+import { calculateAdjustedMinCompletions } from '@/lib/shift-utils';
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
@@ -50,7 +46,7 @@ interface ChecklistViewProps {
 
 export default function ChecklistView({ shiftKey, isStandalone = true }: ChecklistViewProps) {
   const { openLightbox } = useLightbox();
-  const { user, loading: isAuthLoading } = useAuth();
+  const { user, loading: isAuthLoading, activeShifts } = useAuth();
   const router = useRouter();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const notesSectionRef = useRef<HTMLTextAreaElement>(null);
@@ -84,12 +80,62 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
   const initialTabSet = useRef(false);
 
   // --- Derived State for UI ---
-  const allTasks = shift ? shift.sections.flatMap(s => s.tasks) : [];
+  const filteredShift = useMemo(() => {
+    if (!shift) return null;
+    const activeShiftLabels = activeShifts?.map(as => as.label) || [];
+    const allTasksInShift = shift.sections.flatMap(s => s.tasks);
+
+    // Determine if we have any tasks specifically matching our active shifts
+    const hasSpecificTasks = allTasksInShift.some(t =>
+      t.shiftPreference &&
+      t.shiftPreference.length > 0 &&
+      activeShiftLabels.some(label => t.shiftPreference!.includes(label))
+    );
+
+    const filteredSections = shift.sections.map(section => {
+      const tasksMatchingFilter = section.tasks.filter(t => {
+        const hasPreference = t.shiftPreference && t.shiftPreference.length > 0;
+        const matchesActiveShift = hasPreference && activeShiftLabels.some(label => t.shiftPreference!.includes(label));
+
+        if (hasSpecificTasks) {
+          // In Specific Mode: only show matching tasks
+          return matchesActiveShift;
+        } else {
+          // In Normal Mode: show all tasks
+          return true; // Show all tasks, but we'll apply gender filtering later
+        }
+      });
+
+      // Also apply gender filtering here to keep it centralized
+      const finalTasks = tasksMatchingFilter.filter(t => {
+        if (t.genderPreference && t.genderPreference !== 'Tất cả') {
+          if (!user?.gender) return true;
+          return t.genderPreference === user.gender;
+        }
+        return true;
+      });
+
+      return {
+        ...section,
+        tasks: finalTasks
+      };
+    }).filter(s => s.tasks.length > 0);
+
+    return {
+      ...shift,
+      sections: filteredSections
+    };
+  }, [shift, activeShifts, user?.gender]);
+
+  const allTasks = filteredShift ? filteredShift.sections.flatMap(s => s.tasks) : [];
   const checklistTasks = allTasks.filter(t => t.type !== 'opinion');
+
+  const activeTimeSlot = activeShifts?.[0]?.timeSlot;
 
   const totalTasksCount = checklistTasks.length;
   const completedTasksCount = checklistTasks.filter(t => {
-    const minCompletions = t.minCompletions || 1;
+    const baseMinCompletions = t.minCompletions || 1;
+    const minCompletions = calculateAdjustedMinCompletions(baseMinCompletions, shiftKey, activeTimeSlot);
     const isSelfCompleted = (report?.completedTasks[t.id]?.length || 0) >= minCompletions;
     const isOtherCompleted = otherStaffReports.some(r => (r.completedTasks?.[t.id]?.length || 0) >= minCompletions);
     return isSelfCompleted || isOtherCompleted;
@@ -98,7 +144,7 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
   const progressPercentage = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
 
   const teamStats = useMemo(() => {
-    if (!shift) return [];
+    if (!filteredShift) return [];
     const allReports = report ? [report, ...otherStaffReports] : otherStaffReports;
 
     const checklistTaskIds = new Set(checklistTasks.map(t => t.id));
@@ -126,12 +172,12 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
         isMe: r.userId === user?.uid
       };
     }).sort((a, b) => b.tasksDone - a.tasksDone || b.photosTaken - a.photosTaken);
-  }, [report, otherStaffReports, checklistTasks, allTasks, user?.uid, shift]);
+  }, [report, otherStaffReports, checklistTasks, allTasks, user?.uid, filteredShift]);
 
   // Auto-set active tab on first load only: prefer the section that contains the newest completion; fallback to first incomplete section
   useEffect(() => {
     if (initialTabSet.current) return;
-    if (shift && report && !isReadonly) {
+    if (filteredShift && report && !isReadonly) {
       // Find the newest completion across all tasks (timestamps are 'HH:mm')
       let newestTime = -Infinity;
       let newestTaskId: string | null = null;
@@ -152,7 +198,7 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
       });
 
       if (newestTaskId) {
-        const containingSection = shift.sections.find(s => s.tasks.some(t => t.id === newestTaskId));
+        const containingSection = filteredShift.sections.find(s => s.tasks.some(t => t.id === newestTaskId));
         if (containingSection) {
           setActiveTab(containingSection.title);
           initialTabSet.current = true;
@@ -161,7 +207,7 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
       }
 
       // Fallback: set to the first incomplete section as before
-      const sections = shift.sections;
+      const sections = filteredShift.sections;
       for (const section of sections) {
         const sectionTasks = section.tasks.filter(t => t.type !== 'opinion');
         const isSectionComplete = sectionTasks.length > 0 && sectionTasks.every(t => (report.completedTasks[t.id]?.length || 0) > 0);
@@ -172,7 +218,7 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
         }
       }
     }
-  }, [shift, report, isReadonly]);
+  }, [filteredShift, report, isReadonly]);
 
   useEffect(() => {
     if (!shiftKey || !shiftTimeFrames[shiftKey]) return;
@@ -487,7 +533,7 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
       }
 
       if ((completionToUpdate.photoIds?.length || 0) === 0 && (completionToUpdate.photos?.length || 0) === 0) {
-        const taskDefinition = shift?.sections.flatMap(s => s.tasks).find(t => t.id === taskId);
+        const taskDefinition = filteredShift?.sections.flatMap(s => s.tasks).find(t => t.id === taskId);
         if (taskDefinition?.type === 'photo') {
           taskCompletions.splice(completionIndex, 1);
         }
@@ -536,7 +582,7 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
   }
 
   const handleSubmitReport = async () => {
-    if (!report || !shift) return;
+    if (!report || !filteredShift) return;
 
     // Final check before submitting
     if (isReadonly) {
@@ -653,7 +699,7 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
   return (
     <div className="flex flex-col min-h-screen bg-background pb-24">
       <ChecklistHeader
-        shift={shift}
+        shift={filteredShift}
         progressPercentage={progressPercentage}
         completedTasksCount={completedTasksCount}
         totalTasksCount={totalTasksCount}
@@ -666,7 +712,7 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
       {/* --- Main Content: Tabs --- */}
       <div className="flex-1 px-3 py-4">
         <ChecklistTabs
-          shift={shift}
+          shift={filteredShift}
           report={report}
           otherStaffReports={otherStaffReports}
           activeTab={activeTab}
