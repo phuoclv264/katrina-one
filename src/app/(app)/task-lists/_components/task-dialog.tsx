@@ -292,6 +292,7 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
           images: processedImages.length ? processedImages : undefined,
         }
       });
+      setDeletedServerImages([]); // Clear after successful cleanup
       onClose();
     } catch (error) {
       console.error('Error during task confirmation:', error);

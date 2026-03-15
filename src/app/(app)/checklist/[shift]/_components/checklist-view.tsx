@@ -73,41 +73,7 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
   const [activeCompletionIndex, setActiveCompletionIndex] = useState<number | null>(null);
 
   const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
-  
-  const { activeShifts } = useAuth();
-  const activeTemplateIds = useMemo(() => new Set(activeShifts.map(s => s.templateId)), [activeShifts]);
-
-  const shift = useMemo(() => {
-    if (!tasksByShift || !shiftKey) return null;
-    const baseShift = tasksByShift[shiftKey];
-    if (!baseShift) return null;
-
-    // Filter sections based on shiftTemplateId pinning
-    const filteredSections = baseShift.sections.filter(section => {
-      // If no templateId is pinned, show to everyone
-      if (!section.shiftTemplateId) return true;
-      
-      // If pinned, ONLY show if user is assigned to that specific template
-      // and HIDE all generic/other sections for this user if they have a pinned one?
-      // Actually, the user's requirement is: "if users with active shift A can ONLY see section nailed to shift A"
-      // This implies if they have a nailed section, they shouldn't see the un-nailed ones.
-      
-      return activeTemplateIds.has(section.shiftTemplateId);
-    });
-
-    // Check if the user has ANY pinned sections available to them
-    const hasAnyPinnedSection = filteredSections.some(s => s.shiftTemplateId && activeTemplateIds.has(s.shiftTemplateId));
-
-    // If they have a pinned section, filter out the generic ones (those without shiftTemplateId)
-    const finalSections = hasAnyPinnedSection 
-      ? filteredSections.filter(s => !!s.shiftTemplateId)
-      : filteredSections;
-
-    return {
-      ...baseShift,
-      sections: finalSections
-    };
-  }, [tasksByShift, shiftKey, activeTemplateIds]);
+  const shift = tasksByShift ? tasksByShift[shiftKey] : null;
 
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
 

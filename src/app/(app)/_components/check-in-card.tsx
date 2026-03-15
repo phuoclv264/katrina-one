@@ -270,19 +270,7 @@ export default function CheckInCard() {
                     const undoneList: string[] = [];
 
                     if (tasksMap && tasksMap[shiftKey]) {
-                        // Filter sections based on shiftTemplateId pinning (mirroring ChecklistView logic)
-                        const userTemplateId = activeShift?.templateId;
-                        const filteredSections = tasksMap[shiftKey].sections.filter(s => {
-                            if (!s.shiftTemplateId) return true;
-                            return userTemplateId === s.shiftTemplateId;
-                        });
-
-                        const hasAnyPinnedSection = filteredSections.some(s => s.shiftTemplateId && s.shiftTemplateId === userTemplateId);
-                        const finalSections = hasAnyPinnedSection
-                            ? filteredSections.filter(s => !!s.shiftTemplateId)
-                            : filteredSections;
-
-                        for (const section of finalSections) {
+                        for (const section of tasksMap[shiftKey].sections) {
                             const isGlobalSection = section.title === 'Đầu ca' || section.title === 'Cuối ca';
                             for (const task of section.tasks) {
                                 // Filter by gender preference
@@ -348,19 +336,7 @@ export default function CheckInCard() {
                 const bartenderTasks = await dataStore.getBartenderTasks();
                 if (bartenderTasks) {
                     const undoneList: string[] = [];
-                    // Filter sections based on shiftTemplateId pinning (mirroring ChecklistView logic)
-                    const userTemplateId = activeShift?.templateId;
-                    const filteredSectionsForBartenders = bartenderTasks.filter(s => {
-                        if (!s.shiftTemplateId) return true;
-                        return userTemplateId === s.shiftTemplateId;
-                    });
-
-                    const hasAnyPinnedSectionForBartenders = filteredSectionsForBartenders.some(s => s.shiftTemplateId && s.shiftTemplateId === userTemplateId);
-                    const finalSectionsForBartenders = hasAnyPinnedSectionForBartenders
-                        ? filteredSectionsForBartenders.filter(s => !!s.shiftTemplateId)
-                        : filteredSectionsForBartenders;
-
-                    for (const section of finalSectionsForBartenders) {
+                    for (const section of bartenderTasks) {
                         for (const task of section.tasks) {
                             // Filter by gender preference
                             if (task.genderPreference && task.genderPreference !== 'Tất cả' && task.genderPreference !== user.gender) {

@@ -36,7 +36,6 @@ import {
 import { diffChars } from 'diff';
 import { Badge } from '@/components/ui/badge';
 import { TaskDialog } from './_components/task-dialog';
-import { SectionCreationDialog } from './_components/section-creation-dialog';
 import { copyFileFromUrl, deleteFileByUrl } from '@/lib/data-store-helpers';
 
 export default function TaskListsPage() {
@@ -48,7 +47,6 @@ export default function TaskListsPage() {
     const navigation = useAppNavigation();
     const [isLoading, setIsLoading] = useState(true);
     const [isSorting, setIsSorting] = useState(false);
-    const [isAddingSection, setIsAddingSection] = useState<string | null>(null); // shiftKey
     const [addingToSection, setAddingToSection] = useState<{ shiftKey: string; sectionTitle: string } | null>(null);
     const [editingTask, setEditingTask] = useState<{
         shiftKey: string;
@@ -433,18 +431,6 @@ export default function TaskListsPage() {
                                                 <ChevronsDownUp className="mr-2 h-4 w-4 text-muted-foreground" />
                                                 {areAllSectionsOpen ? 'Thu gọn' : 'Mở rộng'}
                                             </Button>
-
-                                            <Button
-                                                variant="default"
-                                                size="sm"
-                                                onClick={() => {
-                                                    setIsAddingSection(shiftKey);
-                                                }}
-                                                className="h-9 px-3 rounded-lg bg-primary hover:bg-primary/90 text-white shadow-sm transition-all text-xs font-bold"
-                                            >
-                                                <Plus className="mr-1.5 h-3.5 w-3.5" />
-                                                Thêm mục mới
-                                            </Button>
                                         </div>
                                     </div>
                                 </CardHeader>
@@ -462,12 +448,6 @@ export default function TaskListsPage() {
                                                         <div className="flex items-center gap-2">
                                                             <span className="font-bold text-lg group-hover:text-primary transition-colors">{section.title}</span>
                                                             <Badge variant="secondary" className="font-normal rounded-full px-2 h-5 text-[10px]">{section.tasks.length}</Badge>
-                                                            {section.shiftTemplateId && (
-                                                                <Badge variant="outline" className="h-5 px-1.5 text-[9px] font-black uppercase tracking-widest bg-primary/10 text-primary border-primary/20 rounded-md flex items-center gap-1">
-                                                                    <Star className="h-2.5 w-2.5 fill-primary" />
-                                                                    {shiftTemplates.find(t => t.id === section.shiftTemplateId)?.label || 'Ghim mẫu'}
-                                                                </Badge>
-                                                            )}
                                                         </div>
                                                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                             <div
@@ -668,90 +648,6 @@ export default function TaskListsPage() {
                 }}
                 shiftName={addingToSection ? tasksByShift?.[addingToSection.shiftKey]?.name || '' : ''}
                 sectionTitle={addingToSection?.sectionTitle || ''}
-            />
-
-            <SectionCreationDialog
-                open={isAddingSection !== null}
-                onOpenChange={(open) => !open && setIsAddingSection(null)}
-                shiftKey={isAddingSection}
-                shiftName={isAddingSection ? tasksByShift[isAddingSection]?.name || '...' : ''}
-                tasksByShift={tasksByShift}
-                shiftTemplates={shiftTemplates}
-                onConfirm={async (title, copyFrom, templateId) => {
-                    if (!isAddingSection) return;
-                    
-                    const shiftKey = isAddingSection;
-                    const newTasksState = JSON.parse(JSON.stringify(tasksByShift));
-                    if (!newTasksState[shiftKey]) return;
-
-                    // Check if section already exists
-                    if (newTasksState[shiftKey].sections.some((s: TaskSection) => s.title === title)) {
-                        toast.error("Mục này đã tồn tại trong ca!");
-                        return;
-                    }
-
-                    let copiedTasks: Task[] = [];
-                    if (Array.isArray(copyFrom) && copyFrom.length > 0) {
-                        toast.info(`Đang chuẩn bị ${copyFrom.length} mục...`);
-                        
-                        // We need to resolve all tasks first
-                        const sourceTasks: Task[] = [];
-                        copyFrom.forEach((source: { shiftKey: string; sectionTitle: string }) => {
-                            const sourceKey = source.shiftKey;
-                            const sourceSection = tasksByShift[sourceKey]?.sections.find(s => s.title === source.sectionTitle);
-                            if (sourceSection) {
-                                sourceTasks.push(...sourceSection.tasks);
-                            }
-                        });
-
-                        // Deep clone and uniquely ID each task
-                        // Also, explicitly copy instruction images to storage to avoid shared references
-                        const clonePromises = sourceTasks.map(async (t) => {
-                            const newTask = JSON.parse(JSON.stringify(t)) as Task;
-                            newTask.id = `task-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-                            
-                            // If task has instruction images, we MUST copy them in storage
-                            if (newTask.instruction?.images && newTask.instruction.images.length > 0) {
-                                const imageCopyPromises = newTask.instruction.images.map(async (img) => {
-                                    const originalUrl = img.url;
-                                    const extension = originalUrl.split('?')[0].split('.').pop() || 'jpg';
-                                    const newPath = `task-instructions/${shiftKey}/${newTask.id}/${Date.now()}-${Math.random().toString(36).substring(2, 5)}.${extension}`;
-                                    
-                                    const newUrl = await copyFileFromUrl(originalUrl, newPath);
-                                    return {
-                                        ...img,
-                                        url: newUrl
-                                    };
-                                });
-                                newTask.instruction.images = await Promise.all(imageCopyPromises);
-                            }
-                            
-                            return newTask;
-                        });
-
-                        copiedTasks = await Promise.all(clonePromises);
-                    }
-
-                    newTasksState[shiftKey].sections.push({
-                        title,
-                        tasks: copiedTasks,
-                        shiftTemplateId: templateId
-                    });
-
-                    handleUpdateAndSave(newTasksState);
-                    setIsAddingSection(null);
-
-                    setOpenSections(prev => ({
-                        ...prev,
-                        [shiftKey]: [...(prev[shiftKey] || []), title]
-                    }));
-
-                    if (copiedTasks.length > 0) {
-                        toast.success(`Đã tạo mục "${title}" với ${copiedTasks.length} nhiệm vụ được copy!`);
-                    } else {
-                        toast.success(`Đã tạo mục "${title}" thành công!`);
-                    }
-                }}
             />
 
             <TaskDialog
