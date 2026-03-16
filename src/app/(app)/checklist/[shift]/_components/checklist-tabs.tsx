@@ -71,13 +71,13 @@ export default function ChecklistTabs({ shift, report, otherStaffReports, active
         <div className="absolute -top-1.5 -right-1.5 z-20 pointer-events-none" role="img" aria-label="Chưa hoàn thành" title="Chưa hoàn thành">
           <div
             className={cn(
-              "inline-flex items-center justify-center h-5 w-5 rounded-full text-white shadow-sm border-2 border-white transform-gpu will-change-transform motion-reduce:animate-none",
+              "inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded-full text-white shadow-sm border-2 border-white transform-gpu will-change-transform motion-reduce:animate-none",
               isCritical
                 ? "bg-amber-600 font-extrabold animate-[zoom-in-out_900ms_ease-in-out_infinite]"
                 : "bg-amber-500/95 animate-[zoom-in-out_1200ms_ease-in-out_infinite]"
             )}
           >
-            <span className="text-[11px] font-extrabold leading-none">!</span>
+            <span className="text-[10px] font-black leading-none">{min}</span>
           </div>
         </div>
       );

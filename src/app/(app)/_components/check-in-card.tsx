@@ -26,7 +26,7 @@ import { isToday } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import WorkHistoryDialog from './work-history-dialog';
 import PendingWorkDialog from './pending-work-dialog';
-import { DEFAULT_MAIN_SHIFT_TIMEFRAMES, getActiveShiftKeys, calculateAdjustedMinCompletions } from '@/lib/shift-utils';
+import { DEFAULT_MAIN_SHIFT_TIMEFRAMES, getActiveShiftKeys, calculateAdjustedMinCompletions, getShiftKeyFromTimeSlot } from '@/lib/shift-utils';
 import { createUndoneTasksViolation } from '@/lib/violations-service';
 
 type PendingWorkItem = {
@@ -236,15 +236,12 @@ export default function CheckInCard() {
             let shiftKey = '';
 
             // Try to infer shiftKey from the user's actively scheduled shift
-            if (activeShift && activeShift.label) {
-                const labelLower = activeShift.label.toLowerCase();
-                if (labelLower.includes('sáng')) shiftKey = 'sang';
-                else if (labelLower.includes('trưa')) shiftKey = 'trua';
-                else if (labelLower.includes('tối')) shiftKey = 'toi';
+            if (activeShift) {
+                shiftKey = getShiftKeyFromTimeSlot(activeShift.timeSlot);
             }
 
             // Fallback to time-based if no active shift
-            if (!shiftKey) {
+            if (shiftKey.length === 0) {
                 shiftKey = getActiveShiftKeys(DEFAULT_MAIN_SHIFT_TIMEFRAMES, new Date())[0];
             }
 
@@ -271,14 +268,14 @@ export default function CheckInCard() {
 
                     if (tasksMap && tasksMap[shiftKey]) {
                         const shift = tasksMap[shiftKey];
-                        const activeShiftLabels = activeShifts?.map(as => as.label) || [];
+                        const activeShiftTemplateId = activeShifts?.map(as => as.templateId) || [];
                         const allTasksInShift = shift.sections.flatMap(s => s.tasks);
 
                         // Determine if we have any tasks specifically matching our active shifts
                         const hasSpecificTasks = allTasksInShift.some(t =>
                             t.shiftPreference &&
                             t.shiftPreference.length > 0 &&
-                            activeShiftLabels.some(label => t.shiftPreference!.includes(label))
+                            activeShiftTemplateId.some(id => t.shiftPreference!.includes(id))
                         );
 
                         for (const section of shift.sections) {
@@ -286,7 +283,7 @@ export default function CheckInCard() {
                             for (const task of section.tasks) {
                                 // Apply the same filtering as ChecklistView
                                 const hasPreference = task.shiftPreference && task.shiftPreference.length > 0;
-                                const matchesActiveShift = hasPreference && activeShiftLabels.some(label => task.shiftPreference!.includes(label));
+                                const matchesActiveShift = hasPreference && activeShiftTemplateId.some(id => task.shiftPreference!.includes(id));
 
                                 if (hasSpecificTasks) {
                                     // In Specific Mode: only check matching tasks

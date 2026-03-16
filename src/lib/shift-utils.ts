@@ -65,6 +65,36 @@ export function getExactShiftKey(
 }
 
 /**
+ * Returns the shift key ("sang", "trua", "toi") by analyzing a time slot object.
+ *
+ * @param timeSlot The time slot object { start: string, end: string } with "HH:mm" strings.
+ * @param timeFrames Optional custom time frames, defaults to DEFAULT_MAIN_SHIFT_TIMEFRAMES
+ * @returns The matching shift key or an empty string if no match.
+ */
+export function getShiftKeyFromTimeSlot(
+  timeSlot: { start: string; end: string },
+  timeFrames: ShiftTimeFrames = DEFAULT_MAIN_SHIFT_TIMEFRAMES
+): ShiftKey | "" {
+  const parseTimeToHours = (time: string) => {
+    const [h, m] = time.split(':').map(Number);
+    return (h || 0) + (m || 0) / 60;
+  };
+
+  const start = parseTimeToHours(timeSlot.start);
+  const end = parseTimeToHours(timeSlot.end);
+  const midPoint = (start + end) / 2;
+
+  for (const k of Object.keys(timeFrames) as ShiftKey[]) {
+    const frame = timeFrames[k];
+    if (midPoint >= frame.start && midPoint < frame.end) {
+      return k;
+    }
+  }
+
+  return "";
+}
+
+/**
  * Calculates the adjusted minimum completions for a task based on the current shift's duration
  * relative to the main shift's duration.
  *
@@ -88,7 +118,14 @@ export function calculateAdjustedMinCompletions(
     return baseMinCompletions || 1;
   }
 
-  const mainFrame = timeFrames[mainShiftKey as ShiftKey];
+  // Determine the effective main shift key
+  // If the passed mainShiftKey is empty or generic (like for bartenders), use current time
+  let effectiveKey = mainShiftKey;
+  if (!effectiveKey || !timeFrames[effectiveKey as ShiftKey]) {
+    effectiveKey = getExactShiftKey(timeFrames);
+  }
+
+  const mainFrame = timeFrames[effectiveKey as ShiftKey];
   if (!mainFrame) return baseMinCompletions;
 
   const mainDuration = mainFrame.end - mainFrame.start;

@@ -82,20 +82,20 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
   // --- Derived State for UI ---
   const filteredShift = useMemo(() => {
     if (!shift) return null;
-    const activeShiftLabels = activeShifts?.map(as => as.label) || [];
+    const activeShiftTemplateId = activeShifts?.map(as => as.templateId) || [];
     const allTasksInShift = shift.sections.flatMap(s => s.tasks);
 
     // Determine if we have any tasks specifically matching our active shifts
     const hasSpecificTasks = allTasksInShift.some(t =>
       t.shiftPreference &&
       t.shiftPreference.length > 0 &&
-      activeShiftLabels.some(label => t.shiftPreference!.includes(label))
+      activeShiftTemplateId.some(id => t.shiftPreference!.includes(id))
     );
 
     const filteredSections = shift.sections.map(section => {
       const tasksMatchingFilter = section.tasks.filter(t => {
         const hasPreference = t.shiftPreference && t.shiftPreference.length > 0;
-        const matchesActiveShift = hasPreference && activeShiftLabels.some(label => t.shiftPreference!.includes(label));
+        const matchesActiveShift = hasPreference && activeShiftTemplateId.some(id => t.shiftPreference!.includes(id));
 
         if (hasSpecificTasks) {
           // In Specific Mode: only show matching tasks
@@ -166,7 +166,7 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
       return {
         userId: r.userId,
         name: r.staffName,
-        tasksDone: totalCompletions,
+      tasksDone: totalCompletions,
         photosTaken: photoCount,
         opinionsGiven: opinionCount,
         isMe: r.userId === user?.uid
