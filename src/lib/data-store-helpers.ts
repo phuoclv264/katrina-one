@@ -37,15 +37,22 @@ export async function uploadFile(fileBlob: Blob, path: string): Promise<string> 
  * @param fileUrl URL của file cần xóa.
  */
 export async function deleteFileByUrl(fileUrl: string): Promise<void> {
-    if (typeof window === 'undefined' || !fileUrl.includes('firebasestorage.googleapis.com')) return;
+    if (typeof window === 'undefined' || !fileUrl || !fileUrl.includes('firebasestorage.googleapis.com')) return;
     try {
-    if (!auth.currentUser) {
-      try { await signInAnonymously(auth); } catch (e) { console.error('Failed to sign in anonymously before delete:', e); }
-    }
+        if (!auth.currentUser) {
+            try { await signInAnonymously(auth); } catch (e) { /* ignore auth errors on delete */ }
+        }
         const fileRef = ref(storage, fileUrl);
         await deleteObject(fileRef);
     } catch (error: any) {
-        if (error.code !== 'storage/object-not-found') {
+        // Silently handle 404s and other common storage errors during cleanup
+        // Detailed error codes: https://firebase.google.com/docs/storage/web/handle-errors
+        if (
+            error.code !== 'storage/object-not-found' && 
+            error.code !== 'storage/unauthorized' &&
+            error.status !== 404 &&
+            error.status !== 403
+        ) {
             console.error("Lỗi khi xóa file từ Storage:", error);
         }
     }

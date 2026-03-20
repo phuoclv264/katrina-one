@@ -26,7 +26,7 @@ import { isToday } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import WorkHistoryDialog from './work-history-dialog';
 import PendingWorkDialog from './pending-work-dialog';
-import { DEFAULT_MAIN_SHIFT_TIMEFRAMES, getActiveShiftKeys } from '@/lib/shift-utils';
+import { DEFAULT_MAIN_SHIFT_TIMEFRAMES, getActiveShiftKeys, calculateAdjustedMinCompletions, getShiftKeyFromTimeSlot } from '@/lib/shift-utils';
 import { createUndoneTasksViolation } from '@/lib/violations-service';
 
 type PendingWorkItem = {
@@ -68,6 +68,8 @@ export default function CheckInCard() {
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [isWorkHistoryOpen, setIsWorkHistoryOpen] = useState(false);
     const [checkInPhotoUrl, setCheckInPhotoUrl] = useState<string | null>(null);
+    const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
+    const [successMessage, setSuccessMessage] = useState('');
 
     const [monthlyAssignments, setMonthlyAssignments] = useState<MonthlyTaskAssignment[]>([]);
     const [dailyTasks, setDailyTasks] = useState<DailyTask[]>([]);
@@ -236,15 +238,12 @@ export default function CheckInCard() {
             let shiftKey = '';
 
             // Try to infer shiftKey from the user's actively scheduled shift
-            if (activeShift && activeShift.label) {
-                const labelLower = activeShift.label.toLowerCase();
-                if (labelLower.includes('sáng')) shiftKey = 'sang';
-                else if (labelLower.includes('trưa')) shiftKey = 'trua';
-                else if (labelLower.includes('tối')) shiftKey = 'toi';
+            if (activeShift) {
+                shiftKey = getShiftKeyFromTimeSlot(activeShift.timeSlot);
             }
 
             // Fallback to time-based if no active shift
-            if (!shiftKey) {
+            if (shiftKey.length === 0) {
                 shiftKey = getActiveShiftKeys(DEFAULT_MAIN_SHIFT_TIMEFRAMES, new Date())[0];
             }
 
@@ -270,27 +269,36 @@ export default function CheckInCard() {
                     const undoneList: string[] = [];
 
                     if (tasksMap && tasksMap[shiftKey]) {
-                        // Filter sections based on shiftTemplateId pinning (mirroring ChecklistView logic)
-                        const userTemplateId = activeShift?.templateId;
-                        const filteredSections = tasksMap[shiftKey].sections.filter(s => {
-                            if (!s.shiftTemplateId) return true;
-                            return userTemplateId === s.shiftTemplateId;
-                        });
+                        const shift = tasksMap[shiftKey];
+                        const activeShiftTemplateId = activeShifts?.map(as => as.templateId) || [];
+                        const allTasksInShift = shift.sections.flatMap(s => s.tasks);
 
-                        const hasAnyPinnedSection = filteredSections.some(s => s.shiftTemplateId && s.shiftTemplateId === userTemplateId);
-                        const finalSections = hasAnyPinnedSection
-                            ? filteredSections.filter(s => !!s.shiftTemplateId)
-                            : filteredSections;
+                        // Determine if we have any tasks specifically matching our active shifts
+                        const hasSpecificTasks = allTasksInShift.some(t =>
+                            t.shiftPreference &&
+                            t.shiftPreference.length > 0 &&
+                            activeShiftTemplateId.some(id => t.shiftPreference!.includes(id))
+                        );
 
-                        for (const section of finalSections) {
+                        for (const section of shift.sections) {
                             const isGlobalSection = section.title === 'Đầu ca' || section.title === 'Cuối ca';
                             for (const task of section.tasks) {
+                                // Apply the same filtering as ChecklistView
+                                const hasPreference = task.shiftPreference && task.shiftPreference.length > 0;
+                                const matchesActiveShift = hasPreference && activeShiftTemplateId.some(id => task.shiftPreference!.includes(id));
+
+                                if (hasSpecificTasks) {
+                                    // In Specific Mode: only check matching tasks
+                                    if (!matchesActiveShift) continue;
+                                }
+
                                 // Filter by gender preference
                                 if (task.genderPreference && task.genderPreference !== 'Tất cả' && task.genderPreference !== user.gender) {
                                     continue;
                                 }
 
-                                const required = task.minCompletions || 1;
+                                const baseRequired = task.minCompletions || 1;
+                                const required = calculateAdjustedMinCompletions(baseRequired, shiftKey, activeShift?.timeSlot);
                                 if (isGlobalSection) {
                                     // if any user has satisfied this task, skip it
                                     const doneByAnyone = allShiftReports.some(r => {
@@ -305,9 +313,11 @@ export default function CheckInCard() {
                                 } else {
                                     // each user must complete their own
                                     const completions = serverReport ? serverReport.completedTasks[task.id] || [] : [];
-                                    if (completions.length < required) {
-                                        const remaining = required - completions.length;
-                                        const countLabel = required > 1 ? ` (còn ${remaining}/${required} lần)` : '';
+                                    const baseRequiredForSelf = task.minCompletions || 1;
+                                    const requiredForSelf = calculateAdjustedMinCompletions(baseRequiredForSelf, shiftKey, activeShift?.timeSlot);
+                                    if (completions.length < requiredForSelf) {
+                                        const remaining = requiredForSelf - completions.length;
+                                        const countLabel = requiredForSelf > 1 ? ` (còn ${remaining}/${requiredForSelf} lần)` : '';
                                         undoneList.push(task.isCritical ? `_CRITICAL_${task.text}${countLabel}` : `${task.text}${countLabel}`);
                                     }
                                 }
@@ -348,19 +358,7 @@ export default function CheckInCard() {
                 const bartenderTasks = await dataStore.getBartenderTasks();
                 if (bartenderTasks) {
                     const undoneList: string[] = [];
-                    // Filter sections based on shiftTemplateId pinning (mirroring ChecklistView logic)
-                    const userTemplateId = activeShift?.templateId;
-                    const filteredSectionsForBartenders = bartenderTasks.filter(s => {
-                        if (!s.shiftTemplateId) return true;
-                        return userTemplateId === s.shiftTemplateId;
-                    });
-
-                    const hasAnyPinnedSectionForBartenders = filteredSectionsForBartenders.some(s => s.shiftTemplateId && s.shiftTemplateId === userTemplateId);
-                    const finalSectionsForBartenders = hasAnyPinnedSectionForBartenders
-                        ? filteredSectionsForBartenders.filter(s => !!s.shiftTemplateId)
-                        : filteredSectionsForBartenders;
-
-                    for (const section of finalSectionsForBartenders) {
+                    for (const section of bartenderTasks) {
                         for (const task of section.tasks) {
                             // Filter by gender preference
                             if (task.genderPreference && task.genderPreference !== 'Tất cả' && task.genderPreference !== user.gender) {
@@ -368,7 +366,8 @@ export default function CheckInCard() {
                             }
 
                             const completions = serverReport ? serverReport.completedTasks[task.id] || [] : [];
-                            const required = task.minCompletions || 1;
+                            const baseRequired = task.minCompletions || 1;
+                            const required = calculateAdjustedMinCompletions(baseRequired, '', activeShift?.timeSlot);
                             if (completions.length < required) {
                                 const remaining = required - completions.length;
                                 const countLabel = required > 1 ? ` (còn ${remaining}/${required} lần)` : '';
@@ -540,22 +539,22 @@ export default function CheckInCard() {
 
         setIsCameraOpen(false);
         setIsProcessing(true);
-        let toastId;
-        if (cameraAction !== 'late-request') {
-            toastId = toast.loading('Đang gửi yêu cầu...');
-        }
 
         try {
+            setIsSuccessDialogOpen(true);
+            setSuccessMessage('Đang xử lý...');
+
             if (cameraAction === 'break') {
                 if (!latestInProgressRecord) throw new Error("No in-progress record for break.");
+                const message = latestInProgressRecord.onBreak ? 'Đã tiếp tục làm việc.' : 'Đã bắt đầu nghỉ trưa.';
                 if (latestInProgressRecord.onBreak) {
                     await dataStore.endBreak(latestInProgressRecord.id, photoId);
-                    toast.success('Đã tiếp tục làm việc.', { id: toastId });
                 } else {
                     await dataStore.startBreak(latestInProgressRecord.id, photoId);
-                    toast.success('Đã bắt đầu nghỉ trưa.', { id: toastId });
                 }
+                setSuccessMessage(message);
             } else if (cameraAction === 'late-request') {
+                setIsSuccessDialogOpen(false);
                 const mediaItem = media[0];
                 if (mediaItem) {
                     setLateReasonPhotoId(mediaItem.id);
@@ -564,19 +563,17 @@ export default function CheckInCard() {
             } else { // 'check-in-out'
                 if (latestInProgressRecord?.status === 'in-progress') {
                     await dataStore.updateAttendanceRecord(latestInProgressRecord.id, photoId);
-                    toast.success('Chấm công ra thành công!', { id: toastId });
+                    setSuccessMessage('Chấm công ra thành công!');
                 } else {
                     const isOffShiftCheckIn = !activeShift;
                     await dataStore.createAttendanceRecord(user, photoId, isOffShiftCheckIn, offShiftReason);
-                    toast.success(
-                        isOffShiftCheckIn ? 'Chấm công ngoài giờ thành công!' : 'Chấm công vào thành công!',
-                        { id: toastId }
-                    );
+                    setSuccessMessage(isOffShiftCheckIn ? 'Chấm công ngoài giờ thành công!' : 'Chấm công vào thành công!');
                 }
             }
         } catch (error) {
+            setIsSuccessDialogOpen(false);
             console.error("Failed to check in/out:", error);
-            toast.error('Thao tác thất bại. Vui lòng thử lại.', { id: toastId });
+            toast.error('Thao tác thất bại. Vui lòng thử lại.');
         } finally {
             setIsProcessing(false);
         }
@@ -985,6 +982,35 @@ export default function CheckInCard() {
                     parentDialogTag='root'
                 />
             )}
+
+            <AlertDialog open={isSuccessDialogOpen} onOpenChange={setIsSuccessDialogOpen} dialogTag="success-dialog" parentDialogTag="root">
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <div className="flex flex-col items-center justify-center p-4">
+                            {successMessage === 'Đang xử lý...' ? (
+                                <Loader2 className="h-12 w-12 text-blue-600 animate-spin mb-4" />
+                            ) : (
+                                <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center mb-4">
+                                    <CheckCircle className="h-8 w-8 text-green-600" />
+                                </div>
+                            )}
+                            <AlertDialogTitle className="text-xl font-bold text-center">
+                                {successMessage}
+                            </AlertDialogTitle>
+                        </div>
+                    </AlertDialogHeader>
+                    {successMessage !== 'Đang xử lý...' && (
+                        <AlertDialogFooter className="sm:justify-center border-t pt-4 border-zinc-100 dark:border-zinc-800">
+                            <AlertDialogAction 
+                                onClick={() => setIsSuccessDialogOpen(false)}
+                                className="w-full sm:w-32 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl"
+                            >
+                                Xác nhận
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    )}
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     );
 }

@@ -157,7 +157,8 @@ export async function createAttendanceRecord(
     photoId: string,
     isOffShift: boolean = false,
     offShiftReason?: string
-): Promise<void> {
+): Promise<{ success: boolean; id: string | null }> {
+    const actionTime = new Date(); // Capture the exact moment the user triggered the action
     const photoBlob = await photoStore.getPhoto(photoId);
     if (!photoBlob) throw new Error("Local photo not found for check-in.");
 
@@ -166,7 +167,7 @@ export async function createAttendanceRecord(
     const userDoc = await getDoc(doc(db, 'users', user.uid));
     const hourlyRate = userDoc.exists() ? (userDoc.data().hourlyRate || 0) : 0;
 
-    const storagePath = `attendance/${format(new Date(), 'yyyy-MM-dd')}/${user.uid}/${uuidv4()}-in.jpg`;
+    const storagePath = `attendance/${format(actionTime, 'yyyy-MM-dd')}/${user.uid}/${uuidv4()}-in.jpg`;
     const photoUrl = await uploadFile(photoBlob, storagePath);
 
     const attendanceCollection = collection(db, 'attendance_records');
@@ -182,7 +183,7 @@ export async function createAttendanceRecord(
 
     const pendingRecords = await getDocs(q);
 
-    let recordToUpdate = null;
+    let recordRef = null;
     let estimatedLateMinutes: number | undefined = undefined;
     let isDeclined = false;
 
@@ -217,7 +218,7 @@ export async function createAttendanceRecord(
 
         if (matchingPendingDoc) {
             const pendingData = matchingPendingDoc.data();
-            recordToUpdate = matchingPendingDoc.ref;
+            recordRef = matchingPendingDoc.ref;
             // Capture any estimated late minutes the user provided when requesting late check-in
             if (typeof pendingData.estimatedLateMinutes === 'number') {
                 estimatedLateMinutes = pendingData.estimatedLateMinutes;
@@ -228,10 +229,11 @@ export async function createAttendanceRecord(
         }
     }
 
-    if (recordToUpdate) {
+    let finalId: string;
+    if (recordRef) {
         // Update the existing 'pending_late' record
-        await updateDoc(recordToUpdate, {
-            checkInTime: new Date(),
+        await updateDoc(recordRef, {
+            checkInTime: Timestamp.fromDate(actionTime),
             photoInUrl: photoUrl,
             status: 'in-progress',
             hourlyRate: hourlyRate,
@@ -240,11 +242,12 @@ export async function createAttendanceRecord(
             ...(isOffShift && { isOffShift: true }),
             ...(isOffShift && offShiftReason && { offShiftReason: offShiftReason }),
         });
+        finalId = recordRef.id;
     } else {
         // Create a new record
         const newRecord: Omit<AttendanceRecord, 'id'> = {
             userId: user.uid,
-            checkInTime: Timestamp.fromDate(new Date()),
+            checkInTime: Timestamp.fromDate(actionTime),
             photoInUrl: photoUrl,
             status: 'in-progress',
             hourlyRate: hourlyRate,
@@ -254,7 +257,8 @@ export async function createAttendanceRecord(
             ...(isOffShift && { isOffShift: true }),
             ...(isOffShift && offShiftReason && { offShiftReason: offShiftReason }),
         };
-        await addDoc(attendanceCollection, newRecord);
+        const newDoc = await addDoc(attendanceCollection, newRecord);
+        finalId = newDoc.id;
     }
 
     // After creating/updating the attendance record, check for automatic "late" violation.
@@ -267,9 +271,8 @@ export async function createAttendanceRecord(
                 shiftStartTime = '07:00';
             }
             // Parse the scheduled shift start time into a Date
-            const shiftStart = parse(`${activeShift.date} ${shiftStartTime}`, 'yyyy-MM-dd HH:mm', new Date());
-            const now = new Date();
-            const lateMinutes = differenceInMinutes(now, shiftStart);
+            const shiftStart = parse(`${activeShift.date} ${shiftStartTime}`, 'yyyy-MM-dd HH:mm', actionTime);
+            const lateMinutes = differenceInMinutes(actionTime, shiftStart);
             const effectiveLate = isDeclined ? lateMinutes : (lateMinutes - (estimatedLateMinutes || 0));
 
             if (effectiveLate > 5) {
@@ -287,9 +290,11 @@ export async function createAttendanceRecord(
     }
 
     await photoStore.deletePhoto(photoId);
+    return { success: true, id: finalId };
 }
 
-export async function updateAttendanceRecord(recordId: string, photoId: string): Promise<void> {
+export async function updateAttendanceRecord(recordId: string, photoId: string): Promise<{ success: boolean }> {
+    const actionTime = new Date();
     const recordRef = doc(db, 'attendance_records', recordId);
     const recordSnap = await getDoc(recordRef);
     if (!recordSnap.exists()) throw new Error("Attendance record not found.");
@@ -298,11 +303,11 @@ export async function updateAttendanceRecord(recordId: string, photoId: string):
     const photoBlob = await photoStore.getPhoto(photoId);
     if (!photoBlob) throw new Error("Local photo not found for check-out.");
 
-    const storagePath = `attendance/${format(new Date(), 'yyyy-MM-dd')}/${recordData.userId}/${uuidv4()}-out.jpg`;
+    const storagePath = `attendance/${format(actionTime, 'yyyy-MM-dd')}/${recordData.userId}/${uuidv4()}-out.jpg`;
     const photoUrl = await uploadFile(photoBlob, storagePath);
 
     const checkInTime = recordData.checkInTime.toDate();
-    const checkOutTime = new Date(); // Use new Date() for consistency
+    const checkOutTime = actionTime; // Use captured time for consistency
 
     const totalHours = differenceInMinutes(checkOutTime, checkInTime) / 60;
 
@@ -322,17 +327,19 @@ export async function updateAttendanceRecord(recordId: string, photoId: string):
         updatedAt: serverTimestamp(),
     });
     await photoStore.deletePhoto(photoId);
+    return { success: true };
 }
 
-export async function startBreak(recordId: string, photoId: string): Promise<void> {
+export async function startBreak(recordId: string, photoId: string): Promise<{ success: boolean }> {
+    const actionTime = new Date();
     const photoBlob = await photoStore.getPhoto(photoId);
     if (!photoBlob) throw new Error("Local photo not found for starting break.");
 
-    const storagePath = `attendance/${format(new Date(), 'yyyy-MM-dd')}/${recordId}/${uuidv4()}-break-start.jpg`;
+    const storagePath = `attendance/${format(actionTime, 'yyyy-MM-dd')}/${recordId}/${uuidv4()}-break-start.jpg`;
     const photoUrl = await uploadFile(photoBlob, storagePath);
 
     const newBreak = {
-        breakStartTime: Timestamp.fromDate(new Date()),
+        breakStartTime: Timestamp.fromDate(actionTime),
         breakStartPhotoUrl: photoUrl,
     };
 
@@ -342,9 +349,11 @@ export async function startBreak(recordId: string, photoId: string): Promise<voi
         breaks: arrayUnion(newBreak)
     });
     await photoStore.deletePhoto(photoId);
+    return { success: true };
 }
 
-export async function endBreak(recordId: string, photoId: string): Promise<void> {
+export async function endBreak(recordId: string, photoId: string): Promise<{ success: boolean }> {
+    const actionTime = new Date();
     const recordRef = doc(db, 'attendance_records', recordId);
     const recordSnap = await getDoc(recordRef);
     if (!recordSnap.exists()) throw new Error("Attendance record not found.");
@@ -352,7 +361,7 @@ export async function endBreak(recordId: string, photoId: string): Promise<void>
     const photoBlob = await photoStore.getPhoto(photoId);
     if (!photoBlob) throw new Error("Local photo not found for ending break.");
 
-    const storagePath = `attendance/${format(new Date(), 'yyyy-MM-dd')}/${recordId}/${uuidv4()}-break-end.jpg`;
+    const storagePath = `attendance/${format(actionTime, 'yyyy-MM-dd')}/${recordId}/${uuidv4()}-break-end.jpg`;
     const photoUrl = await uploadFile(photoBlob, storagePath);
 
     const recordData = recordSnap.data();
@@ -360,7 +369,7 @@ export async function endBreak(recordId: string, photoId: string): Promise<void>
 
     if (breaks.length > 0) {
         const lastBreak = breaks[breaks.length - 1];
-        lastBreak.breakEndTime = Timestamp.fromDate(new Date());
+        lastBreak.breakEndTime = Timestamp.fromDate(actionTime);
         lastBreak.breakEndPhotoUrl = photoUrl;
     }
 
@@ -403,6 +412,7 @@ export async function endBreak(recordId: string, photoId: string): Promise<void>
     }
 
     await photoStore.deletePhoto(photoId);
+    return { success: true };
 }
 
 export async function createManualAttendanceRecord(

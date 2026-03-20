@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
+import { calculateAdjustedMinCompletions } from '@/lib/shift-utils';
 
 type Props = {
   shift: any;
@@ -29,11 +30,14 @@ type Props = {
 };
 
 export default function ChecklistTabs({ shift, report, otherStaffReports, activeTab, setActiveTab, expandedTaskIds, toggleExpandTask, handleBooleanTaskAction, handlePhotoTaskAction, handleOpinionTaskAction, handleNoteTaskAction, handleDeletePhoto, handleDeleteCompletion, onOpenLightbox, isReadonly, isSubmitting }: Props) {
-  const { user } = useAuth();
+  const { activeShifts } = useAuth();
+  const activeTimeSlot = activeShifts?.[0]?.timeSlot;
+  const shiftKey = report?.shiftKey;
 
   const renderCompletionIndicator = (taskId: string, sectionTitle: string) => {
     const task = shift.sections.flatMap((s: any) => s.tasks).find((t: any) => t.id === taskId);
-    const min = task?.minCompletions || 1;
+    const baseMin = task?.minCompletions || 1;
+    const min = calculateAdjustedMinCompletions(baseMin, shiftKey, activeTimeSlot);
     const isCritical = task?.isCritical;
     // count how many OTHER users meet or exceed the min requirement
     const otherUsersCompleted = otherStaffReports.reduce((sum, r) => sum + (((r.completedTasks?.[taskId]?.length || 0) >= min) ? 1 : 0), 0);
@@ -67,13 +71,13 @@ export default function ChecklistTabs({ shift, report, otherStaffReports, active
         <div className="absolute -top-1.5 -right-1.5 z-20 pointer-events-none" role="img" aria-label="Chưa hoàn thành" title="Chưa hoàn thành">
           <div
             className={cn(
-              "inline-flex items-center justify-center h-5 w-5 rounded-full text-white shadow-sm border-2 border-white transform-gpu will-change-transform motion-reduce:animate-none",
+              "inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded-full text-white shadow-sm border-2 border-white transform-gpu will-change-transform motion-reduce:animate-none",
               isCritical
                 ? "bg-amber-600 font-extrabold animate-[zoom-in-out_900ms_ease-in-out_infinite]"
                 : "bg-amber-500/95 animate-[zoom-in-out_1200ms_ease-in-out_infinite]"
             )}
           >
-            <span className="text-[11px] font-extrabold leading-none">!</span>
+            <span className="text-[10px] font-black leading-none">{min}</span>
           </div>
         </div>
       );
@@ -85,38 +89,23 @@ export default function ChecklistTabs({ shift, report, otherStaffReports, active
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
       {shift.sections.length > 1 && (
-        <TabsList className="sticky top-14 md:top-0 z-30 flex w-full h-12 p-1.5 bg-background/60 backdrop-blur-xl rounded-2xl border shadow-sm gap-1.5">
-          {shift.sections.map((section: any) => (
-            <TabsTrigger
-              key={section.title}
-              value={section.title}
-              className="flex-1 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all duration-300
-                    data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/25
-                    data-[state=inactive]:text-muted-foreground/70 data-[state=inactive]:hover:bg-muted/50"
-            >
-              {section.title}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+      <TabsList className="sticky top-14 md:top-0 z-30 flex w-full h-12 p-1.5 bg-background/60 backdrop-blur-xl rounded-2xl border shadow-sm gap-1.5">
+        {shift.sections.map((section: any) => (
+          <TabsTrigger
+            key={section.title}
+            value={section.title}
+            className="flex-1 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all duration-300
+                  data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/25
+                  data-[state=inactive]:text-muted-foreground/70 data-[state=inactive]:hover:bg-muted/50"
+          >
+            {section.title}
+          </TabsTrigger>
+        ))}
+      </TabsList>
       )}
-
       {shift.sections.map((section: any) => {
-        const sectionTasks = section.tasks.filter((t: any) => {
-          if (t.type === 'opinion') return false;
-          if (t.genderPreference && t.genderPreference !== 'Tất cả') {
-            if (!user?.gender) return true; // Default to show if gender not set
-            return t.genderPreference === user.gender;
-          }
-          return true;
-        });
-        const sectionOpinions = section.tasks.filter((t: any) => {
-          if (t.type !== 'opinion') return false;
-          if (t.genderPreference && t.genderPreference !== 'Tất cả') {
-            if (!user?.gender) return true;
-            return t.genderPreference === user.gender;
-          }
-          return true;
-        });
+        const sectionTasks = section.tasks.filter((t: any) => t.type !== 'opinion');
+        const sectionOpinions = section.tasks.filter((t: any) => t.type === 'opinion');
 
         return (
           <TabsContent key={section.title} value={section.title} className="mt-0 focus-visible:outline-none">
@@ -125,7 +114,8 @@ export default function ChecklistTabs({ shift, report, otherStaffReports, active
                 <div className="flex gap-3">
                   <div className="flex-1 flex flex-col gap-3">
                     {sectionTasks.filter((_: any, idx: number) => idx % 2 === 0).map((task: any) => {
-                      const minCompletions = task.minCompletions || 1;
+                      const baseMinCompletions = task.minCompletions || 1;
+                      const minCompletions = calculateAdjustedMinCompletions(baseMinCompletions, shiftKey, activeTimeSlot);
                       const isCompleted = (report.completedTasks[task.id]?.length || 0) >= minCompletions;
 
                       const otherStaffCompletions = otherStaffReports.map(staffReport => ({
@@ -139,9 +129,9 @@ export default function ChecklistTabs({ shift, report, otherStaffReports, active
                       const selfCompletedForTask = (report.completedTasks?.[task.id]?.length || 0) >= minCompletions;
 
                       return (
-                          <div key={task.id} className="relative">
-                            {renderCompletionIndicator(task.id, section.title)}
-                            <TaskItem
+                        <div key={task.id} className="relative">
+                          {renderCompletionIndicator(task.id, section.title)}
+                          <TaskItem
                             task={task}
                             completions={(report.completedTasks[task.id] || [])}
                             onBooleanAction={handleBooleanTaskAction}
@@ -172,7 +162,8 @@ export default function ChecklistTabs({ shift, report, otherStaffReports, active
 
                   <div className="flex-1 flex flex-col gap-3">
                     {sectionTasks.filter((_: any, idx: number) => idx % 2 === 1).map((task: any) => {
-                      const minCompletions = task.minCompletions || 1;
+                      const baseMinCompletions = task.minCompletions || 1;
+                      const minCompletions = calculateAdjustedMinCompletions(baseMinCompletions, shiftKey, activeTimeSlot);
                       const isCompleted = (report.completedTasks[task.id]?.length || 0) >= minCompletions;
 
                       const otherStaffCompletions = otherStaffReports.map(staffReport => ({

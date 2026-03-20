@@ -70,6 +70,7 @@ export type Task = {
   type: 'photo' | 'boolean' | 'opinion';
   minCompletions?: number; // Minimum number of completions required to mark task as done (default: 1)
   genderPreference?: 'Nam' | 'Nữ' | 'Tất cả'; // Add gender preference for filtering
+  shiftPreference?: string[]; // Array of shift labels (e.g. ["Sáng", "Sáng gãy 7h"]) that can see this task
   instruction?: {
     text?: string;
     images?: {
@@ -95,7 +96,6 @@ export type ParsedComprehensiveTask = Omit<ComprehensiveTask, 'id'>;
 export type TaskSection = {
   title: string;
   tasks: Task[];
-  shiftTemplateId?: string; // Optional: Link section to a specific shift template
 }
 
 export type ComprehensiveTaskSection = {
