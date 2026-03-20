@@ -68,6 +68,8 @@ export default function CheckInCard() {
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [isWorkHistoryOpen, setIsWorkHistoryOpen] = useState(false);
     const [checkInPhotoUrl, setCheckInPhotoUrl] = useState<string | null>(null);
+    const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
+    const [successMessage, setSuccessMessage] = useState('');
 
     const [monthlyAssignments, setMonthlyAssignments] = useState<MonthlyTaskAssignment[]>([]);
     const [dailyTasks, setDailyTasks] = useState<DailyTask[]>([]);
@@ -537,22 +539,22 @@ export default function CheckInCard() {
 
         setIsCameraOpen(false);
         setIsProcessing(true);
-        let toastId;
-        if (cameraAction !== 'late-request') {
-            toastId = toast.loading('Đang gửi yêu cầu...');
-        }
 
         try {
+            setIsSuccessDialogOpen(true);
+            setSuccessMessage('Đang xử lý...');
+
             if (cameraAction === 'break') {
                 if (!latestInProgressRecord) throw new Error("No in-progress record for break.");
+                const message = latestInProgressRecord.onBreak ? 'Đã tiếp tục làm việc.' : 'Đã bắt đầu nghỉ trưa.';
                 if (latestInProgressRecord.onBreak) {
                     await dataStore.endBreak(latestInProgressRecord.id, photoId);
-                    toast.success('Đã tiếp tục làm việc.', { id: toastId });
                 } else {
                     await dataStore.startBreak(latestInProgressRecord.id, photoId);
-                    toast.success('Đã bắt đầu nghỉ trưa.', { id: toastId });
                 }
+                setSuccessMessage(message);
             } else if (cameraAction === 'late-request') {
+                setIsSuccessDialogOpen(false);
                 const mediaItem = media[0];
                 if (mediaItem) {
                     setLateReasonPhotoId(mediaItem.id);
@@ -561,19 +563,17 @@ export default function CheckInCard() {
             } else { // 'check-in-out'
                 if (latestInProgressRecord?.status === 'in-progress') {
                     await dataStore.updateAttendanceRecord(latestInProgressRecord.id, photoId);
-                    toast.success('Chấm công ra thành công!', { id: toastId });
+                    setSuccessMessage('Chấm công ra thành công!');
                 } else {
                     const isOffShiftCheckIn = !activeShift;
                     await dataStore.createAttendanceRecord(user, photoId, isOffShiftCheckIn, offShiftReason);
-                    toast.success(
-                        isOffShiftCheckIn ? 'Chấm công ngoài giờ thành công!' : 'Chấm công vào thành công!',
-                        { id: toastId }
-                    );
+                    setSuccessMessage(isOffShiftCheckIn ? 'Chấm công ngoài giờ thành công!' : 'Chấm công vào thành công!');
                 }
             }
         } catch (error) {
+            setIsSuccessDialogOpen(false);
             console.error("Failed to check in/out:", error);
-            toast.error('Thao tác thất bại. Vui lòng thử lại.', { id: toastId });
+            toast.error('Thao tác thất bại. Vui lòng thử lại.');
         } finally {
             setIsProcessing(false);
         }
@@ -982,6 +982,35 @@ export default function CheckInCard() {
                     parentDialogTag='root'
                 />
             )}
+
+            <AlertDialog open={isSuccessDialogOpen} onOpenChange={setIsSuccessDialogOpen} dialogTag="success-dialog" parentDialogTag="root">
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <div className="flex flex-col items-center justify-center p-4">
+                            {successMessage === 'Đang xử lý...' ? (
+                                <Loader2 className="h-12 w-12 text-blue-600 animate-spin mb-4" />
+                            ) : (
+                                <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center mb-4">
+                                    <CheckCircle className="h-8 w-8 text-green-600" />
+                                </div>
+                            )}
+                            <AlertDialogTitle className="text-xl font-bold text-center">
+                                {successMessage}
+                            </AlertDialogTitle>
+                        </div>
+                    </AlertDialogHeader>
+                    {successMessage !== 'Đang xử lý...' && (
+                        <AlertDialogFooter className="sm:justify-center border-t pt-4 border-zinc-100 dark:border-zinc-800">
+                            <AlertDialogAction 
+                                onClick={() => setIsSuccessDialogOpen(false)}
+                                className="w-full sm:w-32 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl"
+                            >
+                                Xác nhận
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    )}
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     );
 }

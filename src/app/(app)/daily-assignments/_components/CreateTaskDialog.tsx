@@ -15,10 +15,18 @@ import {
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Camera, ShieldCheck, Edit, FileText, Users, Image as ImageIcon, Search, Calendar, ChevronRight, X, Video } from 'lucide-react';
+import { Loader2, Camera, ShieldCheck, Edit, FileText, Users, Image as ImageIcon, Search, Calendar, ChevronRight, X, Video, Upload } from 'lucide-react';
 import { ManagedUser, MediaItem, DailyTaskTargetMode, UserRole } from '@/lib/types';
 import { cn, advancedSearch } from '@/lib/utils';
 import Image from 'next/image';
+import { toast } from '@/components/ui/pro-toast';
+import { v4 as uuidv4 } from 'uuid';
+import { photoStore } from '@/lib/photo-store';
+
+export function getFileTypeFromMime(mime: string): 'photo' | 'video' {
+  if (mime.startsWith('video/')) return 'video';
+  return 'photo';
+}
 
 type NewTaskShape = {
   title: string;
@@ -44,12 +52,70 @@ type Props = {
   parentDialogTag: string;
 };
 
-export default function CreateTaskDialog({ isOpen, onOpenChange, newTask, setNewTask, onCreate, isCreating, setInstructionCameraOpen, allUsers, roles, isEditing, parentDialogTag }: Props) {
+export default function CreateTaskDialog({
+  isOpen,
+  onOpenChange,
+  newTask,
+  setNewTask,
+  onCreate,
+  isCreating,
+  setInstructionCameraOpen,
+  allUsers,
+  roles,
+  isEditing,
+  parentDialogTag
+}: Props) {
   const [userFilter, setUserFilter] = React.useState('');
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
   const filteredUsers = React.useMemo(() => {
     if (!userFilter) return allUsers;
     return advancedSearch(allUsers, userFilter, ['displayName', 'role']);
   }, [allUsers, userFilter]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const photoFiles = files.filter(f => f.type.startsWith('image/'));
+    const videoFiles = files.filter(f => f.type.startsWith('video/'));
+
+    if (videoFiles.length > 0) {
+      toast.error(`Không hỗ trợ tải lên ${videoFiles.length} video. Chỉ được chọn ảnh.`);
+    }
+
+    if (photoFiles.length === 0) {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    try {
+      const newMedia: MediaItem[] = await Promise.all(
+        photoFiles.map(async (file) => {
+          const id = uuidv4();
+          const url = URL.createObjectURL(file);
+          await photoStore.addPhoto(id, file);
+
+          return {
+            id,
+            type: 'photo',
+            url,
+          };
+        })
+      );
+
+      setNewTask((prev) => ({
+        ...prev,
+        media: [...prev.media, ...newMedia],
+      }));
+
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      toast.success(`Đã thêm ${photoFiles.length} ảnh.`);
+    } catch (error) {
+      console.error('Error handling file upload:', error);
+      toast.error('Lỗi khi xử lý tệp tin.');
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange} dialogTag="create-task-dialog" parentDialogTag={parentDialogTag}>
@@ -252,21 +318,36 @@ export default function CreateTaskDialog({ isOpen, onOpenChange, newTask, setNew
                     </div>
                   ))}
 
-                  <div
-                    onClick={() => setInstructionCameraOpen(true)}
-                    className={cn(
-                      "relative flex aspect-square cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed transition-all overflow-hidden group shadow-sm",
-                      newTask.media.length > 0
-                        ? "border-primary/40 bg-primary/5 h-full"
-                        : "border-muted-foreground/20 bg-muted/10 hover:bg-muted/20 hover:border-primary/30 min-h-[160px] col-span-2 sm:col-span-1 sm:aspect-auto"
-                    )}
-                  >
-                    <div className="rounded-xl bg-white p-3 text-muted-foreground group-hover:scale-110 group-hover:text-primary group-hover:shadow-md transition-all duration-300 mb-2 grayscale group-hover:grayscale-0">
-                      <Camera className="h-5 w-5" />
-                    </div>
-                    <p className="text-[10px] font-black text-muted-foreground/50 text-center px-4 uppercase tracking-widest group-hover:text-primary transition-colors">
-                      {newTask.media.length > 0 ? 'Thêm ảnh' : 'Chụp ảnh/Video'}
-                    </p>
+                  <div className="col-span-2 flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setInstructionCameraOpen(true)}
+                      className="flex-1 flex flex-col items-center justify-center gap-2 h-24 rounded-2xl border-2 border-dashed border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/40 transition-all group"
+                    >
+                      <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-white shadow-sm group-hover:scale-110 transition-transform text-primary">
+                        <Camera className="h-5 w-5" />
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-primary/70 group-hover:text-primary transition-colors">Chụp ảnh</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex-1 flex flex-col items-center justify-center gap-2 h-24 rounded-2xl border-2 border-dashed border-muted-foreground/20 bg-muted/20 hover:bg-muted/30 hover:border-muted-foreground/30 transition-all group"
+                    >
+                      <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-white shadow-sm group-hover:scale-110 transition-transform text-muted-foreground">
+                        <Upload className="h-5 w-5" />
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/70 group-hover:text-muted-foreground transition-colors">Tải ảnh lên</span>
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        onChange={handleFileUpload}
+                        accept="image/*"
+                        multiple
+                      />
+                    </button>
                   </div>
                 </div>
              </div>
