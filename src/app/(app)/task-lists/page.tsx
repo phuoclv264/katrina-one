@@ -661,6 +661,7 @@ export default function TaskListsPage() {
                     handleUpdateTask(taskData);
                 }}
                 initialData={editingTask ? {
+                    id: editingTask.taskId,
                     text: editingTask.text,
                     type: editingTask.type,
                     minCompletions: editingTask.minCompletions,

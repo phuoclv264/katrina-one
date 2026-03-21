@@ -34,7 +34,7 @@ interface TaskDialogProps {
   onConfirm: (taskData: Omit<Task, 'id'>) => void;
   shiftName?: string;
   sectionTitle?: string;
-  initialData?: Omit<Task, 'id'> | null;
+  initialData?: Task | null;
   parentDialogTag?: string;
   shiftTemplates?: any[];
 }
@@ -537,6 +537,7 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
           onClose={() => setIsReuseOpen(false)}
           onSelect={handleReuseSelect}
           parentDialogTag={parentDialogTag}
+          taskId={initialData?.id || ''}
         />
 
         <DialogFooter>
