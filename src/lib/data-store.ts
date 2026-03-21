@@ -1123,6 +1123,44 @@ export const dataStore = {
       return results;
     },
 
+    async getTaskReportsByDays(taskId: string, lastDate?: string, daysLimit: number = 10): Promise<ShiftReport[]> {
+      const reportsCollection = collection(db, 'reports');
+      
+      const referenceDate = lastDate || getTodaysDateKey();
+      const refDateObj = new Date(referenceDate);
+      
+      // Calculate the start date (referenceDate - daysLimit)
+      const startDateObj = new Date(refDateObj);
+      startDateObj.setDate(refDateObj.getDate() - daysLimit);
+      
+      const year = startDateObj.getFullYear();
+      const month = String(startDateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(startDateObj.getDate()).padStart(2, '0');
+      const startDateStr = `${year}-${month}-${day}`;
+
+      const q = query(
+        reportsCollection,
+        where('date', '>=', startDateStr),
+        where('date', '<', referenceDate),
+        orderBy('date', 'desc')
+      );
+
+      const querySnap = await getDocs(q);
+      const results: ShiftReport[] = [];
+      querySnap.forEach(docSnap => {
+        const report = docSnap.data() as ShiftReport;
+        // Only return reports that actually have this task completed and have photos
+        if (report.completedTasks && report.completedTasks[taskId]) {
+          const hasPhotos = report.completedTasks[taskId].some(c => c.photos && c.photos.length > 0);
+          if (hasPhotos) {
+            results.push(report);
+          }
+        }
+      });
+      console.log(`Fetched ${results.length} reports for task ${taskId} between ${startDateStr} and ${referenceDate}`);
+      return results;
+    },
+
   async updateTasks(newTasks: TasksByShift) {
     const docRef = doc(db, 'app-data', 'tasks');
 

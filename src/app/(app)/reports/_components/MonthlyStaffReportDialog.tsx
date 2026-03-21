@@ -6,15 +6,17 @@ import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Combobox } from '@/components/combobox';
 import { dataStore } from '@/lib/data-store';
+import { cn, advancedSearch } from '@/lib/utils';
 import type { ManagedUser, ShiftReport, Violation, AttendanceRecord, TasksByShift, TaskSection, ComprehensiveTaskSection, CompletionRecord } from '@/lib/types';
 import { format, startOfMonth, endOfMonth, parseISO, addMonths, subMonths } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Loader2, AlertTriangle, Camera, ListTodo, ThumbsDown, ThumbsUp, Users, ListTree, ListX, ChevronLeft, ChevronRight, LayoutGrid, Trophy, CheckCircle2, Target } from 'lucide-react';
+import { Loader2, AlertTriangle, Camera, ListTodo, ThumbsDown, ThumbsUp, Users, ListTree, ListX, ChevronLeft, ChevronRight, LayoutGrid, Trophy, CheckCircle2, Target, Search } from 'lucide-react';
 import { UserAvatar } from '@/components/user-avatar';
 import { Badge } from '@/components/ui/badge';
 import Image from '@/components/ui/image';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { useLightbox } from '@/contexts/lightbox-context';
 
 type MonthlyStaffReportDialogProps = {
@@ -40,7 +42,7 @@ type GroupedTask = {
 
 function NavigationItem({ icon: Icon, label, subLabel, count, onClick }: { icon: any, label: string, subLabel?: string, count?: number, onClick: () => void }) {
     return (
-        <button 
+        <button
             onClick={(e) => {
                 e.stopPropagation();
                 onClick();
@@ -188,9 +190,9 @@ function StaffMonthlyDetails({ user, data, tasksByShift, bartenderTasks, compreh
 
             <div className="space-y-2">
                 {completedTasks.doneTasks.length > 0 && (
-                    <NavigationItem 
-                        icon={ListTodo} 
-                        label="Công việc đã làm" 
+                    <NavigationItem
+                        icon={ListTodo}
+                        label="Công việc đã làm"
                         subLabel={completedTasks.doneTasks[0] ? `Thường xuyên: ${completedTasks.doneTasks[0].taskText}` : undefined}
                         count={completedTasks.doneTasks.length}
                         onClick={() => onNavigate("Công việc đã làm", (
@@ -233,9 +235,9 @@ function StaffMonthlyDetails({ user, data, tasksByShift, bartenderTasks, compreh
                                                     {comp.photos && comp.photos.length > 0 && (
                                                         <div className="flex flex-wrap gap-2 mt-2">
                                                             {comp.photos.map((photo, pIndex) => (
-                                                                <button 
-                                                                    key={pIndex} 
-                                                                    className="h-14 w-14 md:h-16 md:w-16 relative rounded-xl overflow-hidden bg-muted shadow-sm border border-black/5 hover:scale-110 active:scale-95 transition-all" 
+                                                                <button
+                                                                    key={pIndex}
+                                                                    className="h-14 w-14 md:h-16 md:w-16 relative rounded-xl overflow-hidden bg-muted shadow-sm border border-black/5 hover:scale-110 active:scale-95 transition-all"
                                                                     onClick={() => onOpenLightbox(
                                                                         comp.photos!.map(p => ({
                                                                             src: p,
@@ -258,9 +260,9 @@ function StaffMonthlyDetails({ user, data, tasksByShift, bartenderTasks, compreh
                     />
                 )}
                 {completedTasks.undoneTasks.length > 0 && (
-                    <NavigationItem 
-                        icon={ListX} 
-                        label="Công việc chưa làm" 
+                    <NavigationItem
+                        icon={ListX}
+                        label="Công việc chưa làm"
                         subLabel="Các đầu việc còn xót"
                         count={completedTasks.undoneTasks.length}
                         onClick={() => onNavigate("Công việc chưa làm", (
@@ -277,9 +279,9 @@ function StaffMonthlyDetails({ user, data, tasksByShift, bartenderTasks, compreh
                         ))}
                     />
                 )}
-                <NavigationItem 
-                    icon={AlertTriangle} 
-                    label="Vi phạm" 
+                <NavigationItem
+                    icon={AlertTriangle}
+                    label="Vi phạm"
                     subLabel={data.totalViolations > 0 ? "Chi tiết nội dung vi phạm" : "Lịch sử sạch, không lỗi"}
                     count={data.violations.length}
                     onClick={() => onNavigate("Vi phạm", (
@@ -304,18 +306,18 @@ function StaffMonthlyDetails({ user, data, tasksByShift, bartenderTasks, compreh
                         </div>
                     ))}
                 />
-                <NavigationItem 
-                    icon={Camera} 
-                    label="Ảnh đã chụp" 
+                <NavigationItem
+                    icon={Camera}
+                    label="Ảnh đã chụp"
                     subLabel="Toàn bộ ảnh bằng chứng"
                     count={allPhotos.length}
                     onClick={() => onNavigate("Ảnh đã chụp", (
                         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 md:gap-3">
                             {allPhotos.length > 0 ? (
                                 allPhotos.map((photoUrl, i) => (
-                                    <button 
-                                        key={i} 
-                                        className="aspect-square relative rounded-xl md:rounded-2xl overflow-hidden bg-muted shadow-sm border border-black/5 hover:scale-105 active:scale-95 transition-all" 
+                                    <button
+                                        key={i}
+                                        className="aspect-square relative rounded-xl md:rounded-2xl overflow-hidden bg-muted shadow-sm border border-black/5 hover:scale-105 active:scale-95 transition-all"
                                         onClick={() => onOpenLightbox(
                                             allPhotos.map(p => ({
                                                 src: p,
@@ -353,17 +355,19 @@ type TaskCentricData = {
     }
 };
 
-function TaskCentricView({ allUsers, monthlyData, tasksByShift, bartenderTasks, comprehensiveTasks, onOpenLightbox, onNavigate }: {
+function TaskCentricView({ allUsers, monthlyData, tasksByShift, bartenderTasks, comprehensiveTasks, filterText, onOpenLightbox, onNavigate }: {
     allUsers: ManagedUser[],
     monthlyData: Record<string, MonthlyUserData>,
     tasksByShift: TasksByShift | null,
     bartenderTasks: TaskSection[] | null,
     comprehensiveTasks: ComprehensiveTaskSection[] | null,
+    filterText: string,
     onOpenLightbox: (slides: { src: string, description?: string }[], index: number) => void;
     onNavigate: (title: string, content: React.ReactNode) => void;
 }) {
     const taskCentricData = useMemo(() => {
         const data: TaskCentricData = {};
+
 
         // Initialize with all possible tasks to show even those with 0 completions
         if (tasksByShift) {
@@ -392,6 +396,7 @@ function TaskCentricView({ allUsers, monthlyData, tasksByShift, bartenderTasks, 
                 });
             });
         }
+
         const findTaskDef = (report: ShiftReport) => {
             if (tasksByShift && tasksByShift[report.shiftKey]) {
                 const shiftDef = tasksByShift[report.shiftKey];
@@ -437,6 +442,26 @@ function TaskCentricView({ allUsers, monthlyData, tasksByShift, bartenderTasks, 
             });
         });
 
+        // Filter by task text if filterText is provided
+        if (filterText) {
+            Object.keys(data).forEach(reportType => {
+                const tasks = data[reportType];
+                const taskItems = Object.keys(tasks).map(text => ({ text }));
+                const filteredTasks = advancedSearch(taskItems, filterText, ['text']);
+                const filteredTexts = new Set(filteredTasks.map(t => t.text));
+
+                Object.keys(tasks).forEach(text => {
+                    if (!filteredTexts.has(text)) {
+                        delete tasks[text];
+                    }
+                });
+
+                if (Object.keys(data[reportType]).length === 0) {
+                    delete data[reportType];
+                }
+            });
+        }
+
         // Sort completions for each user
         Object.values(data).forEach(reportGroup => {
             Object.values(reportGroup).forEach(taskGroup => {
@@ -447,7 +472,7 @@ function TaskCentricView({ allUsers, monthlyData, tasksByShift, bartenderTasks, 
         });
 
         return data;
-    }, [allUsers, monthlyData, tasksByShift, bartenderTasks, comprehensiveTasks]);
+    }, [allUsers, monthlyData, tasksByShift, bartenderTasks, comprehensiveTasks, filterText]);
 
     const stats = useMemo(() => {
         let totalTasks = 0;
@@ -463,7 +488,7 @@ function TaskCentricView({ allUsers, monthlyData, tasksByShift, bartenderTasks, 
                     const count = uGroup.completions.length;
                     taskCompletions += count;
                     totalCompletionsCount += count;
-                    
+
                     if (!userCompletions[uGroup.user.uid]) {
                         userCompletions[uGroup.user.uid] = { name: uGroup.user.displayName, count: 0 };
                     }
@@ -474,7 +499,7 @@ function TaskCentricView({ allUsers, monthlyData, tasksByShift, bartenderTasks, 
         });
 
         const topUser = Object.values(userCompletions).sort((a, b) => b.count - a.count)[0];
-        
+
         return { totalTasks, completedTasksCount, totalCompletionsCount, topUser };
     }, [taskCentricData]);
 
@@ -515,83 +540,83 @@ function TaskCentricView({ allUsers, monthlyData, tasksByShift, bartenderTasks, 
                             </Badge>
                         </div>
                         <div className="space-y-2">
-                        {Object.entries(tasks).sort(([, a], [, b]) => {
-                            const totalCompletionsA = Object.values(a.completionsByUser).reduce((sum, u) => sum + u.completions.length, 0);
-                            const totalCompletionsB = Object.values(b.completionsByUser).reduce((sum, u) => sum + u.completions.length, 0);
-                            return totalCompletionsB - totalCompletionsA;
-                        }).map(([taskText, taskData]) => {
-                            const totalCompletions = Object.values(taskData.completionsByUser).reduce((sum, u) => sum + u.completions.length, 0);
-                            const uniqueUsers = Object.keys(taskData.completionsByUser).length;
-                            const sortedUsers = Object.values(taskData.completionsByUser).sort((a, b) => b.completions.length - a.completions.length);
-                            
-                            return (
-                                <NavigationItem 
-                                    key={taskText}
-                                    icon={ListTodo}
-                                    label={taskText}
-                                    subLabel={`${uniqueUsers} nhân viên đã thực hiện`}
-                                    count={totalCompletions}
-                                    onClick={() => onNavigate(taskText, (
-                                        <div className="space-y-4">
-                                            <div className="grid grid-cols-2 gap-2">
-                                                <div className="p-3 md:p-3.5 rounded-2xl bg-primary/5 border border-primary/10 text-center">
-                                                    <p className="text-[9px] md:text-[10px] uppercase tracking-wider font-bold text-primary/70 mb-0.5">Tổng lượt làm</p>
-                                                    <p className="text-lg md:text-xl font-black text-primary tracking-tight">{totalCompletions}</p>
-                                                </div>
-                                                <div className="p-3 md:p-3.5 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 text-center">
-                                                    <p className="text-[9px] md:text-[10px] uppercase tracking-wider font-bold text-emerald-600/70 mb-0.5">Nhân viên tham gia</p>
-                                                    <p className="text-lg md:text-xl font-black text-emerald-600 tracking-tight">{uniqueUsers}</p>
-                                                </div>
-                                            </div>
-                                            <div className="space-y-2.5 md:space-y-3">
-                                            {sortedUsers.map(({ user, completions }) => (
-                                                <div key={user.uid} className="p-3 md:p-4 border rounded-2xl bg-card shadow-sm flex flex-col gap-2.5 md:gap-3 relative overflow-hidden">
-                                                    <div className="absolute top-0 left-0 w-1 h-full bg-primary/20" />
-                                                    <div className="flex items-center gap-2.5 md:gap-3">
-                                                        <UserAvatar
-                                                            user={user}
-                                                            size="h-8 w-8 md:h-10 md:w-10"
-                                                            className="border-2 border-primary/10 shrink-0"
-                                                            fallbackClassName="bg-primary/5 text-primary font-bold text-xs md:text-sm"
-                                                        />
-                                                        <div className="flex flex-col min-w-0 text-left">
-                                                            <p className="font-bold text-foreground tracking-tight text-xs md:text-sm truncate">{user.displayName}</p>
-                                                            <p className="text-[9px] md:text-[10px] font-bold text-muted-foreground uppercase tracking-wider truncate">{user.role}</p>
-                                                        </div>
-                                                        <Badge variant="secondary" className="ml-auto bg-primary/5 text-primary border-none font-bold tabular-nums text-[9px] md:text-[10px] h-5 px-1.5">
-                                                            {completions.length} lần
-                                                        </Badge>
+                            {Object.entries(tasks).sort(([, a], [, b]) => {
+                                const totalCompletionsA = Object.values(a.completionsByUser).reduce((sum, u) => sum + u.completions.length, 0);
+                                const totalCompletionsB = Object.values(b.completionsByUser).reduce((sum, u) => sum + u.completions.length, 0);
+                                return totalCompletionsB - totalCompletionsA;
+                            }).map(([taskText, taskData]) => {
+                                const totalCompletions = Object.values(taskData.completionsByUser).reduce((sum, u) => sum + u.completions.length, 0);
+                                const uniqueUsers = Object.keys(taskData.completionsByUser).length;
+                                const sortedUsers = Object.values(taskData.completionsByUser).sort((a, b) => b.completions.length - a.completions.length);
+
+                                return (
+                                    <NavigationItem
+                                        key={taskText}
+                                        icon={ListTodo}
+                                        label={taskText}
+                                        subLabel={`${uniqueUsers} nhân viên đã thực hiện`}
+                                        count={totalCompletions}
+                                        onClick={() => onNavigate(taskText, (
+                                            <div className="space-y-4">
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div className="p-3 md:p-3.5 rounded-2xl bg-primary/5 border border-primary/10 text-center">
+                                                        <p className="text-[9px] md:text-[10px] uppercase tracking-wider font-bold text-primary/70 mb-0.5">Tổng lượt làm</p>
+                                                        <p className="text-lg md:text-xl font-black text-primary tracking-tight">{totalCompletions}</p>
                                                     </div>
-                                                    <div className="grid grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 gap-1.5 md:gap-2 mt-0.5">
-                                                        {completions.sort((a, b) => (a.reportDate + a.timestamp).localeCompare(b.reportDate + b.timestamp)).map((comp, i) => (
-                                                            <div key={i} className="flex items-center justify-between p-2 rounded-xl bg-muted/30 border border-border/50">
-                                                                <span className="text-[10px] font-bold text-muted-foreground whitespace-nowrap">
-                                                                    {format(parseISO(comp.reportDate), 'dd/MM')} {comp.timestamp}
-                                                                </span>
-                                                                {comp.photos && comp.photos.length > 0 && (
-                                                                    <button 
-                                                                        onClick={() => onOpenLightbox(
-                                                                            comp.photos!.map(p => ({
-                                                                                src: p,
-                                                                                description: `${taskText} - ${user.displayName} - ${format(parseISO(comp.reportDate), 'dd/MM/yy')} ${comp.timestamp}`
-                                                                            })), 0
-                                                                        )} 
-                                                                        className="p-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors shrink-0"
-                                                                    >
-                                                                        <Camera className="h-3 w-3" />
-                                                                    </button>
-                                                                )}
+                                                    <div className="p-3 md:p-3.5 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 text-center">
+                                                        <p className="text-[9px] md:text-[10px] uppercase tracking-wider font-bold text-emerald-600/70 mb-0.5">Nhân viên tham gia</p>
+                                                        <p className="text-lg md:text-xl font-black text-emerald-600 tracking-tight">{uniqueUsers}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-2.5 md:space-y-3">
+                                                    {sortedUsers.map(({ user, completions }) => (
+                                                        <div key={user.uid} className="p-3 md:p-4 border rounded-2xl bg-card shadow-sm flex flex-col gap-2.5 md:gap-3 relative overflow-hidden">
+                                                            <div className="absolute top-0 left-0 w-1 h-full bg-primary/20" />
+                                                            <div className="flex items-center gap-2.5 md:gap-3">
+                                                                <UserAvatar
+                                                                    user={user}
+                                                                    size="h-8 w-8 md:h-10 md:w-10"
+                                                                    className="border-2 border-primary/10 shrink-0"
+                                                                    fallbackClassName="bg-primary/5 text-primary font-bold text-xs md:text-sm"
+                                                                />
+                                                                <div className="flex flex-col min-w-0 text-left">
+                                                                    <p className="font-bold text-foreground tracking-tight text-xs md:text-sm truncate">{user.displayName}</p>
+                                                                    <p className="text-[9px] md:text-[10px] font-bold text-muted-foreground uppercase tracking-wider truncate">{user.role}</p>
+                                                                </div>
+                                                                <Badge variant="secondary" className="ml-auto bg-primary/5 text-primary border-none font-bold tabular-nums text-[9px] md:text-[10px] h-5 px-1.5">
+                                                                    {completions.length} lần
+                                                                </Badge>
                                                             </div>
-                                                        ))}
-                                                    </div>
+                                                            <div className="grid grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 gap-1.5 md:gap-2 mt-0.5">
+                                                                {completions.sort((a, b) => (a.reportDate + a.timestamp).localeCompare(b.reportDate + b.timestamp)).map((comp, i) => (
+                                                                    <div key={i} className="flex items-center justify-between p-2 rounded-xl bg-muted/30 border border-border/50">
+                                                                        <span className="text-[10px] font-bold text-muted-foreground whitespace-nowrap">
+                                                                            {format(parseISO(comp.reportDate), 'dd/MM')} {comp.timestamp}
+                                                                        </span>
+                                                                        {comp.photos && comp.photos.length > 0 && (
+                                                                            <button
+                                                                                onClick={() => onOpenLightbox(
+                                                                                    comp.photos!.map(p => ({
+                                                                                        src: p,
+                                                                                        description: `${taskText} - ${user.displayName} - ${format(parseISO(comp.reportDate), 'dd/MM/yy')} ${comp.timestamp}`
+                                                                                    })), 0
+                                                                                )}
+                                                                                className="p-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors shrink-0"
+                                                                            >
+                                                                                <Camera className="h-3 w-3" />
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    ))}
                                                 </div>
-                                            ))}
                                             </div>
-                                        </div>
-                                    ))}
-                                />
-                            );
-                        })}
+                                        ))}
+                                    />
+                                );
+                            })}
                         </div>
                     </div>
                 );
@@ -606,6 +631,7 @@ export default function MonthlyStaffReportDialog({ isOpen, onOpenChange, parentD
     const [viewMode, setViewMode] = useState<'byStaff' | 'byTask'>('byStaff');
     const [monthlyData, setMonthlyData] = useState<Record<string, MonthlyUserData>>({});
     const [allUsers, setAllUsers] = useState<ManagedUser[]>([]);
+    const [filterText, setFilterText] = useState("");
     const { openLightbox } = useLightbox();
     const [tasksByShift, setTasksByShift] = useState<TasksByShift | null>(null);
     const [bartenderTasks, setBartenderTasks] = useState<TaskSection[] | null>(null);
@@ -689,15 +715,20 @@ export default function MonthlyStaffReportDialog({ isOpen, onOpenChange, parentD
 
     const sortedUsers = useMemo(() => {
         const roleOrder: Record<string, number> = { 'Quản lý': 1, 'Pha chế': 2, 'Phục vụ': 3, 'Thu ngân': 4 };
-        return allUsers
-            .filter(u => u.role !== 'Chủ nhà hàng')
-            .sort((a, b) => {
-                const orderA = roleOrder[a.role] || 99;
-                const orderB = roleOrder[b.role] || 99;
-                if (orderA !== orderB) return orderA - orderB;
-                return a.displayName.localeCompare(b.displayName);
-            });
-    }, [allUsers]);
+        const baseFiltered = allUsers
+            .filter(u => u.role !== 'Chủ nhà hàng');
+
+        const filtered = filterText
+            ? advancedSearch(baseFiltered, filterText, ['displayName', 'role'])
+            : baseFiltered;
+
+        return filtered.sort((a, b) => {
+            const orderA = roleOrder[a.role] || 99;
+            const orderB = roleOrder[b.role] || 99;
+            if (orderA !== orderB) return orderA - orderB;
+            return a.displayName.localeCompare(b.displayName);
+        });
+    }, [allUsers, filterText]);
 
     const currentView = navStack[navStack.length - 1];
 
@@ -707,26 +738,26 @@ export default function MonthlyStaffReportDialog({ isOpen, onOpenChange, parentD
                 <DialogContent className="max-w-4xl w-[95vw] md:w-full h-[92vh] md:h-[90vh] p-0 overflow-hidden">
                     {/* Portal for the lightbox */}
                     <div id="monthly-report-lightbox-portal"></div>
-                    <DialogHeader variant="premium" iconkey="trophy" className="shrink-0">
+                    <DialogHeader variant="premium" iconkey="trophy" className="shrink-0 py-3 md:py-4">
                         {currentView ? (
-                            <div className="flex items-center gap-3">
-                                <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    onClick={popView} 
-                                    className="h-9 w-9 rounded-full hover:bg-primary/10 hover:text-primary -ml-2 shrink-0"
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={popView}
+                                    className="h-8 w-8 rounded-full hover:bg-primary/10 hover:text-primary -ml-2 shrink-0"
                                 >
                                     <ChevronLeft className="h-5 w-5" />
                                 </Button>
-                                <DialogTitle className="text-left text-base md:text-lg leading-tight break-words line-clamp-2 flex-1">{currentView.title}</DialogTitle>
+                                <DialogTitle className="text-left text-base leading-tight break-words line-clamp-2 flex-1">{currentView.title}</DialogTitle>
                             </div>
                         ) : (
-                            <>
-                                <DialogTitle>Báo cáo Hiệu suất Tháng</DialogTitle>
-                                <DialogDescription>
-                                    Hiệu suất làm việc của nhân viên trong tháng.
+                            <div className="space-y-0.5">
+                                <DialogTitle className="text-base md:text-lg">Báo cáo Hiệu suất Tháng</DialogTitle>
+                                <DialogDescription className="text-[11px] md:text-xs">
+                                    Thống kê hiệu suất nhân viên.
                                 </DialogDescription>
-                            </>
+                            </div>
                         )}
                     </DialogHeader>
 
@@ -739,33 +770,45 @@ export default function MonthlyStaffReportDialog({ isOpen, onOpenChange, parentD
                             </div>
                         ) : (
                             <>
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3 px-4 md:px-6 border-b sticky top-0 bg-background z-20 shrink-0 shadow-sm">
-                                    <div className="flex items-center gap-2">
-                                        <Combobox
-                                            value={format(currentMonth, 'yyyy-MM')}
-                                            onChange={(val) => setCurrentMonth(parseISO(val as string))}
-                                            options={availableMonths.map(month => ({
-                                                value: month,
-                                                label: `Tháng ${format(parseISO(`${month}-01`), 'MM/yyyy', { locale: vi })}`
-                                            }))}
-                                            placeholder="Chọn tháng"
-                                            compact
-                                            searchable={false}
-                                            className="w-full sm:w-[180px]"
-                                        />
-                                    </div>
-                                    <div className="flex items-center justify-between sm:justify-end gap-3 bg-muted/50 sm:bg-transparent p-2 sm:p-0 rounded-xl">
-                                        <div className="flex items-center space-x-2">
-                                            <Users className="h-4 w-4 text-muted-foreground" />
-                                            <Switch
-                                                id="view-mode-toggle"
-                                                checked={viewMode === 'byTask'}
-                                                onCheckedChange={(checked) => setViewMode(checked ? 'byTask' : 'byStaff')}
+                                <div className="flex flex-col gap-2.5 py-2.5 px-4 md:px-6 border-b sticky top-0 bg-background z-20 shrink-0 shadow-sm">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                                            <Combobox
+                                                value={format(currentMonth, 'yyyy-MM')}
+                                                onChange={(val) => setCurrentMonth(parseISO(val as string))}
+                                                options={availableMonths.map(month => ({
+                                                    value: month,
+                                                    label: `Tháng ${format(parseISO(`${month}-01`), 'MM/yyyy', { locale: vi })}`
+                                                }))}
+                                                placeholder="Chọn tháng"
+                                                compact
+                                                searchable={false}
+                                                className="w-[140px] md:w-[160px]"
                                             />
-                                            <ListTree className="h-4 w-4 text-muted-foreground" />
-                                            <Label htmlFor="view-mode-toggle" className="text-[12px] font-bold uppercase tracking-tight text-muted-foreground">
-                                                {viewMode === 'byStaff' ? 'Nhân viên' : 'Công việc'}
-                                            </Label>
+                                            <div className="relative flex-1 max-w-[280px]">
+                                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/50" />
+                                                <Input
+                                                    placeholder="Tìm..."
+                                                    className="pl-8 h-8 text-[13px] bg-muted/30 border-none focus-visible:ring-1 focus-visible:ring-primary/20 rounded-lg w-full"
+                                                    value={filterText}
+                                                    onChange={(e) => setFilterText(e.target.value)}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+                                            <div className="flex items-center space-x-2 bg-muted/40 px-2 py-1 rounded-lg">
+                                                <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                                                <Switch
+                                                    id="view-mode-toggle"
+                                                    checked={viewMode === 'byTask'}
+                                                    onCheckedChange={(checked) => setViewMode(checked ? 'byTask' : 'byStaff')}
+                                                    className="scale-75"
+                                                />
+                                                <ListTree className="h-3.5 w-3.5 text-muted-foreground" />
+                                                <Label htmlFor="view-mode-toggle" className="text-[10px] font-bold uppercase tracking-tight text-muted-foreground cursor-pointer">
+                                                    {viewMode === 'byStaff' ? 'Bộ phận' : 'Công việc'}
+                                                </Label>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -831,7 +874,8 @@ export default function MonthlyStaffReportDialog({ isOpen, onOpenChange, parentD
                                             tasksByShift={tasksByShift}
                                             bartenderTasks={bartenderTasks}
                                             comprehensiveTasks={comprehensiveTasks}
-                                            onOpenLightbox={openLightbox} 
+                                            filterText={filterText}
+                                            onOpenLightbox={openLightbox}
                                             onNavigate={pushView}
                                         />
                                     )}
