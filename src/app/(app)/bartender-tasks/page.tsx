@@ -706,6 +706,7 @@ export default function BartenderTasksPage() {
                 onConfirm={handleUpdateTask}
                 sectionTitle={editingTask?.sectionTitle}
                 initialData={editingTask ? {
+                    id: editingTask.taskId,
                     text: editingTask.text,
                     type: editingTask.type,
                     isCritical: editingTask.isCritical,
