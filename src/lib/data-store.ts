@@ -1141,7 +1141,7 @@ export const dataStore = {
       const q = query(
         reportsCollection,
         where('date', '>=', startDateStr),
-        where('date', '<', referenceDate),
+        where('date', '<=', referenceDate),
         orderBy('date', 'desc')
       );
 
