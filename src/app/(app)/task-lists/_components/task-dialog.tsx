@@ -308,7 +308,7 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()} dialogTag="task-dialog" parentDialogTag={parentDialogTag}>
-      <DialogContent className="max-w-xl">
+      <DialogContent className="max-w-xl lg:max-w-2xl">
         <DialogHeader variant="premium" icon={<Plus className="h-6 w-6" />}>
           <DialogTitle>{initialData ? 'Chỉnh sửa công việc' : 'Thêm công việc mới'}</DialogTitle>
           <DialogDescription>
@@ -538,12 +538,17 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
           onSelect={handleReuseSelect}
           parentDialogTag={parentDialogTag}
           taskId={initialData?.id || ''}
+          taskName={text}
         />
 
         <DialogFooter>
           <DialogCancel onClick={onClose}>Hủy</DialogCancel>
-          <DialogAction onClick={handleConfirm} disabled={!text.trim()}> 
-            {initialData ? 'Lưu thay đổi' : (<><Plus className="mr-2 h-4 w-4"/> Xác nhận</>)}
+          <DialogAction onClick={handleConfirm} disabled={!text.trim() || isCompressing}> 
+            {isCompressing ? (
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {initialData ? 'Đang lưu...' : 'Đang tạo...'}</>
+            ) : (
+              initialData ? 'Lưu thay đổi' : (<><Plus className="mr-2 h-4 w-4"/> Xác nhận</>)
+            )}
           </DialogAction>
         </DialogFooter>
       </DialogContent>
