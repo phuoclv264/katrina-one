@@ -206,6 +206,7 @@ export default function ComprehensiveChecklistPage() {
 
     const [addingToSection, setAddingToSection] = useState<string | null>(null);
     const [editingTask, setEditingTask] = useState<{ 
+        id: string;
         sectionTitle: string; 
         taskId: string; 
         text: string; 
@@ -714,6 +715,7 @@ export default function ComprehensiveChecklistPage() {
                                                                     size="icon"
                                                                     className="h-8 w-8 text-muted-foreground hover:bg-background hover:text-primary transition-colors"
                                                                     onClick={() => setEditingTask({
+                                                                        id: task.id,
                                                                         sectionTitle: section.title,
                                                                         taskId: task.id,
                                                                         text: task.text,

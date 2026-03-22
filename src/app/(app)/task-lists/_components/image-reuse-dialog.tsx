@@ -45,9 +45,10 @@ interface ImageReuseDialogProps {
   onSelect: (instruction: { text?: string; images: { url: string; caption?: string }[] }) => void;
   parentDialogTag?: string;
   taskId?: string;
+  taskName?: string;
 }
 
-export function ImageReuseDialog({ isOpen, onClose, onSelect, parentDialogTag = 'task-dialog', taskId = '' }: ImageReuseDialogProps) {
+export function ImageReuseDialog({ isOpen, onClose, onSelect, parentDialogTag = 'task-dialog', taskId = '', taskName = '' }: ImageReuseDialogProps) {
   const [activeTab, setActiveTab] = useState<'library' | 'reports'>('library');
   const [searchTerm, setSearchTerm] = useState('');
   const [resources, setResources] = useState<InstructionResource[]>([]);
@@ -175,8 +176,30 @@ export function ImageReuseDialog({ isOpen, onClose, onSelect, parentDialogTag = 
   };
 
   const shifts = useMemo(() => {
-    const uniqueShifts = Array.from(new Set(resources.map(r => r.shiftName)));
-    return uniqueShifts.sort();
+    const defaultShifts = ['Ca sáng', 'Ca trưa', 'Ca tối'];
+    // Use a Map to track unique names by their lowercase version to avoid "Ca sáng" vs "Ca Sáng"
+    const shiftMap = new Map<string, string>();
+    
+    // Seed with defaults
+    defaultShifts.forEach(s => shiftMap.set(s.toLowerCase(), s));
+    
+    // Add shifts from resources, only if they don't exist (case-insensitive)
+    resources.forEach(r => {
+      const lowName = r.shiftName.toLowerCase();
+      if (!shiftMap.has(lowName)) {
+        shiftMap.set(lowName, r.shiftName);
+      }
+    });
+
+    const uniqueShifts = Array.from(shiftMap.values());
+
+    return uniqueShifts.sort((a, b) => {
+      const order = { 'ca sáng': 1, 'ca trưa': 2, 'ca tối': 3 };
+      const valA = order[a.toLowerCase() as keyof typeof order] || 99;
+      const valB = order[b.toLowerCase() as keyof typeof order] || 99;
+      if (valA !== valB) return valA - valB;
+      return a.localeCompare(b);
+    });
   }, [resources]);
 
   const filteredResources = useMemo(() => {
@@ -185,7 +208,13 @@ export function ImageReuseDialog({ isOpen, onClose, onSelect, parentDialogTag = 
       result = result.filter(r => r.shiftName === selectedShift);
     }
     if (!searchTerm) return result;
-    return advancedSearch(result, searchTerm, ['taskText', 'sectionTitle', 'shiftName']);
+
+    // We use a custom key for taskText because it contains HTML (from RichTextEditor)
+    return advancedSearch(result, searchTerm, [
+      (item) => item.taskText.replace(/<[^>]*>/g, ''),
+      'sectionTitle',
+      'shiftName'
+    ]);
   }, [resources, searchTerm, selectedShift]);
 
   const filteredReportResources = useMemo(() => {
@@ -195,14 +224,18 @@ export function ImageReuseDialog({ isOpen, onClose, onSelect, parentDialogTag = 
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()} dialogTag="image-reuse-dialog" parentDialogTag={parentDialogTag}>
-      <DialogContent className="max-w-3xl h-[100dvh] sm:h-[90vh] flex flex-col overflow-hidden sm:rounded-[32px] border-none shadow-2xl transition-all duration-500">
+      <DialogContent className="max-w-3xl lg:max-w-3xl h-[100dvh] sm:h-[90vh] flex flex-col overflow-hidden sm:rounded-[32px] border-none shadow-2xl transition-all duration-500">
         <DialogHeader className="shrink-0 relative overflow-hidden" variant="premium" icon={<Copy className="h-6 w-6" />}>
           <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
             <ImageIcon className="h-32 w-32 rotate-12" />
           </div>
           <DialogTitle className="text-2xl sm:text-3xl tracking-tight font-black">Thư viện Hình ảnh</DialogTitle>
           <DialogDescription className="font-medium max-w-md">
-            Tìm kiếm mẫu hoặc báo cáo cũ để tái sử dụng hình ảnh hướng dẫn.
+            {taskName ? (
+              <>Đang chọn ảnh cho công việc: <span className="text-indigo-600 font-bold" dangerouslySetInnerHTML={{ __html: taskName }} /></>
+            ) : (
+              "Tìm kiếm mẫu hoặc báo cáo cũ để tái sử dụng hình ảnh hướng dẫn."
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -224,7 +257,7 @@ export function ImageReuseDialog({ isOpen, onClose, onSelect, parentDialogTag = 
             </TabsList>
 
             <div className="relative group">
-              <div className="absolute inset-0 bg-indigo-500/5 blur-xl group-focus-within:bg-indigo-500/10 transition-all rounded-full" />
+              <div className="absolute inset-0 bg-indigo-500/5 blur-xl group-focus-within:bg-indigo-500/10 transition-all rounded-full pointer-events-none" />
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-indigo-500 transition-colors" />
               <Input
                 placeholder={activeTab === 'library' ? "Tìm theo nội dung, khu vực..." : "Tìm theo người báo cáo, ghi chú..."}
@@ -515,7 +548,7 @@ function LibraryCard({ resource, onSelect, onClose }: { resource: InstructionRes
             </div>
 
             <h4
-              className="text-[16px] font-bold text-zinc-900 leading-[1.3] mb-3 line-clamp-2 pr-2"
+              className="text-[16px] font-bold text-zinc-900 leading-[1.3] mb-3 pr-2"
               dangerouslySetInnerHTML={{ __html: resource.taskText }}
             />
           </div>
