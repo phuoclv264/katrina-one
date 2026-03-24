@@ -47,7 +47,6 @@ type TaskItemProps = {
   completions: CompletionRecord[];
   isReadonly: boolean;
   isExpanded: boolean;
-  isSingleCompletion: boolean;
   onPhotoAction: (task: Task, completionIndex?: number | null) => void;
   onBooleanAction: (taskId: string, value: boolean) => void;
   onOpinionAction: (task: Task) => void;
@@ -65,7 +64,6 @@ const TaskItemComponent = ({
   completions,
   isReadonly,
   isExpanded,
-  isSingleCompletion,
   onPhotoAction,
   onBooleanAction,
   onOpinionAction,
@@ -88,8 +86,9 @@ const TaskItemComponent = ({
   const baseMinCompletions = task.minCompletions || 1;
   const minCompletions = calculateAdjustedMinCompletions(baseMinCompletions, '', activeTimeSlot);
   const isCompleted = completions.length >= minCompletions;
+
   // Allow adding photos to single-completion photo tasks even if already completed.
-  const isDisabledForNew = (isSingleCompletion && isCompleted && task.type !== 'opinion' && task.type !== 'photo') || isReadonly;
+  const isDisabledForNew = (task.isTeamJob && isCompleted && task.type !== 'opinion' && task.type !== 'photo') || isReadonly;
 
   const MIN_TIME_FOR_ONE_TASK = 20; // minutes
 
@@ -448,7 +447,7 @@ const TaskItemComponent = ({
                 // For multi-completion tasks: append to newest completion if within 20 minutes, otherwise create new
                 let completionIndex: number | null = null;
 
-                if (isSingleCompletion) {
+                if (task.isTeamJob) {
                   completionIndex = (completions && completions.length > 0) ? 0 : null;
                 } else {
                   if (completions && completions.length > 0) {

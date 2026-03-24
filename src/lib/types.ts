@@ -67,6 +67,7 @@ export type Task = {
   id: string;
   text: string;
   isCritical?: boolean;
+  isTeamJob?: boolean; // New: If true, completion by one staff member counts for the whole team (replaces !isSingleCompletion)
   type: 'photo' | 'boolean' | 'opinion';
   minCompletions?: number; // Minimum number of completions required to mark task as done (default: 1)
   genderPreference?: 'Nam' | 'Nữ' | 'Tất cả'; // Add gender preference for filtering
