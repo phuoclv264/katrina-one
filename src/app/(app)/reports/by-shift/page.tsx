@@ -128,9 +128,23 @@ function ShiftSummaryCard({
         const endShiftSection = shift.sections.find(s => s.title === 'Cuối ca');
         const inShiftSection = shift.sections.find(s => s.title === 'Trong ca');
 
-        const uncompletedStartShiftTasks = startShiftSection?.tasks.filter(task => !allCompletedTasks.has(task.id)) || [];
-        const uncompletedInShiftTasks = inShiftSection?.tasks.filter(task => !allCompletedTasks.has(task.id)) || [];
-        const uncompletedEndShiftTasks = endShiftSection?.tasks.filter(task => !allCompletedTasks.has(task.id)) || [];
+        const uncompletedStartShiftTasks = startShiftSection?.tasks.map(task => {
+            const totalCompletions = allCompletedTasks.get(task.id)?.length || 0;
+            const required = task.minCompletions || 1;
+            return { task, current: totalCompletions, required, isDone: totalCompletions >= required };
+        }).filter(item => !item.isDone) || [];
+
+        const uncompletedInShiftTasks = inShiftSection?.tasks.map(task => {
+            const totalCompletions = allCompletedTasks.get(task.id)?.length || 0;
+            const required = task.minCompletions || 1;
+            return { task, current: totalCompletions, required, isDone: totalCompletions >= required };
+        }).filter(item => !item.isDone) || [];
+
+        const uncompletedEndShiftTasks = endShiftSection?.tasks.map(task => {
+            const totalCompletions = allCompletedTasks.get(task.id)?.length || 0;
+            const required = task.minCompletions || 1;
+            return { task, current: totalCompletions, required, isDone: totalCompletions >= required };
+        }).filter(item => !item.isDone) || [];
 
         const mapCompletedTasks = (section: typeof startShiftSection) => {
             if (!section) return [];
@@ -139,6 +153,7 @@ function ShiftSummaryCard({
                     taskText: task.text,
                     taskType: task.type,
                     taskMinCompletions: task.minCompletions || 1,
+                    isCritical: task.isCritical,
                     completions: allCompletedTasks.get(task.id) || [],
                 }))
                 .filter(item => item.completions.length > 0);
@@ -150,6 +165,32 @@ function ShiftSummaryCard({
 
         const allStartShiftTasksUncompleted = startShiftSection ? uncompletedStartShiftTasks.length === startShiftSection.tasks.length : false;
         const allEndShiftTasksUncompleted = endShiftSection ? uncompletedEndShiftTasks.length === endShiftSection.tasks.length : false;
+
+        // Calculate progress for each staff member
+        const staffProgress = reports.map(report => {
+            const individualTasksResult = shift.sections.flatMap(s => s.tasks.filter(t => !t.isTeamJob)).map(task => {
+                const completions = report.completedTasks?.[task.id] || [];
+                const current = completions.length;
+                const required = task.minCompletions || 1;
+                return { task, current, required, isDone: current >= required };
+            });
+
+            const teamTasksResult = shift.sections.flatMap(s => s.tasks.filter(t => !!t.isTeamJob)).map(task => {
+                const totalCompletions = reports.reduce((sum, r) => sum + (r.completedTasks?.[task.id]?.length || 0), 0);
+                const current = totalCompletions;
+                const required = task.minCompletions || 1;
+                return { task, current, required, isDone: current >= required };
+            });
+
+            const undoneTasks = [...individualTasksResult, ...teamTasksResult].filter(item => !item.isDone);
+
+            return {
+                staffName: report.staffName,
+                undoneTasks,
+                totalTasksCount: individualTasksResult.length + teamTasksResult.length,
+                isFullyCompleted: undoneTasks.length === 0
+            };
+        });
 
         return {
             uncompletedStartShiftTasks,
@@ -164,6 +205,7 @@ function ShiftSummaryCard({
             submittedUsers,
             absentUsers,
             notes: taskNotes,
+            staffProgress,
         };
     }, [shift, shiftKey, date, reports, schedule, allUsers]);
 
@@ -176,7 +218,7 @@ function ShiftSummaryCard({
                 <div key={item.taskText} className="group flex flex-col p-3 bg-white dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm transition-all hover:shadow-md hover:border-amber-200 dark:hover:border-amber-900/50">
                     <div className="flex items-start justify-between gap-2">
                         <div className="space-y-1.5 flex-1">
-                            <p className="font-bold text-slate-800 dark:text-slate-100 leading-tight">{item.taskText}</p>
+                            <p className={`font-bold leading-tight ${item.isCritical ? 'text-red-500' : 'text-slate-800 dark:text-slate-100'}`}>{item.taskText}</p>
                         </div>
                         {item.taskMinCompletions > 1 && (
                             <Badge variant="secondary" className="bg-amber-100/80 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border-none font-bold text-[10px] h-6">
@@ -298,49 +340,75 @@ function ShiftSummaryCard({
                                     <div className="inline-flex p-2 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 mb-2">
                                         <CheckCircle className="h-5 w-5" />
                                     </div>
-                                    <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">100% HOÀN TẠO BÁO CÁO</p>
+                                    <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">100% HOÀN TẤT BÁO CÁO</p>
                                 </div>
                             </div>
                         ) : null}
                     </div>
-                </div>
 
-                {summary.notes.length > 0 && (
-                    <div className="pt-6 border-t border-amber-200/50 dark:border-amber-800/20">
-                        <h4 className="font-bold flex items-center gap-2 mb-5 text-amber-900 dark:text-amber-400">
-                            <MessageSquareText className="h-5 w-5 text-amber-500" /> Điểm tin & Ghi chú quan trọng
-                        </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {summary.notes.map((note, idx) => (
-                                <div key={idx} className="group relative p-4 bg-white dark:bg-black/30 border-none rounded-2xl shadow-[0_4px_20px_-10px_rgba(0,0,0,0.1)] overflow-hidden transition-all hover:shadow-md">
-                                    <div className="absolute top-0 left-0 w-1 h-full bg-amber-400" />
-                                    <div className="flex items-start justify-between gap-3 mb-3">
-                                        <div className="flex items-center gap-2.5">
-                                            <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-900/50 dark:to-orange-900/50 flex items-center justify-center text-xs font-bold text-amber-700 uppercase">
-                                                {note.staffName.split(' ').pop()?.[0] || 'N'}
+                    {/* Staff Completion Summary */}
+                    {summary.staffProgress && summary.staffProgress.length > 0 && (
+                        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {summary.staffProgress.map((staff, idx) => (
+                                <div key={idx} className={`p-4 rounded-2xl border shadow-sm transition-all ${
+                                    staff.isFullyCompleted 
+                                        ? 'bg-emerald-50/30 border-emerald-100 dark:bg-emerald-950/10 dark:border-emerald-900/30' 
+                                        : 'bg-white/70 dark:bg-black/20 border-white dark:border-white/5'
+                                }`}>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center gap-2">
+                                            <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                                                staff.isFullyCompleted 
+                                                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400' 
+                                                    : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                                            }`}>
+                                                {staff.staffName.split(' ').pop()?.[0] || 'N'}
                                             </div>
                                             <div>
-                                                <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{note.staffName}</p>
-                                                <div className="flex items-center gap-1.5 opacity-40">
-                                                    <Clock className="h-3 w-3" />
-                                                    <span className="text-[10px] font-mono">{note.timestamp}</span>
-                                                </div>
+                                                <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{staff.staffName}</p>
+                                                <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-medium">Tiến độ công việc</p>
                                             </div>
                                         </div>
-                                        <Badge variant="outline" className="h-5 text-[9px] uppercase font-bold border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400">Ghi chú</Badge>
+                                        {staff.isFullyCompleted ? (
+                                            <Badge className="bg-emerald-500 hover:bg-emerald-600 border-none rounded-full h-6 px-2 text-white">
+                                                <Check className="h-3 w-3 mr-1" /> Xong hết
+                                            </Badge>
+                                        ) : (() => {
+                                            const totalRequired = staff.undoneTasks.reduce((acc, item) => acc + item.required, 0);
+                                            const totalDone = staff.undoneTasks.reduce((acc, item) => acc + item.current, 0);
+                                            // This doesn't account for already finished tasks, so let's calculate actual progress
+                                            // Maybe just showing the count of undone tasks is better.
+                                            return (
+                                                <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900/30 rounded-full h-6 px-2">
+                                                    Còn {staff.undoneTasks.length} việc
+                                                </Badge>
+                                            );
+                                        })()}
                                     </div>
-                                    <div className="pl-1">
-                                        <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 mb-1">Công việc:</p>
-                                        <p className="text-[13px] font-semibold text-slate-700 dark:text-slate-300 leading-snug mb-3">{note.taskText}</p>
-                                        <div className="bg-amber-50 dark:bg-amber-950/30 p-3 rounded-xl border border-amber-100/50 dark:border-amber-900/30">
-                                            <p className="text-[14px] font-medium text-amber-900 dark:text-amber-200 leading-relaxed italic">"{note.note}"</p>
+
+                                    {!staff.isFullyCompleted && (
+                                        <div className="space-y-1.5 pl-1">
+                                            {staff.undoneTasks.map((item, tIdx) => (
+                                                <div key={tIdx} className="flex items-center gap-2 text-[12px] text-slate-600 dark:text-slate-400">
+                                                    <div className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-700" />
+                                                    <span className={`flex-1 ${item.task.isCritical ? 'text-red-500 font-bold' : ''}`}>
+                                                        {item.task.text}
+                                                    </span>
+                                                    <span className="text-[10px] font-mono opacity-60 whitespace-nowrap bg-slate-100 dark:bg-slate-800 px-1 rounded">
+                                                        {item.current}/{item.required}
+                                                    </span>
+                                                    {item.task.isTeamJob && (
+                                                        <Badge variant="secondary" className="text-[8px] h-4 px-1 py-0 opacity-60 flex-shrink-0">Nhóm</Badge>
+                                                    )}
+                                                </div>
+                                            ))}
                                         </div>
-                                    </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
 
                 {hasUncompleted && (
                     <div>
@@ -353,13 +421,14 @@ function ShiftSummaryCard({
                                         <p className="text-sm italic">Toàn bộ các công việc đầu ca chưa được thực hiện.</p>
                                     ) : (
                                         <ul className="list-disc pl-5 space-y-1 text-sm">
-                                            {summary.uncompletedStartShiftTasks.map(task => (
-                                                <li key={task.id} className="flex items-center gap-2 flex-wrap">
-                                                    <span>{task.text}</span>
-                                                    {task.minCompletions && task.minCompletions > 1 && (
-                                                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 font-normal whitespace-nowrap">
-                                                            x{task.minCompletions} lần
-                                                        </Badge>
+                                            {summary.uncompletedStartShiftTasks.map(item => (
+                                                <li key={item.task.id} className="flex items-center gap-2 flex-wrap">
+                                                    <span className={item.task.isCritical ? 'text-red-500 font-bold' : ''}>{item.task.text}</span>
+                                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 font-normal whitespace-nowrap bg-slate-100/80 dark:bg-slate-800">
+                                                        {item.current}/{item.required} lần
+                                                    </Badge>
+                                                    {item.task.isTeamJob && (
+                                                        <Badge variant="outline" className="text-[8px] h-4 px-1 py-0 opacity-60">Nhóm</Badge>
                                                     )}
                                                 </li>
                                             ))}
@@ -371,13 +440,14 @@ function ShiftSummaryCard({
                                 <div className="p-3 bg-card rounded-md border">
                                     <p className="font-medium text-sm mb-1 text-muted-foreground">Trong ca:</p>
                                     <ul className="list-disc pl-5 space-y-1 text-sm">
-                                        {summary.uncompletedInShiftTasks.map(task => (
-                                            <li key={task.id} className="flex items-center gap-2 flex-wrap">
-                                                <span>{task.text}</span>
-                                                {task.minCompletions && task.minCompletions > 1 && (
-                                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 font-normal whitespace-nowrap">
-                                                        x{task.minCompletions} lần
-                                                    </Badge>
+                                        {summary.uncompletedInShiftTasks.map(item => (
+                                            <li key={item.task.id} className="flex items-center gap-2 flex-wrap">
+                                                <span className={item.task.isCritical ? 'text-red-500 font-bold' : ''}>{item.task.text}</span>
+                                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 font-normal whitespace-nowrap bg-slate-100/80 dark:bg-slate-800">
+                                                    {item.current}/{item.required} lần
+                                                </Badge>
+                                                {item.task.isTeamJob && (
+                                                    <Badge variant="outline" className="text-[8px] h-4 px-1 py-0 opacity-60">Nhóm</Badge>
                                                 )}
                                             </li>
                                         ))}
@@ -391,13 +461,14 @@ function ShiftSummaryCard({
                                         <p className="text-sm italic">Toàn bộ các công việc cuối ca chưa được thực hiện.</p>
                                     ) : (
                                         <ul className="list-disc pl-5 space-y-1 text-sm">
-                                            {summary.uncompletedEndShiftTasks.map(task => (
-                                                <li key={task.id} className="flex items-center gap-2 flex-wrap">
-                                                    <span>{task.text}</span>
-                                                    {task.minCompletions && task.minCompletions > 1 && (
-                                                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 font-normal whitespace-nowrap">
-                                                            x{task.minCompletions} lần
-                                                        </Badge>
+                                            {summary.uncompletedEndShiftTasks.map(item => (
+                                                <li key={item.task.id} className="flex items-center gap-2 flex-wrap">
+                                                    <span className={item.task.isCritical ? 'text-red-500 font-bold' : ''}>{item.task.text}</span>
+                                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 font-normal whitespace-nowrap bg-slate-100/80 dark:bg-slate-800">
+                                                        {item.current}/{item.required} lần
+                                                    </Badge>
+                                                    {item.task.isTeamJob && (
+                                                        <Badge variant="outline" className="text-[8px] h-4 px-1 py-0 opacity-60">Nhóm</Badge>
                                                     )}
                                                 </li>
                                             ))}
@@ -778,7 +849,7 @@ function ReportView() {
                                                                         {isCompleted ? <Check className="h-3.5 w-3.5 stroke-[4]" /> : <X className="h-3.5 w-3.5 text-slate-400" />}
                                                                     </div>
                                                                     <div className="flex-1 min-w-0">
-                                                                        <p className={`text-base font-bold leading-tight ${isCompleted ? 'text-slate-900 dark:text-slate-50' : 'text-slate-500'}`}>
+                                                                        <p className={`text-base font-bold leading-tight ${isCompleted ? 'text-slate-900 dark:text-slate-50' : 'text-slate-500'} ${task.isCritical ? 'text-red-500' : ''}`}>
                                                                             {task.text}
                                                                         </p>
                                                                         
