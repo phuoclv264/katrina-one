@@ -636,7 +636,6 @@ export default function HygieneReportView({ isStandalone = true }: HygieneReport
                                             completions={(report.completedTasks[task.id] || []) as CompletionRecord[]}
                                             isReadonly={isSubmitting}
                                             isExpanded={expandedTaskIds.has(task.id)}
-                                            isSingleCompletion={false}
                                             onPhotoAction={handlePhotoTaskAction}
                                             onBooleanAction={handleBooleanTaskAction}
                                             onOpinionAction={handleOpinionTaskAction}

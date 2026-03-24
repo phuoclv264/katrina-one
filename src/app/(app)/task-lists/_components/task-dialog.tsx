@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Star, ArrowUp, ArrowDown, Image as ImageIcon, Trash2, Loader2, Camera, Copy } from 'lucide-react';
+import { Plus, Star, ArrowUp, ArrowDown, Image as ImageIcon, Trash2, Loader2, Camera, Copy, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ShiftTemplate, Task } from '@/lib/types';
 import CameraDialog from '@/components/camera-dialog';
@@ -42,6 +42,7 @@ interface TaskDialogProps {
 export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', sectionTitle = '', initialData = null, parentDialogTag = 'root', shiftTemplates = [] }: TaskDialogProps) {
   const [text, setText] = useState('');
   const [isCritical, setIsCritical] = useState(false);
+  const [isTeamJob, setIsTeamJob] = useState(false);
   const [type, setType] = useState<Task['type']>('photo');
   const [minCompletions, setMinCompletions] = useState(1);
   const [genderPreference, setGenderPreference] = useState<Task['genderPreference']>('Tất cả');
@@ -103,6 +104,7 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
       if (initialData) {
         setText(initialData.text || '');
         setIsCritical(!!initialData.isCritical);
+        setIsTeamJob(!!initialData.isTeamJob);
         setType(initialData.type || 'photo');
         setMinCompletions(initialData.minCompletions || 1);
         setGenderPreference(initialData.genderPreference || 'Tất cả');
@@ -117,6 +119,7 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
       } else {
         setText('');
         setIsCritical(false);
+        setIsTeamJob(false);
         setType('photo');
         setMinCompletions(1);
         setGenderPreference('Tất cả');
@@ -288,6 +291,7 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
       onConfirm({
         text: text.trim(),
         isCritical,
+        isTeamJob,
         type,
         minCompletions,
         genderPreference,
@@ -508,18 +512,31 @@ export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', section
                 className="w-full h-12 rounded-xl bg-muted/20 border-transparent focus:bg-background transition-all"
               />
             </div>
-          <div className={cn("flex items-center justify-between p-4 rounded-lg border transition-all duration-300 cursor-pointer", isCritical ? "bg-amber-50/50 border-amber-200" : "bg-muted/10 border-transparent")} onClick={() => setIsCritical(!isCritical)}>
-            <div className="flex items-center gap-3">
-              <div className={cn("p-2 rounded-lg", isCritical ? "bg-amber-100 text-amber-500" : "bg-muted/30 text-muted-foreground/40")}>
-                <Star className="h-5 w-5" />
+            <div className={cn("flex items-center justify-between p-4 rounded-lg border transition-all duration-300 cursor-pointer", isCritical ? "bg-amber-50/50 border-amber-200" : "bg-muted/10 border-transparent")} onClick={() => setIsCritical(!isCritical)}>
+              <div className="flex items-center gap-3">
+                <div className={cn("p-2 rounded-lg", isCritical ? "bg-amber-100 text-amber-500" : "bg-muted/30 text-muted-foreground/40")}>
+                  <Star className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="font-bold text-sm">Công việc quan trọng</div>
+                  <div className="text-[10px] opacity-60 uppercase tracking-wider">Đánh dấu là nhiệm vụ ưu tiên</div>
+                </div>
               </div>
-              <div>
-                <div className="font-bold text-sm">Công việc quan trọng</div>
-                <div className="text-[10px] opacity-60 uppercase tracking-wider">Đánh dấu là nhiệm vụ ưu tiên</div>
-              </div>
+              <Checkbox checked={isCritical} onCheckedChange={(c) => setIsCritical(c as boolean)} className="h-6 w-6" />
             </div>
-            <Checkbox checked={isCritical} onCheckedChange={(c) => setIsCritical(c as boolean)} className="h-6 w-6" />
-          </div>
+
+            <div className={cn("flex items-center justify-between p-4 rounded-lg border transition-all duration-300 cursor-pointer", isTeamJob ? "bg-sky-50/50 border-sky-200" : "bg-muted/10 border-transparent")} onClick={() => setIsTeamJob(!isTeamJob)}>
+              <div className="flex items-center gap-3">
+                <div className={cn("p-2 rounded-lg", isTeamJob ? "bg-sky-100 text-sky-500" : "bg-muted/30 text-muted-foreground/40")}>
+                  <Users className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="font-bold text-sm">Việc của cả nhóm</div>
+                  <div className="text-[10px] opacity-60 uppercase tracking-wider">Chỉ cần một người làm là xong cho cả nhóm</div>
+                </div>
+              </div>
+              <Checkbox checked={isTeamJob} onCheckedChange={(c) => setIsTeamJob(c as boolean)} className="h-6 w-6" />
+            </div>
         </DialogBody>
 
         <CameraDialog

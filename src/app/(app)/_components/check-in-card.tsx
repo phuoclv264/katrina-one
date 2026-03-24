@@ -281,7 +281,6 @@ export default function CheckInCard() {
                         );
 
                         for (const section of shift.sections) {
-                            const isGlobalSection = section.title === 'Đầu ca' || section.title === 'Cuối ca';
                             for (const task of section.tasks) {
                                 // Apply the same filtering as ChecklistView
                                 const hasPreference = task.shiftPreference && task.shiftPreference.length > 0;
@@ -299,14 +298,14 @@ export default function CheckInCard() {
 
                                 const baseRequired = task.minCompletions || 1;
                                 const required = calculateAdjustedMinCompletions(baseRequired, shiftKey, activeShift?.timeSlot);
-                                if (isGlobalSection) {
-                                    // if any user has satisfied this task, skip it
-                                    const doneByAnyone = allShiftReports.some(r => {
-                                        const c = r.completedTasks[task.id] || [];
-                                        return c.length >= required;
-                                    });
-                                    if (!doneByAnyone) {
-                                        const remaining = required - (serverReport?.completedTasks[task.id]?.length || 0);
+                                if (task.isTeamJob) {
+                                    // Count total completions across all staff for this team task
+                                    const totalTeamCompletions = allShiftReports.reduce((sum, r) => {
+                                        return sum + (r.completedTasks?.[task.id]?.length || 0);
+                                    }, 0);
+
+                                    if (totalTeamCompletions < required) {
+                                        const remaining = required - totalTeamCompletions;
                                         const countLabel = required > 1 ? ` (còn ${remaining}/${required} lần)` : '';
                                         undoneList.push(task.isCritical ? `_CRITICAL_${task.text}${countLabel}` : `${task.text}${countLabel}`);
                                     }
