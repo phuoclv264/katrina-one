@@ -210,7 +210,18 @@ export default function ChecklistView({ shiftKey, isStandalone = true }: Checkli
       const sections = filteredShift.sections;
       for (const section of sections) {
         const sectionTasks = section.tasks.filter(t => t.type !== 'opinion');
-        const isSectionComplete = sectionTasks.length > 0 && sectionTasks.every(t => (report.completedTasks[t.id]?.length || 0) > 0);
+        const isSectionComplete = sectionTasks.length > 0 && sectionTasks.every(t => {
+          const baseReq = t.minCompletions || 1;
+          const req = calculateAdjustedMinCompletions(baseReq, shiftKey, activeShifts?.[0]?.timeSlot);
+          
+          if (t.isTeamJob) {
+            // Check if ANYONE (including me) completed this team task
+            const doneByAnyone = [report, ...otherStaffReports].some(r => (r.completedTasks?.[t.id]?.length || 0) >= req);
+            return doneByAnyone;
+          }
+          // Self-completion only for individual tasks
+          return (report.completedTasks[t.id]?.length || 0) >= req;
+        });
         if (!isSectionComplete) {
           setActiveTab(section.title);
           initialTabSet.current = true;

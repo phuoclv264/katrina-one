@@ -47,7 +47,6 @@ type TaskItemProps = {
   completions: CompletionRecord[];
   isReadonly: boolean;
   isExpanded: boolean;
-  isSingleCompletion: boolean;
   onPhotoAction: (task: Task, completionIndex?: number | null) => void;
   onBooleanAction: (taskId: string, value: boolean) => void;
   onOpinionAction: (task: Task) => void;
@@ -65,7 +64,6 @@ const TaskItemComponent = ({
   completions,
   isReadonly,
   isExpanded,
-  isSingleCompletion,
   onPhotoAction,
   onBooleanAction,
   onOpinionAction,
@@ -88,6 +86,11 @@ const TaskItemComponent = ({
   const baseMinCompletions = task.minCompletions || 1;
   const minCompletions = calculateAdjustedMinCompletions(baseMinCompletions, '', activeTimeSlot);
   const isCompleted = completions.length >= minCompletions;
+  
+  // task.isTeamJob == !isSingleCompletion. 
+  // If NOT a team job, it's a individual task (isSingleCompletion was true).
+  const isSingleCompletion = !task.isTeamJob;
+
   // Allow adding photos to single-completion photo tasks even if already completed.
   const isDisabledForNew = (isSingleCompletion && isCompleted && task.type !== 'opinion' && task.type !== 'photo') || isReadonly;
 

@@ -678,7 +678,6 @@ export default function ManagerReportView({ isStandalone = false }: ManagerRepor
                                             completions={(report.completedTasks[task.id] || []) as CompletionRecord[]}
                                             isReadonly={isReadonly}
                                             isExpanded={expandedTaskIds.has(task.id)}
-                                            isSingleCompletion={false}
                                             onPhotoAction={handlePhotoTaskAction as (task: Task, completionIndex?: number | null) => void}
                                             onBooleanAction={handleBooleanTaskAction}
                                             onOpinionAction={handleOpinionTaskAction as (task: Task) => void}

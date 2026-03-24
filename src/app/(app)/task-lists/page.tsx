@@ -8,7 +8,7 @@ import type { Task, TasksByShift, TaskSection, ParsedServerTask, ShiftTemplate }
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Trash2, Plus, ListTodo, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon, Star, Shuffle, Check, Pencil, AlertCircle, Sparkles, CheckSquare, MessageSquare, Download, MapPin, Info } from 'lucide-react';
+import { Trash2, Plus, ListTodo, ArrowUp, ArrowDown, ChevronsDownUp, Wand2, Loader2, FileText, Image as ImageIcon, Star, Shuffle, Check, Pencil, AlertCircle, Sparkles, CheckSquare, MessageSquare, Download, MapPin, Info, Users } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -56,6 +56,7 @@ export default function TaskListsPage() {
         type: Task['type'];
         minCompletions: number;
         isCritical: boolean;
+        isTeamJob: boolean;
         genderPreference: Task['genderPreference'];
         shiftPreference?: string[];
         instruction?: { text?: string; images?: { url: string; caption?: string }[] }
@@ -186,7 +187,7 @@ export default function TaskListsPage() {
         }
 
         const { shiftKey, sectionTitle, taskId } = editingTask;
-        const { text, type, minCompletions, isCritical, genderPreference, shiftPreference, instruction } = data;
+        const { text, type, minCompletions, isCritical, isTeamJob, genderPreference, shiftPreference, instruction } = data;
         const newTasksState = JSON.parse(JSON.stringify(tasksByShift));
         const section = newTasksState[shiftKey]?.sections.find((s: TaskSection) => s.title === sectionTitle);
         if (section) {
@@ -196,6 +197,7 @@ export default function TaskListsPage() {
                 task.type = type;
                 task.minCompletions = minCompletions || 1;
                 task.isCritical = isCritical;
+                task.isTeamJob = isTeamJob;
                 task.genderPreference = genderPreference;
                 task.shiftPreference = shiftPreference;
                 task.instruction = instruction;
@@ -498,6 +500,12 @@ export default function TaskListsPage() {
                                                                                     {task.isCritical && (
                                                                                         <Badge variant="outline" className="h-5 md:h-6 px-1.5 text-[9px] md:text-[10px] uppercase font-bold tracking-widest bg-amber-200/50 text-amber-800 border-amber-300 rounded-md">Quan trọng</Badge>
                                                                                     )}
+                                                                                    {task.isTeamJob && (
+                                                                                        <Badge variant="outline" className="h-5 md:h-6 px-1.5 text-[9px] md:text-[10px] uppercase font-bold tracking-widest bg-sky-200/50 text-sky-800 border-sky-300 rounded-md">
+                                                                                            <Users className="mr-1 h-3 w-3" />
+                                                                                            Cả nhóm
+                                                                                        </Badge>
+                                                                                    )}
                                                                                     {task.minCompletions && task.minCompletions > 1 && (
                                                                                         <Badge variant="secondary" className="h-5 md:h-6 px-1.5 text-[9px] md:text-[10px] font-bold bg-muted text-muted-foreground rounded-md">{task.minCompletions} lần</Badge>
                                                                                     )}
@@ -589,6 +597,7 @@ export default function TaskListsPage() {
                                                                                         type: task.type,
                                                                                         minCompletions: task.minCompletions || 1,
                                                                                         isCritical: !!task.isCritical,
+                                                                                        isTeamJob: !!task.isTeamJob,
                                                                                         genderPreference: task.genderPreference || 'Tất cả',
                                                                                         shiftPreference: task.shiftPreference || [],
                                                                                         instruction: task.instruction
@@ -666,6 +675,7 @@ export default function TaskListsPage() {
                     type: editingTask.type,
                     minCompletions: editingTask.minCompletions,
                     isCritical: editingTask.isCritical,
+                    isTeamJob: editingTask.isTeamJob,
                     genderPreference: editingTask.genderPreference,
                     shiftPreference: editingTask.shiftPreference,
                     instruction: editingTask.instruction

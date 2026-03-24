@@ -143,7 +143,6 @@ export default function ChecklistTabs({ shift, report, otherStaffReports, active
                             onToggleExpand={toggleExpandTask}
                             isReadonly={isReadonly || isSubmitting}
                             isExpanded={expandedTaskIds.has(task.id)}
-                            isSingleCompletion={section.title !== 'Trong ca' ? true : false}
                             onOpenLightbox={onOpenLightbox}
                             otherStaffCompletions={otherStaffCompletions}
                             className={cn(
@@ -191,7 +190,6 @@ export default function ChecklistTabs({ shift, report, otherStaffReports, active
                             onToggleExpand={toggleExpandTask}
                             isReadonly={isReadonly || isSubmitting}
                             isExpanded={expandedTaskIds.has(task.id)}
-                            isSingleCompletion={section.title !== 'Trong ca' ? true : false}
                             onOpenLightbox={onOpenLightbox}
                             otherStaffCompletions={otherStaffCompletions}
                             className={cn(
@@ -230,7 +228,6 @@ export default function ChecklistTabs({ shift, report, otherStaffReports, active
                         onToggleExpand={toggleExpandTask}
                         isReadonly={isReadonly || isSubmitting}
                         isExpanded={expandedTaskIds.has(task.id)}
-                        isSingleCompletion={false}
                         onOpenLightbox={onOpenLightbox}
                         otherStaffCompletions={otherStaffReports.map(staffReport => ({ staffName: staffReport.staffName, userId: staffReport.userId, completions: (staffReport.completedTasks[task.id] || []) }))}
                         className="bg-white border-amber-200 shadow-[0_4px_12px_rgba(245,158,11,0.08)] rounded-2xl"
