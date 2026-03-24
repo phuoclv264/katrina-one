@@ -7,6 +7,7 @@ import { doc, setDoc, getDoc, updateDoc, getDocFromCache, onSnapshot } from 'fir
 import { auth, db } from '@/lib/firebase';
 import { toast } from '@/components/ui/pro-toast';
 import { dataStore } from '@/lib/data-store';
+import { unregisterNotifications } from '@/lib/firebase-messaging';
 import { useDataRefresher } from './useDataRefresher';
 import { isUserOnActiveShift, getActiveShifts } from '@/lib/schedule-utils';
 import type { Schedule, AssignedShift, Notification, ManagedUser, UserBadge } from '@/lib/types';
@@ -150,6 +151,9 @@ export const useAuth = () => {
           }
 
         } else {
+          if (user) {
+            await unregisterNotifications(user.uid);
+          }
           await signOut(auth);
           setUser(null);
           setIsOnActiveShift(false);
@@ -168,7 +172,7 @@ export const useAuth = () => {
     });
 
     return () => unsubscribeAuth();
-  }, [pathname, router]);
+  }, [pathname, router, user?.uid]);
 
   // Keep the auth user in sync with their Firestore document in real-time.
   useEffect(() => {
@@ -300,6 +304,10 @@ export const useAuth = () => {
 
   const logout = useCallback(async () => {
     try {
+      // Unregister from push notifications before signing out to ensure permissions are still valid.
+      if (user) {
+        await unregisterNotifications(user.uid);
+      }
       await signOut(auth);
       router.replace('/');
       toast.success('Đã đăng xuất.');
@@ -307,7 +315,7 @@ export const useAuth = () => {
       console.error(error);
       toast.error('Không thể đăng xuất. Vui lòng thử lại.');
     }
-  }, [router]);
+  }, [router, user?.uid]);
 
   return {
     user,

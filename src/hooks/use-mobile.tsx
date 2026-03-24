@@ -1,3 +1,4 @@
+import { Capacitor } from "@capacitor/core";
 import * as React from "react"
 
 const MOBILE_BREAKPOINT = 768
@@ -6,6 +7,11 @@ export function useIsMobile(ref?: React.RefObject<HTMLElement>) {
   const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined)
 
   React.useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+        setIsMobile(true);
+        return;
+    }
+
     const targetElement = ref?.current;
     
     // If a ref is provided, use ResizeObserver

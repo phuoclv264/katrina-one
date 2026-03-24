@@ -1,7 +1,7 @@
 
 'use client';
 
-import { lazy, Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { SidebarProvider, Sidebar, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import NextTopLoader from 'nextjs-toploader';
 import { AppSidebar } from '@/components/sidebar';
@@ -11,6 +11,8 @@ import { PanelLeft } from 'lucide-react';
 import { LightboxProvider } from '@/contexts/lightbox-context';
 import { BackButtonHandler } from '@/components/back-button-handler';
 import { Skeleton } from '@/components/ui/skeleton';
+import { StatusBar, Style } from '@capacitor/status-bar';
+import NotificationHandler from '@/components/notification-handler';
 import { MobileLayout } from '@/components/mobile-layout';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { AppNavigationProvider } from '@/contexts/app-navigation-context';
@@ -20,6 +22,17 @@ export default function AppLayout({
 }: {
   children: React.ReactNode
 }) {
+  useEffect(() => {
+    (async () => {
+      try {
+        // await StatusBar.setStyle({ style: Style.Light });
+        await StatusBar.setOverlaysWebView({ overlay: true });
+        // await StatusBar.setBackgroundColor({ color: '#00000000' }); // transparent
+      } catch (err) {
+        console.warn('StatusBar not available', err);
+      }
+    })();
+  }, []);
   const isMobile = useIsMobile();
 
   return (
@@ -29,6 +42,7 @@ export default function AppLayout({
           <AppSidebar />
         </Sidebar>
         <BackButtonHandler />
+        <NotificationHandler />
         <SidebarInset className="pb-0">
           <header className="sticky top-0 z-50 flex h-14 items-center border-b bg-background/80 backdrop-blur-md px-4 sm:px-6">
             <Suspense fallback={<Skeleton className="h-6 w-32" />}>

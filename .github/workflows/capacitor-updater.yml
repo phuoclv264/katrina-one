@@ -1,0 +1,214 @@
+name: Capacitor Updater Bundle
+
+# Builds the static web bundle, packages it to dist.zip, writes a manifest.json,
+# uploads dist.zip + manifest.json to Firebase Storage (gs://<bucket>/updates/)
+# and publishes a GitHub release (keeps existing behavior).
+#
+# Requirements (set in repository Settings → Secrets):
+#  - GCP_SA_KEY: JSON service account key with Storage object create/get permissions
+#  - GCP_PROJECT_ID: (optional) GCP project id for the service account
+#
+on:
+  push:
+    branches:
+      - mobile-app
+
+permissions:
+  contents: write
+
+jobs:
+  build-export:
+    runs-on: ubuntu-latest
+    env:
+      UPDATES_DIR: updates
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web bundle
+        env:
+          # add any environment variable(s) needed by the build
+          NEXT_PUBLIC_UPDATER_MANIFEST_URL: ${{ secrets.NEXT_PUBLIC_UPDATER_MANIFEST_URL }}
+          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+        run: |
+          npm run build
+          npx cap sync
+
+      - name: Package update zip
+        run: |
+          mkdir -p dist
+          cd out
+          zip -r ../dist.zip .
+          cd ..
+
+      - name: Compute checksum & version
+        id: build-info
+        run: |
+          # version is previous manifest version +1; rollover 100 -> minor/major
+          # determine bucket same as downstream step so we can fetch existing manifest
+          BUCKET=$(grep -oP 'storageBucket:\s*"\K[^\"]+' src/lib/firebase.ts || true)
+          if [ -z "$BUCKET" ]; then
+            BUCKET="${FIREBASE_STORAGE_BUCKET:-}"
+          fi
+
+          PREV_VERSION=""
+          if [ -n "$BUCKET" ]; then
+            # try to read manifest from storage; ignore errors
+            PREV_VERSION=$(gsutil cat "gs://$BUCKET/$UPDATES_DIR/manifest.json" 2>/dev/null | \
+              node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{console.log(JSON.parse(s).version)}catch{} });') || true
+          fi
+
+          if [ -z "$PREV_VERSION" ]; then
+            # fallback to package.json if we couldn't fetch previous manifest
+            PREV_VERSION=$(node -e "const pkg=require('./package.json');console.log(pkg.version);")
+          fi
+
+          # split into components and default to 0
+          IFS='.' read -r prevMaj prevMin prevPatch <<<"$PREV_VERSION"
+          prevMaj=${prevMaj:-0}; prevMin=${prevMin:-0}; prevPatch=${prevPatch:-0}
+
+          # convert to a single number (base 100 for patch/minor, base 10000 for major)
+          COUNT=$((prevMaj*10000 + prevMin*100 + prevPatch + 1))
+          newMaj=$((COUNT / 10000))
+          rest=$((COUNT % 10000))
+          newMin=$((rest / 100))
+          newPatch=$((rest % 100))
+          VERSION="v${newMaj}.${newMin}.${newPatch}"
+
+          # rename the single-output ZIP to a versioned filename so CDN/storage caching is safe
+          ZIP="${VERSION}.zip"
+          mv dist.zip "${ZIP}"
+
+          # compute checksum for the versioned ZIP and export outputs
+          CHECKSUM=$(sha256sum "${ZIP}" | awk '{print $1}')
+          echo "checksum=$CHECKSUM" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "zipfile=$(basename "${ZIP}")" >> $GITHUB_OUTPUT
+
+      - name: Detect Firebase storage bucket
+        id: detect-bucket
+        env:
+          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+        run: |
+          # try reading storageBucket from src/lib/firebase.ts
+          BUCKET=$(grep -oP "storageBucket:\\s*\"\K[^\"]+" src/lib/firebase.ts || true)
+
+          # fallback to repository secret FIREBASE_STORAGE_BUCKET when not present in source
+          if [ -z "$BUCKET" ]; then
+            BUCKET="${FIREBASE_STORAGE_BUCKET:-}"
+          fi
+
+          if [ -z "$BUCKET" ]; then
+            echo "ERROR: storageBucket not found in src/lib/firebase.ts and FIREBASE_STORAGE_BUCKET secret is not set" >&2
+            exit 1
+          fi
+
+          # keep the storage bucket value exactly as provided (supports *.firebasestorage.app)
+          # do NOT convert to .appspot.com — use the value from src/lib/firebase.ts or FIREBASE_STORAGE_BUCKET
+          echo "bucket=$BUCKET" >> $GITHUB_OUTPUT
+
+      - name: Authenticate to Google Cloud (auth)
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Setup gcloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          export_default_credentials: true
+
+      - name: Upload update ZIP to Firebase Storage
+        run: |
+          BUCKET=${{ steps.detect-bucket.outputs.bucket }}
+          ZIPFILE=${{ steps.build-info.outputs.zipfile }}
+          # Upload versioned zip with long-lived immutable cache (filename is versioned by previous step)
+          gsutil -h "Cache-Control: public, max-age=31536000, immutable" cp "$ZIPFILE" gs://$BUCKET/$UPDATES_DIR/$ZIPFILE
+          # best-effort: make the object readable publicly
+          gsutil acl ch -u AllUsers:R gs://$BUCKET/$UPDATES_DIR/$ZIPFILE || true
+
+      - name: Cleanup old update ZIPs
+        env:
+          # number of most-recent ZIP files to keep in the bucket
+          KEEP_ZIPS: 5
+        run: |
+          BUCKET=${{ steps.detect-bucket.outputs.bucket }}
+          ZIPFILE=${{ steps.build-info.outputs.zipfile }}
+          PREFIX="gs://$BUCKET/$UPDATES_DIR"
+          CURRENT="$PREFIX/$ZIPFILE"
+          KEEP=${KEEP_ZIPS:-5}
+
+          echo "Keeping latest $KEEP zip files in $PREFIX (excluding current: $ZIPFILE)"
+
+          # list ZIPs sorted by timestamp descending (newest first)
+          ALL_FILES=$(gsutil ls -l "${PREFIX}/*.zip" 2>/dev/null | grep -v TOTAL | sort -k2 -r | awk '{print $3}') || true
+
+          # determine files to delete (everything after the first $KEEP entries)
+          TO_DELETE=$(echo "$ALL_FILES" | sed -n "$((KEEP+1)),\$p" || true)
+
+          # guard: never delete the ZIP uploaded in this run
+          TO_DELETE=$(echo "$TO_DELETE" | grep -vF "$CURRENT" || true)
+
+          if [ -n "$TO_DELETE" ]; then
+            echo "Deleting the following old ZIPs:"
+            echo "$TO_DELETE"
+            # delete in parallel
+            echo "$TO_DELETE" | xargs -r gsutil -m rm -I || true
+          else
+            echo "No old ZIPs to delete"
+          fi
+
+      - name: Write & upload manifest.json (to storage)
+        id: upload-manifest
+        run: |
+          BUCKET=${{ steps.detect-bucket.outputs.bucket }}
+          VERSION=${{ steps.build-info.outputs.version }}
+          CHECKSUM=${{ steps.build-info.outputs.checksum }}
+          ZIPFILE=${{ steps.build-info.outputs.zipfile }}
+
+          MANIFEST_FILE=manifest.json
+          cat > $MANIFEST_FILE <<EOF
+          {
+            "version": "$VERSION",
+            "url": "https://storage.googleapis.com/$BUCKET/$UPDATES_DIR/$ZIPFILE",
+            "checksum": "$CHECKSUM"
+          }
+          EOF
+
+          echo "manifest content:" && cat $MANIFEST_FILE
+
+          # Upload manifest with no-cache so CDN/edges always revalidate the object
+          gsutil -h "Cache-Control: no-cache, max-age=0, must-revalidate" cp $MANIFEST_FILE gs://$BUCKET/$UPDATES_DIR/manifest.json
+          gsutil acl ch -u AllUsers:R gs://$BUCKET/$UPDATES_DIR/manifest.json || true
+
+          echo "manifest-url=https://storage.googleapis.com/$BUCKET/$UPDATES_DIR/manifest.json" >> $GITHUB_OUTPUT
+
+      - name: Publish release assets (keeps existing release behavior)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: cap-updater-${{ steps.build-info.outputs.version }}
+          name: Cap Updater ${{ steps.build-info.outputs.version }}
+          draft: false
+          prerelease: true
+          make_latest: true
+          files: |
+            ${{ steps.build-info.outputs.zipfile }}
+            manifest.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Output manifest URL
+        run: |
+          echo "Manifest uploaded → ${{ steps.upload-manifest.outputs.manifest-url }}"

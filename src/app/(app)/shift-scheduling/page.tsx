@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, Suspense } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'nextjs-toploader/app';
 import { LoadingPage } from '@/components/loading/LoadingPage';
@@ -35,7 +35,9 @@ export default function ShiftSchedulingPage() {
                   </p>
                 </div>
             </header>
-            <ScheduleView />
+            <Suspense fallback={<LoadingPage />}>
+              <ScheduleView />
+            </Suspense>
         </div>
     );
 }

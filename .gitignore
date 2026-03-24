@@ -45,8 +45,4 @@ firebase-debug.log
 firestore-debug.log
 /functions
 .firebase*
-
-/android
-/ios
-/sample
-.vscode/settings.json
+android/app/google-services.json

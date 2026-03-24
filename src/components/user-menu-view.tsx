@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,13 @@ import { ProfileDialog } from './profile-dialog';
 import { useCheckInCardPlacement } from '@/hooks/useCheckInCardPlacement';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { getUserAccessLinks } from '@/lib/user-access-links';
+import { toast } from '@/components/ui/pro-toast';
+import { parseManifestPayload, ManifestPayload } from '@/lib/capacitor-updater-status';
+
+// show app / updater status
+import { Capacitor } from '@capacitor/core';
+import { CapacitorUpdater } from '@capgo/capacitor-updater';
+import packageJson from '../../package.json';
 
 interface UserMenuViewProps {
   onNavigateToHome?: () => void;
@@ -27,6 +34,103 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
   const { isCheckedIn } = useCheckInCardPlacement();
   const nav = useAppNavigation();
   const [profileOpen, setProfileOpen] = useState(false);
+
+  const [installedVersion, setInstalledVersion] = useState<string | null>(null);
+  const [latestVersion, setLatestVersion] = useState<string | null>(null);
+  const [lastChecked, setLastChecked] = useState<string | null>(null);
+  const manifestUrl = process.env.NEXT_PUBLIC_UPDATER_MANIFEST_URL || '';
+  const MANIFEST_FETCH_TIMEOUT_MS = Number(process.env.NEXT_PUBLIC_UPDATER_MANIFEST_TIMEOUT_MS ?? 15000);
+  const [checkingManifest, setCheckingManifest] = useState(false);
+  const [manifestCheckMessage, setManifestCheckMessage] = useState<string | null>(null);
+  const [pendingUpdateVersion, setPendingUpdateVersion] = useState<string | null>(null);
+
+  const refreshPendingUpdateVersion = useCallback(async () => {
+    if (!Capacitor.isNativePlatform()) {
+      setPendingUpdateVersion(null);
+      return;
+    }
+
+    try {
+      const next = await CapacitorUpdater.getNextBundle();
+      setPendingUpdateVersion(next?.version ?? null);
+    } catch {
+      setPendingUpdateVersion(null);
+    }
+  }, []);
+
+  const formatDateTime = (value: number | null) => (value ? new Date(value).toLocaleString() : '—');
+
+  const fetchManifestInfo = useCallback(async (): Promise<ManifestPayload | null> => {
+    if (!manifestUrl || typeof window === 'undefined') return null;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), MANIFEST_FETCH_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(manifestUrl, { cache: 'no-store', signal: controller.signal });
+      if (!response.ok) {
+        throw new Error(`Manifest request failed: ${response.status}`);
+      }
+      const data = await response.json();
+      return parseManifestPayload(data);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }, [manifestUrl, MANIFEST_FETCH_TIMEOUT_MS]);
+
+  const handleManifestResult = useCallback((manifest: ManifestPayload | null, message: string) => {
+    setLatestVersion(manifest?.version ?? null);
+    setManifestCheckMessage(message);
+    setLastChecked(new Date().toLocaleString());
+  }, []);
+
+  const handleManualManifestCheck = async () => {
+    if (!manifestUrl || checkingManifest) return;
+    setCheckingManifest(true);
+    try {
+      const manifest = await fetchManifestInfo();
+      if (manifest) {
+        handleManifestResult(manifest, `Manifest truy cập được — v${manifest.version}`);
+      } else {
+        handleManifestResult(null, 'Manifest không hợp lệ hoặc không đầy đủ dữ liệu.');
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Không thể kiểm tra manifest.';
+      handleManifestResult(null, `Không thể kiểm tra manifest (${message}).`);
+    } finally {
+      setCheckingManifest(false);
+      // call plugin-backed refreshers
+      void refreshPendingUpdateVersion();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('cap-updater-check'));
+      }
+    }
+  };
+
+  // removed manual re-enable — plugin manages failures/rollbacks now.
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function readVersions() {
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const current = await CapacitorUpdater.current();
+          if (!mounted) return;
+          setInstalledVersion(current.bundle?.version ?? 'builtin');
+        } catch (err) {
+          if (!mounted) return;
+          setInstalledVersion('unknown');
+        }
+      } else {
+        setInstalledVersion(packageJson.version ?? null);
+      }
+    }
+
+    readVersions();
+    void refreshPendingUpdateVersion();
+
+    return () => { mounted = false; };
+  }, [fetchManifestInfo, refreshPendingUpdateVersion, handleManifestResult, manifestUrl]);
 
   if (!user) return null;
 
@@ -215,6 +319,40 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
             <LogOut className="w-4 h-4 mr-2" />
             Đăng xuất
           </Button>
+
+          {/* Version / updater info */}
+          <div className="mt-3 text-xs text-muted-foreground space-y-1">
+            <div>Phiên bản hiện tại: <span className="font-medium">{installedVersion ?? '—'}</span></div>
+            <div>Bản cập nhật mới nhất: <span className="font-medium">{latestVersion ?? '—'}</span></div>
+            <div>Kiểm tra lần cuối: <span className="font-medium">{lastChecked ?? '—'}</span></div>
+
+            <div className="pt-2 border-t border-dashed border-muted/40">
+              <div className="flex flex-wrap gap-2 mt-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleManualManifestCheck}
+                  disabled={!manifestUrl || checkingManifest}
+                >
+                  {checkingManifest ? 'Đang kiểm tra...' : 'Kiểm tra bản cập nhật'}
+                </Button>
+              </div>
+              {manifestCheckMessage && (
+                <div className="text-[10px] text-muted-foreground/80 mt-1">
+                  {manifestCheckMessage}
+                </div>
+              )}
+              {pendingUpdateVersion && installedVersion && pendingUpdateVersion !== installedVersion && (
+                <div className="text-[10px] text-emerald-500 mt-1">
+                  Bản cập nhật v{pendingUpdateVersion} đã tải xong — khởi động lại để áp dụng.
+                </div>
+              )}
+            </div>
+
+            {latestVersion && installedVersion && latestVersion !== installedVersion && (
+              <div className="text-amber-600">Bản cập nhật khả dụng</div>
+            )}
+          </div>
         </div>
       </div>
     </div>

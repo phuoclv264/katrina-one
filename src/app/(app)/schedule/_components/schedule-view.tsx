@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'nextjs-toploader/app';
 import { dataStore } from '@/lib/data-store';
@@ -73,7 +73,7 @@ import { BusyEvidenceDialog } from './busy-evidence-dialog';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
 
 
-export default function ScheduleView() {
+function ScheduleViewComponent() {
     const { user, loading: authLoading } = useAuth();
     const router = useRouter();
     const routerRef = useRef(router);
@@ -974,5 +974,13 @@ export default function ScheduleView() {
                 maxWidth="lg"
             />
         </TooltipProvider>
+    );
+}
+
+export default function ScheduleView() {
+    return (
+        <Suspense fallback={<LoadingPage />}>
+            <ScheduleViewComponent />
+        </Suspense>
     );
 }

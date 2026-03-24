@@ -38,7 +38,6 @@ function isMediaAttachment(item: any): item is MediaAttachment {
     typeof item.url === 'string' &&
     (item.type === 'photo' || item.type === 'video');
 }
-
 function ViolationsView() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
