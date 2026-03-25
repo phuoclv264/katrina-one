@@ -324,7 +324,9 @@ export default function CheckInCard() {
                         }
                     }
 
-                    const hasCriticalTasks = tasksMap && tasksMap[shiftKey] && tasksMap[shiftKey].sections.some(s => s.tasks.some(t => t.isCritical && undoneList.some(item => item === `_CRITICAL_${t.text}`)));
+                    const hasCriticalTasks = tasksMap && tasksMap[shiftKey] && tasksMap[shiftKey].sections.some(s => 
+                        s.tasks.some(t => t.isCritical && undoneList.some(item => item.startsWith(`_CRITICAL_${t.text}`)))
+                    );
 
                     items.push({
                         category: 'checklist',
