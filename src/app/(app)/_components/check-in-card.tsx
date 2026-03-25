@@ -198,6 +198,48 @@ export default function CheckInCard() {
 
         if (effectiveRoles.length === 0) return [];
 
+        // --- 1. Manager Duration-based Report Check ---
+        if (effectiveRoles.includes('Quản lý') && latestInProgressRecord?.checkInTime) {
+            try {
+                const shiftKey = 'manager_comprehensive';
+                const { report: currentReport } = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Quản lý', shiftKey);
+                const sectionReports = currentReport.sectionReports || {};
+
+                // Calculate hours worked
+                const checkInDate = (latestInProgressRecord.checkInTime as Timestamp).toDate();
+                const now = new Date();
+                const diffMs = now.getTime() - checkInDate.getTime();
+                const hoursWorked = diffMs / (1000 * 60 * 60);
+
+                if (hoursWorked >= 1) { // Only check if worked more than 1 hour
+                    const targetCount = Math.max(1, Math.floor(hoursWorked / 2)); // 1 report every 2 hours, at least 1
+                    
+                    const sections = await dataStore.getComprehensiveTasks();
+                    const missingReports: string[] = [];
+
+                    sections.forEach(section => {
+                        const count = (sectionReports[section.title] || []).length;
+                        const required = section.title.includes("Báo cáo hiệu suất") ? 2 : targetCount;
+                        
+                        if (count < required) {
+                            missingReports.push(`${section.title}: ${count}/${required} báo cáo`);
+                        }
+                    });
+
+                    if (missingReports.length > 0) {
+                        items.push({
+                            category: 'checklist',
+                            title: `Tần suất báo cáo (${hoursWorked.toFixed(1)}h làm việc)`,
+                            items: missingReports,
+                            isStared: true
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking manager report frequency:', error);
+            }
+        }
+
         const targetedDaily = dailyTasks.filter(task => task.assignedDate === todayKey && isUserTargetedDailyTask(task));
         const pendingDaily = targetedDaily.filter(task => (task.status === 'open' || task.status === 'in_review'));
         if (pendingDaily.length > 0) {

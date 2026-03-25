@@ -1,15 +1,11 @@
-
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
-import Image from '@/components/ui/image';
 import { useSearchParams } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import { getQueryParamWithMobileHashFallback } from '@/lib/url-params';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Check, Camera, MessageSquareWarning, Clock, X, Building, ThumbsUp, ThumbsDown, CheckCircle, Users, FilePen, Trash2, Loader2, AlertCircle, MessageSquareText } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { MessageSquareWarning, Users, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import type { ShiftReport, CompletionRecord, ComprehensiveTaskSection } from '@/lib/types';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { Combobox } from '@/components/combobox';
@@ -20,9 +16,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Timestamp } from 'firebase/firestore';
-import { useLightbox } from '@/contexts/lightbox-context';
 import { useRouter } from 'nextjs-toploader/app';
-
+import { SectionReportViewer } from './_components/section-report-viewer';
 
 function ComprehensiveReportView() {
   const { user, loading: authLoading } = useAuth();
@@ -45,8 +40,6 @@ function ComprehensiveReportView() {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
-  const { openLightbox } = useLightbox();
-
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'Chủ nhà hàng')) {
@@ -130,11 +123,6 @@ function ComprehensiveReportView() {
     return photos;
   }, [taskSections, report]);
 
-  const handleOpenLightbox = (photoUrl: string) => {
-    const photoIndex = allPagePhotos.findIndex(p => p.src === photoUrl);
-    if (photoIndex > -1) openLightbox(allPagePhotos, photoIndex);
-  };
-
   const handleDeleteReport = async () => {
     if (!report) return;
     setIsProcessing(true);
@@ -158,7 +146,6 @@ function ComprehensiveReportView() {
     }
   }
 
-
   if (isLoading || authLoading) {
     return <LoadingPage />;
   }
@@ -168,7 +155,6 @@ function ComprehensiveReportView() {
       <div className="container mx-auto max-w-2xl p-4 sm:p-6 md:p-8">
         <h1 className="text-2xl font-bold">Không tìm thấy báo cáo.</h1>
         <p className="text-muted-foreground">Không có báo cáo nào được nộp vào ngày đã chọn.</p>
-
       </div>
     );
   }
@@ -245,98 +231,22 @@ function ComprehensiveReportView() {
           </div>
         ) : (
           <div className="space-y-8">
-            <Card>
-              <CardHeader>
-                <CardTitle>Kết quả kiểm tra</CardTitle>
-                <CardDescription>
-                  Báo cáo từ <span className="font-semibold">{report.staffName}</span>, nộp lúc <span className="font-semibold">{new Date(report.submittedAt as string).toLocaleString('vi-VN', { hour12: false })}</span>.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Accordion type="multiple" defaultValue={taskSections.map(s => s.title)} className="w-full space-y-4">
-                  {taskSections.map((section) => (
-                    <AccordionItem value={section.title} key={section.title} className="rounded-lg border-[3px] bg-card border-primary/50">
-                      <AccordionTrigger className="text-lg font-bold p-4 hover:no-underline">
-                        <div className="flex items-center gap-3">
-                          <Building className="mr-3 h-5 w-5 text-primary" />
-                          {section.title}
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="border-t p-4">
-                        <div className="space-y-4 pt-2">
-                          {section.tasks.map((task) => {
-                            const completions = (report.completedTasks[task.id] || []) as CompletionRecord[];
-                            const isCompleted = completions.length > 0;
+            <div className="mb-6">
+              <p className="text-sm text-muted-foreground">
+                Báo cáo từ <span className="font-semibold text-foreground">{report.staffName}</span>, nộp lúc <span className="font-semibold text-foreground">{new Date(report.submittedAt as string).toLocaleString('vi-VN', { hour12: false })}</span>.
+              </p>
+            </div>
 
-                            return (
-                              <div key={task.id} className={`rounded-md border p-4 transition-colors ${isCompleted ? 'bg-accent/20' : ''}`}>
-                                <div className="flex items-start gap-4">
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-3">
-                                      <div className={`flex h-5 w-5 items-center justify-center rounded-full flex-shrink-0 mt-0.5 ${isCompleted ? 'bg-green-500/20 text-green-700' : 'bg-muted'}`}>
-                                        {isCompleted ? <Check className="h-4 w-4" /> : <X className="h-4 w-4 text-muted-foreground" />}
-                                      </div>
-                                      <p className={`font-semibold ${!isCompleted ? 'text-muted-foreground' : ''}`}>
-                                        {task.text}
-                                      </p>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {isCompleted && (
-                                  <div className="mt-4 ml-8 space-y-3 pl-3 border-l-2">
-                                    {completions.map((completion, cIndex) => (
-                                      <div key={cIndex} className="rounded-md border bg-card p-3">
-                                        <div className="flex items-center justify-between mb-2">
-                                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                            <Clock className="h-4 w-4 flex-shrink-0" />
-                                            <span>Kiểm tra lúc: {completion.timestamp}</span>
-                                          </div>
-                                          {completion.value !== undefined && (
-                                            <Badge variant={completion.value ? 'default' : 'destructive'} className="ml-auto">
-                                              {completion.value ? "Đảm bảo" : "Không đảm bảo"}
-                                            </Badge>
-                                          )}
-                                        </div>
-                                        {completion.photos && completion.photos.length > 0 && (
-                                          <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-                                            {completion.photos.map((photo, pIndex) => (
-                                              <button
-                                                onClick={() => handleOpenLightbox(photo)}
-                                                key={photo.slice(0, 50) + pIndex}
-                                                className="relative z-0 overflow-hidden aspect-square rounded-md group bg-muted"
-                                              >
-                                                <Image src={photo} alt={`Ảnh bằng chứng ${pIndex + 1}`} fill className="object-cover" />
-                                              </button>
-                                            ))}
-                                          </div>
-                                        )}
-                                        {completion.opinion && (
-                                          <p className="text-sm italic bg-muted p-3 rounded-md border">"{completion.opinion}"</p>
-                                        )}
-                                        {completion.note && (
-                                          <div className="mt-1 flex items-start gap-1.5 p-2 bg-amber-500/5 border border-amber-500/10 rounded-lg">
-                                            <MessageSquareText className="h-3 w-3 text-amber-500 mt-1 shrink-0" />
-                                            <p className="text-xs italic text-amber-900 leading-relaxed font-medium">"{completion.note}"</p>
-                                          </div>
-                                        )}
-                                        {!completion.opinion && task.type === 'opinion' && (
-                                          <p className="text-xs text-muted-foreground italic">Đã ghi nhận, không có ý kiến chi tiết.</p>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              </CardContent>
-            </Card>
+            <div className="space-y-6">
+              {taskSections.map((section) => (
+                <SectionReportViewer
+                  key={section.title}
+                  section={section}
+                  report={report}
+                  allPagePhotos={allPagePhotos}
+                />
+              ))}
+            </div>
 
             {report.issues && (
               <Card>
@@ -344,7 +254,7 @@ function ComprehensiveReportView() {
                   <CardTitle className="flex items-center gap-2 text-xl"><MessageSquareWarning /> Ghi chú chung</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm italic bg-amber-100/60 p-4 rounded-md border border-amber-200">"{report.issues}"</p>
+                  <p className="text-[14px] leading-relaxed italic bg-amber-50/50 dark:bg-amber-500/10 p-4 rounded-xl border border-amber-200/50 dark:border-amber-500/20">"{report.issues}"</p>
                 </CardContent>
               </Card>
             )}
