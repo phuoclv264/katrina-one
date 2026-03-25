@@ -98,8 +98,8 @@ const ACCESS_RULES: AccessRule[] = [
   { key: 'server-checklist-toi', href: '/checklist/toi', label: 'Báo cáo ca tối', icon: Moon, roles: ['Phục vụ'], requiresCheckIn: true, restrictShiftKeys: ['toi'], color: 'blue', subLabel: 'Phục vụ', order: 13 },
 
   // Pha che
-  { key: 'bartender-hygiene', href: '/bartender/hygiene-report', label: 'Vệ sinh quầy', icon: ClipboardList, roles: ['Pha chế'], requiresCheckIn: true, color: 'emerald', subLabel: 'Pha chế', order: 21 },
-  { key: 'bartender-inventory', href: '/bartender/inventory', label: 'Kiểm kê kho', icon: Package, roles: ['Pha chế'], requiresCheckIn: true, color: 'purple', subLabel: 'Pha chế', order: 22 },
+  { key: 'bartender-hygiene', href: '/bartender/hygiene-report', label: 'Vệ sinh quầy', icon: ClipboardList, roles: ['Pha chế', 'Quản lý'], requiresCheckIn: true, color: 'emerald', subLabel: 'Pha chế', order: 21 },
+  { key: 'bartender-inventory', href: '/bartender/inventory', label: 'Kiểm kê kho', icon: Package, roles: ['Pha chế', 'Quản lý'], requiresCheckIn: true, color: 'purple', subLabel: 'Pha chế', order: 22 },
 
   // Thu ngan
   { key: 'cashier', href: '/cashier', label: 'Báo cáo Thu ngân', icon: Banknote, roles: ['Thu ngân'], requiresCheckIn: true, color: 'blue', subLabel: 'Thu ngân', order: 31 },
@@ -252,6 +252,12 @@ function resolveGrant(roles: UserRole[] | undefined, ctx: BuildContext): AccessG
 
     // Do not fall back to main/secondary roles when an assigned role exists.
     return null;
+  }
+
+  // Special-case: managers should see bartender features as secondary actions
+  // (they are not inline primary dashboard links for the manager role).
+  if (ctx.user.role === 'Quản lý' && roles.includes('Pha chế')) {
+    return { role: 'Pha chế', via: 'secondary' };
   }
 
   // No assigned role: fall back to main role first, then secondary roles.
