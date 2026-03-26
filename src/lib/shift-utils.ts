@@ -141,7 +141,7 @@ export function calculateAdjustedMinCompletions(
   const actualEnd = parseTimeToHours(activeTimeSlot.end);
   const actualDuration = actualEnd - actualStart;
 
-  if (actualDuration <= 0 || actualDuration >= mainDuration) {
+  if (actualDuration <= 0 || actualDuration >= mainDuration || effectiveKey === "toi") {
     return baseMinCompletions;
   }
 

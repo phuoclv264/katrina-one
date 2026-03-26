@@ -145,6 +145,14 @@ export type ShiftReport = {
   // Report data
   completedTasks: TaskCompletion;
   issues: string | null;
+  sectionReports?: {
+    [sectionTitle: string]: {
+      timestamp: string;
+      text: string;
+      photoIds?: string[];
+      photos?: string[];
+    }[];
+  };
 };
 
 // --- Inventory Types ---

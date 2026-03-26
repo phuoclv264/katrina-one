@@ -84,7 +84,7 @@ function InventoryPageComponent() {
     const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
     useEffect(() => {
-        if (!authLoading && user && (user.role !== 'Pha chế' && !user.secondaryRoles?.includes('Pha chế'))) {
+        if (!authLoading && user && (user.role !== 'Pha chế' && !user.secondaryRoles?.includes('Pha chế') && user.role !== 'Quản lý')) {
             router.replace('/');
         }
     }, [user, authLoading, router]);

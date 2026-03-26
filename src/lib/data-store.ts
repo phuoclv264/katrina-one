@@ -1270,6 +1270,15 @@ export const dataStore = {
     return unsubscribe;
   },
 
+  async getComprehensiveTasks(): Promise<ComprehensiveTaskSection[]> {
+    const docRef = doc(db, 'app-data', 'comprehensiveTasks');
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return (docSnap.data().tasks || []) as ComprehensiveTaskSection[];
+    }
+    return [];
+  },
+
   async updateComprehensiveTasks(newTasks: ComprehensiveTaskSection[]) {
     const docRef = doc(db, 'app-data', 'comprehensiveTasks');
     await setDoc(docRef, { tasks: newTasks });
@@ -1695,6 +1704,17 @@ export const dataStore = {
         }
       }
     }
+    
+    // Also gather from sectionReports
+    if (reportToSubmit.sectionReports) {
+      for (const sectionTitle in reportToSubmit.sectionReports) {
+        for (const sr of reportToSubmit.sectionReports[sectionTitle]) {
+          if (sr.photoIds) {
+            sr.photoIds.forEach((id: string) => photoIdsToUpload.add(id));
+          }
+        }
+      }
+    }
 
     const uploadPromises = Array.from(photoIdsToUpload).map(async (photoId) => {
       const photoBlob = await photoStore.getPhoto(photoId);
@@ -1727,6 +1747,19 @@ export const dataStore = {
 
         completion.photos = Array.from(new Set([...(completion.photos || []), ...finalUrls]));
         delete completion.photoIds;
+      }
+    }
+
+    if (reportToSubmit.sectionReports) {
+      for (const sectionTitle in reportToSubmit.sectionReports) {
+        for (const sr of reportToSubmit.sectionReports[sectionTitle]) {
+          const finalUrls = (sr.photoIds || [])
+            .map((id: string) => photoIdToUrlMap.get(id))
+            .filter(Boolean) as string[];
+          
+          sr.photos = Array.from(new Set([...(sr.photos || []), ...finalUrls]));
+          delete sr.photoIds;
+        }
       }
     }
 

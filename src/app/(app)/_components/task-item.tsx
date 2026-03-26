@@ -447,7 +447,7 @@ const TaskItemComponent = ({
                 // For multi-completion tasks: append to newest completion if within 20 minutes, otherwise create new
                 let completionIndex: number | null = null;
 
-                if (task.isTeamJob) {
+                if (task.isTeamJob && minCompletions === 1) {
                   completionIndex = (completions && completions.length > 0) ? 0 : null;
                 } else {
                   if (completions && completions.length > 0) {

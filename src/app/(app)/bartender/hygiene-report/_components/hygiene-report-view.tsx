@@ -99,7 +99,7 @@ export default function HygieneReportView({ isStandalone = true }: HygieneReport
 
     // --- Data Loading and Initialization ---
     useEffect(() => {
-        if (!isAuthLoading && user && (user.role !== 'Pha chế' && !user.secondaryRoles?.includes('Pha chế'))) {
+        if (!isAuthLoading && user && (user.role !== 'Pha chế' && !user.secondaryRoles?.includes('Pha chế') && user.role !== 'Quản lý')) {
             router.replace('/');
         }
     }, [isAuthLoading, user, router]);
