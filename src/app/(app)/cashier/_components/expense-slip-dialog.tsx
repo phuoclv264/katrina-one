@@ -195,7 +195,7 @@ function AiPreviewDialog({
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange} dialogTag="expense-slip-ai-preview-dialog" parentDialogTag={parentDialogTag}>
-                <DialogContent className="max-w-4xl">
+                <DialogContent className="max-w-4xl lg:max-w-4xl">
                     <DialogHeader>
                         <DialogTitle>Kết quả quét hóa đơn</DialogTitle>
                         <DialogDescription>AI đã phân tích và nhóm các hóa đơn. Vui lòng kiểm tra và xác nhận các mặt hàng được tìm thấy. Các mặt hàng không khớp sẽ được bỏ qua.</DialogDescription>
@@ -657,7 +657,7 @@ export default function ExpenseSlipDialog({
             <Dialog open={open} onOpenChange={onOpenChange} dialogTag="expense-slip-dialog" parentDialogTag={parentDialogTag}>
                 <DialogContent
                     ref={dialogRef}
-                    className="max-w-4xl p-0 h-[90vh] flex flex-col"
+                    className="max-w-4xl lg:max-w-4xl p-0 h-[90vh] flex flex-col"
                 >
                     <DialogHeader variant="premium" iconkey="calculator">
                         <DialogTitle>{slipToEdit ? (isOwnerView ? 'Chi tiết Phiếu chi' : 'Chỉnh sửa Phiếu chi') : 'Tạo Phiếu chi'}</DialogTitle>

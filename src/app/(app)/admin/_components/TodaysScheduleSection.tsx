@@ -156,6 +156,15 @@ export function TodaysScheduleSection({ shifts, offShiftEmployees, onViewDetails
                               </Badge>
                             )}
                           </div>
+                          {(emp.records || []).flatMap(r => r.breaks || []).length > 0 && (
+                            <div className="text-[10px] text-blue-600 dark:text-blue-300 font-bold">
+                              Nghỉ: {(emp.records || []).flatMap(r => r.breaks || []).map((brk, idx, arr) => (
+                                <span key={`break-${idx}`}>
+                                  {formatTime(brk.breakStartTime)} - {brk.breakEndTime ? formatTime(brk.breakEndTime) : '...'}{idx < arr.length - 1 ? ', ' : ''}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                           {emp.lateReason ? (
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="text-[10px] text-orange-500 dark:text-orange-400 font-bold bg-orange-50 dark:bg-orange-950/20 px-1 rounded">
@@ -264,6 +273,7 @@ export function TodaysScheduleSection({ shifts, offShiftEmployees, onViewDetails
                                     : (employeeData?.checkInTime ? [{ checkInTime: employeeData.checkInTime, checkOutTime: employeeData.checkOutTime }] : []);
 
                                   const hasCheckIn = timeRecords.length > 0;
+                                  const breakRecords = (employeeData?.records || []).flatMap(r => r.breaks || []).filter(Boolean);
 
                                   let lateMessage = null;
                                   if (employeeData?.lateReason) {
@@ -285,85 +295,98 @@ export function TodaysScheduleSection({ shifts, offShiftEmployees, onViewDetails
                                       >
                                         {generateShortName(user.userName)}
                                       </Badge>
-                                      {hasStarted && (
-                                        <div className="flex flex-col gap-1">
-                                          <div className="text-[11px] text-zinc-500 dark:text-zinc-400 tracking-tight leading-5">
-                                            {hasCheckIn ? (
-                                              <div className="flex flex-col gap-1">
-                                                {timeRecords.map((rec, idx) => (
-                                                  <span key={idx}>
-                                                    <span className="font-semibold text-zinc-700 dark:text-zinc-200">{formatTime(rec.checkInTime)} - </span>
-                                                    {rec.checkOutTime && <span className="font-semibold text-zinc-700 dark:text-zinc-200">{formatTime(rec.checkOutTime)}</span>}
-                                                  </span>
-                                                ))}
-                                              </div>
-                                            ) : (
-                                              <span className="italic opacity-60">Chưa check-in</span>
-                                            )}
-                                            {employeeData?.status === 'pending_late' && (
-                                              <span className="ml-3 inline-flex items-center gap-2">
-                                                <span className="text-amber-600 dark:text-amber-400 font-bold">Dự kiến trễ {employeeData?.estimatedLateMinutes ?? '?'} phút</span>
-                                                {employeeData?.lateReason && (
-                                                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500 italic line-clamp-1 max-w-[120px]">{employeeData?.lateReason}</span>
-                                                )}
-                                                {employeeData?.lateReasonPhotoUrl && (
-                                                  <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-6 w-6 rounded-md text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30"
-                                                    onClick={() => { if (employeeData?.lateReasonPhotoUrl) openLightbox([{ src: employeeData.lateReasonPhotoUrl }]) }}
-                                                    title="Xem minh chứng"
-                                                    aria-label={`Xem minh chứng của ${user.userName}`}
-                                                  >
-                                                    <Eye className="h-3.5 w-3.5" />
-                                                  </Button>
-                                                )}
-                                                {employeeData?.lateRequestId && (
-                                                  <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    disabled={decliningId === user.userId}
-                                                    className="h-6 w-6 rounded-md text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
-                                                    onClick={() => handleDeclineLate(user.userId, employeeData.lateRequestId!)}
-                                                    title="Từ chối yêu cầu xin trễ"
-                                                  >
-                                                    {decliningId === user.userId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
-                                                  </Button>
-                                                )}
-                                              </span>
-                                            )}
-                                            {employeeData?.status === 'late' && (
-                                              <span className="ml-3 inline-flex items-center gap-1 text-red-500 font-medium">
-                                                <span>Trễ {employeeData?.lateMinutes ?? '?'} phút{lateMessage && ` (${lateMessage})`}</span>
-                                                {employeeData?.lateReasonPhotoUrl && (
-                                                  <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-6 w-6 rounded-md text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
-                                                    onClick={() => { if (employeeData?.lateReasonPhotoUrl) openLightbox([{ src: employeeData.lateReasonPhotoUrl }]) }}
-                                                    title="Xem minh chứng"
-                                                    aria-label={`Xem minh chứng của ${user.userName}`}
-                                                  >
-                                                    <Eye className="h-3.5 w-3.5" />
-                                                  </Button>
-                                                )}
-                                                {employeeData?.lateReason && employeeData?.lateRequestId && (
-                                                  <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    disabled={decliningId === user.userId}
-                                                    className="h-6 w-6 rounded-md text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
-                                                    onClick={() => handleDeclineLate(user.userId, employeeData.lateRequestId!)}
-                                                    title="Từ chối yêu cầu xin trễ"
-                                                  >
-                                                    {decliningId === user.userId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
-                                                  </Button>
-                                                )}
-                                              </span>
-                                            )}
-                                          </div>
+                                      <div className="flex flex-col gap-1">
+                                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400 tracking-tight leading-5">
+                                          {hasCheckIn ? (
+                                            <div className="flex flex-col gap-1">
+                                              {timeRecords.map((rec, idx) => (
+                                                <span key={idx}>
+                                                  <span className="font-semibold text-zinc-700 dark:text-zinc-200">{formatTime(rec.checkInTime)} - </span>
+                                                  {rec.checkOutTime && <span className="font-semibold text-zinc-700 dark:text-zinc-200">{formatTime(rec.checkOutTime)}</span>}
+                                                </span>
+                                              ))}
+                                            </div>
+                                          ) : (
+                                            <span className="italic opacity-60">Chưa check-in</span>
+                                          )}
+
+                                          {breakRecords.length > 0 && (
+                                            <div className="text-[10px] text-blue-600 dark:text-blue-300 font-bold">
+                                              <span>Nghỉ: </span>
+                                              {breakRecords.map((brk, idx) => (
+                                                <span key={idx} className="inline-flex gap-1">
+                                                  {formatTime(brk.breakStartTime)}
+                                                  <span>-</span>
+                                                  {brk.breakEndTime ? formatTime(brk.breakEndTime) : '...'}
+                                                  {idx < breakRecords.length - 1 ? ', ' : ''}
+                                                </span>
+                                              ))}
+                                            </div>
+                                          )}
+
+                                          {employeeData?.status === 'pending_late' && (
+                                            <span className="ml-3 inline-flex items-center gap-2">
+                                              <span className="text-amber-600 dark:text-amber-400 font-bold">Dự kiến trễ {employeeData?.estimatedLateMinutes ?? '?'} phút</span>
+                                              {employeeData?.lateReason && (
+                                                <span className="text-[10px] text-zinc-400 dark:text-zinc-500 italic line-clamp-1 max-w-[120px]">{employeeData?.lateReason}</span>
+                                              )}
+                                              {employeeData?.lateReasonPhotoUrl && (
+                                                <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className="h-6 w-6 rounded-md text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                                                  onClick={() => { if (employeeData?.lateReasonPhotoUrl) openLightbox([{ src: employeeData.lateReasonPhotoUrl }]) }}
+                                                  title="Xem minh chứng"
+                                                  aria-label={`Xem minh chứng của ${user.userName}`}
+                                                >
+                                                  <Eye className="h-3.5 w-3.5" />
+                                                </Button>
+                                              )}
+                                              {employeeData?.lateRequestId && (
+                                                <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  disabled={decliningId === user.userId}
+                                                  className="h-6 w-6 rounded-md text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                                                  onClick={() => handleDeclineLate(user.userId, employeeData.lateRequestId!)}
+                                                  title="Từ chối yêu cầu xin trễ"
+                                                >
+                                                  {decliningId === user.userId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
+                                                </Button>
+                                              )}
+                                            </span>
+                                          )}
+                                          {employeeData?.status === 'late' && (
+                                            <span className="ml-3 inline-flex items-center gap-1 text-red-500 font-medium">
+                                              <span>Trễ {employeeData?.lateMinutes ?? '?'} phút{lateMessage && ` (${lateMessage})`}</span>
+                                              {employeeData?.lateReasonPhotoUrl && (
+                                                <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className="h-6 w-6 rounded-md text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                                                  onClick={() => { if (employeeData?.lateReasonPhotoUrl) openLightbox([{ src: employeeData.lateReasonPhotoUrl }]) }}
+                                                  title="Xem minh chứng"
+                                                  aria-label={`Xem minh chứng của ${user.userName}`}
+                                                >
+                                                  <Eye className="h-3.5 w-3.5" />
+                                                </Button>
+                                              )}
+                                              {employeeData?.lateReason && employeeData?.lateRequestId && (
+                                                <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  disabled={decliningId === user.userId}
+                                                  className="h-6 w-6 rounded-md text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                                                  onClick={() => handleDeclineLate(user.userId, employeeData.lateRequestId!)}
+                                                  title="Từ chối yêu cầu xin trễ"
+                                                >
+                                                  {decliningId === user.userId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
+                                                </Button>
+                                              )}
+                                            </span>
+                                          )}
                                         </div>
-                                      )}
+                                      </div>
                                     </div>
                                   );
                                 })
