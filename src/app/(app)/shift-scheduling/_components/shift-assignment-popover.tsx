@@ -14,12 +14,13 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { User, CheckCircle, AlertTriangle, AlertCircle, Clock, Search } from 'lucide-react';
-import type { AssignedShift, Availability, ManagedUser, UserRole, AssignedUser } from '@/lib/types';
+import { User, CheckCircle, AlertTriangle, AlertCircle, Clock, Search, Smile } from 'lucide-react';
+import type { AssignedShift, Availability, ManagedUser, UserRole, AssignedUser, ScheduleCondition } from '@/lib/types';
 import { cn, advancedSearch } from '@/lib/utils';
-import { isUserAvailable, hasTimeConflict, calculateTotalHours } from '@/lib/schedule-utils';
+import { isUserAvailable, hasTimeConflict, calculateTotalHours, calculateUserHappinessScore } from '@/lib/schedule-utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Combobox } from '@/components/combobox';
+import { normalizeConstraints } from '@/lib/scheduler/constraints';
 import { Input } from '@/components/ui/input';
 import { format, parseISO, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -52,6 +53,7 @@ type ShiftAssignmentDialogProps = {
   weekInterval: { start: Date; end: Date };
   weekShifts: AssignedShift[];
   parentDialogTag: string;
+  constraints?: ScheduleCondition[];
 };
 
 const roleOrder: Record<UserRole, number> = {
@@ -91,7 +93,8 @@ export default function ShiftAssignmentDialog({
   passRequestingUser,
   weekInterval,
   weekShifts,
-  parentDialogTag
+  parentDialogTag,
+  constraints = []
 }: ShiftAssignmentDialogProps) {
 
   const isPassAssignmentMode = !!passRequestingUser;
@@ -99,6 +102,10 @@ export default function ShiftAssignmentDialog({
   const [selectedRoles, setSelectedRoles] = useState<Record<string, UserRole>>({});
   const [conflictError, setConflictError] = useState<{ userName: string; shiftLabel: string } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  const userCapsMap = useMemo(() => {
+    return normalizeConstraints(constraints, shift ? [shift] : [], allUsers).capsByUser;
+  }, [constraints, shift, allUsers]);
 
   useEffect(() => {
     if (isOpen) {
@@ -268,7 +275,8 @@ export default function ShiftAssignmentDialog({
     const canSelect = currentUserRole === 'Chủ nhà hàng' || isAvailable;
     const assignedHours = assignedHoursByUser.get(user.uid) ?? 0;
     const availableHours = availabilityHoursByUser.get(user.uid) ?? 0;
-
+    const userCaps = userCapsMap.get(user.uid) || { minHoursPerWeek: 0, maxHoursPerWeek: Number.POSITIVE_INFINITY };
+    const happiness = calculateUserHappinessScore(assignedHours, availableHours, userCaps);
 
     return (
       <Card
@@ -285,9 +293,18 @@ export default function ShiftAssignmentDialog({
           <div className="flex-1 space-y-1">
             <p className="font-bold">{user.displayName}</p>
             <p className={cn("text-xs font-medium opacity-80", isSelected ? 'text-primary-foreground' : getRoleTextColor(user.role))}>{user.role}</p>
-            <p className="text-[11px] leading-tight text-white-foreground/80">
-              Đã xếp: {formatHours(assignedHours)} · Đăng ký: {formatHours(availableHours)}
-            </p>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
+              <p className="text-[11px] leading-tight text-white-foreground/80">
+                Đã xếp: {formatHours(assignedHours)} · Đăng ký: {formatHours(availableHours)}
+              </p>
+              <div className={cn(
+                "flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border",
+                isSelected ? "bg-white/20 border-white/20 text-white" : happiness.color
+              )}>
+                <Smile className="w-3 h-3" />
+                {happiness.text} ({happiness.score})
+              </div>
+            </div>
             {isSelected && currentUserRole === 'Chủ nhà hàng' && (
               <div className="mt-2 pt-2 border-t border-primary-foreground/20">
                 {/* Use only user's main + secondary roles as options */}

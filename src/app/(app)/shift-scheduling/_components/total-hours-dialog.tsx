@@ -16,9 +16,10 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from '@/components/ui/separator'
 import { UserAvatar } from '@/components/user-avatar';
-import type { Schedule, ManagedUser, UserRole, Availability, AssignedShift, AssignedUser } from '@/lib/types';
-import { calculateTotalHours } from '@/lib/schedule-utils';
-import { Users, Search, AlertCircle, Clock, ChevronLeft, ChevronRight, Loader2, Calendar, History as HistoryIcon, Hourglass, CalendarDays, LayoutGrid, User, TrendingUp, Filter, ArrowRight, Plus, Trash2, CalendarCheck, Check, LayoutDashboard, Info } from 'lucide-react';
+import type { Schedule, ManagedUser, UserRole, Availability, AssignedShift, AssignedUser, ScheduleCondition } from '@/lib/types';
+import { calculateTotalHours, calculateFairnessScore, calculateUserHappinessScore } from '@/lib/schedule-utils';
+import { normalizeConstraints } from '@/lib/scheduler/constraints';
+import { Users, Search, AlertCircle, Clock, ChevronLeft, ChevronRight, Loader2, Calendar, History as HistoryIcon, Hourglass, CalendarDays, LayoutGrid, User, TrendingUp, Filter, ArrowRight, Plus, Trash2, CalendarCheck, Check, LayoutDashboard, Info, Scale, Smile } from 'lucide-react';
 import { getShiftMissingDetails } from './understaffed-evidence-utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,6 +36,7 @@ type TotalHoursDialogProps = {
   onOpenChange: (open: boolean) => void;
   schedule: Schedule | null;
   availability: Availability[];
+  constraints?: ScheduleCondition[];
   allUsers: ManagedUser[];
   currentUserRole: UserRole | null;
   onUpdateSchedule?: (data: Partial<Schedule>) => void;
@@ -552,7 +554,7 @@ function HistoryTab({ user }: { user: ManagedUser }) {
     );
 }
 
-export default function TotalHoursDialog({ open, onOpenChange, schedule, availability, allUsers, currentUserRole, onUpdateSchedule, daysOfWeek, dialogTag, parentDialogTag }: TotalHoursDialogProps) {
+export default function TotalHoursDialog({ open, onOpenChange, schedule, availability, constraints = [], allUsers, currentUserRole, onUpdateSchedule, daysOfWeek, dialogTag, parentDialogTag }: TotalHoursDialogProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<ManagedUser | null>(null);
     const [mainTab, setMainTab] = useState<'total-hours' | 'lacking-shifts'>('total-hours');
@@ -572,6 +574,12 @@ export default function TotalHoursDialog({ open, onOpenChange, schedule, availab
     });
     return hoursMap;
   }, [schedule]);
+
+  const usersCaps = useMemo(() => {
+    if (!schedule) return new Map();
+    const ctx = normalizeConstraints(constraints, schedule.shifts, allUsers);
+    return ctx.capsByUser;
+  }, [constraints, schedule, allUsers]);
 
   const availableHoursByUser = useMemo(() => {
     if (!availability) return new Map<string, number>();
@@ -629,6 +637,10 @@ export default function TotalHoursDialog({ open, onOpenChange, schedule, availab
     };
   }, [sortedUsers, totalHoursByUser]);
 
+  const fairnessInfo = useMemo(() => {
+    return calculateFairnessScore(totalHoursByUser, availableHoursByUser, sortedUsers);
+  }, [totalHoursByUser, availableHoursByUser, sortedUsers]);
+
   const weekAvailabilityForSelectedUser = useMemo(() => {
     if (!selectedUser) return [];
     return availability.filter(a => a.userId === selectedUser.uid);
@@ -685,16 +697,24 @@ export default function TotalHoursDialog({ open, onOpenChange, schedule, availab
                     {!selectedUser ? (
                         <div key="user-list" className="flex flex-col h-full max-h-[75vh]">
                             <div className="px-4 py-3 space-y-3">
-                                <div className="grid grid-cols-2 gap-2.5">
-                                    <div className="p-3 bg-gradient-to-br from-primary to-primary/80 rounded-2xl shadow-lg shadow-primary/10 text-white relative overflow-hidden group">
-                                        <Users className="absolute -right-1 -bottom-1 h-12 w-12 opacity-10 group-hover:scale-110 transition-transform" />
-                                        <p className="text-[8px] font-black uppercase tracking-widest text-white/70">Tổng nhân sự</p>
-                                        <p className="text-xl font-black mt-0.5">{stats.totalEmployees}</p>
+                                <div className="grid grid-cols-3 gap-2">
+                                    <div className="p-2.5 bg-gradient-to-br from-primary to-primary/80 rounded-2xl shadow-lg shadow-primary/10 text-white relative overflow-hidden group">
+                                        <Users className="absolute -right-1 -bottom-1 h-10 w-10 opacity-10 group-hover:scale-110 transition-transform" />
+                                        <p className="text-[7px] font-black uppercase tracking-widest text-white/70">Nhân sự</p>
+                                        <p className="text-lg font-black mt-0.5">{stats.totalEmployees}</p>
                                     </div>
-                                    <div className="p-3 bg-card border border-border/60 rounded-2xl shadow-sm relative overflow-hidden group">
-                                        <Clock className="absolute -right-1 -bottom-1 h-12 w-12 opacity-5 group-hover:scale-110 transition-transform" />
-                                        <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/60">Quỹ giờ tuần</p>
-                                        <p className="text-xl font-black text-foreground mt-0.5">{stats.totalHours.toFixed(1)}h</p>
+                                    <div className="p-2.5 bg-card border border-border/60 rounded-2xl shadow-sm relative overflow-hidden group">
+                                        <Clock className="absolute -right-1 -bottom-1 h-10 w-10 opacity-5 group-hover:scale-110 transition-transform" />
+                                        <p className="text-[7px] font-black uppercase tracking-widest text-muted-foreground/60">Quỹ giờ</p>
+                                        <p className="text-lg font-black text-foreground mt-0.5">{stats.totalHours.toFixed(1)}h</p>
+                                    </div>
+                                    <div className={cn("p-2.5 rounded-2xl shadow-sm relative overflow-hidden group border", fairnessInfo.color)}>
+                                        <Scale className="absolute -right-1 -bottom-1 h-10 w-10 opacity-10 group-hover:scale-110 transition-transform" />
+                                        <p className="text-[7px] font-black uppercase tracking-widest opacity-80">Công bằng</p>
+                                        <div className="mt-0.5 flex flex-col leading-none">
+                                            <p className="text-lg font-black">{fairnessInfo.score}%</p>
+                                            <p className="text-[6.5px] font-bold opacity-70 mt-1 uppercase truncate">{fairnessInfo.text}</p>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -719,6 +739,9 @@ export default function TotalHoursDialog({ open, onOpenChange, schedule, availab
                                         const isOverworked = workedHours > availableHours && availableHours > 0;
                                         const roleStyles = getRoleColors(user.role);
                                         
+                                        const userCaps = usersCaps.get(user.uid) || { minShiftsPerWeek: 0, maxShiftsPerWeek: Number.POSITIVE_INFINITY, minHoursPerWeek: 0, maxHoursPerWeek: Number.POSITIVE_INFINITY, maxPerDay: Number.POSITIVE_INFINITY };
+                                        const userHappiness = calculateUserHappinessScore(workedHours, availableHours, userCaps);
+
                                         return (
                                             <div 
                                                 key={user.uid}
@@ -753,9 +776,13 @@ export default function TotalHoursDialog({ open, onOpenChange, schedule, availab
                                                     </div>
                                                 </div>
 
-                                                <div className="space-y-1.5">
+                                                <div className="space-y-1.5 mt-1 border-t border-dashed border-border/60 pt-2.5">
                                                     <div className="flex justify-between items-center text-[7px] font-black uppercase tracking-widest text-muted-foreground/40">
-                                                        <span>Tỷ lệ lấp đầy lịch</span>
+                                                        <span className="flex items-center gap-1"><Smile className="w-2.5 h-2.5" /> Chỉ số hài lòng</span>
+                                                        <span className={cn(userHappiness.color, "px-1.5 py-0.5 rounded-sm border")}>{userHappiness.text} • {userHappiness.score} đ</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center text-[7px] font-black uppercase tracking-widest text-muted-foreground/40">
+                                                        <span>Tỷ lệ lấp đầy lịch rảnh</span>
                                                         <span className={isOverworked ? "text-destructive" : "text-primary"}>{Math.round(progressValue)}%</span>
                                                     </div>
                                                     <div className="h-1 w-full bg-muted/30 rounded-full overflow-hidden">

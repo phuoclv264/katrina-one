@@ -1377,6 +1377,7 @@ export default function ScheduleView() {
                 onOpenChange={setIsTotalHoursDialogOpen}
                 schedule={localSchedule}
                 availability={availability}
+                constraints={structuredConstraints}
                 allUsers={allUsers}
                 currentUserRole={user?.role || null}
                 onUpdateSchedule={handleLocalScheduleUpdate}
@@ -1465,6 +1466,7 @@ export default function ScheduleView() {
                     allShiftsOnDay={localSchedule?.shifts.filter(s => s.date === activeShift.date) || []}
                     weekInterval={weekInterval}
                     weekShifts={localSchedule?.shifts ?? []}
+                    constraints={structuredConstraints as any}
                     passRequestingUser={activeNotification?.payload.requestingUser}
                     parentDialogTag="root"
                 />
