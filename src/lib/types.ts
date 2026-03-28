@@ -449,10 +449,14 @@ export type EmployeeAttendance = {
    * For continuous/multiple attendance sessions within a single shift.
    * If this array is present, checkInTime/checkOutTime may be used as a summary or primary session.
    */
-  records?: {
+  records?: ({
     checkInTime: Date | null;
     checkOutTime: Date | null;
-  }[];
+    breaks?: {
+      breakStartTime: Date | null;
+      breakEndTime?: Date | null;
+    }[];
+  })[];
   lateMinutes: number | null;
   lateRequestId?: string | null; // Link to the attendance record for late requests
   lateReason: string | null;

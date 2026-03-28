@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { dataStore } from '@/lib/data-store';
-import type { Task, TaskSection } from '@/lib/types';
+import type { Task, TaskSection, ShiftTemplate } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -45,6 +45,7 @@ export default function BartenderTasksPage() {
     const router = useRouter();
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [sections, setSections] = useState<TaskSection[] | null>(null);
+    const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSorting, setIsSorting] = useState(false);
     const [newSectionTitle, setNewSectionTitle] = useState('');
@@ -59,6 +60,7 @@ export default function BartenderTasksPage() {
         minCompletions: number; 
         isCritical: boolean; 
         genderPreference: Task['genderPreference'];
+        shiftPreference?: string[];
         instruction?: { text?: string; images?: { url: string; caption?: string }[] } 
     } | null>(null);
     const [openItems, setOpenItems] = useState<string[]>([]);
@@ -73,14 +75,23 @@ export default function BartenderTasksPage() {
             if (!user || user.role !== 'Chủ nhà hàng') {
                 router.replace('/');
             } else {
-                const unsubscribe = dataStore.subscribeToBartenderTasks((data) => {
+                const unsubscribeTasks = dataStore.subscribeToBartenderTasks((data) => {
                     setSections(data);
                     if (data.length > 0 && openItems.length === 0) {
                         setOpenItems(data.map(s => s.title));
                     }
                     setIsLoading(false);
                 });
-                return () => unsubscribe();
+
+                const unsubscribeTemplates = dataStore.subscribeToShiftTemplates((templates) => {
+                    const sortedTemplates = [...templates].sort((a, b) => a.timeSlot.start.localeCompare(b.timeSlot.start));
+                    setShiftTemplates(sortedTemplates);
+                });
+
+                return () => {
+                    unsubscribeTasks();
+                    unsubscribeTemplates();
+                };
             }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -152,7 +163,8 @@ export default function BartenderTasksPage() {
             type: taskData.type,
             isCritical: !!taskData.isCritical,
             minCompletions: taskData.minCompletions ?? 1,
-            genderPreference: taskData.genderPreference ?? 'Tất cả'
+            genderPreference: taskData.genderPreference ?? 'Tất cả',
+            shiftPreference: taskData.shiftPreference
         };
 
         if (taskData.instruction) {
@@ -179,7 +191,7 @@ export default function BartenderTasksPage() {
         }
 
         const { sectionTitle, taskId } = editingTask;
-        const { text, type, minCompletions, isCritical, genderPreference, instruction } = data;
+        const { text, type, minCompletions, isCritical, genderPreference, shiftPreference, instruction } = data;
         const newSectionsState = JSON.parse(JSON.stringify(sections));
         const section = newSectionsState.find((s: TaskSection) => s.title === sectionTitle);
         if (section) {
@@ -190,6 +202,7 @@ export default function BartenderTasksPage() {
                 task.minCompletions = minCompletions ?? 1;
                 task.isCritical = !!isCritical;
                 task.genderPreference = genderPreference ?? 'Tất cả';
+                task.shiftPreference = shiftPreference;
                 if (instruction) {
                     task.instruction = {
                         text: instruction.text ?? "",
@@ -630,6 +643,7 @@ export default function BartenderTasksPage() {
                                                                         isCritical: !!task.isCritical,
                                                                         minCompletions: task.minCompletions || 1,
                                                                         genderPreference: task.genderPreference || 'Tất cả',
+                                                                        shiftPreference: task.shiftPreference || [],
                                                                         instruction: task.instruction
                                                                     })}
                                                                 >
@@ -697,6 +711,7 @@ export default function BartenderTasksPage() {
                     onClose={() => setAddingToSection(null)}
                     onConfirm={(data) => handleAddTask(addingToSection, data)}
                     sectionTitle={addingToSection}
+                    shiftTemplates={shiftTemplates}
                 />
             )}
 
@@ -712,8 +727,10 @@ export default function BartenderTasksPage() {
                     isCritical: editingTask.isCritical,
                     minCompletions: editingTask.minCompletions,
                     genderPreference: editingTask.genderPreference,
+                    shiftPreference: editingTask.shiftPreference,
                     instruction: editingTask.instruction
                 } : null}
+                shiftTemplates={shiftTemplates}
             />
         </div>
 

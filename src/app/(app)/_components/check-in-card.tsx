@@ -401,8 +401,20 @@ export default function CheckInCard() {
                 const bartenderTasks = await dataStore.getBartenderTasks();
                 if (bartenderTasks) {
                     const undoneList: string[] = [];
+                    const activeShiftTemplateIds = activeShifts
+                        .map(shift => shift.templateId)
+                        .filter((id): id is string => Boolean(id));
+
                     for (const section of bartenderTasks) {
                         for (const task of section.tasks) {
+                            const hasShiftPreference = task.shiftPreference && task.shiftPreference.length > 0;
+                            if (hasShiftPreference) {
+                                const matchesActiveShift = activeShiftTemplateIds.some(id => task.shiftPreference!.includes(id));
+                                if (!matchesActiveShift) {
+                                    continue;
+                                }
+                            }
+
                             // Filter by gender preference
                             if (task.genderPreference && task.genderPreference !== 'Tất cả' && task.genderPreference !== user.gender) {
                                 continue;
@@ -424,6 +436,7 @@ export default function CheckInCard() {
                             category: 'checklist',
                             title: "Báo cáo vệ sinh quầy bar",
                             items: undoneList,
+                            isStared: true
                         });
                     }
                 }
@@ -433,7 +446,7 @@ export default function CheckInCard() {
         }
 
         return items;
-    }, [dailyTasks, getMonthlyCompletionStatus, isUserTargetedDailyTask, monthlyAssignments, user, activeShift, effectiveRoles]);
+    }, [dailyTasks, getMonthlyCompletionStatus, isUserTargetedDailyTask, monthlyAssignments, user, activeShift, effectiveRoles, activeShifts]);
 
     const openCheckoutCamera = useCallback((violate: boolean = false) => {
         if (violate && user) {

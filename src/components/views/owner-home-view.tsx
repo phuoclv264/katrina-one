@@ -502,6 +502,10 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
               records: assignedRecords.map(r => ({
                 checkInTime: r.checkInTime ? toDateSafe(r.checkInTime) : null,
                 checkOutTime: r.checkOutTime ? toDateSafe(r.checkOutTime) : null,
+                breaks: r.breaks?.map(b => ({
+                  breakStartTime: b.breakStartTime ? toDateSafe(b.breakStartTime) : null,
+                  breakEndTime: b.breakEndTime ? toDateSafe(b.breakEndTime) : null,
+                })),
               })),
               lateMinutes,
               lateReason,
@@ -524,6 +528,14 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
           status: record.status,
           checkInTime: toDateSafe(record.checkInTime),
           checkOutTime: toDateSafe(record.checkOutTime),
+          records: [{
+            checkInTime: toDateSafe(record.checkInTime),
+            checkOutTime: toDateSafe(record.checkOutTime),
+            breaks: record.breaks?.map(b => ({
+              breakStartTime: b.breakStartTime ? toDateSafe(b.breakStartTime) : null,
+              breakEndTime: b.breakEndTime ? toDateSafe(b.breakEndTime) : null,
+            })),
+          }],
           lateMinutes: null,
           lateReason: record.offShiftReason || record.lateReason || null,
           lateReasonPhotoUrl: record.lateReasonPhotoUrl || null,

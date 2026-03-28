@@ -212,6 +212,18 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
     const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
     const [salarySheet, setSalarySheet] = useState<MonthlySalarySheet | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+
+    const selectedMonthDate = useMemo(() => {
+        if (!selectedMonth || typeof selectedMonth !== 'string') return null;
+        try {
+            const date = parseISO(`${selectedMonth}-01`);
+            return Number.isFinite(date.getTime()) ? date : null;
+        } catch {
+            return null;
+        }
+    }, [selectedMonth]);
+
+    const selectedMonthLabel = selectedMonthDate ? format(selectedMonthDate, 'MM/yyyy') : '??/????';
     const [selectedUsers, setSelectedUsers] = useState<ManagedUser[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [nextMonthSalaryByUser, setNextMonthSalaryByUser] = useState<Record<string, number>>({});
@@ -258,7 +270,7 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
                         }
 
                         toast.loading('Đang tính toán bảng lương...', { id: 'recalc' });
-                        const monthDate = parseISO(`${selectedMonth}-01`);
+                        const monthDate = selectedMonthDate || startOfMonth(new Date());
                         const newSheet = await calculateSalarySheet(monthDate, allUsers, { userId: currentUser.uid, userName: currentUser.displayName });
 
                         // Save calculated sheet to server, but DO NOT save local eligibility override to server
@@ -385,7 +397,8 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
     useEffect(() => {
         const computeNextMonthExpectedSalaries = async () => {
             if (!salarySheet) return;
-            const nextMonthDate = addMonths(parseISO(`${selectedMonth}-01`), 1);
+            const baseDate = selectedMonthDate || startOfMonth(new Date());
+            const nextMonthDate = addMonths(baseDate, 1);
             const nextStart = startOfMonth(nextMonthDate);
             const nextEnd = endOfMonth(nextMonthDate);
 
@@ -492,14 +505,14 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose} dialogTag="salary-management-dialog" parentDialogTag={parentDialogTag}>
-            <DialogContent ref={dialogRef} className="max-w-4xl flex flex-col p-0 overflow-hidden bg-zinc-50">
+            <DialogContent ref={dialogRef} className="max-w-4xl lg:max-w-4xl flex flex-col p-0 overflow-hidden bg-zinc-50">
                 {currentSection === null ? (
                     <>
                         <div className="flex flex-col bg-white border-b shadow-sm">
                             <DialogHeader variant='premium' className="pt-3 pb-3 flex flex-row items-center justify-between border-b">
                                 <div className="flex items-center gap-3 min-w-0">
                             <div className="flex flex-col min-w-0">
-                                <DialogTitle className="text-base font-bold text-zinc-900">Bảng lương tháng {format(parseISO(`${selectedMonth}-01`), 'MM/yyyy')}</DialogTitle>
+                                <DialogTitle className="text-base font-bold text-zinc-900">Bảng lương tháng {selectedMonthLabel}</DialogTitle>
                                 {salarySheet?.calculatedAt && (
                                     <div className="text-[12px] text-zinc-500 mt-0.5 flex items-center gap-2">
                                         <Clock className="w-4 h-4 text-zinc-400" />
@@ -521,14 +534,6 @@ export default function SalaryManagementDialog({ isOpen, onClose, allUsers, pare
                                     >
                                         <RotateCw className={cn("h-4.5 w-4.5", isLoading && "animate-spin")} />
                                     </Button>
-                                </div>
-
-                                <div className="flex items-center gap-1">
-                                    {!isMobile && (
-                                        <Button variant="ghost" size="icon" onClick={onClose} className="h-9 w-9 text-zinc-400">
-                                            <ArrowLeft className="h-5 w-5 rotate-180" />
-                                        </Button>
-                                    )}
                                 </div>
                             </DialogHeader>
 
