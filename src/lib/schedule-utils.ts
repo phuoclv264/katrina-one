@@ -439,3 +439,111 @@ export function calculateShiftExpectedSalary(shift: AssignedShift, allUsers: Man
 export function calculateTotalExpectedSalary(shifts: AssignedShift[], allUsers: ManagedUser[], specialPeriods?: SpecialPeriod[]): number {
   return shifts.reduce((sum, shift) => sum + calculateShiftExpectedSalary(shift, allUsers, specialPeriods), 0);
 }
+
+/**
+ * Calculates a fairness score (Jain's fairness index) for shift assignments.
+ * Compares assigned hours vs available hours across all users.
+ */
+export function calculateFairnessScore(
+  totalHoursByUser: Map<string, number>,
+  availableHoursByUser: Map<string, number>,
+  users: Array<{uid: string, role: string, displayName: string}>
+): { score: number, text: string, color: string } {
+  const ratios: number[] = [];
+
+  for (const user of users) {
+    const available = availableHoursByUser.get(user.uid) || 0;
+    const worked = totalHoursByUser.get(user.uid) || 0;
+
+    if (available > 0) {
+      ratios.push(Math.min(1, worked / available));
+    } else if (worked > 0) {
+      ratios.push(1); 
+    }
+  }
+
+  if (ratios.length === 0) return { score: 100, text: 'Chưa có dữ liệu', color: 'text-muted-foreground bg-muted border-border' };
+
+  let sum = 0;
+  let sumSq = 0;
+  for (const r of ratios) {
+    sum += r;
+    sumSq += r * r;
+  }
+
+  const denominator = ratios.length * sumSq;
+  const jainIndex = denominator === 0 ? 1 : (sum * sum) / denominator;
+  
+  const score = Math.round(jainIndex * 100);
+  
+  let text = 'Công bằng tốt';
+  let color = 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-500/10 dark:border-emerald-800/50';
+  
+  if (score < 60) {
+    text = 'Thiếu công bằng';
+    color = 'text-destructive bg-destructive/10 border-destructive/20';
+  } else if (score < 85) {
+    text = 'Tương đối';
+    color = 'text-orange-600 bg-orange-50 border-orange-200 dark:text-orange-400 dark:bg-orange-500/10 dark:border-orange-800/50';
+  }
+
+  return { score, text, color };
+}
+
+/**
+ * Calculates a happiness/fairness score for an individual user based on their assigned hours,
+ * their registered available hours, and their auto-schedule conditions (caps).
+ */
+export function calculateUserHappinessScore(
+  workedHours: number,
+  availableHours: number,
+  caps: { minHoursPerWeek: number, maxHoursPerWeek: number }
+): { score: number, text: string, color: string } {
+    if (workedHours === 0) {
+        return { score: 0, text: 'Không xếp ca', color: 'text-destructive bg-destructive/10 border-destructive/20' };
+    }
+
+    if (caps.minHoursPerWeek > 0 && workedHours < caps.minHoursPerWeek) {
+        return { score: 0, text: 'Thiếu giờ', color: 'text-destructive bg-destructive/10 border-destructive/20' };
+    }
+
+    let score = 100;
+
+    let target = availableHours > 0 ? availableHours : 0;
+    if (caps.maxHoursPerWeek !== Number.POSITIVE_INFINITY) {
+        target = target > 0 ? Math.min(target, caps.maxHoursPerWeek) : caps.maxHoursPerWeek;
+    }
+
+    if (target > 0) {
+        if (workedHours === target) {
+            score = 100;
+        } else if (workedHours > target) {
+            let over = workedHours - target;
+            score -= over * 15;
+        } else {
+            const minBoundary = caps.minHoursPerWeek > 0 ? caps.minHoursPerWeek : 0;
+            const range = target - minBoundary;
+            if (range > 0) {
+                const percentage = (workedHours - minBoundary) / range;
+                score = 50 + (percentage * 50); 
+            }
+        }
+    } else if (target === 0 && workedHours > 0) {
+        score -= workedHours * 10;
+    }
+
+    score = Math.max(0, Math.min(100, Math.round(score)));
+
+    let text = 'Hài lòng';
+    let color = 'text-emerald-600 bg-emerald-50/50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-500/10 dark:border-emerald-800/50';
+
+    if (score < 50) {
+        text = 'Không ổn';
+        color = 'text-destructive bg-destructive/10 border-destructive/20';
+    } else if (score < 80) {
+        text = 'Tạm ổn';
+        color = 'text-orange-600 bg-orange-50/50 border-orange-200 dark:text-orange-400 dark:bg-orange-500/10 dark:border-orange-800/50';
+    }
+
+    return { score, text, color };
+}
