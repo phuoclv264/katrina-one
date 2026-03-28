@@ -2,7 +2,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { dataStore } from '@/lib/data-store';
-import type { ComprehensiveTask, ComprehensiveTaskSection, ParsedComprehensiveTask, Task, TaskSection } from '@/lib/types';
+import type { ComprehensiveTask, ComprehensiveTaskSection, ParsedComprehensiveTask, ShiftTemplate, Task } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -201,6 +201,7 @@ export default function ComprehensiveChecklistPage() {
     const router = useRouter();
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [sections, setSections] = useState<ComprehensiveTaskSection[] | null>(null);
+    const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSorting, setIsSorting] = useState(false);
 
@@ -214,6 +215,7 @@ export default function ComprehensiveChecklistPage() {
         minCompletions: number; 
         isCritical: boolean; 
         genderPreference: Task['genderPreference'],
+        shiftPreference?: string[];
         instruction?: { text?: string; images?: { url: string; caption?: string }[] } 
     } | null>(null);
 
@@ -239,7 +241,7 @@ export default function ComprehensiveChecklistPage() {
     useEffect(() => {
         if (!user) return;
 
-        const unsubscribe = dataStore.subscribeToComprehensiveTasks((data) => {
+        const unsubscribeTasks = dataStore.subscribeToComprehensiveTasks((data) => {
             setSections(data);
             if (data.length > 0 && openItems.length === 0) {
                 setOpenItems(data.map(s => s.title));
@@ -247,7 +249,15 @@ export default function ComprehensiveChecklistPage() {
             setIsLoading(false);
         });
 
-        return () => unsubscribe();
+        const unsubscribeTemplates = dataStore.subscribeToShiftTemplates((templates) => {
+            const sortedTemplates = [...templates].sort((a, b) => a.timeSlot.start.localeCompare(b.timeSlot.start));
+            setShiftTemplates(sortedTemplates);
+        });
+
+        return () => {
+            unsubscribeTasks();
+            unsubscribeTemplates();
+        };
     }, [user, refreshTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleUpdateAndSave = (newSections: ComprehensiveTaskSection[], showToast: boolean = true) => {
@@ -337,7 +347,8 @@ export default function ComprehensiveChecklistPage() {
             type: taskData.type,
             isCritical: !!taskData.isCritical,
             minCompletions: taskData.minCompletions ?? 1,
-            genderPreference: taskData.genderPreference ?? 'Tất cả'
+            genderPreference: taskData.genderPreference ?? 'Tất cả',
+            shiftPreference: taskData.shiftPreference
         };
 
         if (taskData.instruction) {
@@ -374,7 +385,7 @@ export default function ComprehensiveChecklistPage() {
         };
 
         const { sectionTitle, taskId } = editingTask;
-        const { text, type, minCompletions, isCritical, genderPreference, instruction } = data;
+        const { text, type, minCompletions, isCritical, genderPreference, shiftPreference, instruction } = data;
 
         const newSectionsState = JSON.parse(JSON.stringify(sections));
         const section = newSectionsState.find((s: ComprehensiveTaskSection) => s.title === sectionTitle);
@@ -386,6 +397,7 @@ export default function ComprehensiveChecklistPage() {
                 task.minCompletions = minCompletions || 1;
                 task.isCritical = !!isCritical;
                 task.genderPreference = genderPreference || 'Tất cả';
+                task.shiftPreference = shiftPreference;
 
                 if (instruction) {
                     task.instruction = {
@@ -723,6 +735,7 @@ export default function ComprehensiveChecklistPage() {
                                                                         minCompletions: task.minCompletions || 1,
                                                                         isCritical: !!task.isCritical,
                                                                         genderPreference: task.genderPreference || 'Tất cả',
+                                                                        shiftPreference: task.shiftPreference || [],
                                                                         instruction: task.instruction
                                                                     })}
                                                                 >
@@ -792,6 +805,7 @@ export default function ComprehensiveChecklistPage() {
                     onClose={() => setAddingToSection(null)}
                     onConfirm={(data) => handleAddTask(addingToSection, data)}
                     sectionTitle={addingToSection}
+                    shiftTemplates={shiftTemplates}
                 />
             )}
 
@@ -802,6 +816,7 @@ export default function ComprehensiveChecklistPage() {
                     onConfirm={handleUpdateTask}
                     initialData={editingTask}
                     sectionTitle={editingTask.sectionTitle}
+                    shiftTemplates={shiftTemplates}
                 />
             )}
         </div>

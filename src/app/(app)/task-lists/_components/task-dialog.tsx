@@ -36,7 +36,7 @@ interface TaskDialogProps {
   sectionTitle?: string;
   initialData?: Task | null;
   parentDialogTag?: string;
-  shiftTemplates?: any[];
+  shiftTemplates: any[];
 }
 
 export function TaskDialog({ isOpen, onClose, onConfirm, shiftName = '', sectionTitle = '', initialData = null, parentDialogTag = 'root', shiftTemplates = [] }: TaskDialogProps) {

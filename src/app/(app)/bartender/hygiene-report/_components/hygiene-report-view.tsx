@@ -31,7 +31,7 @@ interface HygieneReportViewProps {
 }
 
 export default function HygieneReportView({ isStandalone = true }: HygieneReportViewProps) {
-    const { user, loading: isAuthLoading } = useAuth();
+    const { user, loading: isAuthLoading, activeShifts } = useAuth();
     const router = useRouter();
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const shiftKey = 'bartender_hygiene';
@@ -624,6 +624,13 @@ export default function HygieneReportView({ isStandalone = true }: HygieneReport
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {tasks.find(s => s.title === activeTab)?.tasks.filter(t => {
+                                    if (t.shiftPreference && t.shiftPreference.length > 0) {
+                                        const activeTemplateIds = activeShifts
+                                            .map(shift => shift.templateId)
+                                            .filter((id): id is string => Boolean(id));
+                                        const matchesActiveShift = activeTemplateIds.some(id => t.shiftPreference!.includes(id));
+                                        if (!matchesActiveShift) return false;
+                                    }
                                     if (t.genderPreference && t.genderPreference !== 'Tất cả') {
                                         if (!user?.gender) return true;
                                         return t.genderPreference === user.gender;
