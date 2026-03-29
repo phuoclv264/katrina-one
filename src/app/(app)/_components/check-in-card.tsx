@@ -382,12 +382,22 @@ export default function CheckInCard() {
             }
         }
 
-        if (effectiveRoles.includes('Pha chế')) {
+        let totalHours = 0;
+
+        if (activeShift?.timeSlot) {
+            const [startH, startM] = activeShift.timeSlot.start.split(':').map(Number);
+            const [endH, endM] = activeShift.timeSlot.end.split(':').map(Number);
+            
+            totalHours = ((endH + endM / 60) - (startH + startM / 60) + 24) % 24; // Handle overnight shifts
+        }
+
+        if (effectiveRoles.includes('Pha chế') && totalHours >= 3) { // Only check for hygiene report if shift is 3+ hours
             try {
                 const { status } = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Nhân viên', 'bartender_hygiene');
                 const hasLocalEdits = status === 'local-newer';
+                
+                // Fetch all reports for bartender_hygiene for today
                 const allShiftReports = await dataStore.getShiftReports('bartender_hygiene');
-                const serverReport = allShiftReports.find(r => r.userId === user.uid);
 
                 // if the local copy is newer than the server we want to warn the user
                 if (hasLocalEdits) {
@@ -405,6 +415,12 @@ export default function CheckInCard() {
                         .map(shift => shift.templateId)
                         .filter((id): id is string => Boolean(id));
 
+                    // Get time range for the current check-in session
+                    const checkInTime = latestInProgressRecord?.checkInTime 
+                        ? (latestInProgressRecord.checkInTime as Timestamp).toDate().getTime() 
+                        : null;
+                    const now = new Date().getTime();
+
                     for (const section of bartenderTasks) {
                         for (const task of section.tasks) {
                             const hasShiftPreference = task.shiftPreference && task.shiftPreference.length > 0;
@@ -420,11 +436,25 @@ export default function CheckInCard() {
                                 continue;
                             }
 
-                            const completions = serverReport ? serverReport.completedTasks[task.id] || [] : [];
+                            // Team task logic: check if ANYONE has completed this task during the current user's shift
+                            const allCompletionsInRange = allShiftReports.flatMap(r => {
+                                const completions = r.completedTasks[task.id] || [];
+                                // If we have a check-in time, only count completions that happened after it
+                                if (checkInTime) {
+                                    return completions.filter((c: any) => {
+                                        const completedAt = c.timestamp ? new Date(c.timestamp) : new Date();
+                                        const time = completedAt.getTime();
+                                        return time >= checkInTime && time <= now;
+                                    });
+                                }
+                                return completions;
+                            });
+
                             const baseRequired = task.minCompletions || 1;
                             const required = calculateAdjustedMinCompletions(baseRequired, '', activeShift?.timeSlot);
-                            if (completions.length < required) {
-                                const remaining = required - completions.length;
+                            
+                            if (allCompletionsInRange.length < required) {
+                                const remaining = required - allCompletionsInRange.length;
                                 const countLabel = required > 1 ? ` (còn ${remaining}/${required} lần)` : '';
                                 undoneList.push(`${task.text}${countLabel}`);
                             }
