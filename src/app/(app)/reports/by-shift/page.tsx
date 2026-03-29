@@ -19,6 +19,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { getISOWeek, getISOWeekYear } from 'date-fns';
 import { useLightbox } from '@/contexts/lightbox-context';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
+import { calculateStaffTaskProgress } from '@/lib/task-utils';
 
 
 const mainShiftTimeFrames: { [key: string]: { start: string; end: string; icon: any; color: string } } = {
@@ -168,26 +169,35 @@ function ShiftSummaryCard({
 
         // Calculate progress for each staff member
         const staffProgress = reports.map(report => {
-            const individualTasksResult = shift.sections.flatMap(s => s.tasks.filter(t => !t.isTeamJob)).map(task => {
-                const completions = report.completedTasks?.[task.id] || [];
-                const current = completions.length;
-                const required = task.minCompletions || 1;
-                return { task, current, required, isDone: current >= required };
+            const user = allUsers.find(u => u.uid === report.userId);
+            
+            // To get activeShift, we need to find the user's shift in allShiftsOnDay
+            const userShifts = allShiftsOnDay.filter(s => s.assignedUsers.some(au => au.userId === report.userId));
+            const overlappingShifts = userShifts.filter(userShift => {
+                 const shiftStartMinutes = parseTime(userShift.timeSlot.start);
+                 const shiftEndMinutes = parseTime(userShift.timeSlot.end);
+                 return shiftStartMinutes < mainShiftEndMinutes && mainShiftStartMinutes < shiftEndMinutes;
             });
 
-            const teamTasksResult = shift.sections.flatMap(s => s.tasks.filter(t => !!t.isTeamJob)).map(task => {
-                const totalCompletions = reports.reduce((sum, r) => sum + (r.completedTasks?.[task.id]?.length || 0), 0);
-                const current = totalCompletions;
-                const required = task.minCompletions || 1;
-                return { task, current, required, isDone: current >= required };
-            });
+            // Since our view here only has access to static tasks without checkInTime constraints,
+            // we will pass checkInTime as null
+            const allTasksInShift = shift.sections.flatMap(s => s.tasks);
+            const taskProgresses = calculateStaffTaskProgress(
+                allTasksInShift,
+                report,
+                reports,
+                shiftKey,
+                user || { gender: 'Tất cả' as any }, // Fallback if user not found
+                overlappingShifts,
+                null
+            );
 
-            const undoneTasks = [...individualTasksResult, ...teamTasksResult].filter(item => !item.isDone);
+            const undoneTasks = taskProgresses.filter(item => !item.isDone);
 
             return {
                 staffName: report.staffName,
                 undoneTasks,
-                totalTasksCount: individualTasksResult.length + teamTasksResult.length,
+                totalTasksCount: taskProgresses.length,
                 isFullyCompleted: undoneTasks.length === 0
             };
         });
