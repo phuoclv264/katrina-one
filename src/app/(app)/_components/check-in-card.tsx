@@ -379,9 +379,6 @@ export default function CheckInCard() {
                 const bartenderTasks = await dataStore.getBartenderTasks();
                 if (bartenderTasks) {
                     const undoneList: string[] = [];
-                    const activeShiftTemplateIds = activeShifts
-                        .map(shift => shift.templateId)
-                        .filter((id): id is string => Boolean(id));
 
                     // Get time range for the current check-in session
                     const checkInTime = latestInProgressRecord?.checkInTime 
@@ -475,7 +472,7 @@ export default function CheckInCard() {
         } else {
             if (latestInProgressRecord?.checkInTime) {
                 const checkInDate = (latestInProgressRecord.checkInTime as Timestamp).toDate();
-                if (!isToday(checkInDate)) {
+                if (!isToday(checkInDate) && user?.isTestAccount !== true) {
                     setShowOldShiftAlert(true);
                     return;
                 }
