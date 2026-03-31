@@ -26,7 +26,8 @@ import { isToday } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import WorkHistoryDialog from './work-history-dialog';
 import PendingWorkDialog from './pending-work-dialog';
-import { DEFAULT_MAIN_SHIFT_TIMEFRAMES, getActiveShiftKeys, calculateAdjustedMinCompletions, getShiftKeyFromTimeSlot } from '@/lib/shift-utils';
+import { DEFAULT_MAIN_SHIFT_TIMEFRAMES, getActiveShiftKeys, getShiftKeyFromTimeSlot } from '@/lib/shift-utils';
+import { calculateStaffTaskProgress } from '@/lib/task-utils';
 import { createUndoneTasksViolation } from '@/lib/violations-service';
 
 type PendingWorkItem = {
@@ -314,54 +315,21 @@ export default function CheckInCard() {
                         const shift = tasksMap[shiftKey];
                         const activeShiftTemplateId = activeShifts?.map(as => as.templateId) || [];
                         const allTasksInShift = shift.sections.flatMap(s => s.tasks);
-
-                        // Determine if we have any tasks specifically matching our active shifts
-                        const hasSpecificTasks = allTasksInShift.some(t =>
-                            t.shiftPreference &&
-                            t.shiftPreference.length > 0 &&
-                            activeShiftTemplateId.some(id => t.shiftPreference!.includes(id))
+                        
+                        const taskProgresses = calculateStaffTaskProgress(
+                            allTasksInShift,
+                            serverReport,
+                            allShiftReports,
+                            shiftKey,
+                            user,
+                            activeShifts as any
                         );
 
-                        for (const section of shift.sections) {
-                            for (const task of section.tasks) {
-                                // Apply the same filtering as ChecklistView
-                                const hasPreference = task.shiftPreference && task.shiftPreference.length > 0;
-                                const matchesActiveShift = hasPreference && activeShiftTemplateId.some(id => task.shiftPreference!.includes(id));
-
-                                if (hasSpecificTasks) {
-                                    // In Specific Mode: only check matching tasks
-                                    if (!matchesActiveShift) continue;
-                                }
-
-                                // Filter by gender preference
-                                if (task.genderPreference && task.genderPreference !== 'Tất cả' && task.genderPreference !== user.gender) {
-                                    continue;
-                                }
-
-                                const baseRequired = task.minCompletions || 1;
-                                const required = calculateAdjustedMinCompletions(baseRequired, shiftKey, activeShift?.timeSlot);
-                                if (task.isTeamJob) {
-                                    // Count total completions across all staff for this team task
-                                    const totalTeamCompletions = allShiftReports.reduce((sum, r) => {
-                                        return sum + (r.completedTasks?.[task.id]?.length || 0);
-                                    }, 0);
-
-                                    if (totalTeamCompletions < required) {
-                                        const remaining = required - totalTeamCompletions;
-                                        const countLabel = required > 1 ? ` (còn ${remaining}/${required} lần)` : '';
-                                        undoneList.push(task.isCritical ? `_CRITICAL_${task.text}${countLabel}` : `${task.text}${countLabel}`);
-                                    }
-                                } else {
-                                    // each user must complete their own
-                                    const completions = serverReport ? serverReport.completedTasks[task.id] || [] : [];
-                                    const baseRequiredForSelf = task.minCompletions || 1;
-                                    const requiredForSelf = calculateAdjustedMinCompletions(baseRequiredForSelf, shiftKey, activeShift?.timeSlot);
-                                    if (completions.length < requiredForSelf) {
-                                        const remaining = requiredForSelf - completions.length;
-                                        const countLabel = requiredForSelf > 1 ? ` (còn ${remaining}/${requiredForSelf} lần)` : '';
-                                        undoneList.push(task.isCritical ? `_CRITICAL_${task.text}${countLabel}` : `${task.text}${countLabel}`);
-                                    }
-                                }
+                        for (const progress of taskProgresses) {
+                            if (!progress.isDone) {
+                                const remaining = progress.required - progress.current;
+                                const countLabel = progress.required > 1 ? ` (còn ${remaining}/${progress.required} lần)` : '';
+                                undoneList.push(progress.task.isCritical ? `_CRITICAL_${progress.task.text}${countLabel}` : `${progress.task.text}${countLabel}`);
                             }
                         }
                     }
@@ -382,12 +350,22 @@ export default function CheckInCard() {
             }
         }
 
-        if (effectiveRoles.includes('Pha chế')) {
+        let totalHours = 0;
+
+        if (activeShift?.timeSlot) {
+            const [startH, startM] = activeShift.timeSlot.start.split(':').map(Number);
+            const [endH, endM] = activeShift.timeSlot.end.split(':').map(Number);
+            
+            totalHours = ((endH + endM / 60) - (startH + startM / 60) + 24) % 24; // Handle overnight shifts
+        }
+
+        if (effectiveRoles.includes('Pha chế') && totalHours >= 3) { // Only check for hygiene report if shift is 3+ hours
             try {
                 const { status } = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Nhân viên', 'bartender_hygiene');
                 const hasLocalEdits = status === 'local-newer';
+                
+                // Fetch all reports for bartender_hygiene for today
                 const allShiftReports = await dataStore.getShiftReports('bartender_hygiene');
-                const serverReport = allShiftReports.find(r => r.userId === user.uid);
 
                 // if the local copy is newer than the server we want to warn the user
                 if (hasLocalEdits) {
@@ -401,33 +379,32 @@ export default function CheckInCard() {
                 const bartenderTasks = await dataStore.getBartenderTasks();
                 if (bartenderTasks) {
                     const undoneList: string[] = [];
-                    const activeShiftTemplateIds = activeShifts
-                        .map(shift => shift.templateId)
-                        .filter((id): id is string => Boolean(id));
 
-                    for (const section of bartenderTasks) {
-                        for (const task of section.tasks) {
-                            const hasShiftPreference = task.shiftPreference && task.shiftPreference.length > 0;
-                            if (hasShiftPreference) {
-                                const matchesActiveShift = activeShiftTemplateIds.some(id => task.shiftPreference!.includes(id));
-                                if (!matchesActiveShift) {
-                                    continue;
-                                }
-                            }
+                    // Get time range for the current check-in session
+                    const checkInTime = latestInProgressRecord?.checkInTime 
+                        ? (latestInProgressRecord.checkInTime as Timestamp).toDate().getTime() 
+                        : null;
+                    const now = new Date().getTime();
 
-                            // Filter by gender preference
-                            if (task.genderPreference && task.genderPreference !== 'Tất cả' && task.genderPreference !== user.gender) {
-                                continue;
-                            }
+                    const allTasksInShift = bartenderTasks.flatMap(s => s.tasks);
+                    const serverReport = allShiftReports.find(r => r.userId === user.uid);
+                    
+                    const taskProgresses = calculateStaffTaskProgress(
+                        allTasksInShift,
+                        serverReport,
+                        allShiftReports,
+                        'bartender_hygiene',
+                        user,
+                        activeShifts as any,
+                        checkInTime,
+                        now
+                    );
 
-                            const completions = serverReport ? serverReport.completedTasks[task.id] || [] : [];
-                            const baseRequired = task.minCompletions || 1;
-                            const required = calculateAdjustedMinCompletions(baseRequired, '', activeShift?.timeSlot);
-                            if (completions.length < required) {
-                                const remaining = required - completions.length;
-                                const countLabel = required > 1 ? ` (còn ${remaining}/${required} lần)` : '';
-                                undoneList.push(`${task.text}${countLabel}`);
-                            }
+                    for (const progress of taskProgresses) {
+                        if (!progress.isDone) {
+                            const remaining = progress.required - progress.current;
+                            const countLabel = progress.required > 1 ? ` (còn ${remaining}/${progress.required} lần)` : '';
+                            undoneList.push(`${progress.task.text}${countLabel}`);
                         }
                     }
 
@@ -495,7 +472,7 @@ export default function CheckInCard() {
         } else {
             if (latestInProgressRecord?.checkInTime) {
                 const checkInDate = (latestInProgressRecord.checkInTime as Timestamp).toDate();
-                if (!isToday(checkInDate)) {
+                if (!isToday(checkInDate) && user?.isTestAccount !== true) {
                     setShowOldShiftAlert(true);
                     return;
                 }
