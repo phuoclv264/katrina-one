@@ -555,14 +555,6 @@ export function subscribeToShiftTemplates(callback: (templates: ShiftTemplate[])
     const unsubscribe = onSnapshot(docRef, async (docSnap) => {
         if (docSnap.exists()) {
             callback(docSnap.data().templates as ShiftTemplate[]);
-        } else {
-            try {
-                await setDoc(docRef, { templates: [] });
-                callback([]);
-            } catch (e) {
-                console.error("Permission denied to create default shift templates.", e);
-                callback([]);
-            }
         }
     }, (error) => {
         console.warn(`[Firestore Read Error] Could not read shift templates: ${error.code}`);
