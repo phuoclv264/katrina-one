@@ -1210,7 +1210,25 @@ export const dataStore = {
 
   async updateBartenderTasks(newTasks: TaskSection[]) {
     const docRef = doc(db, 'app-data', 'bartenderTasks');
-    await setDoc(docRef, { tasks: newTasks });
+
+    // Firestore rejects undefined values anywhere in the document. Remove undefined fields recursively.
+    const removeUndefined = (obj: any): any => {
+      if (obj === undefined) return undefined;
+      if (obj === null) return null;
+      if (Array.isArray(obj)) return obj.map(removeUndefined).filter(v => v !== undefined);
+      if (typeof obj === 'object') {
+        const out: any = {};
+        for (const [k, v] of Object.entries(obj)) {
+          const cleaned = removeUndefined(v);
+          if (cleaned !== undefined) out[k] = cleaned;
+        }
+        return out;
+      }
+      return obj;
+    };
+
+    const sanitized = removeUndefined(newTasks);
+    await setDoc(docRef, { tasks: sanitized });
   },
 
   subscribeToComprehensiveTasks(callback: (tasks: ComprehensiveTaskSection[]) => void): () => void {

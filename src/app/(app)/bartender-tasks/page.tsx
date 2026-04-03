@@ -59,6 +59,7 @@ export default function BartenderTasksPage() {
         type: Task['type']; 
         minCompletions: number; 
         isCritical: boolean; 
+        isTeamJob: boolean;
         genderPreference: Task['genderPreference'];
         shiftPreference?: string[];
         instruction?: { text?: string; images?: { url: string; caption?: string }[] } 
@@ -162,6 +163,7 @@ export default function BartenderTasksPage() {
             text: taskData.text,
             type: taskData.type,
             isCritical: !!taskData.isCritical,
+            isTeamJob: !!taskData.isTeamJob,
             minCompletions: taskData.minCompletions ?? 1,
             genderPreference: taskData.genderPreference ?? 'Tất cả',
             shiftPreference: taskData.shiftPreference
@@ -191,7 +193,7 @@ export default function BartenderTasksPage() {
         }
 
         const { sectionTitle, taskId } = editingTask;
-        const { text, type, minCompletions, isCritical, genderPreference, shiftPreference, instruction } = data;
+        const { text, type, minCompletions, isCritical, isTeamJob, genderPreference, shiftPreference, instruction } = data;
         const newSectionsState = JSON.parse(JSON.stringify(sections));
         const section = newSectionsState.find((s: TaskSection) => s.title === sectionTitle);
         if (section) {
@@ -201,6 +203,7 @@ export default function BartenderTasksPage() {
                 task.type = type;
                 task.minCompletions = minCompletions ?? 1;
                 task.isCritical = !!isCritical;
+                task.isTeamJob = !!isTeamJob;
                 task.genderPreference = genderPreference ?? 'Tất cả';
                 task.shiftPreference = shiftPreference;
                 if (instruction) {
@@ -561,6 +564,11 @@ export default function BartenderTasksPage() {
                                                                             Mới
                                                                         </Badge>
                                                                     )}
+                                                                    {task.isTeamJob && (
+                                                                        <Badge variant="secondary" className="h-3.5 px-1 text-[8px] uppercase tracking-wider font-bold shrink-0">
+                                                                            Nhóm
+                                                                        </Badge>
+                                                                    )}
                                                                     {task.minCompletions && task.minCompletions > 1 && (
                                                                         <Badge variant="secondary" className="h-3.5 px-1 text-[8px] font-mono shrink-0">
                                                                             x{task.minCompletions}
@@ -641,6 +649,7 @@ export default function BartenderTasksPage() {
                                                                         text: task.text, 
                                                                         type: task.type,
                                                                         isCritical: !!task.isCritical,
+                                                                        isTeamJob: !!task.isTeamJob,
                                                                         minCompletions: task.minCompletions || 1,
                                                                         genderPreference: task.genderPreference || 'Tất cả',
                                                                         shiftPreference: task.shiftPreference || [],
@@ -725,6 +734,7 @@ export default function BartenderTasksPage() {
                     text: editingTask.text,
                     type: editingTask.type,
                     isCritical: editingTask.isCritical,
+                    isTeamJob: editingTask.isTeamJob,
                     minCompletions: editingTask.minCompletions,
                     genderPreference: editingTask.genderPreference,
                     shiftPreference: editingTask.shiftPreference,
