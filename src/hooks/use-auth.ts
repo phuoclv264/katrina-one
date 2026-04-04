@@ -27,6 +27,7 @@ export interface AuthUser extends User {
   isTestAccount?: boolean;
   bankId?: string | null;
   bankAccountNumber?: string | null;
+  registeredAt?: string;
 }
 
 export const useAuth = () => {
@@ -95,6 +96,14 @@ export const useAuth = () => {
         if (userDoc && userDoc.exists()) {
           const userData = userDoc.data();
           const userRole = userData.role as UserRole;
+          
+          let registeredAt = userData.registeredAt;
+          if (!registeredAt && firebaseUser.metadata?.creationTime) {
+            registeredAt = firebaseUser.metadata.creationTime;
+            // Backfill the document if the metadata creation time exists but is not set in the document
+            updateDoc(userDocRef, { registeredAt }).catch(e => console.error("Failed to backfill registeredAt", e));
+          }
+
           const authUser = {
             ...firebaseUser,
             displayName: userData.displayName,
@@ -108,6 +117,7 @@ export const useAuth = () => {
             isTestAccount: userData.isTestAccount,
             bankId: userData.bankId || null,
             bankAccountNumber: userData.bankAccountNumber || null,
+            registeredAt: registeredAt || undefined,
           } as AuthUser;
           setUser(authUser);
 
@@ -125,6 +135,14 @@ export const useAuth = () => {
             getDoc(userDocRef).then((serverDoc) => {
               if (serverDoc.exists()) {
                 const serverData = serverDoc.data();
+                
+                let serverRegisteredAt = serverData.registeredAt;
+                if (!serverRegisteredAt && firebaseUser.metadata?.creationTime) {
+                  serverRegisteredAt = firebaseUser.metadata.creationTime;
+                  // Backfill the document
+                  updateDoc(userDocRef, { registeredAt: serverRegisteredAt }).catch(e => console.error("Failed to backfill registeredAt (background)", e));
+                }
+
                 const serverAuthUser = {
                   ...firebaseUser,
                   displayName: serverData.displayName,
@@ -138,6 +156,7 @@ export const useAuth = () => {
                   isTestAccount: serverData.isTestAccount,
                   bankId: serverData.bankId || null,
                   bankAccountNumber: serverData.bankAccountNumber || null,
+                  registeredAt: serverRegisteredAt || undefined,
                 } as AuthUser;
                 // Update state only if there's a change to avoid unnecessary re-renders
                 setUser(currentUser =>
@@ -190,6 +209,7 @@ export const useAuth = () => {
         isTestAccount: data.isTestAccount,
         bankId: data.bankId || null,
         bankAccountNumber: data.bankAccountNumber || null,
+        registeredAt: data.registeredAt || user.registeredAt,
       } as AuthUser;
       setUser((current) => JSON.stringify(current) !== JSON.stringify(updated) ? updated : current);
     }, (err) => console.error('User doc snapshot error:', err));
@@ -283,6 +303,7 @@ export const useAuth = () => {
         gender: gender || 'Nam',
         employmentStatus: 'Đang làm việc',
         secondaryRoles: [],
+        registeredAt: firebaseUser.metadata?.creationTime ?? new Date().toISOString(),
       });
 
       toast.success('Đăng ký thành công! Đang chuyển hướng bạn...');
