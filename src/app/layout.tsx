@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { ProToastProvider } from '@/components/ui/pro-toast';
 import { DialogProvider } from '@/contexts/dialog-context';
+import { ResignedGuard } from '@/components/resigned-guard';
 
 export const metadata: Metadata = {
   title: 'Katrina One',
@@ -30,6 +31,7 @@ export default function RootLayout({
       <body className="font-body antialiased">
         <DialogProvider>
           {children}
+          <ResignedGuard />
           <ProToastProvider />
         </DialogProvider>
       </body>

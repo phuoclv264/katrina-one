@@ -12,7 +12,6 @@ import { useAuth } from '@/hooks/use-auth';
 import type { UserRole } from '@/hooks/use-auth';
 import { toast } from '@/components/ui/pro-toast';
 import { Combobox } from '@/components/combobox';
-import { cn } from '@/lib/utils';
 import { dataStore } from '@/lib/data-store';
 import type { AppSettings } from '@/lib/types';
 import { LoadingPage } from '@/components/loading/LoadingPage';
@@ -44,11 +43,22 @@ export default function AuthPage() {
       return;
     }
     setIsProcessingAuth(true);
-    const success = await login(loginEmail, loginPassword);
-    if (!success) {
+
+    try {
+      // Manual check for resigned status before proceeding if needed, 
+      // but the useAuth hook will also catch it immediately after login.
+      // To provide a better UX, we can check it here if we want, but we need the UID.
+      // Firebase doesn't give UID before login.
+      
+      const success = await login(loginEmail, loginPassword);
+      if (!success) {
+        setIsProcessingAuth(false);
+      }
+      // On success, useAuth will handle the "Nghỉ việc" check and redirect back if necessary.
+    } catch (error) {
+      console.error("Login failed", error);
       setIsProcessingAuth(false);
     }
-    // On success, isProcessingAuth remains true while the redirect happens.
   };
 
   const handleRegister = async (e: React.FormEvent) => {

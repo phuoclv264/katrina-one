@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc, getDocFromCache, onSnapshot } from 'firebase/firestore';
@@ -11,6 +11,7 @@ import { useDataRefresher } from './useDataRefresher';
 import { isUserOnActiveShift, getActiveShifts } from '@/lib/schedule-utils';
 import type { Schedule, AssignedShift, Notification, ManagedUser, UserBadge } from '@/lib/types';
 import { getISOWeek, getISOWeekYear, format } from 'date-fns';
+import { ResignedDialog } from '@/components/resigned-dialog';
 
 export type UserRole = 'Phục vụ' | 'Pha chế' | 'Quản lý' | 'Chủ nhà hàng' | 'Thu ngân';
 
@@ -38,6 +39,7 @@ export const useAuth = () => {
   const [todaysShifts, setTodaysShifts] = useState<AssignedShift[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [users, setUsers] = useState<ManagedUser[]>([]);
+  const [showResignedDialog, setShowResignedDialog] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const loadingTimer = useRef<NodeJS.Timeout | null>(null);
@@ -119,6 +121,14 @@ export const useAuth = () => {
             bankAccountNumber: userData.bankAccountNumber || null,
             registeredAt: registeredAt || undefined,
           } as AuthUser;
+
+          if (authUser.employmentStatus === 'Nghỉ việc') {
+            setUser(authUser);
+            setShowResignedDialog(true);
+            setLoading(false);
+            return;
+          }
+
           setUser(authUser);
 
           if (pathname === '/') {
@@ -158,6 +168,13 @@ export const useAuth = () => {
                   bankAccountNumber: serverData.bankAccountNumber || null,
                   registeredAt: serverRegisteredAt || undefined,
                 } as AuthUser;
+
+                if (serverAuthUser.employmentStatus === 'Nghỉ việc') {
+                  setUser(serverAuthUser);
+                  setShowResignedDialog(true);
+                  return;
+                }
+
                 // Update state only if there's a change to avoid unnecessary re-renders
                 setUser(currentUser =>
                   JSON.stringify(currentUser) !== JSON.stringify(serverAuthUser)
@@ -211,6 +228,13 @@ export const useAuth = () => {
         bankAccountNumber: data.bankAccountNumber || null,
         registeredAt: data.registeredAt || user.registeredAt,
       } as AuthUser;
+
+      if (updated.employmentStatus === 'Nghỉ việc') {
+        setUser(updated);
+        setShowResignedDialog(true);
+        return;
+      }
+
       setUser((current) => JSON.stringify(current) !== JSON.stringify(updated) ? updated : current);
     }, (err) => console.error('User doc snapshot error:', err));
 
@@ -343,5 +367,10 @@ export const useAuth = () => {
     login,
     register,
     logout,
+    renderResignedDialog: () => 
+      React.createElement(ResignedDialog, { 
+        isOpen: showResignedDialog, 
+        onLogout: logout 
+      })
   };
 };
