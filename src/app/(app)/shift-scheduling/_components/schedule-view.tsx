@@ -50,6 +50,7 @@ import { cn } from '@/lib/utils';
 import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, SimpleUser, ShiftBusyEvidence, SpecialPeriod } from '@/lib/types';
 import { dataStore } from '@/lib/data-store';
 import { toast } from '@/components/ui/pro-toast';
+import { isNewStaff } from '@/lib/user-status';
 import ShiftAssignmentDialog from './shift-assignment-popover'; // Renaming this import for clarity, but it's the right file
 import ShiftTemplatesDialog from './shift-templates-dialog';
 import TotalHoursDialog from './total-hours-dialog';
@@ -836,6 +837,11 @@ export default function ScheduleView() {
                     <span className={cn("font-bold mr-1", shiftCount > 2 ? 'text-red-500' : 'text-yellow-500')}>{shiftCount}</span>
                 )}
                 {nameToShow}
+                {isNewStaff(userDetails) && (
+                    <span className="ml-2 rounded-full bg-emerald-100 text-emerald-700 px-1 py-[2px] text-[9px] font-semibold uppercase tracking-wide">
+                        Mới
+                    </span>
+                )}
                 {displayedRole && (
                     <span className="text-xs mr-1 pl-1 font-medium text-muted-foreground">{displayedRole === 'Phục vụ' ? 'PV' : (displayedRole === 'Pha chế' ? 'PC' : 'QL')}</span>
                 )}

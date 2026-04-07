@@ -89,7 +89,7 @@ export function calculateStaffTaskProgress(
             // If checkInTime is provided, we filter out completions that happened outside this user's shift coverage window
             const allCompletionsInRange = allShiftReports.flatMap(r => {
                 const completions = r.completedTasks[task.id] || [];
-                if (checkInTime) {
+                if (checkInTime && shiftKey === 'bartender_hygiene') {
                     return completions.filter(c => {
                         let completedAt = c.timestamp ? new Date(c.timestamp) : new Date();
                         if (shiftKey === 'bartender_hygiene') {

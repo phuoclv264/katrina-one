@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { dataStore } from '@/lib/data-store';
+import { isTestAccount, isActiveUser } from '@/lib/user-status';
 import type {
   RevenueStats,
   AttendanceRecord,
@@ -327,7 +328,18 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
     const now = dateFilter === 'yesterday' ? addDays(new Date(), -1) : new Date();
     const todayStr = format(now, 'yyyy-MM-dd');
 
-    const recordsByUser = attendanceRecords.reduce(
+    // Filter out test accounts (in production) and resigned users
+    const includeTestAccounts = process.env.NODE_ENV !== 'production';
+    const filteredAttendanceRecords = attendanceRecords.filter(record => {
+      const user = allUsers.find(u => u.uid === record.userId);
+      if (user) {
+        if (!isActiveUser(user)) return false;
+        if (!includeTestAccounts && isTestAccount(user)) return false;
+      }
+      return true;
+    });
+
+    const recordsByUser = filteredAttendanceRecords.reduce(
       (acc, record) => {
         if (!acc[record.userId]) {
           acc[record.userId] = [];
@@ -353,7 +365,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
     const shiftUserToRecordsAssignment = new Map<string, string[]>(); // "shiftId_userId" -> recordIds[]
 
     // For each record, find the shift it's closest to
-    attendanceRecords.forEach(record => {
+    filteredAttendanceRecords.forEach(record => {
       if (!record.checkInTime) return;
       const userShifts = userToShiftsMap[record.userId] || [];
       if (userShifts.length === 0) return;
@@ -519,7 +531,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
         }) || [];
 
     const offShiftEmployees: any[] = [];
-    attendanceRecords.forEach(record => {
+    filteredAttendanceRecords.forEach(record => {
       if (!usedRecordIds.has(record.id)) {
         const user = allUsers.find(u => u.uid === record.userId || (u as any).id === record.userId);
         offShiftEmployees.push({

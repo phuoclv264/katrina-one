@@ -4,6 +4,7 @@ import { ProToastProvider } from '@/components/ui/pro-toast';
 import { DialogProvider } from '@/contexts/dialog-context';
 import { CapacitorUpdaterListener } from '@/components/capacitor-updater-listener';
 import PullToRefresh from '@/components/pull-to-refresh';
+import { ResignedGuard } from '@/components/resigned-guard';
 
 export const metadata: Metadata = {
   title: 'Katrina One',
@@ -34,6 +35,7 @@ export default function RootLayout({
         <DialogProvider>
           <CapacitorUpdaterListener />
           {children}
+          <ResignedGuard />
           <ProToastProvider />
         </DialogProvider>
       </body>

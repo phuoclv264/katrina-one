@@ -37,6 +37,7 @@ export type ManagedUser = {
   bankId?: string | null;
   bankAccountNumber?: string | null;
   badges?: UserBadge[];
+  registeredAt?: string;
 };
 
 export type SimpleUser = {
