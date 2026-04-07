@@ -262,7 +262,10 @@ const SalaryRecordAccordionItem: React.FC<{
                                         {record.totalWorkingHours.toFixed(1)}h làm việc
                                     </div>
                                     <div className="flex items-center gap-1.5 px-2 py-0.5 bg-zinc-100 rounded-full text-[10px] font-bold text-zinc-500">
-                                        {record.averageHourlyRate.toLocaleString('vi-VN')}đ/h
+                                        {record.averageHourlyRate.toLocaleString()}đ/h
+                                    </div>
+                                    <div className="flex items-center gap-1.5 px-2 py-0.5 bg-zinc-100 rounded-full text-[10px] font-bold text-zinc-500">
+                                        Lương {(record.averageHourlyRate * record.totalWorkingHours).toLocaleString('vi-VN')}đ
                                     </div>
                                 </div>
                             </div>
@@ -469,6 +472,28 @@ const SalaryRecordAccordionItem: React.FC<{
                     </div>
                 )}
 
+                {record.absentShifts.length > 0 && (
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2 px-1">
+                            <ShieldAlert className="h-4 w-4 text-red-400" />
+                            <h4 className="text-[11px] font-black text-red-400 uppercase tracking-[0.2em]">Ca vắng mặt</h4>
+                        </div>
+                        <div className="bg-red-50/50 border border-red-100 rounded-2xl p-4 space-y-2">
+                            {record.absentShifts.filter((shift) => {
+                                const shiftEnd = parseISO(`${shift.date}T${shift.timeSlot.end}`);
+                                return shiftEnd.getTime() < Date.now();
+                            }).map((shift) => (
+                                <div key={shift.id} className="flex items-center gap-3 text-sm">
+                                    <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                                    <span className="font-bold text-red-900">{format(parseISO(shift.date), 'dd/MM')}</span>
+                                    <span className="text-zinc-300">|</span>
+                                    <span className="text-red-700 font-medium italic">Vắng ca {shift.label} ({shift.timeSlot.start}-{shift.timeSlot.end})</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* 3. Detailed Tabs (Attendance & Violations) */}
                 <div className="space-y-4">
                     <div className="flex items-center gap-2 px-1">
@@ -528,28 +553,6 @@ const SalaryRecordAccordionItem: React.FC<{
                         )}
                     </div>
                 </div>
-
-                {record.absentShifts.length > 0 && (
-                    <div className="space-y-3">
-                        <div className="flex items-center gap-2 px-1">
-                            <ShieldAlert className="h-4 w-4 text-red-400" />
-                            <h4 className="text-[11px] font-black text-red-400 uppercase tracking-[0.2em]">Cáo vắng bất thường</h4>
-                        </div>
-                        <div className="bg-red-50/50 border border-red-100 rounded-2xl p-4 space-y-2">
-                            {record.absentShifts.filter((shift) => {
-                                const shiftEnd = parseISO(`${shift.date}T${shift.timeSlot.end}`);
-                                return shiftEnd.getTime() < Date.now();
-                            }).map((shift) => (
-                                <div key={shift.id} className="flex items-center gap-3 text-sm">
-                                    <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
-                                    <span className="font-bold text-red-900">{format(parseISO(shift.date), 'dd/MM')}</span>
-                                    <span className="text-zinc-300">|</span>
-                                    <span className="text-red-700 font-medium italic">Vắng ca {shift.label} ({shift.timeSlot.start}-{shift.timeSlot.end})</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
 
                 {record.violationRecords.length > 0 && (
                     <div className="space-y-4">
