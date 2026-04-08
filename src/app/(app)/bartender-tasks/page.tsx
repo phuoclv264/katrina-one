@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/pro-toast';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'nextjs-toploader/app';
+import { useAppNavigation } from '@/contexts/app-navigation-context';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import {
     AlertDialog,
@@ -42,7 +42,7 @@ import { cn } from '@/lib/utils';
 
 export default function BartenderTasksPage() {
     const { user, loading: authLoading } = useAuth();
-    const router = useRouter();
+    const appNavigation = useAppNavigation();
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [sections, setSections] = useState<TaskSection[] | null>(null);
     const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
@@ -74,7 +74,7 @@ export default function BartenderTasksPage() {
     useEffect(() => {
         if (!authLoading) {
             if (!user || user.role !== 'Chủ nhà hàng') {
-                router.replace('/');
+                appNavigation.replace('/');
             } else {
                 const unsubscribeTasks = dataStore.subscribeToBartenderTasks((data) => {
                     setSections(data);
@@ -96,7 +96,7 @@ export default function BartenderTasksPage() {
             }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user, authLoading, router, refreshTrigger]);
+    }, [user, authLoading, appNavigation, refreshTrigger]);
 
     useDataRefresher(handleReconnect);
 
