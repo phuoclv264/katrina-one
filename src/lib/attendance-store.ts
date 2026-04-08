@@ -381,7 +381,7 @@ export async function endBreak(recordId: string, photoId: string, userRole: stri
     // Check for "excessive break" violation for all employees
     try {
         // Determine max break time based on role
-        const maxBreakMinutes = userRole === 'Quản lý' ? 60 : 15;
+        const maxBreakMinutes = userRole === 'Quản lý' ? 60 : 25;
         
         // Calculate total rest time across ALL breaks in the current attendance record
         let totalRestMinutes = 0;

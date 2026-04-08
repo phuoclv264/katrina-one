@@ -681,7 +681,7 @@ export default function CheckInCard() {
         const breakSeconds = Math.floor((currentTime.getTime() - breakStart.getTime()) % (1000 * 60) / 1000);
 
         // Determine max break time based on user role
-        const maxBreakMinutes = user?.role === 'Quản lý' ? 60 : 15;
+        const maxBreakMinutes = user?.role === 'Quản lý' ? 60 : 25;
         const remainingMinutes = Math.max(0, maxBreakMinutes - totalBreakMinutes);
 
         return {
