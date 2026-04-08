@@ -195,14 +195,14 @@ export const useAuth = () => {
           setIsOnActiveShift(false);
           setActiveShifts([]);
           setTodaysShifts([]);
-          if (pathname !== '/') router.replace('/');
+          if (pathname !== '/' && !pathname.startsWith('/recruitment')) router.replace('/');
         }
       } else {
         setUser(null);
         setIsOnActiveShift(false);
         setActiveShifts([]);
         setTodaysShifts([]);
-        if (pathname !== '/') router.replace('/');
+        if (pathname !== '/' && !pathname.startsWith('/recruitment')) router.replace('/');
       }
       setLoading(false);
     });
