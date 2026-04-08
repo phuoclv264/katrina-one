@@ -12,7 +12,7 @@ import OffShiftReasonDialog from '@/components/off-shift-reason-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogBody, DialogCancel } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { vi } from 'date-fns/locale';
-import { format, getISOWeek } from 'date-fns';
+import { format, getISOWeek, differenceInMinutes } from 'date-fns';
 import { dataStore } from '@/lib/data-store';
 import CameraDialog from '@/components/camera-dialog';
 import { toast } from "@/components/ui/pro-toast"
@@ -89,7 +89,7 @@ export default function CheckInCard() {
     }, [activeShifts]);
 
     useEffect(() => {
-        const timer = setInterval(() => setCurrentTime(new Date()), 1000 * 60);
+        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
 
@@ -579,9 +579,9 @@ export default function CheckInCard() {
 
             if (cameraAction === 'break') {
                 if (!latestInProgressRecord) throw new Error("No in-progress record for break.");
-                const message = latestInProgressRecord.onBreak ? 'Đã tiếp tục làm việc.' : 'Đã bắt đầu nghỉ trưa.';
+                const message = latestInProgressRecord.onBreak ? 'Đã tiếp tục làm việc.' : 'Đã bắt đầu nghỉ.';
                 if (latestInProgressRecord.onBreak) {
-                    await dataStore.endBreak(latestInProgressRecord.id, photoId);
+                    await dataStore.endBreak(latestInProgressRecord.id, photoId, user.role || '', user.displayName || '');
                 } else {
                     await dataStore.startBreak(latestInProgressRecord.id, photoId);
                 }
@@ -650,6 +650,46 @@ export default function CheckInCard() {
             return `${hours}h ${minutes}m`;
         }
         return '--';
+    };
+
+    // Calculate break duration and remaining time
+    const getBreakInfo = () => {
+        if (!isOnBreak || !latestInProgressRecord?.breaks || latestInProgressRecord.breaks.length === 0) {
+            return null;
+        }
+        
+        const lastBreak = latestInProgressRecord.breaks[latestInProgressRecord.breaks.length - 1];
+        if (!lastBreak.breakStartTime) return null;
+
+        // Calculate total break time across ALL breaks in the current record
+        let totalBreakMinutes = 0;
+        for (const b of latestInProgressRecord.breaks) {
+            if (b.breakStartTime && b.breakEndTime) {
+                // Completed break
+                const start = b.breakStartTime instanceof Timestamp ? b.breakStartTime.toDate() : new Date(b.breakStartTime);
+                const end = b.breakEndTime instanceof Timestamp ? b.breakEndTime.toDate() : new Date(b.breakEndTime);
+                totalBreakMinutes += differenceInMinutes(end, start);
+            } else if (b.breakStartTime && !b.breakEndTime) {
+                // Current ongoing break
+                const start = b.breakStartTime instanceof Timestamp ? b.breakStartTime.toDate() : new Date(b.breakStartTime);
+                totalBreakMinutes += differenceInMinutes(currentTime, start);
+            }
+        }
+
+        // Get seconds from the current break only
+        const breakStart = (lastBreak.breakStartTime as Timestamp).toDate();
+        const breakSeconds = Math.floor((currentTime.getTime() - breakStart.getTime()) % (1000 * 60) / 1000);
+
+        // Determine max break time based on user role
+        const maxBreakMinutes = user?.role === 'Quản lý' ? 60 : 15;
+        const remainingMinutes = Math.max(0, maxBreakMinutes - totalBreakMinutes);
+
+        return {
+            current: `${totalBreakMinutes}m ${breakSeconds}s`,
+            remaining: `${remainingMinutes}m`,
+            maxBreak: maxBreakMinutes,
+            isExceeded: totalBreakMinutes > maxBreakMinutes
+        };
     };
 
     if (authLoading || isLoading) {
@@ -753,7 +793,10 @@ export default function CheckInCard() {
                                     : "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-blue-600/25 hover:shadow-blue-600/40"
                             )}
                             onClick={handleCheckInOrOut}
-                            disabled={isProcessing}
+                            disabled={isProcessing || isOnBreak}
+                            style={{
+                                display: isOnBreak ? 'none' : 'flex'
+                            }}
                         >
                             {isProcessing ? (
                                 <Loader2 className="mr-2 h-6 w-6 animate-spin" />
@@ -763,22 +806,99 @@ export default function CheckInCard() {
                             {mainButtonText}
                         </Button>
 
+                        {isOnBreak && getBreakInfo() && (
+                            <div className={cn(
+                                "rounded-2xl p-4 sm:p-5 border-2",
+                                getBreakInfo()?.isExceeded
+                                    ? "bg-red-500/10 border-red-500/30 backdrop-blur-md"
+                                    : "bg-blue-500/10 border-blue-500/30 backdrop-blur-md"
+                            )}>
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <p className={cn(
+                                            "text-sm font-semibold",
+                                            getBreakInfo()?.isExceeded ? "text-red-300" : "text-blue-300"
+                                        )}>
+                                            Thời gian nghỉ hiện tại
+                                        </p>
+                                        <p className={cn(
+                                            "text-xl font-bold font-mono",
+                                            getBreakInfo()?.isExceeded ? "text-red-400" : "text-blue-300"
+                                        )}>
+                                            {getBreakInfo()?.current}
+                                        </p>
+                                    </div>
+                                    <div className="h-2 bg-black/20 rounded-full overflow-hidden">
+                                        <div
+                                            className={cn(
+                                                "h-full transition-all duration-500",
+                                                getBreakInfo()?.isExceeded ? "bg-red-500" : "bg-blue-400"
+                                            )}
+                                            style={{
+                                                width: `${Math.min(100, ((getBreakInfo()?.maxBreak ?? 15) - (getBreakInfo()?.remaining ? parseInt(getBreakInfo()?.remaining || '0') : 0)) / (getBreakInfo()?.maxBreak ?? 15) * 100)}%`
+                                            }}
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <p className={cn(
+                                            "text-xs font-medium",
+                                            getBreakInfo()?.isExceeded ? "text-red-300" : "text-blue-200"
+                                        )}>
+                                            Thời gian còn lại
+                                        </p>
+                                        <p className={cn(
+                                            "text-lg font-bold font-mono",
+                                            getBreakInfo()?.isExceeded ? "text-red-400" : "text-blue-300"
+                                        )}>
+                                            {getBreakInfo()?.remaining} / {getBreakInfo()?.maxBreak}m
+                                        </p>
+                                    </div>
+                                    {getBreakInfo()?.isExceeded && (
+                                        <p className="text-xs text-red-300 flex items-center gap-1 pt-1 border-t border-red-500/30">
+                                            <AlertTriangle className="h-3 w-3" />
+                                            Vượt quá thời gian nghỉ cho phép
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        <Button
+                            size="xl"
+                            className={cn(
+                                "w-full rounded-2xl font-bold text-md sm:text-lg py-2 sm:py-3 shadow-lg transition-all active:scale-[0.98]",
+                                isOnBreak && getBreakInfo()?.isExceeded
+                                    ? "bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-red-500/25 hover:shadow-red-500/40"
+                                    : "bg-gradient-to-r from-rose-500 to-red-600 text-white shadow-rose-500/25 hover:shadow-rose-500/40"
+                            )}
+                            onClick={handleToggleBreak}
+                            disabled={isProcessing}
+                            style={{
+                                display: isOnBreak ? 'flex' : 'none'
+                            }}
+                        >
+                            {isProcessing ? (
+                                <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+                            ) : (
+                                <Play className="mr-2 h-6 w-6" />
+                            )}
+                            Tiếp tục làm việc
+                        </Button>
+
                         {/* Secondary Actions */}
-                        <div className="space-y-3">
-                            {isCheckedIn && (user?.role === 'Quản lý') && (
+                        <div className="space-y-3" style={{ display: isOnBreak ? 'none' : 'block' }}>
+                            {isCheckedIn && (
                                 <Button
                                     variant="outline"
                                     className={cn(
                                         "w-full h-10 sm:h-12 rounded-xl border transition-colors",
-                                        isCheckedIn
-                                            ? "bg-white/10 border-white/20 text-white hover:bg-white/20"
-                                            : "border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                                        "bg-white/10 border-white/20 text-white hover:bg-white/20"
                                     )}
                                     onClick={handleToggleBreak}
                                     disabled={isProcessing}
                                 >
-                                    {isOnBreak ? <Play className="mr-2 h-4 w-4" /> : <Pause className="mr-2 h-4 w-4" />}
-                                    {isOnBreak ? 'Tiếp tục' : 'Nghỉ ngơi'}
+                                    <Pause className="mr-2 h-4 w-4" />
+                                    Nghỉ ngơi
                                 </Button>
                             )}
 

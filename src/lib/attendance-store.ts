@@ -352,7 +352,7 @@ export async function startBreak(recordId: string, photoId: string): Promise<{ s
     return { success: true };
 }
 
-export async function endBreak(recordId: string, photoId: string): Promise<{ success: boolean }> {
+export async function endBreak(recordId: string, photoId: string, userRole: string, userName: string): Promise<{ success: boolean }> {
     const actionTime = new Date();
     const recordRef = doc(db, 'attendance_records', recordId);
     const recordSnap = await getDoc(recordRef);
@@ -378,34 +378,33 @@ export async function endBreak(recordId: string, photoId: string): Promise<{ suc
         breaks: breaks, // Overwrite the entire array with the modified one
     });
 
-    // Check for "excessive break" violation for Managers
+    // Check for "excessive break" violation for all employees
     try {
-        const userDoc = await getDoc(doc(db, 'users', recordData.userId));
-        if (userDoc.exists() && userDoc.data().role === 'Quản lý') {
-            // Calculate total rest time across ALL breaks in the current attendance record
-            let totalRestMinutes = 0;
-            for (const b of breaks) {
-                if (b.breakStartTime && b.breakEndTime) {
-                    const start = b.breakStartTime instanceof Timestamp ? b.breakStartTime.toDate() : new Date(b.breakStartTime);
-                    const end = b.breakEndTime instanceof Timestamp ? b.breakEndTime.toDate() : new Date(b.breakEndTime);
-                    totalRestMinutes += differenceInMinutes(end, start);
-                }
+        // Determine max break time based on role
+        const maxBreakMinutes = userRole === 'Quản lý' ? 60 : 15;
+        
+        // Calculate total rest time across ALL breaks in the current attendance record
+        let totalRestMinutes = 0;
+        for (const b of breaks) {
+            if (b.breakStartTime && b.breakEndTime) {
+                const start = b.breakStartTime instanceof Timestamp ? b.breakStartTime.toDate() : new Date(b.breakStartTime);
+                const end = b.breakEndTime instanceof Timestamp ? b.breakEndTime.toDate() : new Date(b.breakEndTime);
+                totalRestMinutes += differenceInMinutes(end, start);
             }
+        }
 
-            if (totalRestMinutes > 60) {
-                const exceededMinutes = Math.round(totalRestMinutes - 60);
-                const userName = userDoc.data().displayName || 'Quản lý';
-                
-                await recordLateViolation(
-                    recordData.userId,
-                    userName,
-                    exceededMinutes,
-                    false,
-                    { id: 'system', name: 'Hệ thống' },
-                    `Nghỉ quá giờ tổng cộng ${Math.round(totalRestMinutes)} phút (Quy định 60 phút - Vượt ${exceededMinutes} phút)`,
-                    'Nghỉ quá giờ'
-                );
-            }
+        if (totalRestMinutes > maxBreakMinutes) {
+            const exceededMinutes = Math.round(totalRestMinutes - maxBreakMinutes);
+            
+            await recordLateViolation(
+                recordData.userId,
+                userName,
+                exceededMinutes,
+                false,
+                { id: 'system', name: 'Hệ thống' },
+                `Nghỉ quá giờ tổng cộng ${Math.round(totalRestMinutes)} phút (Quy định ${maxBreakMinutes} phút - Vượt ${exceededMinutes} phút)`,
+                'Nghỉ quá giờ'
+            );
         }
     } catch (err) {
         console.error('[Break Violation] Error checking excessive break time:', err);
@@ -673,7 +672,7 @@ async function recordLateViolation(
         const catDoc = await getDoc(doc(db, 'app-data', 'violationCategories'));
         if (catDoc.exists()) {
             const list = (catDoc.data() as any).list || [];
-            const lateCat = list.find((c: any) => c.name === 'Đi trễ');
+            const lateCat = list.find((c: any) => c.name === customCategoryName);
             if (lateCat) {
                 categoryId = lateCat.id || categoryId;
                 categoryName = lateCat.name || categoryName;
