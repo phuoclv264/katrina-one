@@ -61,6 +61,30 @@ export default function HygieneReportView({ isStandalone = true }: HygieneReport
     const { openLightbox } = useLightbox();
 
     // Derived State for UI
+    const visibleTasksForUser = useCallback((section: TaskSection) => {
+        return section.tasks.filter(t => {
+            if (t.shiftPreference && t.shiftPreference.length > 0) {
+                const activeTemplateIds = activeShifts
+                    .map(shift => shift.templateId)
+                    .filter((id): id is string => Boolean(id));
+                const matchesActiveShift = activeTemplateIds.some(id => t.shiftPreference!.includes(id));
+                if (!matchesActiveShift) return false;
+            }
+            if (t.genderPreference && t.genderPreference !== 'Tất cả') {
+                if (!user?.gender) return true;
+                return t.genderPreference === user.gender;
+            }
+            return true;
+        });
+    }, [activeShifts, user]);
+
+    const visibleSections = tasks ? tasks
+        .map(section => ({
+            ...section,
+            tasks: visibleTasksForUser(section)
+        }))
+        .filter(section => section.tasks.length > 0) : [];
+
     const allTasks = tasks ? tasks.flatMap(s => s.tasks) : [];
     const totalTasksCount = allTasks.length;
     const completedTasksCount = allTasks.filter(t => {
@@ -540,7 +564,7 @@ export default function HygieneReportView({ isStandalone = true }: HygieneReport
                 <div className="flex-1 px-3 py-4">
                     {!activeTab ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {tasks.map((section) => {
+                            {visibleSections.map((section) => {
                                 const sectionTasks = section.tasks;
                                 const sectionCompletedCount = sectionTasks.filter(t => {
                                     const completions = report.completedTasks[t.id] || [];
@@ -623,20 +647,7 @@ export default function HygieneReportView({ isStandalone = true }: HygieneReport
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {tasks.find(s => s.title === activeTab)?.tasks.filter(t => {
-                                    if (t.shiftPreference && t.shiftPreference.length > 0) {
-                                        const activeTemplateIds = activeShifts
-                                            .map(shift => shift.templateId)
-                                            .filter((id): id is string => Boolean(id));
-                                        const matchesActiveShift = activeTemplateIds.some(id => t.shiftPreference!.includes(id));
-                                        if (!matchesActiveShift) return false;
-                                    }
-                                    if (t.genderPreference && t.genderPreference !== 'Tất cả') {
-                                        if (!user?.gender) return true;
-                                        return t.genderPreference === user.gender;
-                                    }
-                                    return true;
-                                }).map((task) => (
+                                {visibleSections.find(s => s.title === activeTab)?.tasks.map((task) => (
                                     <div key={task.id} className="relative">
                                         <TaskItem
                                             task={task}
