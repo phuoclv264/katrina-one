@@ -635,6 +635,12 @@ export default function CheckInCard() {
 
     const handleBreakReasonSubmit = async () => {
         if (!latestInProgressRecord || !user) return;
+        
+        if (!breakReason.trim()) {
+            toast.error('Vui lòng nhập lý do nghỉ.');
+            return;
+        }
+        
         setIsBreakReasonDialogOpen(false);
         setIsProcessing(true);
         try {
@@ -1092,10 +1098,10 @@ export default function CheckInCard() {
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <Coffee className="h-5 w-5 text-amber-500" />
-                            Lý do nghỉ
+                            Lý do nghỉ <span className="text-red-500 text-base font-bold">*</span>
                         </DialogTitle>
                         <DialogDescription>
-                            Nhập lý do nghỉ của bạn (tuỳ chọn). Mọi người sẽ thấy bạn đang nghỉ.
+                            Nhập lý do nghỉ của bạn (bắt buộc). Mọi người sẽ thấy bạn đang nghỉ.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogBody className="space-y-3">

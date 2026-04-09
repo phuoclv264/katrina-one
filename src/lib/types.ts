@@ -453,10 +453,7 @@ export type EmployeeAttendance = {
   records?: ({
     checkInTime: Date | null;
     checkOutTime: Date | null;
-    breaks?: {
-      breakStartTime: Date | null;
-      breakEndTime?: Date | null;
-    }[];
+    breaks?: BreakRecord[];
   })[];
   lateMinutes: number | null;
   lateRequestId?: string | null; // Link to the attendance record for late requests
