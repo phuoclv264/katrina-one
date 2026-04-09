@@ -5,7 +5,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
 import type { AssignedShift, AttendanceRecord, MonthlyTaskAssignment, DailyTask } from '@/lib/types';
-import { Camera, CheckCircle, Loader2, Info, Clock, X, History, AlertTriangle, Coffee, LogOut, Play, Pause, ArrowRight, ArrowLeft, ChevronRight, User as UserIcon, Upload } from 'lucide-react';
+import { Camera, CheckCircle, Loader2, Info, Clock, X, History, AlertTriangle, Coffee, LogOut, Play, Pause, ArrowRight, ArrowLeft, ChevronRight, User as UserIcon, Upload, UtensilsCrossed } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import LateReasonDialog from '@/components/late-reason-dialog';
 import OffShiftReasonDialog from '@/components/off-shift-reason-dialog';
@@ -77,6 +78,9 @@ export default function CheckInCard() {
     const [pendingWorkItems, setPendingWorkItems] = useState<PendingWorkItem[]>([]);
     const [isPendingDialogOpen, setIsPendingDialogOpen] = useState(false);
     const [isPendingCheckLoading, setIsPendingCheckLoading] = useState(false);
+
+    const [isBreakReasonDialogOpen, setIsBreakReasonDialogOpen] = useState(false);
+    const [breakReason, setBreakReason] = useState('');
 
     const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -577,16 +581,7 @@ export default function CheckInCard() {
             setIsSuccessDialogOpen(true);
             setSuccessMessage('Đang xử lý...');
 
-            if (cameraAction === 'break') {
-                if (!latestInProgressRecord) throw new Error("No in-progress record for break.");
-                const message = latestInProgressRecord.onBreak ? 'Đã tiếp tục làm việc.' : 'Đã bắt đầu nghỉ.';
-                if (latestInProgressRecord.onBreak) {
-                    await dataStore.endBreak(latestInProgressRecord.id, photoId, user.role || '', user.displayName || '');
-                } else {
-                    await dataStore.startBreak(latestInProgressRecord.id, photoId);
-                }
-                setSuccessMessage(message);
-            } else if (cameraAction === 'late-request') {
+            if (cameraAction === 'late-request') {
                 setIsSuccessDialogOpen(false);
                 const mediaItem = media[0];
                 if (mediaItem) {
@@ -616,8 +611,44 @@ export default function CheckInCard() {
     // This ensures the user can always check out.
     const handleToggleBreak = async () => {
         if (!latestInProgressRecord) return;
-        setCameraAction('break');
-        setIsCameraOpen(true);
+        if (latestInProgressRecord.onBreak) {
+            // End break directly — no reason/photo needed
+            setIsProcessing(true);
+            try {
+                setIsSuccessDialogOpen(true);
+                setSuccessMessage('Đang xử lý...');
+                await dataStore.endBreak(latestInProgressRecord.id, user?.role || '', user?.displayName || '');
+                setSuccessMessage('Đã tiếp tục làm việc.');
+            } catch (err) {
+                setIsSuccessDialogOpen(false);
+                console.error('Failed to end break:', err);
+                toast.error('Không thể kết thúc nghỉ. Vui lòng thử lại.');
+            } finally {
+                setIsProcessing(false);
+            }
+        } else {
+            // Open reason dialog to start break
+            setBreakReason('');
+            setIsBreakReasonDialogOpen(true);
+        }
+    };
+
+    const handleBreakReasonSubmit = async () => {
+        if (!latestInProgressRecord || !user) return;
+        setIsBreakReasonDialogOpen(false);
+        setIsProcessing(true);
+        try {
+            setIsSuccessDialogOpen(true);
+            setSuccessMessage('Đang xử lý...');
+            await dataStore.startBreak(latestInProgressRecord.id, breakReason.trim());
+            setSuccessMessage('Đã bắt đầu nghỉ.');
+        } catch (err) {
+            setIsSuccessDialogOpen(false);
+            console.error('Failed to start break:', err);
+            toast.error('Không thể bắt đầu nghỉ. Vui lòng thử lại.');
+        } finally {
+            setIsProcessing(false);
+        }
     };
 
     // Determine if the user can apply for a late request.
@@ -814,6 +845,15 @@ export default function CheckInCard() {
                                     : "bg-blue-500/10 border-blue-500/30 backdrop-blur-md"
                             )}>
                                 <div className="space-y-3">
+                                    {(() => {
+                                        const currentBreakReason = latestInProgressRecord?.breaks?.slice(-1)[0]?.breakReason;
+                                        return currentBreakReason ? (
+                                            <div className="flex items-center gap-2 pb-1 border-b border-blue-500/20">
+                                                <Coffee className="h-3.5 w-3.5 text-blue-300 shrink-0" />
+                                                <p className="text-sm text-blue-200 font-medium truncate">{currentBreakReason}</p>
+                                            </div>
+                                        ) : null;
+                                    })()}
                                     <div className="flex items-center justify-between">
                                         <p className={cn(
                                             "text-sm font-semibold",
@@ -1025,6 +1065,54 @@ export default function CheckInCard() {
                 isHD={true}
                 parentDialogTag="root"
             />
+
+            {/* Break Reason Dialog */}
+            <Dialog open={isBreakReasonDialogOpen} onOpenChange={setIsBreakReasonDialogOpen} dialogTag="break-reason-dialog" parentDialogTag="root">
+                <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Coffee className="h-5 w-5 text-amber-500" />
+                            Lý do nghỉ
+                        </DialogTitle>
+                        <DialogDescription>
+                            Nhập lý do nghỉ của bạn (tuỳ chọn). Mọi người sẽ thấy bạn đang nghỉ.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogBody className="space-y-3">
+                        <div className="flex flex-wrap gap-2">
+                            {['Đi ăn', 'Đi vệ sinh', 'Việc cá nhân', 'Nghỉ mệt'].map((preset) => (
+                                <button
+                                    key={preset}
+                                    type="button"
+                                    onClick={() => setBreakReason(preset)}
+                                    className={cn(
+                                        "px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors",
+                                        breakReason === preset
+                                            ? "bg-amber-500 border-amber-500 text-white"
+                                            : "bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-300"
+                                    )}
+                                >
+                                    {preset}
+                                </button>
+                            ))}
+                        </div>
+                        <Textarea
+                            placeholder="Hoặc nhập lý do khác..."
+                            value={breakReason}
+                            onChange={(e) => setBreakReason(e.target.value)}
+                            rows={2}
+                            className="resize-none"
+                        />
+                    </DialogBody>
+                    <DialogFooter>
+                        <DialogCancel onClick={() => setIsBreakReasonDialogOpen(false)}>Huỷ</DialogCancel>
+                        <Button onClick={handleBreakReasonSubmit} className="bg-amber-500 hover:bg-amber-600 text-white">
+                            <Coffee className="mr-2 h-4 w-4" />
+                            Bắt đầu nghỉ
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <LateReasonDialog
                 open={isLateReasonDialogOpen}

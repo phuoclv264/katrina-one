@@ -219,14 +219,18 @@ export default function AttendanceCards({
                                     )}
                                     {record.breaks?.map((breakItem, breakIndex) => (
                                         <React.Fragment key={`break-${breakIndex}`}>
-                                            {breakItem.breakStartPhotoUrl && (
-                                                <div className="text-center">
-                                                    <p className="text-xs text-muted-foreground mb-1">Ảnh nghỉ {breakIndex + 1}</p>
+                                            <div className="text-center min-w-[80px]">
+                                                <p className="text-xs text-muted-foreground mb-1">Nghỉ {breakIndex + 1}</p>
+                                                {breakItem.breakReason ? (
+                                                    <div className="flex items-center justify-center gap-1 px-2 py-1.5 rounded-md bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 min-w-[72px]">
+                                                        <span className="text-[10px] font-medium text-blue-700 dark:text-blue-300 truncate max-w-[64px]">{breakItem.breakReason}</span>
+                                                    </div>
+                                                ) : breakItem.breakStartPhotoUrl ? (
                                                     <button onClick={() => openLightboxForRecord(breakItem.breakStartPhotoUrl!)} className="relative h-20 w-20 rounded-md overflow-hidden cursor-pointer border-2 border-blue-400">
                                                         <Image src={breakItem.breakStartPhotoUrl} alt={`Break start ${breakIndex + 1}`} layout="fill" objectFit="cover" className="hover:scale-110 transition-transform duration-200" />
                                                     </button>
-                                                </div>
-                                            )}
+                                                ) : null}
+                                            </div>
                                             {breakItem.breakEndPhotoUrl && (
                                                 <div className="text-center">
                                                     <p className="text-xs text-muted-foreground mb-1">Ảnh làm lại {breakIndex + 1}</p>

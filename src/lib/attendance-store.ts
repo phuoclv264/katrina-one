@@ -330,17 +330,12 @@ export async function updateAttendanceRecord(recordId: string, photoId: string):
     return { success: true };
 }
 
-export async function startBreak(recordId: string, photoId: string): Promise<{ success: boolean }> {
+export async function startBreak(recordId: string, reason: string): Promise<{ success: boolean }> {
     const actionTime = new Date();
-    const photoBlob = await photoStore.getPhoto(photoId);
-    if (!photoBlob) throw new Error("Local photo not found for starting break.");
-
-    const storagePath = `attendance/${format(actionTime, 'yyyy-MM-dd')}/${recordId}/${uuidv4()}-break-start.jpg`;
-    const photoUrl = await uploadFile(photoBlob, storagePath);
 
     const newBreak = {
         breakStartTime: Timestamp.fromDate(actionTime),
-        breakStartPhotoUrl: photoUrl,
+        breakReason: reason,
     };
 
     const recordRef = doc(db, 'attendance_records', recordId);
@@ -348,21 +343,14 @@ export async function startBreak(recordId: string, photoId: string): Promise<{ s
         onBreak: true,
         breaks: arrayUnion(newBreak)
     });
-    await photoStore.deletePhoto(photoId);
     return { success: true };
 }
 
-export async function endBreak(recordId: string, photoId: string, userRole: string, userName: string): Promise<{ success: boolean }> {
+export async function endBreak(recordId: string, userRole: string, userName: string): Promise<{ success: boolean }> {
     const actionTime = new Date();
     const recordRef = doc(db, 'attendance_records', recordId);
     const recordSnap = await getDoc(recordRef);
     if (!recordSnap.exists()) throw new Error("Attendance record not found.");
-
-    const photoBlob = await photoStore.getPhoto(photoId);
-    if (!photoBlob) throw new Error("Local photo not found for ending break.");
-
-    const storagePath = `attendance/${format(actionTime, 'yyyy-MM-dd')}/${recordId}/${uuidv4()}-break-end.jpg`;
-    const photoUrl = await uploadFile(photoBlob, storagePath);
 
     const recordData = recordSnap.data();
     const breaks = recordData.breaks || [];
@@ -370,7 +358,6 @@ export async function endBreak(recordId: string, photoId: string, userRole: stri
     if (breaks.length > 0) {
         const lastBreak = breaks[breaks.length - 1];
         lastBreak.breakEndTime = Timestamp.fromDate(actionTime);
-        lastBreak.breakEndPhotoUrl = photoUrl;
     }
 
     await updateDoc(recordRef, {
@@ -410,7 +397,6 @@ export async function endBreak(recordId: string, photoId: string, userRole: stri
         console.error('[Break Violation] Error checking excessive break time:', err);
     }
 
-    await photoStore.deletePhoto(photoId);
     return { success: true };
 }
 

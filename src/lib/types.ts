@@ -1096,9 +1096,10 @@ export type WhistleblowingReport = {
 // --- Attendance Types ---
 export type BreakRecord = {
   breakStartTime: string | Timestamp;
-  breakStartPhotoUrl?: string;
+  breakReason?: string;
+  breakStartPhotoUrl?: string; // kept for backwards-compatibility with old records
   breakEndTime?: string | Timestamp;
-  breakEndPhotoUrl?: string;
+  breakEndPhotoUrl?: string;   // kept for backwards-compatibility with old records
 };
 
 export type AttendanceRecord = {
