@@ -367,16 +367,46 @@ export async function endBreak(recordId: string, userRole: string, userName: str
 
     // Check for "excessive break" violation for all employees
     try {
-        // Determine max break time based on role
-        const maxBreakMinutes = userRole === 'Quản lý' ? 60 : 25;
+        // Helper function to determine time section
+        const getTimeSection = (date: Date): 'morning' | 'afternoon' | 'evening' => {
+            const hour = date.getHours();
+            if (hour >= 5 && hour < 12) return 'morning';    // 5h-12h
+            if (hour >= 12 && hour < 17) return 'afternoon'; // 12h-17h
+            return 'evening'; // 17h-23h59
+        };
+
+        const isManager = userRole === 'Quản lý';
+        const maxBreakMinutes = isManager ? 60 : 25;
         
-        // Calculate total rest time across ALL breaks in the current attendance record
+        // Get the time section of the break that just ended
+        let justEndedBreakSection = 'evening' as 'morning' | 'afternoon' | 'evening';
+        if (breaks.length > 0) {
+            const lastBreak = breaks[breaks.length - 1];
+            if (lastBreak.breakStartTime) {
+                const startDate = lastBreak.breakStartTime instanceof Timestamp 
+                    ? lastBreak.breakStartTime.toDate() 
+                    : new Date(lastBreak.breakStartTime);
+                justEndedBreakSection = getTimeSection(startDate);
+            }
+        }
+        
+        // Calculate total break time
         let totalRestMinutes = 0;
         for (const b of breaks) {
             if (b.breakStartTime && b.breakEndTime) {
                 const start = b.breakStartTime instanceof Timestamp ? b.breakStartTime.toDate() : new Date(b.breakStartTime);
                 const end = b.breakEndTime instanceof Timestamp ? b.breakEndTime.toDate() : new Date(b.breakEndTime);
-                totalRestMinutes += differenceInMinutes(end, start);
+                
+                // For managers: count all breaks in the entire day
+                // For staff: only count breaks in the same section as the break that just ended
+                if (isManager) {
+                    totalRestMinutes += differenceInMinutes(end, start);
+                } else {
+                    const breakSection = getTimeSection(start);
+                    if (breakSection === justEndedBreakSection) {
+                        totalRestMinutes += differenceInMinutes(end, start);
+                    }
+                }
             }
         }
 
@@ -389,7 +419,9 @@ export async function endBreak(recordId: string, userRole: string, userName: str
                 exceededMinutes,
                 false,
                 { id: 'system', name: 'Hệ thống' },
-                `Nghỉ quá giờ tổng cộng ${Math.round(totalRestMinutes)} phút (Quy định ${maxBreakMinutes} phút - Vượt ${exceededMinutes} phút)`,
+                isManager 
+                    ? `Nghỉ quá giờ tổng cộng ${Math.round(totalRestMinutes)} phút (Quy định ${maxBreakMinutes} phút - Vượt ${exceededMinutes} phút)`
+                    : `Nghỉ quá giờ ${Math.round(totalRestMinutes)} phút trong ca (Quy định ${maxBreakMinutes} phút - Vượt ${exceededMinutes} phút)`,
                 'Nghỉ quá giờ'
             );
         }

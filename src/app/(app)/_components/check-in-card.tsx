@@ -692,27 +692,47 @@ export default function CheckInCard() {
         const lastBreak = latestInProgressRecord.breaks[latestInProgressRecord.breaks.length - 1];
         if (!lastBreak.breakStartTime) return null;
 
-        // Calculate total break time across ALL breaks in the current record
+        // Helper function to determine time section
+        const getTimeSection = (date: Date): 'morning' | 'afternoon' | 'evening' => {
+            const hour = date.getHours();
+            if (hour >= 5 && hour < 12) return 'morning';    // 5h-12h
+            if (hour >= 12 && hour < 17) return 'afternoon'; // 12h-17h
+            return 'evening'; // 17h-23h59
+        };
+
+        const isManager = user?.role === 'Quản lý';
+        const breakStartDate = (lastBreak.breakStartTime as Timestamp).toDate();
+        const section = getTimeSection(breakStartDate);
+
+        // Calculate total break time
         let totalBreakMinutes = 0;
         for (const b of latestInProgressRecord.breaks) {
-            if (b.breakStartTime && b.breakEndTime) {
-                // Completed break
-                const start = b.breakStartTime instanceof Timestamp ? b.breakStartTime.toDate() : new Date(b.breakStartTime);
-                const end = b.breakEndTime instanceof Timestamp ? b.breakEndTime.toDate() : new Date(b.breakEndTime);
-                totalBreakMinutes += differenceInMinutes(end, start);
-            } else if (b.breakStartTime && !b.breakEndTime) {
-                // Current ongoing break
-                const start = b.breakStartTime instanceof Timestamp ? b.breakStartTime.toDate() : new Date(b.breakStartTime);
-                totalBreakMinutes += differenceInMinutes(currentTime, start);
+            if (b.breakStartTime) {
+                const bStartDate = b.breakStartTime instanceof Timestamp ? b.breakStartTime.toDate() : new Date(b.breakStartTime);
+                const bSection = getTimeSection(bStartDate);
+                
+                // For managers: count all breaks in the record
+                // For staff: only count breaks in the same time section
+                if (isManager || bSection === section) {
+                    if (b.breakStartTime && b.breakEndTime) {
+                        // Completed break
+                        const start = b.breakStartTime instanceof Timestamp ? b.breakStartTime.toDate() : new Date(b.breakStartTime);
+                        const end = b.breakEndTime instanceof Timestamp ? b.breakEndTime.toDate() : new Date(b.breakEndTime);
+                        totalBreakMinutes += differenceInMinutes(end, start);
+                    } else if (b.breakStartTime && !b.breakEndTime) {
+                        // Current ongoing break
+                        const start = b.breakStartTime instanceof Timestamp ? b.breakStartTime.toDate() : new Date(b.breakStartTime);
+                        totalBreakMinutes += differenceInMinutes(currentTime, start);
+                    }
+                }
             }
         }
 
         // Get seconds from the current break only
-        const breakStart = (lastBreak.breakStartTime as Timestamp).toDate();
-        const breakSeconds = Math.floor((currentTime.getTime() - breakStart.getTime()) % (1000 * 60) / 1000);
+        const breakSeconds = Math.floor((currentTime.getTime() - breakStartDate.getTime()) % (1000 * 60) / 1000);
 
-        // Determine max break time based on user role
-        const maxBreakMinutes = user?.role === 'Quản lý' ? 60 : 25;
+        // Determine max break time: managers always have 60 minutes per day, others have 25 minutes per section
+        const maxBreakMinutes = isManager ? 60 : 25;
         const remainingMinutes = Math.max(0, maxBreakMinutes - totalBreakMinutes);
 
         return {
