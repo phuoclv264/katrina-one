@@ -1209,6 +1209,7 @@ export type DailyTask = {
   targetMode: DailyTaskTargetMode;
   targetRoles?: UserRole[];
   targetUserIds?: string[];
+  shiftPreferences?: string[]; // Array of shift labels (e.g. ["Sáng", "Tối"]) — if set, only users on matching active shifts will see this task
   createdBy: SimpleUser;
   createdByRole: UserRole;
   media?: MediaAttachment[];
