@@ -187,13 +187,19 @@ export default function CheckInCard() {
     const isUserTargetedDailyTask = useCallback((task: DailyTask) => {
         if (!user) return false;
         if (task.targetMode === 'roles') {
-            return (task.targetRoles || []).some(role => effectiveRoles.includes(role));
+            if (!(task.targetRoles || []).some(role => effectiveRoles.includes(role))) return false;
+        } else if (task.targetMode === 'users') {
+            if (!(task.targetUserIds || []).includes(user.uid)) return false;
+        } else {
+            return false;
         }
-        if (task.targetMode === 'users') {
-            return (task.targetUserIds || []).includes(user.uid);
+        // Shift preference filter: if set, the user must be on a matching active shift
+        if (task.shiftPreferences && task.shiftPreferences.length > 0) {
+            const activeShiftLabels = (activeShifts || []).map((s) => s.label);
+            return activeShiftLabels.some((label) => task.shiftPreferences!.includes(label));
         }
-        return false;
-    }, [user, effectiveRoles]);
+        return true;
+    }, [user, effectiveRoles, activeShifts]);
 
     const collectPendingWorkItems = useCallback(async (): Promise<PendingWorkItem[]> => {
         if (!user) return [];
@@ -363,7 +369,7 @@ export default function CheckInCard() {
             totalHours = ((endH + endM / 60) - (startH + startM / 60) + 24) % 24; // Handle overnight shifts
         }
 
-        if (effectiveRoles.includes('Pha chế') && totalHours >= 3) { // Only check for hygiene report if shift is 3+ hours
+        if (effectiveRoles.includes('Pha chế') && totalHours >= 4) { // Only check for hygiene report if shift is 3+ hours
             try {
                 const { status } = await dataStore.getOrCreateReport(user.uid, user.displayName || 'Nhân viên', 'bartender_hygiene');
                 const hasLocalEdits = status === 'local-newer';

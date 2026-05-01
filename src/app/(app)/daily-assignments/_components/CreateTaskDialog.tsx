@@ -15,13 +15,14 @@ import {
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Camera, ShieldCheck, Edit, FileText, Users, Image as ImageIcon, Search, Calendar, ChevronRight, X, Video, Upload } from 'lucide-react';
-import { ManagedUser, MediaItem, DailyTaskTargetMode, UserRole } from '@/lib/types';
+import { Loader2, Camera, ShieldCheck, Edit, FileText, Users, Image as ImageIcon, Search, Calendar, ChevronRight, X, Video, Upload, Clock } from 'lucide-react';
+import { ManagedUser, MediaItem, DailyTaskTargetMode, UserRole, ShiftTemplate } from '@/lib/types';
 import { cn, advancedSearch } from '@/lib/utils';
 import Image from 'next/image';
 import { toast } from '@/components/ui/pro-toast';
 import { v4 as uuidv4 } from 'uuid';
 import { photoStore } from '@/lib/photo-store';
+import { dataStore } from '@/lib/data-store';
 
 export function getFileTypeFromMime(mime: string): 'photo' | 'video' {
   if (mime.startsWith('video/')) return 'video';
@@ -35,6 +36,7 @@ type NewTaskShape = {
   targetMode: DailyTaskTargetMode;
   targetRoles: UserRole[];
   targetUserIds: string[];
+  shiftPreferences: string[];
   media: MediaItem[];
 };
 
@@ -66,7 +68,17 @@ export default function CreateTaskDialog({
   parentDialogTag
 }: Props) {
   const [userFilter, setUserFilter] = React.useState('');
+  const [shiftLabels, setShiftLabels] = React.useState<string[]>([]);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Fetch shift templates and extract unique labels
+  React.useEffect(() => {
+    const unsubscribe = dataStore.subscribeToShiftTemplates((templates: ShiftTemplate[]) => {
+      const labels = Array.from(new Set(templates.map((t) => t.label)));
+      setShiftLabels(labels);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const filteredUsers = React.useMemo(() => {
     if (!userFilter) return allUsers;
@@ -177,8 +189,8 @@ export default function CreateTaskDialog({
               </div>
            </div>
 
-           {/* Section 2: Targeting & Media */}
-           <div className="grid gap-6 sm:grid-cols-2 pt-2">
+           {/* Section 2: Targeting, Shift Preference & Media */}
+           <div className="grid gap-6 sm:grid-cols-3 pt-2">
              <div className="space-y-4">
                 <div className="flex items-center gap-2 px-1">
                    <div className="bg-primary/10 p-1.5 rounded-lg">
@@ -274,6 +286,43 @@ export default function CreateTaskDialog({
                         </label>
                       ))
                     )
+                  )}
+                </div>
+             </div>
+
+             <div className="space-y-4">
+                <div className="flex items-center gap-2 px-1">
+                   <div className="bg-primary/10 p-1.5 rounded-lg">
+                      <Clock className="h-4 w-4 text-primary" />
+                   </div>
+                   <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Ca hiển thị</h3>
+                </div>
+                <p className="text-[10px] text-muted-foreground/60 font-medium px-1 -mt-2">Để trống = hiển thị với tất cả ca</p>
+                <div className="h-48 overflow-y-auto rounded-2xl border border-muted/20 bg-muted/5 p-2 space-y-1 custom-scrollbar">
+                  {shiftLabels.length === 0 ? (
+                    <div className="flex items-center justify-center h-full py-4 text-center">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/50" />
+                    </div>
+                  ) : (
+                    shiftLabels.map((label) => (
+                    <label key={label} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm hover:bg-white transition-all cursor-pointer group hover:shadow-sm border border-transparent hover:border-muted/50">
+                      <input
+                        type="checkbox"
+                        className="h-5 w-5 rounded-lg border-muted/30 text-primary transition-all focus:ring-primary"
+                        checked={(newTask.shiftPreferences || []).includes(label)}
+                        onChange={(e) => {
+                          setNewTask((prev) => {
+                            const current = prev.shiftPreferences || [];
+                            const next = e.target.checked
+                              ? Array.from(new Set([...current, label]))
+                              : current.filter((l) => l !== label);
+                            return { ...prev, shiftPreferences: next };
+                          });
+                        }}
+                      />
+                      <span className="font-bold text-foreground/70 group-hover:text-primary transition-colors">{label}</span>
+                    </label>
+                    ))
                   )}
                 </div>
              </div>

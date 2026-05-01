@@ -35,14 +35,18 @@ const StatusDot = ({ className }: { className?: string }) => (
   </span>
 );
 
-const isUserTargeted = (task: DailyTask, userId: string, userRoles: UserRole[]): boolean => {
+const isUserTargeted = (task: DailyTask, userId: string, userRoles: UserRole[], activeShiftLabels: string[] = []): boolean => {
   if (task.targetMode === "roles") {
-    return (task.targetRoles || []).some((role) => userRoles.includes(role));
+    if (!(task.targetRoles || []).some((role) => userRoles.includes(role))) return false;
+  } else if (task.targetMode === "users") {
+    if (!(task.targetUserIds || []).includes(userId)) return false;
+  } else {
+    return false;
   }
-  if (task.targetMode === "users") {
-    return (task.targetUserIds || []).includes(userId);
+  if (task.shiftPreferences && task.shiftPreferences.length > 0) {
+    return activeShiftLabels.some((label) => task.shiftPreferences!.includes(label));
   }
-  return false;
+  return true;
 };
 
 const getMonthlyCompletionStatus = (assignment: MonthlyTaskAssignment, userId?: string) => {
@@ -228,8 +232,9 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
 
   const targetedDailyTasks = useMemo(() => {
     if (!user) return [] as DailyTask[];
-    return dailyTasks.filter((task) => task.assignedDate === todayKey && isUserTargeted(task, user.uid, userRoles));
-  }, [dailyTasks, user, userRoles]);
+    const activeShiftLabels = (activeShifts || []).map((s) => s.label);
+    return dailyTasks.filter((task) => task.assignedDate === todayKey && isUserTargeted(task, user.uid, userRoles, activeShiftLabels));
+  }, [dailyTasks, user, userRoles, activeShifts]);
 
   const dialogTasks = useMemo(() => {
     if (!showWorkStuff) return [] as DailyTask[];
