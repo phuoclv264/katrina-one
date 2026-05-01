@@ -19,6 +19,7 @@ import type {
   IncidentReport,
   InventoryItem, CashHandoverReport,
   BreakRecord,
+  ComprehensiveTaskSection,
 } from '@/lib/types';
 import {
   format,
@@ -48,6 +49,7 @@ import SalaryManagementDialog from '@/app/(app)/attendance/_components/salary-ma
 import { RecurringTasksCard } from '@/app/(app)/admin/_components/RecurringTasksCard';
 import { TodaysScheduleSection } from '@/app/(app)/admin/_components/TodaysScheduleSection';
 import { CashierDataDialog } from '@/app/(app)/admin/_components/CashierDataDialog';
+import { ManagerReportCard } from '@/app/(app)/admin/_components/ManagerReportCard';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { findNearestAttendanceRecord } from '@/lib/attendance-utils';
 import { toDateSafe, cn, selectLatestRevenueStats } from '@/lib/utils';
@@ -86,6 +88,8 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
   const [todaysSchedule, setTodaysSchedule] = useState<Schedule | null>(null);
   const [handoverByDate, setHandoverByDate] = useState<Record<string, CashHandoverReport[] | null>>({});
   const [directEvent, setDirectEvent] = useState<Event | null>(null);
+  const [managerTasks, setManagerTasks] = useState<ComprehensiveTaskSection[]>([]);
+  const [managerReport, setManagerReport] = useState<ShiftReport | null>(null);
 
   // Handle deep-linking to specific event results from notifications
   useEffect(() => {
@@ -217,6 +221,53 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
       setIsLoading(false);
     }
   }, [revenueStats, attendanceRecords, todaysSchedule, shiftReports, complaints, dailySlips, allUsers, monthlyTasks, taskAssignments]);
+
+  // Subscribe to manager tasks and report
+  useEffect(() => {
+    let isMounted = true;
+    const unsubscribeTasks = dataStore.subscribeToComprehensiveTasks((tasks) => {
+      if (isMounted) setManagerTasks(tasks || []);
+    });
+    return () => {
+      isMounted = false;
+      unsubscribeTasks();
+    }
+  }, []);
+
+  // Load manager report for today
+  useEffect(() => {
+    if (!user || user.role !== 'Chủ nhà hàng' || allUsers.length === 0) return;
+    let isMounted = true;
+
+    const loadManagerReport = async () => {
+      try {
+        // Find manager(s) in the user list
+        const managers = allUsers.filter(u => u.role === 'Quản lý' || u.secondaryRoles?.includes('Quản lý'));
+        
+        if (managers.length === 0) {
+          setManagerReport(null);
+          return;
+        }
+
+        // Load the most recent manager's report (first one for now)
+        const manager = managers[0];
+        const { report } = await dataStore.getOrCreateReport(
+          manager.uid, 
+          manager.displayName || 'Quản lý',
+          'manager_comprehensive'
+        );
+        
+        if (isMounted && report) {
+          setManagerReport(report);
+        }
+      } catch (error) {
+        console.error("Error loading manager report:", error);
+      }
+    };
+
+    loadManagerReport();
+    return () => { isMounted = false; }
+  }, [user, allUsers]);
 
   useDataRefresher(handleReconnect);
 
@@ -738,6 +789,9 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
           <div>
             <RecentReportsCard shiftReports={shiftReports} />
           </div>
+
+          {/* Manager Report Section */}
+          <ManagerReportCard managerTasks={managerTasks} managerReport={managerReport} />
         </div>
       </main>
 
