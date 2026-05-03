@@ -386,6 +386,7 @@ export default function UsersPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
     const [filterText, setFilterText] = useState('');
+    const [showResignedUsers, setShowResignedUsers] = useState(false);
 
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const handleDataRefresh = useCallback(() => {
@@ -471,11 +472,20 @@ export default function UsersPage() {
     }
 
     const filteredUsers = useMemo(() => {
-        if (!filterText) {
-            return users;
+        let result = users;
+        
+        // Filter out resigned users if not showing them
+        if (!showResignedUsers) {
+            result = result.filter(u => !isResignedUser(u));
         }
-        return advancedSearch(users, filterText, ['displayName', 'email', 'role', 'employmentStatus', 'gender']);
-    }, [users, filterText]);
+        
+        // Apply search filter
+        if (filterText) {
+            result = advancedSearch(result, filterText, ['displayName', 'email', 'role', 'employmentStatus', 'gender']);
+        }
+        
+        return result;
+    }, [users, filterText, showResignedUsers]);
 
     if (isLoading || authLoading) {
         return <LoadingPage />;
@@ -528,14 +538,24 @@ export default function UsersPage() {
                                 Hiện có <span className="font-bold text-foreground">{filteredUsers.length}</span> nhân sự trong hệ thống.
                             </CardDescription>
                         </div>
-                        <div className="relative w-full md:max-w-sm">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
-                            <Input 
-                                placeholder="Tìm theo tên, email, vai trò..." 
-                                className="pl-10 h-11 w-full bg-background border-muted-foreground/20 focus:border-primary transition-all rounded-full shadow-sm" 
-                                value={filterText} 
-                                onChange={(e) => setFilterText(e.target.value)} 
-                            />
+                        <div className="flex flex-col sm:flex-row w-full md:w-auto gap-3">
+                            <div className="relative flex-1 sm:flex-none sm:min-w-sm">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
+                                <Input 
+                                    placeholder="Tìm theo tên, email, vai trò..." 
+                                    className="pl-10 h-11 w-full bg-background border-muted-foreground/20 focus:border-primary transition-all rounded-full shadow-sm" 
+                                    value={filterText} 
+                                    onChange={(e) => setFilterText(e.target.value)} 
+                                />
+                            </div>
+                            <div className="flex items-center gap-3 px-4 py-2 rounded-full border border-muted-foreground/20 bg-muted/30 h-11 whitespace-nowrap">
+                                <span className="text-sm font-medium text-muted-foreground">Hiện nhân sự nghỉ việc</span>
+                                <Switch
+                                    checked={showResignedUsers}
+                                    onCheckedChange={setShowResignedUsers}
+                                    className="scale-90"
+                                />
+                            </div>
                         </div>
                     </div>
                 </CardHeader>
