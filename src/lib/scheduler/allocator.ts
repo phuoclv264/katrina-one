@@ -75,7 +75,7 @@ export function allocate(
   users: ManagedUser[],
   availability: Availability[],
   ctx: NormalizedContext,
-  options?: { includeBusyUsers?: boolean; busyExclusionIds?: string[] },
+  options?: { includeBusyUsers?: boolean; busyExclusionIds?: string[]; useSecondaryRoles?: boolean },
 ): ScheduleRunResult {
   const unfilled: { shiftId: string; role: UserRole | 'Bất kỳ'; remaining: number }[] = [];
   const warnings: string[] = [];
@@ -335,23 +335,26 @@ export function allocate(
   }
 
   // Phase 2: attempt to backfill remaining demand with secondary roles (Available users)
-  for (const shift of workingShifts) {
-    const maxRoleMap = ctx.maxByShiftRole.get(shift.id) || new Map<UserRole | 'Bất kỳ', number>();
-    const rolesFromTemplate = (shift.requiredRoles || []).map(r => r.role);
-    const rolesToFill = new Set<UserRole | 'Bất kỳ'>([...maxRoleMap.keys() as any, ...rolesFromTemplate as any]);
+  const useSecondaryRoles = options?.useSecondaryRoles ?? false; // Default to false for backwards compatibility
+  if (useSecondaryRoles) {
+    for (const shift of workingShifts) {
+      const maxRoleMap = ctx.maxByShiftRole.get(shift.id) || new Map<UserRole | 'Bất kỳ', number>();
+      const rolesFromTemplate = (shift.requiredRoles || []).map(r => r.role);
+      const rolesToFill = new Set<UserRole | 'Bất kỳ'>([...maxRoleMap.keys() as any, ...rolesFromTemplate as any]);
 
-    for (const role of rolesToFill) {
-      const tplEntries = (shift.requiredRoles || []).filter(r => r.role === role);
-      const hasGenderSplits = tplEntries.some(e => !!e.gender);
+      for (const role of rolesToFill) {
+        const tplEntries = (shift.requiredRoles || []).filter(r => r.role === role);
+        const hasGenderSplits = tplEntries.some(e => !!e.gender);
 
-      if (hasGenderSplits) {
-        for (const entry of tplEntries.filter(e => !!e.gender)) {
-          fillRole(shift, role, secondaryRoleMatches, false, entry.gender);
+        if (hasGenderSplits) {
+          for (const entry of tplEntries.filter(e => !!e.gender)) {
+            fillRole(shift, role, secondaryRoleMatches, false, entry.gender);
+          }
+          const generic = tplEntries.find(e => !e.gender);
+          if (generic) fillRole(shift, role, secondaryRoleMatches);
+        } else {
+          fillRole(shift, role, secondaryRoleMatches);
         }
-        const generic = tplEntries.find(e => !e.gender);
-        if (generic) fillRole(shift, role, secondaryRoleMatches);
-      } else {
-        fillRole(shift, role, secondaryRoleMatches);
       }
     }
   }

@@ -87,6 +87,7 @@ export default function AutoScheduleDialog({
   const [activeTab, setActiveTab] = useState('preview');
   const [includeBusyUsers, setIncludeBusyUsers] = useState(false);
   const [busyExclusionIds, setBusyExclusionIds] = useState<string[]>([]);
+  const [useSecondaryRoles, setUseSecondaryRoles] = useState(false);
   const [filterTab, setFilterTab] = useState<string | string[]>('');
   const [showAddCondition, setShowAddCondition] = useState(false);
   const [editCondition, setEditCondition] = useState<ScheduleCondition | null>(null);
@@ -311,7 +312,7 @@ export default function AutoScheduleDialog({
       toast.error(`Không thể chạy do lỗi: ${validationErrors[0]}`);
       return;
     }
-    const r = runSchedule(shifts, allUsers, availability, editableConstraints, { includeBusyUsers, busyExclusionIds });
+    const r = runSchedule(shifts, allUsers, availability, editableConstraints, { includeBusyUsers, busyExclusionIds, useSecondaryRoles });
     setResult(r);
     setEditableAssignments(r.assignments.map(a => ({ shiftId: a.shiftId, userId: a.userId, selected: true, assignedRole: a.role ?? 'Bất kỳ' })));
     if (r.warnings.length) {
@@ -617,6 +618,8 @@ export default function AutoScheduleDialog({
                         setIncludeBusyUsers={setIncludeBusyUsers}
                         busyExclusionIds={busyExclusionIds}
                         setBusyExclusionIds={setBusyExclusionIds}
+                        useSecondaryRoles={useSecondaryRoles}
+                        setUseSecondaryRoles={setUseSecondaryRoles}
                       />
                     </TabsContent>
                   </div>
@@ -978,6 +981,8 @@ function PreviewTab({
   setIncludeBusyUsers,
   busyExclusionIds,
   setBusyExclusionIds,
+  useSecondaryRoles,
+  setUseSecondaryRoles,
 }: {
   result: ScheduleRunResult | null;
   editableAssignments: EditableAssignment[];
@@ -997,6 +1002,8 @@ function PreviewTab({
   setIncludeBusyUsers: (v: boolean) => void;
   busyExclusionIds: string[];
   setBusyExclusionIds: React.Dispatch<React.SetStateAction<string[]>>;
+  useSecondaryRoles: boolean;
+  setUseSecondaryRoles: (v: boolean) => void;
 }) {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
 
@@ -1013,6 +1020,19 @@ function PreviewTab({
           </div>
           
           <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
+            <div className="flex items-center gap-3 px-4 py-3 bg-background/50 rounded-2xl border border-primary/10 w-full sm:w-auto justify-between sm:justify-start">
+              <div className="text-left sm:text-right">
+                <Label htmlFor="use-secondary-roles" className="text-xs font-bold block">Dùng vai trò phụ</Label>
+                <span className="text-[10px] text-muted-foreground font-medium hidden sm:block">Xếp lịch dùng vai trò phụ của nhân viên</span>
+                <span className="text-[10px] text-muted-foreground font-medium sm:hidden">Dùng vai trò phụ</span>
+              </div>
+              <Switch
+                id="use-secondary-roles"
+                checked={useSecondaryRoles}
+                onCheckedChange={setUseSecondaryRoles}
+              />
+            </div>
+
             <div className="flex items-center gap-3 px-4 py-3 bg-background/50 rounded-2xl border border-primary/10 w-full sm:w-auto justify-between sm:justify-start">
               <div className="text-left sm:text-right">
                 <Label htmlFor="include-busy" className="text-xs font-bold block">Ép chạy ca bận</Label>
