@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
-import { dataStore } from '@/lib/data-store';
+import { dataStore, getTodaysDateKey, getDateKey } from '@/lib/data-store';
 import { isTestAccount, isActiveUser } from '@/lib/user-status';
 import type {
   RevenueStats,
@@ -89,7 +89,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
   const [handoverByDate, setHandoverByDate] = useState<Record<string, CashHandoverReport[] | null>>({});
   const [directEvent, setDirectEvent] = useState<Event | null>(null);
   const [managerTasks, setManagerTasks] = useState<ComprehensiveTaskSection[]>([]);
-  const [managerReport, setManagerReport] = useState<ShiftReport | null>(null);
+  const [managerReports, setManagerReports] = useState<Record<string, ShiftReport | null>>({});
 
   // Handle deep-linking to specific event results from notifications
   useEffect(() => {
@@ -234,40 +234,140 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
     }
   }, []);
 
-  // Load manager report for today
+  // Subscribe to manager reports for the selected date
   useEffect(() => {
-    if (!user || user.role !== 'Chủ nhà hàng' || allUsers.length === 0) return;
-    let isMounted = true;
+    // Role check and initial user list check
+    if (!user || user.role !== 'Chủ nhà hàng') {
+      setManagerReports({});
+      return;
+    }
 
-    const loadManagerReport = async () => {
-      try {
-        // Find manager(s) in the user list
-        const managers = allUsers.filter(u => u.role === 'Quản lý' || u.secondaryRoles?.includes('Quản lý'));
-        
-        if (managers.length === 0) {
-          setManagerReport(null);
-          return;
-        }
+    if (allUsers.length === 0) {
+      return;
+    }
 
-        // Load the most recent manager's report (first one for now)
-        const manager = managers[0];
-        const { report } = await dataStore.getOrCreateReport(
-          manager.uid, 
-          manager.displayName || 'Quản lý',
-          'manager_comprehensive'
-        );
-        
-        if (isMounted && report) {
-          setManagerReport(report);
+    // Filter managers and sort by display name
+    const managers = allUsers
+      .filter(u => (u.role === 'Quản lý' || u.secondaryRoles?.includes('Quản lý')) && isActiveUser(u))
+      .sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
+    
+    if (managers.length === 0) {
+      setManagerReports({});
+      return;
+    }
+
+    const today = new Date();
+    const date = dateFilter === 'yesterday' ? getDateKey(addDays(today, -1)) : getDateKey(today);
+
+    // Subscribe to each manager's report
+    const unsubs = managers.map(manager => {
+      const reportId = `report-${manager.uid}-manager_comprehensive-${date}`;
+      
+      return dataStore.subscribeToReport(
+        manager.uid, 
+        'manager_comprehensive',
+        date,
+        (report) => {
+          if (report) {
+            setManagerReports(prev => ({ ...prev, [manager.uid]: report }));
+          } else {
+            // If no report in Firestore, provide a placeholder
+            setManagerReports(prev => ({ 
+              ...prev, 
+              [manager.uid]: {
+                id: reportId,
+                userId: manager.uid,
+                staffName: manager.displayName || 'Quản lý',
+                shiftKey: 'manager_comprehensive',
+                status: 'ongoing',
+                date,
+                startedAt: today.toISOString(),
+                lastUpdated: today.toISOString(),
+                completedTasks: {},
+                issues: null,
+                sectionReports: {},
+              } as ShiftReport 
+            }));
+          }
         }
-      } catch (error) {
-        console.error("Error loading manager report:", error);
-      }
+      );
+    });
+    
+    return () => {
+      unsubs.forEach(unsub => unsub());
+    };
+  }, [user, allUsers, dateFilter]);
+
+  const combinedManagerReport = useMemo(() => {
+    const managers = allUsers
+      .filter(u => (u.role === 'Quản lý' || u.secondaryRoles?.includes('Quản lý')) && isActiveUser(u))
+      .sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
+
+    if (managers.length === 0) return null;
+
+    const today = new Date();
+    const date = dateFilter === 'yesterday' ? getDateKey(addDays(today, -1)) : getDateKey(today);
+
+    // Initialize combined report structure
+    const combined: ShiftReport = {
+      id: 'combined-manager-report',
+      userId: 'all',
+      staffName: 'Tổng hợp Quản lý',
+      shiftKey: 'manager_comprehensive',
+      status: 'ongoing',
+      date,
+      startedAt: today.toISOString(),
+      lastUpdated: today.toISOString(),
+      completedTasks: {},
+      issues: '',
+      sectionReports: {},
     };
 
-    loadManagerReport();
-    return () => { isMounted = false; }
-  }, [user, allUsers]);
+    let hasAnyData = false;
+
+    managers.forEach(manager => {
+      const report = managerReports[manager.uid];
+      if (!report) return;
+
+      // Merge issues
+      if (report.issues) {
+        combined.issues = (combined.issues ? combined.issues + '\n\n' : '') + 
+          `${manager.displayName || 'Quản lý'}: ${report.issues}`;
+        hasAnyData = true;
+      }
+
+      // Merge section reports
+      if (report.sectionReports) {
+        Object.entries(report.sectionReports).forEach(([sectionTitle, entries]) => {
+          if (!combined.sectionReports![sectionTitle]) {
+            combined.sectionReports![sectionTitle] = [];
+          }
+          
+          const entriesWithManager = (entries as any[]).map(e => ({
+            ...e,
+            managerName: managers.length > 1 ? (manager.displayName || 'Quản lý') : undefined
+          }));
+          
+          combined.sectionReports![sectionTitle].push(...entriesWithManager);
+          if (entries.length > 0) hasAnyData = true;
+        });
+      }
+    });
+
+    // Provide a default empty state if strictly no data exists
+    if (!hasAnyData) {
+      combined.issues = 'Chưa có ghi chú nào từ các Quản lý.';
+    }
+
+    // Sort entries within each section by timestamp
+    Object.keys(combined.sectionReports!).forEach(sectionTitle => {
+      combined.sectionReports![sectionTitle].sort((a: any, b: any) => {
+        return (a.timestamp || '').localeCompare(b.timestamp || '');
+      });
+    });
+
+    return combined;
+  }, [managerReports, allUsers, dateFilter]);
 
   useDataRefresher(handleReconnect);
 
@@ -791,7 +891,12 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
           </div>
 
           {/* Manager Report Section */}
-          <ManagerReportCard managerTasks={managerTasks} managerReport={managerReport} />
+          <div id="manager-report-section" className="mt-4">
+            <ManagerReportCard 
+              managerTasks={managerTasks} 
+              managerReport={combinedManagerReport} 
+            />
+          </div>
         </div>
       </main>
 
