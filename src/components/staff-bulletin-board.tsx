@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { format, endOfToday, startOfToday } from "date-fns";
 import { vi } from "date-fns/locale";
-import { Megaphone, Clock3, ClipboardList, ListChecks, AlertCircle, TimerReset, Zap, ChevronRight, Sparkles } from "lucide-react";
+import { Megaphone, Clock3, ClipboardList, ListChecks, AlertCircle, TimerReset, Zap, ChevronRight, Sparkles, Coffee } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,14 +35,18 @@ const StatusDot = ({ className }: { className?: string }) => (
   </span>
 );
 
-const isUserTargeted = (task: DailyTask, userId: string, userRoles: UserRole[]): boolean => {
+const isUserTargeted = (task: DailyTask, userId: string, userRoles: UserRole[], activeShiftLabels: string[] = []): boolean => {
   if (task.targetMode === "roles") {
-    return (task.targetRoles || []).some((role) => userRoles.includes(role));
+    if (!(task.targetRoles || []).some((role) => userRoles.includes(role))) return false;
+  } else if (task.targetMode === "users") {
+    if (!(task.targetUserIds || []).includes(userId)) return false;
+  } else {
+    return false;
   }
-  if (task.targetMode === "users") {
-    return (task.targetUserIds || []).includes(userId);
+  if (task.shiftPreferences && task.shiftPreferences.length > 0) {
+    return activeShiftLabels.some((label) => task.shiftPreferences!.includes(label));
   }
-  return false;
+  return true;
 };
 
 const getMonthlyCompletionStatus = (assignment: MonthlyTaskAssignment, userId?: string) => {
@@ -228,8 +232,9 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
 
   const targetedDailyTasks = useMemo(() => {
     if (!user) return [] as DailyTask[];
-    return dailyTasks.filter((task) => task.assignedDate === todayKey && isUserTargeted(task, user.uid, userRoles));
-  }, [dailyTasks, user, userRoles]);
+    const activeShiftLabels = (activeShifts || []).map((s) => s.label);
+    return dailyTasks.filter((task) => task.assignedDate === todayKey && isUserTargeted(task, user.uid, userRoles, activeShiftLabels));
+  }, [dailyTasks, user, userRoles, activeShifts]);
 
   const dialogTasks = useMemo(() => {
     if (!showWorkStuff) return [] as DailyTask[];
@@ -287,6 +292,23 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
   const pendingEventsCount = useMemo(() => {
     return relevantEvents.filter((e) => !joinedEventIds.has(e.id)).length;
   }, [relevantEvents, joinedEventIds]);
+
+  const onBreakStaff = useMemo(() => {
+    return (lateRecords || [])
+      .filter((r) => r.onBreak === true && r.status === "in-progress")
+      .map((r) => {
+        const userInfo = managedUsersById.get(r.userId);
+        const lastBreak = r.breaks?.slice(-1)[0];
+        return {
+          id: r.id,
+          userId: r.userId,
+          user: userInfo,
+          name: userInfo?.displayName || "Nh\u00e2n vi\u00ean",
+          role: userInfo?.role,
+          reason: lastBreak?.breakReason || "",
+        };
+      });
+  }, [lateRecords, managedUsersById]);
 
   const handleSubmitMedia = useCallback(
     async (assignment: MonthlyTaskAssignment, media: MediaItem[], note?: string) => {
@@ -380,6 +402,47 @@ export default function StaffBulletinBoard({ assignments }: StaffBulletinBoardPr
                             {req.minutes} phút
                           </Badge>
                         </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showWorkStuff && onBreakStaff.length > 0 && (
+            <div className="pb-3">
+              <div className="flex flex-col gap-2 rounded-xl bg-blue-50/50 p-3 dark:bg-blue-500/5 border border-blue-200/50 dark:border-blue-500/10">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400">
+                    <Coffee className="h-3 w-3" />
+                  </div>
+                  <span className="text-xs font-black uppercase tracking-wider text-blue-700 dark:text-blue-400">
+                    Đang nghỉ ({onBreakStaff.length})
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {onBreakStaff.map((staff) => (
+                    <div
+                      key={staff.id}
+                      className="flex items-start gap-3 p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-blue-100 dark:border-blue-500/20 shadow-sm"
+                    >
+                      <UserAvatar
+                        user={staff.user}
+                        nameOverride={staff.name}
+                        className="h-8 w-8 border border-blue-100 dark:border-blue-500/20"
+                        fallbackClassName="bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 font-bold text-[10px]"
+                        rounded="full"
+                      />
+                      <div className="flex-1 min-w-0 pt-0.5">
+                        <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200 leading-none">
+                          {staff.name}
+                        </span>
+                        {staff.reason ? (
+                          <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-0.5 truncate">{staff.reason}</p>
+                        ) : (
+                          <p className="text-[10px] text-zinc-400 mt-0.5">Không có lý do</p>
+                        )}
                       </div>
                     </div>
                   ))}

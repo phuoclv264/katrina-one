@@ -7,7 +7,7 @@ export function schedule(
   users: ManagedUser[],
   availability: Availability[],
   constraints: ScheduleCondition[],
-  options?: { includeBusyUsers?: boolean; busyExclusionIds?: string[] },
+  options?: { includeBusyUsers?: boolean; busyExclusionIds?: string[]; useSecondaryRoles?: boolean },
 ): ScheduleRunResult {
   const ctx = normalizeConstraints(constraints, shifts, users);
   return allocate(shifts, users, availability, ctx, options);

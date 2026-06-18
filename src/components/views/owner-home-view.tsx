@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
-import { dataStore } from '@/lib/data-store';
+import { dataStore, getTodaysDateKey, getDateKey } from '@/lib/data-store';
 import { isTestAccount, isActiveUser } from '@/lib/user-status';
 import type {
   RevenueStats,
@@ -18,6 +18,8 @@ import type {
   MonthlyTask,
   IncidentReport,
   InventoryItem, CashHandoverReport,
+  BreakRecord,
+  ComprehensiveTaskSection,
 } from '@/lib/types';
 import {
   format,
@@ -47,6 +49,7 @@ import SalaryManagementDialog from '@/app/(app)/attendance/_components/salary-ma
 import { RecurringTasksCard } from '@/app/(app)/admin/_components/RecurringTasksCard';
 import { TodaysScheduleSection } from '@/app/(app)/admin/_components/TodaysScheduleSection';
 import { CashierDataDialog } from '@/app/(app)/admin/_components/CashierDataDialog';
+import { ManagerReportCard } from '@/app/(app)/admin/_components/ManagerReportCard';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { findNearestAttendanceRecord } from '@/lib/attendance-utils';
 import { toDateSafe, cn, selectLatestRevenueStats } from '@/lib/utils';
@@ -85,6 +88,8 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
   const [todaysSchedule, setTodaysSchedule] = useState<Schedule | null>(null);
   const [handoverByDate, setHandoverByDate] = useState<Record<string, CashHandoverReport[] | null>>({});
   const [directEvent, setDirectEvent] = useState<Event | null>(null);
+  const [managerTasks, setManagerTasks] = useState<ComprehensiveTaskSection[]>([]);
+  const [managerReports, setManagerReports] = useState<Record<string, ShiftReport | null>>({});
 
   // Handle deep-linking to specific event results from notifications
   useEffect(() => {
@@ -216,6 +221,153 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
       setIsLoading(false);
     }
   }, [revenueStats, attendanceRecords, todaysSchedule, shiftReports, complaints, dailySlips, allUsers, monthlyTasks, taskAssignments]);
+
+  // Subscribe to manager tasks and report
+  useEffect(() => {
+    let isMounted = true;
+    const unsubscribeTasks = dataStore.subscribeToComprehensiveTasks((tasks) => {
+      if (isMounted) setManagerTasks(tasks || []);
+    });
+    return () => {
+      isMounted = false;
+      unsubscribeTasks();
+    }
+  }, []);
+
+  // Subscribe to manager reports for the selected date
+  useEffect(() => {
+    // Role check and initial user list check
+    if (!user || user.role !== 'Chủ nhà hàng') {
+      setManagerReports({});
+      return;
+    }
+
+    if (allUsers.length === 0) {
+      return;
+    }
+
+    // Filter managers and sort by display name
+    const managers = allUsers
+      .filter(u => (u.role === 'Quản lý' || u.secondaryRoles?.includes('Quản lý')) && isActiveUser(u))
+      .sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
+    
+    if (managers.length === 0) {
+      setManagerReports({});
+      return;
+    }
+
+    const today = new Date();
+    const date = dateFilter === 'yesterday' ? getDateKey(addDays(today, -1)) : getDateKey(today);
+
+    // Subscribe to each manager's report
+    const unsubs = managers.map(manager => {
+      const reportId = `report-${manager.uid}-manager_comprehensive-${date}`;
+      
+      return dataStore.subscribeToReport(
+        manager.uid, 
+        'manager_comprehensive',
+        date,
+        (report) => {
+          if (report) {
+            setManagerReports(prev => ({ ...prev, [manager.uid]: report }));
+          } else {
+            // If no report in Firestore, provide a placeholder
+            setManagerReports(prev => ({ 
+              ...prev, 
+              [manager.uid]: {
+                id: reportId,
+                userId: manager.uid,
+                staffName: manager.displayName || 'Quản lý',
+                shiftKey: 'manager_comprehensive',
+                status: 'ongoing',
+                date,
+                startedAt: today.toISOString(),
+                lastUpdated: today.toISOString(),
+                completedTasks: {},
+                issues: null,
+                sectionReports: {},
+              } as ShiftReport 
+            }));
+          }
+        }
+      );
+    });
+    
+    return () => {
+      unsubs.forEach(unsub => unsub());
+    };
+  }, [user, allUsers, dateFilter]);
+
+  const combinedManagerReport = useMemo(() => {
+    const managers = allUsers
+      .filter(u => (u.role === 'Quản lý' || u.secondaryRoles?.includes('Quản lý')) && isActiveUser(u))
+      .sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
+
+    if (managers.length === 0) return null;
+
+    const today = new Date();
+    const date = dateFilter === 'yesterday' ? getDateKey(addDays(today, -1)) : getDateKey(today);
+
+    // Initialize combined report structure
+    const combined: ShiftReport = {
+      id: 'combined-manager-report',
+      userId: 'all',
+      staffName: 'Tổng hợp Quản lý',
+      shiftKey: 'manager_comprehensive',
+      status: 'ongoing',
+      date,
+      startedAt: today.toISOString(),
+      lastUpdated: today.toISOString(),
+      completedTasks: {},
+      issues: '',
+      sectionReports: {},
+    };
+
+    let hasAnyData = false;
+
+    managers.forEach(manager => {
+      const report = managerReports[manager.uid];
+      if (!report) return;
+
+      // Merge issues
+      if (report.issues) {
+        combined.issues = (combined.issues ? combined.issues + '\n\n' : '') + 
+          `${manager.displayName || 'Quản lý'}: ${report.issues}`;
+        hasAnyData = true;
+      }
+
+      // Merge section reports
+      if (report.sectionReports) {
+        Object.entries(report.sectionReports).forEach(([sectionTitle, entries]) => {
+          if (!combined.sectionReports![sectionTitle]) {
+            combined.sectionReports![sectionTitle] = [];
+          }
+          
+          const entriesWithManager = (entries as any[]).map(e => ({
+            ...e,
+            managerName: managers.length > 1 ? (manager.displayName || 'Quản lý') : undefined
+          }));
+          
+          combined.sectionReports![sectionTitle].push(...entriesWithManager);
+          if (entries.length > 0) hasAnyData = true;
+        });
+      }
+    });
+
+    // Provide a default empty state if strictly no data exists
+    if (!hasAnyData) {
+      combined.issues = 'Chưa có ghi chú nào từ các Quản lý.';
+    }
+
+    // Sort entries within each section by timestamp
+    Object.keys(combined.sectionReports!).forEach(sectionTitle => {
+      combined.sectionReports![sectionTitle].sort((a: any, b: any) => {
+        return (a.timestamp || '').localeCompare(b.timestamp || '');
+      });
+    });
+
+    return combined;
+  }, [managerReports, allUsers, dateFilter]);
 
   useDataRefresher(handleReconnect);
 
@@ -515,10 +667,11 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
                 checkInTime: r.checkInTime ? toDateSafe(r.checkInTime) : null,
                 checkOutTime: r.checkOutTime ? toDateSafe(r.checkOutTime) : null,
                 breaks: r.breaks?.map(b => ({
-                  breakStartTime: b.breakStartTime ? toDateSafe(b.breakStartTime) : null,
-                  breakEndTime: b.breakEndTime ? toDateSafe(b.breakEndTime) : null,
-                })),
-              })),
+                  breakStartTime: b.breakStartTime,
+                  breakEndTime: b.breakEndTime,
+                  breakReason: b.breakReason,
+                })) as BreakRecord[],
+              })) as any,
               lateMinutes,
               lateReason,
               lateReasonPhotoUrl,
@@ -544,10 +697,11 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
             checkInTime: toDateSafe(record.checkInTime),
             checkOutTime: toDateSafe(record.checkOutTime),
             breaks: record.breaks?.map(b => ({
-              breakStartTime: b.breakStartTime ? toDateSafe(b.breakStartTime) : null,
-              breakEndTime: b.breakEndTime ? toDateSafe(b.breakEndTime) : null,
-            })),
-          }],
+              breakStartTime: b.breakStartTime,
+              breakEndTime: b.breakEndTime,
+              breakReason: b.breakReason,
+            })) as BreakRecord[],
+          }] as any,
           lateMinutes: null,
           lateReason: record.offShiftReason || record.lateReason || null,
           lateReasonPhotoUrl: record.lateReasonPhotoUrl || null,
@@ -734,6 +888,14 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
           {/* Reports */}
           <div>
             <RecentReportsCard shiftReports={shiftReports} />
+          </div>
+
+          {/* Manager Report Section */}
+          <div id="manager-report-section" className="mt-4">
+            <ManagerReportCard 
+              managerTasks={managerTasks} 
+              managerReport={combinedManagerReport} 
+            />
           </div>
         </div>
       </main>

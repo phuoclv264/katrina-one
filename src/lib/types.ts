@@ -453,10 +453,7 @@ export type EmployeeAttendance = {
   records?: ({
     checkInTime: Date | null;
     checkOutTime: Date | null;
-    breaks?: {
-      breakStartTime: Date | null;
-      breakEndTime?: Date | null;
-    }[];
+    breaks?: BreakRecord[];
   })[];
   lateMinutes: number | null;
   lateRequestId?: string | null; // Link to the attendance record for late requests
@@ -1096,9 +1093,10 @@ export type WhistleblowingReport = {
 // --- Attendance Types ---
 export type BreakRecord = {
   breakStartTime: string | Timestamp;
-  breakStartPhotoUrl?: string;
+  breakReason?: string;
+  breakStartPhotoUrl?: string; // kept for backwards-compatibility with old records
   breakEndTime?: string | Timestamp;
-  breakEndPhotoUrl?: string;
+  breakEndPhotoUrl?: string;   // kept for backwards-compatibility with old records
 };
 
 export type AttendanceRecord = {
@@ -1211,6 +1209,7 @@ export type DailyTask = {
   targetMode: DailyTaskTargetMode;
   targetRoles?: UserRole[];
   targetUserIds?: string[];
+  shiftPreferences?: string[]; // Array of shift labels (e.g. ["Sáng", "Tối"]) — if set, only users on matching active shifts will see this task
   createdBy: SimpleUser;
   createdByRole: UserRole;
   media?: MediaAttachment[];

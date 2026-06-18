@@ -193,11 +193,15 @@ const AttendanceBar = ({
                             {record.photoInUrl && <button onClick={() => openLightboxForRecord(record.photoInUrl!)} className="relative h-10 w-10 rounded-md overflow-hidden"><Image src={record.photoInUrl} alt="Check-in" layout="fill" objectFit="cover" /></button>}
                             {record.breaks?.map((breakItem, breakIndex) => (
                                 <React.Fragment key={`break-thumb-${breakIndex}`}>
-                                    {breakItem.breakStartPhotoUrl && (
+                                    {breakItem.breakReason ? (
+                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800 max-w-[64px] truncate">
+                                            {breakItem.breakReason}
+                                        </span>
+                                    ) : breakItem.breakStartPhotoUrl ? (
                                         <button onClick={() => openLightboxForRecord(breakItem.breakStartPhotoUrl!)} className="relative h-10 w-10 rounded-md overflow-hidden border-2 border-blue-400">
                                             <Image src={breakItem.breakStartPhotoUrl} alt={`Break start ${breakIndex + 1}`} layout="fill" objectFit="cover" />
                                         </button>
-                                    )}
+                                    ) : null}
                                     {breakItem.breakEndPhotoUrl && (
                                         <button onClick={() => openLightboxForRecord(breakItem.breakEndPhotoUrl!)} className="relative h-10 w-10 rounded-md overflow-hidden border-2 border-green-400">
                                             <Image src={breakItem.breakEndPhotoUrl} alt={`Break end ${breakIndex + 1}`} layout="fill" objectFit="cover" />

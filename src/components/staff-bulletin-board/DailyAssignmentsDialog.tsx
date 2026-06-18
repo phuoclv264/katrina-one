@@ -63,14 +63,18 @@ const ROLES: UserRole[] = ["Phục vụ", "Pha chế", "Quản lý"];
 
 const formatDateInput = (date: Date) => format(date, "yyyy-MM-dd");
 
-const isUserTargeted = (task: DailyTask, userId: string, userRoles: UserRole[]): boolean => {
+const isUserTargeted = (task: DailyTask, userId: string, userRoles: UserRole[], activeShiftLabels: string[] = []): boolean => {
     if (task.targetMode === "roles") {
-        return (task.targetRoles || []).some((role) => userRoles.includes(role));
+        if (!(task.targetRoles || []).some((role) => userRoles.includes(role))) return false;
+    } else if (task.targetMode === "users") {
+        if (!(task.targetUserIds || []).includes(userId)) return false;
+    } else {
+        return false;
     }
-    if (task.targetMode === "users") {
-        return (task.targetUserIds || []).includes(userId);
+    if (task.shiftPreferences && task.shiftPreferences.length > 0) {
+        return activeShiftLabels.some((label) => task.shiftPreferences!.includes(label));
     }
-    return false;
+    return true;
 };
 
 export type DailyAssignmentsDialogProps = {
@@ -84,7 +88,7 @@ export type DailyAssignmentsDialogProps = {
 };
 
 export default function DailyAssignmentsDialog({ open, onOpenChange, tasks, reportsByTask, onNavigate, canManageDaily, allUsers }: DailyAssignmentsDialogProps) {
-    const { user } = useAuth();
+    const { user, activeShifts } = useAuth();
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [pendingReportNotes, setPendingReportNotes] = useState<Record<string, string>>({});
     const [pendingReportMedia, setPendingReportMedia] = useState<Record<string, MediaItem[]>>({});
@@ -102,6 +106,7 @@ export default function DailyAssignmentsDialog({ open, onOpenChange, tasks, repo
         targetMode: "roles" as DailyTaskTargetMode,
         targetRoles: ["Phục vụ" as UserRole],
         targetUserIds: [] as string[],
+        shiftPreferences: [] as string[],
         media: [] as MediaItem[],
     });
 
@@ -202,6 +207,7 @@ export default function DailyAssignmentsDialog({ open, onOpenChange, tasks, repo
                 targetMode: newTask.targetMode,
                 targetRoles: newTask.targetMode === "roles" ? newTask.targetRoles : [],
                 targetUserIds: newTask.targetMode === "users" ? newTask.targetUserIds : [],
+                shiftPreferences: newTask.shiftPreferences,
                 media: newTask.media,
                 createdBy: { userId: user.uid, userName: user.displayName },
                 createdByRole: user.role as UserRole,
@@ -214,6 +220,7 @@ export default function DailyAssignmentsDialog({ open, onOpenChange, tasks, repo
                 targetMode: "roles",
                 targetRoles: ["Phục vụ"],
                 targetUserIds: [],
+                shiftPreferences: [],
                 media: [],
             });
             setIsCreateDialogOpen(false);
@@ -543,7 +550,7 @@ export default function DailyAssignmentsDialog({ open, onOpenChange, tasks, repo
                             </div>
 
                             {/* Fast Submission for Staff */}
-                            {selectedTask && isUserTargeted(selectedTask, user?.uid || "", userRoles) && selectedTask.status !== "completed" && (
+                            {selectedTask && isUserTargeted(selectedTask, user?.uid || "", userRoles, (activeShifts || []).map(s => s.label)) && selectedTask.status !== "completed" && (
                                 <div className="space-y-4 pt-2 border-t border-zinc-100 dark:border-zinc-800">
                                     <div className="flex items-center gap-2 px-2">
                                         <div className="bg-primary shadow-sm shadow-primary/20 p-1.5 rounded-xl">
@@ -651,6 +658,7 @@ export default function DailyAssignmentsDialog({ open, onOpenChange, tasks, repo
                                 targetMode: "roles",
                                 targetRoles: ["Phục vụ"],
                                 targetUserIds: [],
+                                shiftPreferences: [],
                                 media: [],
                             });
                         }

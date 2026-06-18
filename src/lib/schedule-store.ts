@@ -714,9 +714,12 @@ function removeUndefinedDeep<T>(obj: T): T {
 }
 
 export async function updateStructuredConstraints(constraints: ScheduleCondition[]): Promise<void> {
+    if (!Array.isArray(constraints)) {
+        throw new Error('Structured constraints must be an array of conditions.');
+    }
     const docRef = doc(db, 'app-data', 'scheduleConstraints');
     // Remove any undefined fields (Firestore rejects undefined)
-    const sanitized = (constraints || []).map(c => removeUndefinedDeep(c));
+    const sanitized = constraints.map(c => removeUndefinedDeep(c));
     await setDoc(docRef, { constraints: sanitized, updatedAt: serverTimestamp() }, { merge: true });
 }
 

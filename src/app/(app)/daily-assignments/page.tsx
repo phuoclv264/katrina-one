@@ -65,20 +65,25 @@ const ROLES: UserRole[] = ["Phục vụ", "Pha chế", "Quản lý"];
 
 const formatDateInput = (date: Date) => format(date, "yyyy-MM-dd");
 
-const isUserTargeted = (task: DailyTask, userId: string, userRoles: UserRole[]) => {
+const isUserTargeted = (task: DailyTask, userId: string, userRoles: UserRole[], activeShiftLabels: string[] = []) => {
   if (task.targetMode === "roles") {
-    return (task.targetRoles || []).some((role) => userRoles.includes(role));
+    if (!(task.targetRoles || []).some((role) => userRoles.includes(role))) return false;
+  } else if (task.targetMode === "users") {
+    if (!(task.targetUserIds || []).includes(userId)) return false;
+  } else {
+    return false;
   }
-  if (task.targetMode === "users") {
-    return (task.targetUserIds || []).includes(userId);
+  // Shift preference filter: if set, the user must be on a matching active shift
+  if (task.shiftPreferences && task.shiftPreferences.length > 0) {
+    return activeShiftLabels.some((label) => task.shiftPreferences!.includes(label));
   }
-  return false;
+  return true;
 };
 
 import { Suspense } from 'react';
 
 function DailyAssignmentsPageContent() {
-  const { user, loading } = useAuth();
+  const { user, loading, activeShifts } = useAuth();
   const searchParams = useSearchParams();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -122,6 +127,7 @@ function DailyAssignmentsPageContent() {
         targetMode: original.targetMode,
         targetRoles: original.targetMode === 'roles' ? original.targetRoles : [],
         targetUserIds: original.targetMode === 'users' ? original.targetUserIds : [],
+        shiftPreferences: original.shiftPreferences || [],
         existingMedia: original.media || [],
         createdBy: { userId: user.uid, userName: user.displayName },
         createdByRole: user.role as UserRole,
@@ -164,6 +170,7 @@ function DailyAssignmentsPageContent() {
       targetMode: original.targetMode,
       targetRoles: original.targetMode === 'roles' ? (original.targetRoles || []) : [],
       targetUserIds: original.targetMode === 'users' ? (original.targetUserIds || []) : [],
+      shiftPreferences: original.shiftPreferences || [],
       media: (original.media || []).map((m: any) => ({ 
         id: m.url, 
         type: m.type,
@@ -181,6 +188,7 @@ function DailyAssignmentsPageContent() {
     targetMode: "roles" as DailyTaskTargetMode,
     targetRoles: ["Phục vụ" as UserRole],
     targetUserIds: [] as string[],
+    shiftPreferences: [] as string[],
     media: [] as MediaItem[],
   });
 
@@ -263,8 +271,9 @@ function DailyAssignmentsPageContent() {
 
   const targetedTasks = useMemo(() => {
     if (!user) return [] as DailyTask[];
-    return tasks.filter((task) => isUserTargeted(task, user.uid, userRoles));
-  }, [tasks, user, userRoles]);
+    const activeShiftLabels = (activeShifts || []).map((s) => s.label);
+    return tasks.filter((task) => isUserTargeted(task, user.uid, userRoles, activeShiftLabels));
+  }, [tasks, user, userRoles, activeShifts]);
 
   const ownerSummary = useMemo(() => {
     if (!user || user.role !== "Chủ nhà hàng") return null;
@@ -323,6 +332,7 @@ function DailyAssignmentsPageContent() {
           targetMode: newTask.targetMode,
           targetRoles: newTask.targetMode === "roles" ? newTask.targetRoles : [],
           targetUserIds: newTask.targetMode === "users" ? newTask.targetUserIds : [],
+          shiftPreferences: newTask.shiftPreferences,
           media: newTask.media,
         });
         toast.success("Đã cập nhật nhiệm vụ.");
@@ -335,6 +345,7 @@ function DailyAssignmentsPageContent() {
           targetMode: newTask.targetMode,
           targetRoles: newTask.targetMode === "roles" ? newTask.targetRoles : [],
           targetUserIds: newTask.targetMode === "users" ? newTask.targetUserIds : [],
+          shiftPreferences: newTask.shiftPreferences,
           media: newTask.media,
           createdBy: { userId: user.uid, userName: user.displayName },
           createdByRole: user.role as UserRole,
@@ -349,6 +360,7 @@ function DailyAssignmentsPageContent() {
         targetMode: "roles",
         targetRoles: ["Phục vụ"],
         targetUserIds: [],
+        shiftPreferences: [],
         media: [],
       });
       setIsCreateDialogOpen(false);
@@ -538,6 +550,7 @@ function DailyAssignmentsPageContent() {
                       targetMode: "roles",
                       targetRoles: ["Phục vụ"],
                       targetUserIds: [],
+                      shiftPreferences: [],
                       media: [],
                     });
                     setEditingTaskId(null);
@@ -610,7 +623,7 @@ function DailyAssignmentsPageContent() {
               </div>
             ) : (
               <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2">
-                {tasks.map((task, idx) => renderTaskCard(task, isUserTargeted(task, user.uid, userRoles), idx))}
+                {tasks.map((task, idx) => renderTaskCard(task, isUserTargeted(task, user.uid, userRoles, (activeShifts || []).map(s => s.label)), idx))}
               </div>
             )}
           </motion.div>

@@ -32,6 +32,39 @@ export function TodaysScheduleSection({ shifts, offShiftEmployees, onViewDetails
   const [showOffShift, setShowOffShift] = useState(true);
   const [decliningId, setDecliningId] = useState<string | null>(null);
 
+  // Helper function to determine time section
+  const getTimeSection = (date: Date): 'morning' | 'afternoon' | 'evening' => {
+    const hour = date.getHours();
+    if (hour >= 5 && hour < 12) return 'morning';    // 5h-12h
+    if (hour >= 12 && hour < 17) return 'afternoon'; // 12h-17h
+    return 'evening'; // 17h-23h59
+  };
+
+  // Helper function to get section ID from time
+  const getSectionIdFromTime = (timeStr: string): 'morning' | 'afternoon' | 'evening' => {
+    const h = parseInt(timeStr.split(':')[0], 10);
+    if (h < 12) return 'morning';
+    if (h >= 12 && h < 17) return 'afternoon';
+    return 'evening';
+  };
+
+  // Helper function to calculate total break duration in minutes
+  const calculateTotalBreakMinutes = (breaks: any[]): number => {
+    return breaks.reduce((total: number, brk: any) => {
+      if (brk.breakStartTime && brk.breakEndTime) {
+        const start = brk.breakStartTime instanceof Object && 'toDate' in brk.breakStartTime
+          ? (brk.breakStartTime as any).toDate()
+          : new Date(brk.breakStartTime);
+        const end = brk.breakEndTime instanceof Object && 'toDate' in brk.breakEndTime
+          ? (brk.breakEndTime as any).toDate()
+          : new Date(brk.breakEndTime);
+        const minutes = Math.round((end.getTime() - start.getTime()) / (1000 * 60));
+        return total + Math.max(0, minutes);
+      }
+      return total;
+    }, 0);
+  };
+
   const handleDeclineLate = async (employeeId: string, lateRequestId: string) => {
     if (!user) return;
     if (!window.confirm("Bạn có chắc chắn muốn từ chối yêu cầu xin trễ này? Hệ thống sẽ ghi nhận vi phạm đi trễ cho nhân viên này.")) return;
@@ -157,12 +190,33 @@ export function TodaysScheduleSection({ shifts, offShiftEmployees, onViewDetails
                             )}
                           </div>
                           {(emp.records || []).flatMap(r => r.breaks || []).length > 0 && (
-                            <div className="text-[10px] text-blue-600 dark:text-blue-300 font-bold">
-                              Nghỉ: {(emp.records || []).flatMap(r => r.breaks || []).map((brk, idx, arr) => (
-                                <span key={`break-${idx}`}>
-                                  {formatTime(brk.breakStartTime)} - {brk.breakEndTime ? formatTime(brk.breakEndTime) : '...'}{idx < arr.length - 1 ? ', ' : ''}
-                                </span>
-                              ))}
+                            <div className="flex flex-col gap-1.5 text-[10px]">
+                              <span className="font-bold text-blue-600 dark:text-blue-300">Nghỉ:</span>
+                              {(() => {
+                                const allBreaks = (emp.records || []).flatMap(r => r.breaks || []);
+                                const totalMinutes = calculateTotalBreakMinutes(allBreaks);
+                                return (
+                                  <>
+                                    {allBreaks.map((brk, idx) => (
+                                      <div key={`break-${idx}`} className="flex items-center gap-2">
+                                        <span className="inline-flex items-center gap-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 px-2 py-1 rounded font-bold">
+                                          {formatTime(brk.breakStartTime)} - {brk.breakEndTime ? formatTime(brk.breakEndTime) : '...'}
+                                        </span>
+                                        {brk.breakReason && (
+                                          <span className="text-zinc-600 dark:text-zinc-300 italic">
+                                            ({brk.breakReason})
+                                          </span>
+                                        )}
+                                      </div>
+                                    ))}
+                                    {allBreaks.length > 0 && (
+                                      <div className="text-[9px] font-semibold text-blue-700 dark:text-blue-200 bg-blue-100/50 dark:bg-blue-900/20 px-2 py-1 rounded border border-blue-200 dark:border-blue-800/50">
+                                        Tổng cộng: {totalMinutes} phút
+                                      </div>
+                                    )}
+                                  </>
+                                );
+                              })()}
                             </div>
                           )}
                           {emp.lateReason ? (
@@ -231,6 +285,7 @@ export function TodaysScheduleSection({ shifts, offShiftEmployees, onViewDetails
                       const activeShift = shift.isActive;
                       const shiftStartTime = parse(shift.timeSlot.start, 'HH:mm', new Date(shift.date));
                       const hasStarted = isAfter(now, shiftStartTime);
+                      const shiftSection = getSectionIdFromTime(shift.timeSlot.start);
 
                       return (
                         <div key={shift.id} className="relative pl-5">
@@ -311,16 +366,41 @@ export function TodaysScheduleSection({ shifts, offShiftEmployees, onViewDetails
                                           )}
 
                                           {breakRecords.length > 0 && (
-                                            <div className="text-[10px] text-blue-600 dark:text-blue-300 font-bold">
-                                              <span>Nghỉ: </span>
-                                              {breakRecords.map((brk, idx) => (
-                                                <span key={idx} className="inline-flex gap-1">
-                                                  {formatTime(brk.breakStartTime)}
-                                                  <span>-</span>
-                                                  {brk.breakEndTime ? formatTime(brk.breakEndTime) : '...'}
-                                                  {idx < breakRecords.length - 1 ? ', ' : ''}
-                                                </span>
-                                              ))}
+                                            <div className="flex flex-col gap-1.5 mt-2">
+                                              {(() => {
+                                                const relevantBreaks = breakRecords.filter(brk => {
+                                                  const breakStartDate = brk.breakStartTime instanceof Object && 'toDate' in brk.breakStartTime
+                                                    ? (brk.breakStartTime as any).toDate()
+                                                    : new Date(brk.breakStartTime);
+                                                  const breakSection = getTimeSection(breakStartDate);
+                                                  return breakSection === group.id;
+                                                });
+                                                const totalMinutes = calculateTotalBreakMinutes(relevantBreaks);
+                                                
+                                                return (
+                                                  <>
+                                                    {relevantBreaks.map((brk, idx) => (
+                                                      <div key={idx} className="flex items-center gap-2 text-[10px]">
+                                                        <span className="inline-flex items-center gap-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 px-2 py-1 rounded font-bold">
+                                                          <span>{formatTime(brk.breakStartTime)}</span>
+                                                          <span>-</span>
+                                                          <span>{brk.breakEndTime ? formatTime(brk.breakEndTime) : '...'}</span>
+                                                        </span>
+                                                        {brk.breakReason && (
+                                                          <span className="text-zinc-600 dark:text-zinc-300 italic">
+                                                            ({brk.breakReason})
+                                                          </span>
+                                                        )}
+                                                      </div>
+                                                    ))}
+                                                    {relevantBreaks.length > 0 && (
+                                                      <div className="text-[9px] font-semibold text-blue-700 dark:text-blue-200 bg-blue-100/50 dark:bg-blue-900/20 px-2 py-1 rounded border border-blue-200 dark:border-blue-800/50">
+                                                        Tổng cộng: {totalMinutes} phút
+                                                      </div>
+                                                    )}
+                                                  </>
+                                                );
+                                              })()}
                                             </div>
                                           )}
 

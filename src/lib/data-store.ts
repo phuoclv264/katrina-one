@@ -46,17 +46,19 @@ import * as cashierStore from './cashier-store';
 import * as dailyTaskStore from './daily-task-store';
 import { deleteFileByUrl, uploadFile } from './data-store-helpers';
 import { isActiveUser, isTestAccount } from './user-status';
-import { error } from 'console';
 import { InventoryItemRow } from '@/app/(app)/bartender/inventory/_components/inventory-item-row';
 
 
-const getTodaysDateKey = () => {
-  const now = new Date();
+export const getDateKey = (date: Date) => {
   // Get date parts for Vietnam's timezone (UTC+7)
-  const year = now.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric' });
-  const month = now.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh', month: '2-digit' });
-  const day = now.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit' });
+  const year = date.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric' });
+  const month = date.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh', month: '2-digit' });
+  const day = date.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit' });
   return `${year}-${month}-${day}`;
+};
+
+export const getTodaysDateKey = () => {
+  return getDateKey(new Date());
 };
 
 const cleanupOldLocalStorage = () => {
@@ -1551,6 +1553,35 @@ export const dataStore = {
 
     // Delete the report document from Firestore
     await deleteDoc(reportRef);
+  },
+
+  subscribeToReport(userId: string, shiftKey: string, date: string, callback: (report: ShiftReport | null) => void): () => void {
+    const reportId = `report-${userId}-${shiftKey}-${date}`;
+    const firestoreRef = doc(db, 'reports', reportId);
+
+    return onSnapshot(firestoreRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const convertTimestamp = (val: any) => {
+          if (!val) return val;
+          if (typeof val.toDate === 'function') return val.toDate().toISOString();
+          return val;
+        };
+
+        callback({
+          ...data,
+          id: docSnap.id,
+          startedAt: convertTimestamp(data.startedAt),
+          submittedAt: convertTimestamp(data.submittedAt),
+          lastUpdated: convertTimestamp(data.lastUpdated),
+        } as ShiftReport);
+      } else {
+        callback(null);
+      }
+    }, (error) => {
+      console.warn(`[Firestore] Error subscribing to report ${reportId}:`, error);
+      callback(null);
+    });
   },
 
   async getOrCreateReport(userId: string, staffName: string, shiftKey: string): Promise<{ report: ShiftReport, status: 'synced' | 'local-newer' | 'server-newer' | 'error' }> {

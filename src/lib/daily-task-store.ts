@@ -41,6 +41,7 @@ type CreateDailyTaskInput = {
   targetMode: DailyTaskTargetMode;
   targetRoles?: UserRole[];
   targetUserIds?: string[];
+  shiftPreferences?: string[];
   media?: MediaItem[];
   existingMedia?: MediaAttachment[];
   createdBy: SimpleUser;
@@ -177,6 +178,10 @@ export async function createDailyTask(input: CreateDailyTaskInput): Promise<Dail
     taskData.targetUserIds = input.targetUserIds || [];
   }
 
+  if (input.shiftPreferences && input.shiftPreferences.length > 0) {
+    taskData.shiftPreferences = input.shiftPreferences;
+  }
+
   if (media && media.length > 0) {
     taskData.media = media;
   } else if (input.existingMedia && input.existingMedia.length > 0) {
@@ -196,6 +201,7 @@ type UpdateDailyTaskInput = Partial<{
   targetMode: DailyTaskTargetMode;
   targetRoles?: UserRole[];
   targetUserIds?: string[];
+  shiftPreferences?: string[];
   media?: MediaItem[];
 }>;
 
@@ -215,6 +221,7 @@ export async function updateDailyTask(taskId: string, input: UpdateDailyTaskInpu
   if (input.targetMode) updates.targetMode = input.targetMode;
   if (input.targetMode === 'roles') updates.targetRoles = input.targetRoles || [];
   if (input.targetMode === 'users') updates.targetUserIds = input.targetUserIds || [];
+  if (input.shiftPreferences !== undefined) updates.shiftPreferences = input.shiftPreferences;
 
   // Handle media updates: upload new items and delete removed remote files
   if (input.media !== undefined) {
