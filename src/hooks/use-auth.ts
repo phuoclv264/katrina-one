@@ -45,6 +45,10 @@ export const useAuth = () => {
   const pathname = usePathname();
   const loadingTimer = useRef<NodeJS.Timeout | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  // Ref to always hold the latest user value without causing effect re-subscriptions.
+  // Used in the onAuthStateChanged else-branch to avoid stale closure over `user`.
+  const userRef = useRef<AuthUser | null>(null);
+  userRef.current = user;
 
   const handleDataRefresh = useCallback(() => {
     setRefreshTrigger(prev => prev + 1);
@@ -187,8 +191,8 @@ export const useAuth = () => {
           }
 
         } else {
-          if (user) {
-            await unregisterNotifications(user.uid);
+          if (userRef.current) {
+            await unregisterNotifications(userRef.current.uid);
           }
           await signOut(auth);
           setUser(null);
@@ -208,7 +212,13 @@ export const useAuth = () => {
     });
 
     return () => unsubscribeAuth();
-  }, [pathname, router, user?.uid]);
+  // NOTE: user?.uid intentionally omitted from deps — adding it caused the effect to
+  // re-subscribe on every login, creating a race condition where the second
+  // onAuthStateChanged callback could fail to load the user doc and call signOut.
+  // We use userRef.current (updated synchronously on every render) for the
+  // unregisterNotifications call instead.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, router]);
 
   // Keep the auth user in sync with their Firestore document in real-time.
   useEffect(() => {
