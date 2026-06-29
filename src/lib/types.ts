@@ -512,6 +512,16 @@ export type BusyReportRequest = {
   targetRoles?: UserRole[];
 };
 
+// --- Busy Week Announcement ---
+export type BusyWeekAnnouncement = {
+  id: string;
+  userId: string;
+  userName: string;
+  weekId: string; // "YYYY-WN" — the week the user is announcing as busy
+  reason?: string;
+  createdAt: string | Timestamp | FieldValue;
+};
+
 // --- Auto Scheduling Constraint Types ---
 export type BaseConstraint = {
   id: string;

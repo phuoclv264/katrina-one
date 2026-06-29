@@ -33,9 +33,12 @@ import {
     Moon,
     CalendarDays,
     Calendar as CalendarIcon,
-    LogOut
+    LogOut,
+    BellOff,
+    BellRing,
 } from 'lucide-react';
-import type { Schedule, Availability, TimeSlot, AssignedShift, Notification, UserRole, ShiftTemplate, AuthUser, ManagedUser, AssignedUser, SimpleUser, ShiftBusyEvidence } from '@/lib/types';
+import type { Schedule, Availability, TimeSlot, AssignedShift, Notification, UserRole, ShiftTemplate, AuthUser, ManagedUser, AssignedUser, SimpleUser, ShiftBusyEvidence, BusyWeekAnnouncement } from '@/lib/types';
+import { subscribeToMyBusyWeekAnnouncement, saveBusyWeekAnnouncement, deleteBusyWeekAnnouncement } from '@/lib/schedule-store';
 import { cn } from '@/lib/utils';
 import AvailabilityDialog from './availability-dialog';
 import PassRequestsDialog from './pass-requests-dialog';
@@ -100,6 +103,8 @@ export default function ScheduleView() {
     const [busyEvidences, setBusyEvidences] = useState<ShiftBusyEvidence[]>([]);
     const [isBusyEvidenceDialogOpen, setIsBusyEvidenceDialogOpen] = useState(false);
     const [busyDialogRelevantShifts, setBusyDialogRelevantShifts] = useState<AssignedShift[]>([]);
+    const [busyWeekAnnouncement, setBusyWeekAnnouncement] = useState<BusyWeekAnnouncement | null>(null);
+    const [isBusyWeekProcessing, setIsBusyWeekProcessing] = useState(false);
 
     useEffect(() => {
         if (isWeekScheduleDialogOpen) {
@@ -148,6 +153,13 @@ export default function ScheduleView() {
     useEffect(() => {
         routerRef.current = router;
     }, [router]);
+
+    // Subscribe to busy-week announcement for the currently viewed week
+    useEffect(() => {
+        if (!user) return;
+        const unsub = subscribeToMyBusyWeekAnnouncement(user.uid, weekId, setBusyWeekAnnouncement);
+        return () => unsub();
+    }, [user, weekId]);
 
     useEffect(() => {
         if (authLoading) return;
@@ -247,6 +259,32 @@ export default function ScheduleView() {
 
     const handleDateChange = (direction: 'next' | 'prev') => {
         setCurrentDate(current => addDays(current, direction === 'next' ? 7 : -7));
+    };
+
+    const handleAnnounceBusyWeek = async () => {
+        if (!user) return;
+        setIsBusyWeekProcessing(true);
+        try {
+            await saveBusyWeekAnnouncement(user.uid, user.displayName || '', weekId);
+            toast.success('Đã thông báo bận cả tuần. Bạn sẽ không bị vi phạm vì không đăng ký lịch rảnh.');
+        } catch {
+            toast.error('Không thể gửi thông báo. Vui lòng thử lại.');
+        } finally {
+            setIsBusyWeekProcessing(false);
+        }
+    };
+
+    const handleCancelBusyWeekAnnouncement = async () => {
+        if (!user) return;
+        setIsBusyWeekProcessing(true);
+        try {
+            await deleteBusyWeekAnnouncement(user.uid, weekId);
+            toast.success('Đã hủy thông báo bận tuần này.');
+        } catch {
+            toast.error('Không thể hủy thông báo. Vui lòng thử lại.');
+        } finally {
+            setIsBusyWeekProcessing(false);
+        }
     };
 
     const openAvailabilityDialog = (date: Date) => {
@@ -513,6 +551,10 @@ export default function ScheduleView() {
     const isSchedulePublished = schedule?.status === 'published';
     // We allow adding availability even when the schedule is published, but disallow removing already-saved slots
     const canUpdateAvailability = canRegisterAvailability || isSchedulePublished;
+    // True when the user is looking at a future week (i.e., after the current week)
+    const isViewingFutureWeek = weekInterval.start > endOfWeek(new Date(), { weekStartsOn: 1 });
+    // Staff roles that must register weekly availability
+    const mustRegisterAvailability = user.role === 'Phục vụ' || user.role === 'Pha chế' || user.role === 'Quản lý';
 
     const getShiftIcon = (startTime: string) => {
         const hour = parseInt(startTime.split(':')[0]);
@@ -632,6 +674,65 @@ export default function ScheduleView() {
                             </div>
                         </div>
                     </div>
+                )}
+
+                {/* Busy-week announcement banner — shown for future weeks for staff who must register */}
+                {isViewingFutureWeek && mustRegisterAvailability && (
+                    busyWeekAnnouncement ? (
+                        <div className="relative overflow-hidden rounded-[24px] border border-amber-200 dark:border-amber-800/40 bg-gradient-to-br from-amber-50/90 to-orange-50/60 dark:from-amber-900/15 dark:to-orange-900/10 p-5 sm:p-6">
+                            <div className="flex items-start gap-4">
+                                <div className="p-3 bg-amber-500/15 rounded-2xl shadow-inner shrink-0">
+                                    <BellOff className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+                                </div>
+                                <div className="flex-1 space-y-2">
+                                    <h3 className="text-amber-900 dark:text-amber-200 text-base font-black tracking-tight">
+                                        Đã thông báo bận tuần này
+                                    </h3>
+                                    <p className="text-amber-700/80 dark:text-amber-400/70 text-sm font-medium leading-relaxed">
+                                        Bạn đã thông báo bận cả tuần {format(weekInterval.start, 'dd/MM')} – {format(weekInterval.end, 'dd/MM')}. Hệ thống sẽ không tạo vi phạm vì không đăng ký lịch rảnh.
+                                        {busyWeekAnnouncement.reason && (
+                                            <span className="block mt-1 italic opacity-80">Lý do: {busyWeekAnnouncement.reason}</span>
+                                        )}
+                                    </p>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        disabled={isBusyWeekProcessing}
+                                        onClick={handleCancelBusyWeekAnnouncement}
+                                        className="h-8 px-4 rounded-xl text-[10px] font-black uppercase tracking-wider border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 mt-1"
+                                    >
+                                        {isBusyWeekProcessing ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <X className="h-3 w-3 mr-1.5" />}
+                                        Hủy thông báo
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="relative overflow-hidden rounded-[24px] border border-slate-200 dark:border-slate-800 bg-gradient-to-br from-slate-50/80 to-slate-100/40 dark:from-slate-900/50 dark:to-slate-800/30 p-5 sm:p-6">
+                            <div className="flex items-start gap-4">
+                                <div className="p-3 bg-slate-500/10 rounded-2xl shadow-inner shrink-0">
+                                    <BellRing className="h-6 w-6 text-slate-500 dark:text-slate-400" />
+                                </div>
+                                <div className="flex-1 space-y-2">
+                                    <h3 className="text-slate-800 dark:text-slate-200 text-base font-black tracking-tight">
+                                        Bận cả tuần?
+                                    </h3>
+                                    <p className="text-slate-600/80 dark:text-slate-400/70 text-sm font-medium leading-relaxed max-w-lg">
+                                        Nếu bạn không thể đi làm tuần này và không cần đăng ký giờ rảnh, hãy thông báo để tránh bị ghi nhận vi phạm. Hạn chót: <span className="font-black text-slate-800 dark:text-slate-200">Thứ 6, {format(addDays(weekInterval.start, -3), 'dd/MM')}</span>.
+                                    </p>
+                                    <Button
+                                        size="sm"
+                                        disabled={isBusyWeekProcessing}
+                                        onClick={handleAnnounceBusyWeek}
+                                        className="h-8 px-4 rounded-xl text-[10px] font-black uppercase tracking-wider bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 hover:bg-slate-700 dark:hover:bg-slate-300 mt-1"
+                                    >
+                                        {isBusyWeekProcessing ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <BellOff className="h-3 w-3 mr-1.5" />}
+                                        Thông báo bận tuần này
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    )
                 )}
 
                 <div className="space-y-3">
