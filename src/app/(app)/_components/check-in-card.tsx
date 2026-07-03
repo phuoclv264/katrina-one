@@ -223,19 +223,33 @@ export default function CheckInCard() {
                 const hoursWorked = diffMs / (1000 * 60 * 60);
 
                 if (hoursWorked >= 1) { // Only check if worked more than 1 hour
-                    const targetCount = Math.max(1, Math.floor(hoursWorked / 2)); // 1 report every 2 hours, at least 1
-                    
-                    const sections = await dataStore.getComprehensiveTasks();
+                    const targetVideoCount = Math.max(1, Math.floor(hoursWorked / 2)); // 1 video every 2 hours
                     const missingReports: string[] = [];
 
-                    sections.forEach(section => {
-                        const count = (sectionReports[section.title] || []).length;
-                        const required = section.title.includes("Báo cáo hiệu suất") ? 2 : targetCount;
-                        
+                    // Check video report count (local + already uploaded)
+                    const localVideoCount = (currentReport.videoIds || []).length;
+                    const uploadedVideoCount = (currentReport.videoUrls || []).length;
+                    const totalVideoCount = localVideoCount + uploadedVideoCount;
+
+                    if (totalVideoCount < targetVideoCount) {
+                        missingReports.push(`Video báo cáo: ${totalVideoCount}/${targetVideoCount} video`);
+                    }
+
+                    // Check for unsent (local-only) videos
+                    if (localVideoCount > 0) {
+                        missingReports.push(`Có ${localVideoCount} video báo cáo chưa được gửi lên máy chủ`);
+                    }
+
+                    // Check "Báo cáo hiệu suất" text report count
+                    const sections = await dataStore.getComprehensiveTasks();
+                    const performanceSection = sections.find(s => s.title.includes('Báo cáo hiệu suất'));
+                    if (performanceSection) {
+                        const count = (sectionReports[performanceSection.title] || []).length;
+                        const required = 2;
                         if (count < required) {
-                            missingReports.push(`${section.title}: ${count}/${required} báo cáo`);
+                            missingReports.push(`${performanceSection.title}: ${count}/${required} báo cáo`);
                         }
-                    });
+                    }
 
                     if (missingReports.length > 0) {
                         items.push({

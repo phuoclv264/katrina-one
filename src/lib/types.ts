@@ -154,6 +154,11 @@ export type ShiftReport = {
       photos?: string[];
     }[];
   };
+  // Video report (manager_comprehensive only)
+  videoIds?: string[];        // Local IDs for video blobs stored in IndexedDB
+  videoTimestamps?: string[]; // Recorded-at times (HH:mm) – parallel array; first N entries match videoUrls, remaining match videoIds
+  videoStaffNames?: string[]; // Reporter name per video – parallel array matching videoUrls
+  videoUrls?: string[];       // Firebase Storage URLs after upload
 };
 
 // --- Inventory Types ---

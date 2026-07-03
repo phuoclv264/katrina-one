@@ -40,7 +40,7 @@ type CameraDialogProps = {
   isOpen: boolean;
   onClose: () => void;
   // media plus optional text (caption/note) submitted with the media
-  onSubmit: (media: { id: string; type: 'photo' | 'video' }[], text?: string) => void | Promise<void>;
+  onSubmit: (media: { id: string; type: 'photo' | 'video'; recordedAt?: string }[], text?: string) => void | Promise<void>;
   singlePhotoMode?: boolean;
   captureMode?: 'photo' | 'video' | 'both';
   isHD?: boolean;
@@ -170,7 +170,7 @@ export default function CameraDialog({
   const [hardwareError, setHardwareError] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [capturedMedia, setCapturedMedia] = useState<{ id: string; url: string; type: 'photo' | 'video'; caption?: string }[]>([]);
+  const [capturedMedia, setCapturedMedia] = useState<{ id: string; url: string; type: 'photo' | 'video'; caption?: string; recordedAt?: string }[]>([]);
 
   const [isRecording, setIsRecording] = useState(false);
   const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null);
@@ -595,11 +595,12 @@ export default function CameraDialog({
         mediaRecorderRef.current.onstop = async () => {
           const videoBlob = new Blob(recordedChunksRef.current, { type: supportedMimeType as string });
           const videoId = uuidv4();
+          const recordedAt = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
           try {
             await photoStore.addPhoto(videoId, videoBlob);
             const url = URL.createObjectURL(videoBlob);
             // Put newest media at the start so newest appears on the left
-            setCapturedMedia(prev => [{ id: videoId, url, type: 'video', caption: captionRef.current }, ...prev]);
+            setCapturedMedia(prev => [{ id: videoId, url, type: 'video', caption: captionRef.current, recordedAt }, ...prev]);
           } catch (error) {
             toast.error("Lỗi lưu video tạm thời.");
           }

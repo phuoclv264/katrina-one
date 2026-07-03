@@ -324,10 +324,25 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
     };
 
     let hasAnyData = false;
+    combined.videoUrls = [];
+    combined.videoTimestamps = [];
+    combined.videoStaffNames = [];
 
     managers.forEach(manager => {
       const report = managerReports[manager.uid];
       if (!report) return;
+
+      // Merge video urls + timestamps + staff names
+      if (report.videoUrls && report.videoUrls.length > 0) {
+        combined.videoUrls!.push(...report.videoUrls);
+        const ts = report.videoTimestamps || [];
+        // Pad timestamps to match videoUrls length if needed
+        const padded = report.videoUrls.map((_, i) => ts[i] || '');
+        combined.videoTimestamps!.push(...padded);
+        const name = manager.displayName || report.staffName || 'Quản lý';
+        combined.videoStaffNames!.push(...report.videoUrls.map(() => name));
+        hasAnyData = true;
+      }
 
       // Merge issues
       if (report.issues) {

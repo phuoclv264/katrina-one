@@ -4,26 +4,27 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useDataRefresher } from '@/hooks/useDataRefresher';
 import { useRouter } from 'nextjs-toploader/app';
 import { dataStore } from '@/lib/data-store';
-import type { ShiftReport, Task, ComprehensiveTaskSection } from '@/lib/types';
+import type { ShiftReport, ComprehensiveTaskSection } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/pro-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { Send, Loader2, CheckCircle, WifiOff, CloudDownload, UploadCloud, ListChecks } from 'lucide-react';
+import { Send, Loader2, CheckCircle, WifiOff, CloudDownload, UploadCloud, ListChecks, ChevronDown, ChevronUp } from 'lucide-react';
 import { vi } from 'date-fns/locale';
-import CameraDialog from '@/components/camera-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { LoadingPage } from '@/components/loading/LoadingPage';
 import { Badge } from '@/components/ui/badge';
-import { photoStore } from '@/lib/photo-store';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { SectionReportBlock } from './section-report-block';
+import { VideoReportSection, type LocalVideo, type UploadedVideo } from './video-report-section';
 
 type SyncStatus = 'checking' | 'synced' | 'local-newer' | 'server-newer' | 'error';
 
 interface ManagerReportViewProps {
     isStandalone?: boolean;
 }
+
+const PERFORMANCE_SECTION_KEYWORD = 'Báo cáo hiệu suất';
 
 export default function ManagerReportView({ isStandalone = false }: ManagerReportViewProps) {
     const { user, loading: isAuthLoading } = useAuth();
@@ -41,12 +42,17 @@ export default function ManagerReportView({ isStandalone = false }: ManagerRepor
     const [showSyncDialog, setShowSyncDialog] = useState(false);
     const [generalNotes, setGeneralNotes] = useState('');
 
-    const [isCameraOpen, setIsCameraOpen] = useState(false);
-    const [activeTask, setActiveTask] = useState<Task | null>(null);
-
     const [tasks, setTasks] = useState<ComprehensiveTaskSection[] | null>(null);
 
+    // Upload progress tracking
+    const [uploadProgress, setUploadProgress] = useState<{ completed: number; total: number } | null>(null);
+
+    // Task list section collapsed state
+    const [isTaskListExpanded, setIsTaskListExpanded] = useState(true);
+
     const [isBottomNavVisible, setIsBottomNavVisible] = useState<boolean>(false);
+
+    // (video timestamps are stored inside report.videoTimestamps)
 
     // Watch for the global class toggled by BottomNav to position the FAB above it
     useEffect(() => {
@@ -153,8 +159,9 @@ export default function ManagerReportView({ isStandalone = false }: ManagerRepor
             (async () => {
                 const hasEmptyTasks = Object.keys(newReport.completedTasks || {}).length === 0;
                 const hasEmptySections = Object.keys(newReport.sectionReports || {}).length === 0;
-                
-                if (hasEmptyTasks && hasEmptySections && !newReport.issues) {
+                const hasEmptyVideos = !newReport.videoIds || newReport.videoIds.length === 0;
+
+                if (hasEmptyTasks && hasEmptySections && hasEmptyVideos && !newReport.issues) {
                     await dataStore.deleteLocalReport(newReport.id);
                     setSyncStatus('synced');
                     setHasUnsubmittedChanges(false);
@@ -169,74 +176,35 @@ export default function ManagerReportView({ isStandalone = false }: ManagerRepor
         });
     }, []);
 
-    const handleCameraClose = useCallback(() => {
-        setIsCameraOpen(false);
-        setActiveTask(null);
-    }, []);
-
-    const handlePhotoTaskAction = useCallback((task: Task) => {
-        setActiveTask(task);
-        setIsCameraOpen(true);
-    }, []);
-
-    const handleCapturePhotos = useCallback(async (media: { id: string; type: 'photo' | 'video' }[], note?: string) => {
-        if (!activeTask) return;
-
-        const photoIds = media.filter(m => m.type === 'photo').map(m => m.id);
-        const taskId = activeTask.id;
-        
-        // Find which section this task belongs to
-        let sectionTitle = '';
-        if (tasks) {
-            for (const section of tasks) {
-                if (section.tasks.some(t => t.id === taskId)) {
-                    sectionTitle = section.title;
-                    break;
-                }
-            }
-        }
-
-        updateLocalReport(prevReport => {
-            const newReport = { ...prevReport };
-            
-            // 1. Update completedTasks as before
-            const newCompletedTasks = { ...newReport.completedTasks };
-            let taskCompletions = [...(newCompletedTasks[taskId] || [])];
-
-            taskCompletions.unshift({
-                timestamp: format(new Date(), 'HH:mm'),
-                photos: [],
-                photoIds: photoIds,
-                note: note?.trim() || undefined
-            });
-
-            newCompletedTasks[taskId] = taskCompletions;
-            newReport.completedTasks = newCompletedTasks;
-            
-            // 2. Add to sectionReports history
-            if (sectionTitle) {
-                const reports = newReport.sectionReports || {};
-                const sectionReportsList = [...(reports[sectionTitle] || [])];
-                
-                let text = `Đã chụp ảnh: ${activeTask.text}`;
-                if (note?.trim()) {
-                    text += ` - ${note.trim()}`;
-                }
-
-                sectionReportsList.push({
-                    timestamp: format(new Date(), 'HH:mm'),
-                    text: text,
-                    photoIds: photoIds
-                });
-                
-                newReport.sectionReports = { ...reports, [sectionTitle]: sectionReportsList };
-            }
-
-            return newReport;
+    const handleAddVideo = useCallback((videoId: string, timestamp: string) => {
+        updateLocalReport(prev => {
+            const uploadedCount = (prev.videoUrls || []).length;
+            const existingTs = prev.videoTimestamps || [];
+            // Ensure the first `uploadedCount` slots exist (pad with '' for old reports
+            // that were submitted before videoTimestamps tracking was added).
+            const paddedTs: string[] = [
+                ...Array.from({ length: uploadedCount }, (_, i) => existingTs[i] ?? ''),
+                ...existingTs.slice(uploadedCount),
+                timestamp,
+            ];
+            return {
+                ...prev,
+                videoIds: [...(prev.videoIds || []), videoId],
+                videoTimestamps: paddedTs,
+            };
         });
+    }, [updateLocalReport]);
 
-        handleCameraClose();
-    }, [activeTask, updateLocalReport, handleCameraClose]);
+    const handleDeleteVideo = useCallback((videoId: string) => {
+        updateLocalReport(prev => {
+            const uploadedCount = (prev.videoUrls || []).length;
+            const localIdx = (prev.videoIds || []).indexOf(videoId);
+            const newVideoIds = (prev.videoIds || []).filter(id => id !== videoId);
+            const newTimestamps = [...(prev.videoTimestamps || [])];
+            if (localIdx !== -1) newTimestamps.splice(uploadedCount + localIdx, 1);
+            return { ...prev, videoIds: newVideoIds, videoTimestamps: newTimestamps };
+        });
+    }, [updateLocalReport]);
 
     const handleAddSectionReport = useCallback((sectionTitle: string, text: string) => {
         updateLocalReport(prevReport => {
@@ -258,23 +226,28 @@ export default function ManagerReportView({ isStandalone = false }: ManagerRepor
         if (!report) return;
         const startTime = Date.now();
         setIsSubmitting(true);
+        setUploadProgress(null);
         setShowSyncDialog(false);
         const toastId = toast.loading("Đang gửi báo cáo...");
 
         const finalReport = { ...report, issues: generalNotes || null };
 
         try {
-            await dataStore.submitReport(finalReport);
+            await dataStore.submitReport(finalReport, (completed, total) => {
+                setUploadProgress({ completed, total });
+            });
             const serverReport = await dataStore.overwriteLocalReport(report.id);
             setReport(serverReport);
             setSyncStatus('synced');
             setHasUnsubmittedChanges(false);
+            setUploadProgress(null);
             const endTime = Date.now();
             const duration = ((endTime - startTime) / 1000).toFixed(2);
             toast.success(`Gửi báo cáo thành công! (Thời gian: ${duration} giây)`, { id: toastId });
         } catch (error) {
             console.error("Failed to submit report:", error);
             setSyncStatus('error');
+            setUploadProgress(null);
             toast.error("Gửi báo cáo thất bại. Vui lòng kiểm tra kết nối mạng và thử lại.", { id: toastId });
         } finally {
             setIsSubmitting(false);
@@ -309,6 +282,10 @@ export default function ManagerReportView({ isStandalone = false }: ManagerRepor
         return <LoadingPage />;
     }
 
+    // Split sections: performance section vs all others
+    const performanceSections = tasks.filter(s => s.title.includes(PERFORMANCE_SECTION_KEYWORD));
+    const regularSections = tasks.filter(s => !s.title.includes(PERFORMANCE_SECTION_KEYWORD));
+
     const getSyncBadge = () => {
         switch (syncStatus) {
             case 'synced':
@@ -324,7 +301,12 @@ export default function ManagerReportView({ isStandalone = false }: ManagerRepor
             default:
                 return null;
         }
-    }
+    };
+
+    // Upload progress percentage
+    const uploadPercent = uploadProgress && uploadProgress.total > 0
+        ? Math.round((uploadProgress.completed / uploadProgress.total) * 100)
+        : null;
 
     return (
         <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-slate-950 pb-28">
@@ -352,21 +334,88 @@ export default function ManagerReportView({ isStandalone = false }: ManagerRepor
                 </div>
             </div>
 
-            {/* Sections */}
             <div className="p-4 max-w-3xl mx-auto w-full">
-                {tasks.map((section) => (
+
+                {/* ── SECTION 1: All tasks (read-only reference list) ── */}
+                <div className="mb-5 bg-white dark:bg-slate-900 border rounded-2xl shadow-sm overflow-hidden">
+                    <button
+                        type="button"
+                        className="w-full p-4 bg-slate-50/80 dark:bg-slate-800/80 border-b flex items-center justify-between"
+                        onClick={() => setIsTaskListExpanded(prev => !prev)}
+                    >
+                        <div className="flex items-center gap-2">
+                            <ListChecks className="w-4 h-4 text-primary" />
+                            <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                                Danh sách nhiệm vụ
+                            </h3>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-bold text-slate-400">
+                                {regularSections.reduce((acc, s) => acc + s.tasks.length, 0)} công việc
+                            </span>
+                            {isTaskListExpanded
+                                ? <ChevronUp className="w-4 h-4 text-slate-400" />
+                                : <ChevronDown className="w-4 h-4 text-slate-400" />
+                            }
+                        </div>
+                    </button>
+
+                    {isTaskListExpanded && (
+                        <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {regularSections.map(section => (
+                                <div key={section.title} className="p-4">
+                                    <p className="text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">
+                                        {section.title}
+                                    </p>
+                                    <ul className="space-y-1.5">
+                                        {section.tasks.map(task => (
+                                            <li
+                                                key={task.id}
+                                                className="flex items-start gap-2 text-[13px] text-slate-700 dark:text-slate-300"
+                                            >
+                                                <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+                                                <span className="leading-snug">{task.text}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* ── Video report (main reporting tool) ── */}
+                {(() => {
+                    const uploadedCount = (report.videoUrls || []).length;
+                    const ts = report.videoTimestamps || [];
+                    const uploadedVideos: UploadedVideo[] = (report.videoUrls || []).map((url, i) => ({ url, timestamp: ts[i] || '' }));
+                    const localVideos: LocalVideo[] = (report.videoIds || []).map((id, i) => ({ id, timestamp: ts[uploadedCount + i] || '' }));
+                    return (
+                        <VideoReportSection
+                            uploadedVideos={uploadedVideos}
+                            localVideos={localVideos}
+                            isReadonly={isReadonly || syncStatus === 'server-newer'}
+                            onAddVideo={handleAddVideo}
+                            onDeleteVideo={handleDeleteVideo}
+                        />
+                    );
+                })()}
+
+                {/* ── SECTION 2: Báo cáo hiệu suất (text reports) ── */}
+                {performanceSections.map(section => (
                     <SectionReportBlock
                         key={section.title}
                         section={section}
                         report={report}
                         isReadonly={isReadonly}
                         onAddReport={handleAddSectionReport}
-                        onPhotoAction={handlePhotoTaskAction}
+                        onPhotoAction={() => {}}
+                        showTaskList={false}
                     />
                 ))}
 
                 {/* Global Notes */}
-                <div className="mt-8 mb-4">
+                <div className="mt-4 mb-4">
                     <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase mb-3 px-1">
                         Ghi chú chung
                     </h3>
@@ -383,39 +432,54 @@ export default function ManagerReportView({ isStandalone = false }: ManagerRepor
                 </div>
             </div>
 
-            {/* Submit FAB */}
+            {/* Submit FAB with upload progress */}
             <div className={cn(
                 "fixed right-4 z-[40] transition-all duration-300 md:right-8",
                 isBottomNavVisible ? "bottom-20" : "bottom-6"
             )}>
-                <div className="relative">
-                    <Button
-                        size="lg"
-                        className="rounded-full shadow-2xl h-16 w-16 bg-primary hover:bg-primary/90 text-primary-foreground transition-transform active:scale-95"
-                        onClick={handleSubmitReport}
-                        disabled={isReadonly || syncStatus === 'server-newer'}
-                        aria-label={report.status === 'submitted' ? 'Gửi lại báo cáo' : 'Gửi báo cáo'}
-                    >
-                        {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin" /> : <Send className="h-6 w-6" />}
-                    </Button>
-                    {hasUnsubmittedChanges && (
-                        <div className="absolute -top-1 -right-1 flex h-4 w-4">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-background"></span>
+                <div className="relative flex flex-col items-end gap-2">
+                    {/* Upload progress card */}
+                    {isSubmitting && uploadPercent !== null && (
+                        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 px-3 py-2 w-52">
+                            <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                                    Đang tải lên...
+                                </span>
+                                <span className="text-[11px] font-mono font-bold text-primary">
+                                    {uploadPercent}%
+                                </span>
+                            </div>
+                            <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <div
+                                    className="h-full bg-primary rounded-full transition-all duration-300"
+                                    style={{ width: `${uploadPercent}%` }}
+                                />
+                            </div>
+                            <p className="text-[10px] text-slate-400 mt-1">
+                                {uploadProgress!.completed}/{uploadProgress!.total} tệp
+                            </p>
                         </div>
                     )}
+
+                    <div className="relative">
+                        <Button
+                            size="lg"
+                            className="rounded-full shadow-2xl h-16 w-16 bg-primary hover:bg-primary/90 text-primary-foreground transition-transform active:scale-95"
+                            onClick={handleSubmitReport}
+                            disabled={isReadonly || syncStatus === 'server-newer'}
+                            aria-label={report.status === 'submitted' ? 'Gửi lại báo cáo' : 'Gửi báo cáo'}
+                        >
+                            {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin" /> : <Send className="h-6 w-6" />}
+                        </Button>
+                        {hasUnsubmittedChanges && (
+                            <div className="absolute -top-1 -right-1 flex h-4 w-4">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-background"></span>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
-
-            <CameraDialog
-                isOpen={isCameraOpen}
-                onClose={handleCameraClose}
-                onSubmit={handleCapturePhotos}
-                captureMode="photo"
-                parentDialogTag="root"
-                contextText={activeTask?.text || ''}
-                allowCaption={true}
-            />
 
             <AlertDialog open={showSyncDialog && !isSubmitting} onOpenChange={setShowSyncDialog} parentDialogTag="root">
                 <AlertDialogContent>

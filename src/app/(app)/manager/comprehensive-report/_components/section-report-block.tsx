@@ -13,6 +13,7 @@ interface SectionReportBlockProps {
     isReadonly: boolean;
     onAddReport: (sectionTitle: string, text: string) => void;
     onPhotoAction: (task: Task) => void;
+    showTaskList?: boolean;
 }
 
 function LocalPhotoPreview({ photoId, onClick }: { photoId: string, onClick?: (url: string) => void }) {
@@ -49,7 +50,8 @@ export function SectionReportBlock({
     report,
     isReadonly,
     onAddReport,
-    onPhotoAction
+    onPhotoAction,
+    showTaskList = true,
 }: SectionReportBlockProps) {
     const [text, setText] = useState('');
     const [isExpanded, setIsExpanded] = useState(false);
@@ -112,6 +114,7 @@ export function SectionReportBlock({
             </div>
 
             <div className="p-4 space-y-4">
+                {showTaskList && (
                 <ul className="space-y-2">
                     {section.tasks.map((task) => {
                         const completionsStr = report.completedTasks[task.id] || [];
@@ -140,6 +143,7 @@ export function SectionReportBlock({
                         );
                     })}
                 </ul>
+                )}
 
                 <div className="flex gap-2 items-end">
                     <textarea
