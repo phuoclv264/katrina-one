@@ -1737,10 +1737,19 @@ export const dataStore = {
       }
     }
 
-    // Delete associated videos from videoUrls
+    // Delete associated videos from videoUrls (global/legacy)
     if (reportData.videoUrls) {
       for (const videoUrl of reportData.videoUrls) {
         deletePromises.push(this.deletePhotoFromStorage(videoUrl));
+      }
+    }
+
+    // Delete per-section videos from Firebase Storage
+    if (reportData.sectionVideoUrls) {
+      for (const sectionTitle in reportData.sectionVideoUrls) {
+        for (const videoUrl of reportData.sectionVideoUrls[sectionTitle]) {
+          deletePromises.push(this.deletePhotoFromStorage(videoUrl));
+        }
       }
     }
 
@@ -1777,7 +1786,16 @@ export const dataStore = {
     }
 
     const videoIdsToUpload: string[] = report.videoIds || [];
-    const totalUploads = photoIdsToUpload.size + videoIdsToUpload.length;
+
+    // Gather per-section video IDs
+    const sectionVideoIdsFlat: { sectionTitle: string; videoId: string }[] = [];
+    for (const sectionTitle in (report.sectionVideoIds || {})) {
+      for (const videoId of (report.sectionVideoIds![sectionTitle] || [])) {
+        sectionVideoIdsFlat.push({ sectionTitle, videoId });
+      }
+    }
+
+    const totalUploads = photoIdsToUpload.size + videoIdsToUpload.length + sectionVideoIdsFlat.length;
     let completedUploads = 0;
 
     const callProgress = () => {
@@ -1826,9 +1844,30 @@ export const dataStore = {
       return { videoId, downloadURL };
     });
 
-    const [uploadResults, videoUploadResults] = await Promise.all([
+    const sectionVideoUploadPromises = sectionVideoIdsFlat.map(async ({ sectionTitle, videoId }) => {
+      const videoBlob = await photoStore.getPhoto(videoId);
+      if (!videoBlob) {
+        console.warn(`Section video ${videoId} not found in local store.`);
+        callProgress();
+        return { sectionTitle, videoId, downloadURL: null };
+      }
+      const mimeType = videoBlob.type || 'video/webm';
+      const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+      const storageRef = ref(storage, `reports/${report.date}/${report.staffName}/${videoId}.${ext}`);
+      const metadata = {
+        cacheControl: 'public,max-age=31536000,immutable',
+        contentType: mimeType,
+      };
+      await uploadBytes(storageRef, videoBlob, metadata);
+      const downloadURL = await getDownloadURL(storageRef);
+      callProgress();
+      return { sectionTitle, videoId, downloadURL };
+    });
+
+    const [uploadResults, videoUploadResults, sectionVideoUploadResults] = await Promise.all([
       Promise.all(uploadPromises),
       Promise.all(videoUploadPromises),
+      Promise.all(sectionVideoUploadPromises),
     ]);
 
     const photoIdToUrlMap = new Map<string, string>();
@@ -1862,12 +1901,22 @@ export const dataStore = {
       }
     }
 
-    // Resolve uploaded video URLs
+    // Resolve uploaded video URLs (global/legacy)
     const newVideoUrls = videoUploadResults
       .filter(r => r.downloadURL)
       .map(r => r.downloadURL as string);
     reportToSubmit.videoUrls = [...(report.videoUrls || []), ...newVideoUrls];
     delete reportToSubmit.videoIds;
+
+    // Resolve per-section video URLs
+    const resolvedSectionVideoUrls: Record<string, string[]> = { ...(report.sectionVideoUrls || {}) };
+    for (const r of sectionVideoUploadResults) {
+      if (r.downloadURL) {
+        resolvedSectionVideoUrls[r.sectionTitle] = [...(resolvedSectionVideoUrls[r.sectionTitle] || []), r.downloadURL];
+      }
+    }
+    reportToSubmit.sectionVideoUrls = resolvedSectionVideoUrls;
+    delete reportToSubmit.sectionVideoIds;
 
     reportToSubmit.status = 'submitted';
     reportToSubmit.startedAt = Timestamp.fromDate(new Date(reportToSubmit.startedAt as string));
@@ -1878,7 +1927,7 @@ export const dataStore = {
 
     await setDoc(firestoreRef, reportToSubmit);
 
-    await photoStore.deletePhotos([...Array.from(photoIdsToUpload), ...videoIdsToUpload]);
+    await photoStore.deletePhotos([...Array.from(photoIdsToUpload), ...videoIdsToUpload, ...sectionVideoIdsFlat.map(v => v.videoId)]);
   },
 
   async overwriteLocalReport(arg1: string, arg2?: string): Promise<ShiftReport> {

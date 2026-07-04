@@ -154,11 +154,16 @@ export type ShiftReport = {
       photos?: string[];
     }[];
   };
-  // Video report (manager_comprehensive only)
+  // Video report (manager_comprehensive only) — global, kept for backward compatibility
   videoIds?: string[];        // Local IDs for video blobs stored in IndexedDB
   videoTimestamps?: string[]; // Recorded-at times (HH:mm) – parallel array; first N entries match videoUrls, remaining match videoIds
   videoStaffNames?: string[]; // Reporter name per video – parallel array matching videoUrls
   videoUrls?: string[];       // Firebase Storage URLs after upload
+  // Per-section video report (new approach: one VideoReportSection per task section)
+  sectionVideoIds?: Record<string, string[]>;        // Local IDs per section title
+  sectionVideoUrls?: Record<string, string[]>;       // Firebase Storage URLs per section title
+  sectionVideoTimestamps?: Record<string, string[]>; // Timestamps per section: first N entries match sectionVideoUrls, remaining match sectionVideoIds
+  sectionVideoStaffNames?: Record<string, string[]>; // Reporter name per section video
 };
 
 // --- Inventory Types ---

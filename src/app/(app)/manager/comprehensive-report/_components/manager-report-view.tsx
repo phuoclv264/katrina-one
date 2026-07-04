@@ -47,8 +47,12 @@ export default function ManagerReportView({ isStandalone = false }: ManagerRepor
     // Upload progress tracking
     const [uploadProgress, setUploadProgress] = useState<{ completed: number; total: number } | null>(null);
 
-    // Task list section collapsed state
-    const [isTaskListExpanded, setIsTaskListExpanded] = useState(true);
+    // Per-section task list collapsed state (true = expanded)
+    const [sectionExpandedMap, setSectionExpandedMap] = useState<Record<string, boolean>>({});
+
+    const toggleSection = useCallback((title: string) => {
+        setSectionExpandedMap(prev => ({ ...prev, [title]: !prev[title] }));
+    }, []);
 
     const [isBottomNavVisible, setIsBottomNavVisible] = useState<boolean>(false);
 
@@ -159,7 +163,8 @@ export default function ManagerReportView({ isStandalone = false }: ManagerRepor
             (async () => {
                 const hasEmptyTasks = Object.keys(newReport.completedTasks || {}).length === 0;
                 const hasEmptySections = Object.keys(newReport.sectionReports || {}).length === 0;
-                const hasEmptyVideos = !newReport.videoIds || newReport.videoIds.length === 0;
+                const hasSectionVideos = Object.values(newReport.sectionVideoIds || {}).some(ids => ids.length > 0);
+                const hasEmptyVideos = !hasSectionVideos && (!newReport.videoIds || newReport.videoIds.length === 0);
 
                 if (hasEmptyTasks && hasEmptySections && hasEmptyVideos && !newReport.issues) {
                     await dataStore.deleteLocalReport(newReport.id);
@@ -176,12 +181,11 @@ export default function ManagerReportView({ isStandalone = false }: ManagerRepor
         });
     }, []);
 
-    const handleAddVideo = useCallback((videoId: string, timestamp: string) => {
+    const handleAddSectionVideo = useCallback((sectionTitle: string, videoId: string, timestamp: string) => {
         updateLocalReport(prev => {
-            const uploadedCount = (prev.videoUrls || []).length;
-            const existingTs = prev.videoTimestamps || [];
-            // Ensure the first `uploadedCount` slots exist (pad with '' for old reports
-            // that were submitted before videoTimestamps tracking was added).
+            const uploadedCount = (prev.sectionVideoUrls?.[sectionTitle] || []).length;
+            const existingIds = prev.sectionVideoIds?.[sectionTitle] || [];
+            const existingTs = prev.sectionVideoTimestamps?.[sectionTitle] || [];
             const paddedTs: string[] = [
                 ...Array.from({ length: uploadedCount }, (_, i) => existingTs[i] ?? ''),
                 ...existingTs.slice(uploadedCount),
@@ -189,20 +193,24 @@ export default function ManagerReportView({ isStandalone = false }: ManagerRepor
             ];
             return {
                 ...prev,
-                videoIds: [...(prev.videoIds || []), videoId],
-                videoTimestamps: paddedTs,
+                sectionVideoIds: { ...(prev.sectionVideoIds || {}), [sectionTitle]: [...existingIds, videoId] },
+                sectionVideoTimestamps: { ...(prev.sectionVideoTimestamps || {}), [sectionTitle]: paddedTs },
             };
         });
     }, [updateLocalReport]);
 
-    const handleDeleteVideo = useCallback((videoId: string) => {
+    const handleDeleteSectionVideo = useCallback((sectionTitle: string, videoId: string) => {
         updateLocalReport(prev => {
-            const uploadedCount = (prev.videoUrls || []).length;
-            const localIdx = (prev.videoIds || []).indexOf(videoId);
-            const newVideoIds = (prev.videoIds || []).filter(id => id !== videoId);
-            const newTimestamps = [...(prev.videoTimestamps || [])];
+            const uploadedCount = (prev.sectionVideoUrls?.[sectionTitle] || []).length;
+            const existingIds = prev.sectionVideoIds?.[sectionTitle] || [];
+            const localIdx = existingIds.indexOf(videoId);
+            const newTimestamps = [...(prev.sectionVideoTimestamps?.[sectionTitle] || [])];
             if (localIdx !== -1) newTimestamps.splice(uploadedCount + localIdx, 1);
-            return { ...prev, videoIds: newVideoIds, videoTimestamps: newTimestamps };
+            return {
+                ...prev,
+                sectionVideoIds: { ...(prev.sectionVideoIds || {}), [sectionTitle]: existingIds.filter(id => id !== videoId) },
+                sectionVideoTimestamps: { ...(prev.sectionVideoTimestamps || {}), [sectionTitle]: newTimestamps },
+            };
         });
     }, [updateLocalReport]);
 
@@ -336,70 +344,76 @@ export default function ManagerReportView({ isStandalone = false }: ManagerRepor
 
             <div className="p-4 max-w-3xl mx-auto w-full">
 
-                {/* ── SECTION 1: All tasks (read-only reference list) ── */}
-                <div className="mb-5 bg-white dark:bg-slate-900 border rounded-2xl shadow-sm overflow-hidden">
-                    <button
-                        type="button"
-                        className="w-full p-4 bg-slate-50/80 dark:bg-slate-800/80 border-b flex items-center justify-between"
-                        onClick={() => setIsTaskListExpanded(prev => !prev)}
-                    >
-                        <div className="flex items-center gap-2">
-                            <ListChecks className="w-4 h-4 text-primary" />
-                            <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
-                                Danh sách nhiệm vụ
-                            </h3>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-[11px] font-bold text-slate-400">
-                                {regularSections.reduce((acc, s) => acc + s.tasks.length, 0)} công việc
-                            </span>
-                            {isTaskListExpanded
-                                ? <ChevronUp className="w-4 h-4 text-slate-400" />
-                                : <ChevronDown className="w-4 h-4 text-slate-400" />
-                            }
-                        </div>
-                    </button>
+                {/* ── Per-section task list + video report ── */}
+                {regularSections.map(section => {
+                    const isExpanded = sectionExpandedMap[section.title] === true;
+                    const sectionVideoUrls = report.sectionVideoUrls?.[section.title] || [];
+                    const sectionVideoIds = report.sectionVideoIds?.[section.title] || [];
+                    const sectionTs = report.sectionVideoTimestamps?.[section.title] || [];
+                    const uploadedCount = sectionVideoUrls.length;
+                    const uploadedVideos: UploadedVideo[] = sectionVideoUrls.map((url, i) => ({ url, timestamp: sectionTs[i] || '' }));
+                    const localVideos: LocalVideo[] = sectionVideoIds.map((id, i) => ({ id, timestamp: sectionTs[uploadedCount + i] || '' }));
+                    const videoCount = uploadedVideos.length + localVideos.length;
 
-                    {isTaskListExpanded && (
-                        <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {regularSections.map(section => (
-                                <div key={section.title} className="p-4">
-                                    <p className="text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">
+                    return (
+                        <div key={section.title} className="mb-5 bg-white dark:bg-slate-900 border rounded-2xl shadow-sm overflow-hidden">
+                            {/* Section header */}
+                            <button
+                                type="button"
+                                className="w-full p-4 bg-slate-50/80 dark:bg-slate-800/80 border-b flex items-center justify-between"
+                                onClick={() => toggleSection(section.title)}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <ListChecks className="w-4 h-4 text-primary" />
+                                    <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
                                         {section.title}
-                                    </p>
+                                    </h3>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {videoCount > 0 ? (
+                                        <span className="text-[11px] font-bold bg-green-500/10 text-green-600 px-2 py-0.5 rounded-full">
+                                            {videoCount} video ✓
+                                        </span>
+                                    ) : (
+                                        <span className="text-[11px] font-bold text-slate-400">
+                                            {section.tasks.length} công việc
+                                        </span>
+                                    )}
+                                    {isExpanded
+                                        ? <ChevronUp className="w-4 h-4 text-slate-400" />
+                                        : <ChevronDown className="w-4 h-4 text-slate-400" />
+                                    }
+                                </div>
+                            </button>
+
+                            {/* Task list (collapsible) */}
+                            {isExpanded && (
+                                <div className="p-4 border-b border-slate-100 dark:border-slate-800">
                                     <ul className="space-y-1.5">
                                         {section.tasks.map(task => (
-                                            <li
-                                                key={task.id}
-                                                className="flex items-start gap-2 text-[13px] text-slate-700 dark:text-slate-300"
-                                            >
+                                            <li key={task.id} className="flex items-start gap-2 text-[13px] text-slate-700 dark:text-slate-300">
                                                 <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
                                                 <span className="leading-snug">{task.text}</span>
                                             </li>
                                         ))}
                                     </ul>
                                 </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
+                            )}
 
-                {/* ── Video report (main reporting tool) ── */}
-                {(() => {
-                    const uploadedCount = (report.videoUrls || []).length;
-                    const ts = report.videoTimestamps || [];
-                    const uploadedVideos: UploadedVideo[] = (report.videoUrls || []).map((url, i) => ({ url, timestamp: ts[i] || '' }));
-                    const localVideos: LocalVideo[] = (report.videoIds || []).map((id, i) => ({ id, timestamp: ts[uploadedCount + i] || '' }));
-                    return (
-                        <VideoReportSection
-                            uploadedVideos={uploadedVideos}
-                            localVideos={localVideos}
-                            isReadonly={isReadonly || syncStatus === 'server-newer'}
-                            onAddVideo={handleAddVideo}
-                            onDeleteVideo={handleDeleteVideo}
-                        />
+                            {/* Video area (always visible) */}
+                            <div className="p-4">
+                                <VideoReportSection
+                                    uploadedVideos={uploadedVideos}
+                                    localVideos={localVideos}
+                                    isReadonly={isReadonly || syncStatus === 'server-newer'}
+                                    onAddVideo={(videoId, timestamp) => handleAddSectionVideo(section.title, videoId, timestamp)}
+                                    onDeleteVideo={(videoId) => handleDeleteSectionVideo(section.title, videoId)}
+                                    embedded
+                                />
+                            </div>
+                        </div>
                     );
-                })()}
+                })}
 
                 {/* ── SECTION 2: Báo cáo hiệu suất (text reports) ── */}
                 {performanceSections.map(section => (

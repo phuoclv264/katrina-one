@@ -223,31 +223,34 @@ export default function CheckInCard() {
                 const hoursWorked = diffMs / (1000 * 60 * 60);
 
                 if (hoursWorked >= 1) { // Only check if worked more than 1 hour
-                    const targetVideoCount = Math.max(1, Math.floor(hoursWorked / 2)); // 1 video every 2 hours
                     const missingReports: string[] = [];
+                    const allSections = await dataStore.getComprehensiveTasks();
+                    const regularSections = allSections.filter(s => !s.title.includes('Báo cáo hiệu suất'));
+                    const performanceSections = allSections.filter(s => s.title.includes('Báo cáo hiệu suất'));
 
-                    // Check video report count (local + already uploaded)
-                    const localVideoCount = (currentReport.videoIds || []).length;
-                    const uploadedVideoCount = (currentReport.videoUrls || []).length;
-                    const totalVideoCount = localVideoCount + uploadedVideoCount;
-
-                    if (totalVideoCount < targetVideoCount) {
-                        missingReports.push(`Video báo cáo: ${totalVideoCount}/${targetVideoCount} video`);
+                    const regularSectionRequiredVideos = Math.max(1, Math.ceil(hoursWorked / 2));
+                    for (const section of regularSections) {
+                        const uploadedCount = (currentReport.sectionVideoUrls?.[section.title] || []).length;
+                        const localCount = (currentReport.sectionVideoIds?.[section.title] || []).length;
+                        const totalCount = uploadedCount + localCount;
+                        if (totalCount < regularSectionRequiredVideos) {
+                            missingReports.push(`${section.title}: ${totalCount}/${regularSectionRequiredVideos} video`);
+                        }
                     }
 
-                    // Check for unsent (local-only) videos
-                    if (localVideoCount > 0) {
-                        missingReports.push(`Có ${localVideoCount} video báo cáo chưa được gửi lên máy chủ`);
+                    const localSectionVideoCount = Object.values(currentReport.sectionVideoIds || {})
+                        .reduce((sum, ids) => sum + ids.length, 0);
+                    if (localSectionVideoCount > 0) {
+                        missingReports.push(`Có ${localSectionVideoCount} video chưa được gửi lên máy chủ`);
                     }
 
-                    // Check "Báo cáo hiệu suất" text report count
-                    const sections = await dataStore.getComprehensiveTasks();
-                    const performanceSection = sections.find(s => s.title.includes('Báo cáo hiệu suất'));
-                    if (performanceSection) {
-                        const count = (sectionReports[performanceSection.title] || []).length;
-                        const required = 2;
-                        if (count < required) {
-                            missingReports.push(`${performanceSection.title}: ${count}/${required} báo cáo`);
+                    const performanceSectionRequiredReports = Math.max(0, Math.floor(hoursWorked / 4));
+                    if (performanceSectionRequiredReports > 0) {
+                        for (const section of performanceSections) {
+                            const count = (sectionReports[section.title] || []).length;
+                            if (count < performanceSectionRequiredReports) {
+                                missingReports.push(`${section.title}: ${count}/${performanceSectionRequiredReports} báo cáo`);
+                            }
                         }
                     }
 

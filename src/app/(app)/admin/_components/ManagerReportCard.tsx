@@ -17,6 +17,11 @@ export function ManagerReportCard({ managerTasks, managerReport }: ManagerReport
   }
 
   const performanceSections = managerTasks.filter(s => s.title.includes(PERFORMANCE_SECTION_KEYWORD));
+  const regularSections = managerTasks.filter(s => !s.title.includes(PERFORMANCE_SECTION_KEYWORD));
+  const sectionVideoUrls = managerReport.sectionVideoUrls || {};
+  const sectionVideoTimestamps = managerReport.sectionVideoTimestamps || {};
+  const sectionVideoStaffNames = managerReport.sectionVideoStaffNames || {};
+  const sectionVideoCount = regularSections.reduce((total, section) => total + (sectionVideoUrls[section.title]?.length || 0), 0);
   const videoUrls = managerReport.videoUrls || [];
   const videoTimestamps = managerReport.videoTimestamps || [];
   const videoStaffNames = managerReport.videoStaffNames || [];
@@ -35,49 +40,62 @@ export function ManagerReportCard({ managerTasks, managerReport }: ManagerReport
         </p>
       </div>
 
-      {/* Video reports */}
+      {/* Section video reports */}
       <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
         <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-700/40 border-b border-slate-200 dark:border-slate-700">
           <Video className="w-3.5 h-3.5 text-primary" />
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Video Báo Cáo</span>
-          {videoUrls.length > 0 && (
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Video Báo Cáo Theo Mục</span>
+          {sectionVideoCount > 0 && (
             <span className="ml-auto text-[10px] font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">
-              {videoUrls.length}
+              {sectionVideoCount}
             </span>
           )}
         </div>
         <div className="p-3 space-y-3">
-          {videoUrls.length === 0 ? (
-            <div className="flex items-center gap-2 py-2 text-slate-400">
-              <VideoIcon className="w-4 h-4 shrink-0" />
-              <p className="text-xs italic">Chưa có video báo cáo</p>
-            </div>
-          ) : (
-            videoUrls.map((url, idx) => (
-              <div key={`${url}-${idx}`} className="rounded-lg overflow-hidden border border-green-200 dark:border-green-800 bg-black">
-                <video
-                  src={url}
-                  controls
-                  playsInline
-                  preload="metadata"
-                  className="w-full max-h-52 object-contain bg-black"
-                />
-                <div className="flex items-center gap-1.5 flex-wrap px-2.5 py-1.5 bg-green-50 dark:bg-green-900/20 border-t border-green-100 dark:border-green-800">
-                  <CheckCircle className="w-3 h-3 text-green-600" />
-                  <span className="text-[10px] font-bold text-green-600">Đã gửi</span>
-                  <span className="text-green-400 text-[9px]">•</span>
-                  <span className="text-[10px] font-bold text-green-700 dark:text-green-400">
-                    {videoStaffNames[idx] || fallbackName}
-                  </span>
-                  <span className="text-green-400 text-[9px]">•</span>
-                  <Clock className="w-2.5 h-2.5 text-green-500" />
-                  <span className="text-[10px] font-mono font-bold text-green-600">
-                    {videoTimestamps[idx] || '--:--'}
-                  </span>
+          {regularSections.map(section => {
+            const urls = sectionVideoUrls[section.title] || [];
+            const timestamps = sectionVideoTimestamps[section.title] || [];
+            return (
+              <div key={section.title} className="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <div className="px-3 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                  <span>{section.title}</span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400">{urls.length} video</span>
+                </div>
+                <div className="p-3 space-y-3">
+                  {urls.length === 0 ? (
+                    <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/20 p-3 text-xs text-slate-500 dark:text-slate-400">
+                      Chưa có video cho mục này.
+                    </div>
+                  ) : (
+                    urls.map((url, idx) => (
+                      <div key={`${section.title}-${url}-${idx}`} className="rounded-lg overflow-hidden border border-green-200 dark:border-green-800 bg-black">
+                        <video
+                          src={url}
+                          controls
+                          playsInline
+                          preload="metadata"
+                          className="w-full max-h-52 object-contain bg-black"
+                        />
+                        <div className="flex items-center gap-1.5 flex-wrap px-2.5 py-1.5 bg-green-50 dark:bg-green-900/20 border-t border-green-100 dark:border-green-800">
+                          <CheckCircle className="w-3 h-3 text-green-600" />
+                          <span className="text-[10px] font-bold text-green-600">Đã gửi</span>
+                          <span className="text-green-400 text-[9px]">•</span>
+                          <span className="text-[10px] font-bold text-green-700 dark:text-green-400">
+                            {sectionVideoStaffNames[section.title]?.[idx] || fallbackName}
+                          </span>
+                          <span className="text-green-400 text-[9px]">•</span>
+                          <Clock className="w-2.5 h-2.5 text-green-500" />
+                          <span className="text-[10px] font-mono font-bold text-green-600">
+                            {timestamps[idx] || '--:--'}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
-            ))
-          )}
+            );
+          })}
         </div>
       </div>
 

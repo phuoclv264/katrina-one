@@ -280,48 +280,64 @@ function ComprehensiveReportView() {
               );
             })()}
 
-            {/* Video reports */}
-            {report.videoUrls && report.videoUrls.length > 0 ? (
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Video className="h-5 w-5 text-primary" />
-                    Video Báo Cáo
-                    <span className="ml-auto text-[11px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                      {report.videoUrls.length} video
-                    </span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 pt-0">
-                  {report.videoUrls.map((url, idx) => {
-                    const ts = (report.videoTimestamps || [])[idx];
-                    return (
-                      <div key={`${url}-${idx}`} className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-black">
-                        <video
-                          src={url}
-                          controls
-                          playsInline
-                          className="w-full rounded-t-xl max-h-80 object-contain bg-black"
-                        />
-                        {ts && (
-                          <div className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
-                            <Clock className="w-3 h-3 text-slate-400" />
-                            <span className="text-[11px] font-mono font-medium text-slate-500">Quay lúc {ts}</span>
+            {/* Section video reports */}
+            {(() => {
+              const sectionVideoUrls = report.sectionVideoUrls || {};
+              const sectionVideoTimestamps = report.sectionVideoTimestamps || {};
+              const regularSectionsWithVideo = taskSections
+                .filter(s => !s.title.includes('Báo cáo hiệu suất'))
+                .map(section => ({
+                  section,
+                  urls: sectionVideoUrls[section.title] || [],
+                  timestamps: sectionVideoTimestamps[section.title] || [],
+                }));
+
+              const hasSectionVideos = regularSectionsWithVideo.some(item => item.urls.length > 0);
+              if (!hasSectionVideos) {
+                return (
+                  <Card className="border-dashed">
+                    <CardContent className="flex items-center gap-3 py-4 text-slate-400">
+                      <Video className="h-5 w-5 shrink-0" />
+                      <p className="text-sm">Chưa có video báo cáo theo mục</p>
+                    </CardContent>
+                  </Card>
+                );
+              }
+
+              return (
+                <div className="space-y-4">
+                  {regularSectionsWithVideo.map(({ section, urls, timestamps }) => (
+                    <Card key={section.title}>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="flex items-center gap-2 text-base">
+                          <Video className="h-5 w-5 text-primary" />
+                          {section.title}
+                          <span className="ml-auto text-[11px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                            {urls.length} video
+                          </span>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3 pt-0">
+                        {urls.map((url, idx) => (
+                          <div key={`${section.title}-${url}-${idx}`} className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-black">
+                            <video
+                              src={url}
+                              controls
+                              playsInline
+                              className="w-full rounded-t-xl max-h-80 object-contain bg-black"
+                            />
+                            <div className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
+                              <Clock className="w-3 h-3 text-slate-400" />
+                              <span className="text-[11px] font-mono font-medium text-slate-500">Quay lúc {timestamps[idx] || '--:--'}</span>
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </CardContent>
-              </Card>
-            ) : (
-              <Card className="border-dashed">
-                <CardContent className="flex items-center gap-3 py-4 text-slate-400">
-                  <Video className="h-5 w-5 shrink-0" />
-                  <p className="text-sm">Chưa có video báo cáo</p>
-                </CardContent>
-              </Card>
-            )}
+                        ))}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              );
+            })()}
 
             {/* Báo cáo hiệu suất sections */}
             {(() => {

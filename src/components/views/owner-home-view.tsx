@@ -327,6 +327,9 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
     combined.videoUrls = [];
     combined.videoTimestamps = [];
     combined.videoStaffNames = [];
+    combined.sectionVideoUrls = {};
+    combined.sectionVideoTimestamps = {};
+    combined.sectionVideoStaffNames = {};
 
     managers.forEach(manager => {
       const report = managerReports[manager.uid];
@@ -342,6 +345,25 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
         const name = manager.displayName || report.staffName || 'Quản lý';
         combined.videoStaffNames!.push(...report.videoUrls.map(() => name));
         hasAnyData = true;
+      }
+
+      // Merge per-section video reports
+      if (report.sectionVideoUrls) {
+        const filenames = Object.keys(report.sectionVideoUrls);
+        filenames.forEach(sectionTitle => {
+          const urls = report.sectionVideoUrls?.[sectionTitle] || [];
+          const timestamps = report.sectionVideoTimestamps?.[sectionTitle] || [];
+          const name = manager.displayName || report.staffName || 'Quản lý';
+          if (!combined.sectionVideoUrls![sectionTitle]) {
+            combined.sectionVideoUrls![sectionTitle] = [];
+            combined.sectionVideoTimestamps![sectionTitle] = [];
+            combined.sectionVideoStaffNames![sectionTitle] = [];
+          }
+          combined.sectionVideoUrls![sectionTitle].push(...urls);
+          combined.sectionVideoTimestamps![sectionTitle].push(...timestamps.map(ts => ts || ''));
+          combined.sectionVideoStaffNames![sectionTitle].push(...urls.map(() => name));
+          if (urls.length > 0) hasAnyData = true;
+        });
       }
 
       // Merge issues
