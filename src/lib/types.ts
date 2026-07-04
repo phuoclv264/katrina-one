@@ -52,6 +52,7 @@ export type AppSettings = {
   managerApprovalEnabled?: boolean;
   recruitmentQuestions?: RecruitmentQuestion[];
   houseRules?: string;
+  androidApkUrl?: string;
 };
 
 export type RecruitmentQuestionType = 'text' | 'yes_no' | 'multiple_choice';

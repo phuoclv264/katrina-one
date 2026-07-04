@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
+import { dataStore } from '@/lib/data-store';
 import { Button } from '@/components/ui/button';
 import { UserAvatar } from '@/components/user-avatar';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +28,32 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
   const { isCheckedIn } = useCheckInCardPlacement();
   const nav = useAppNavigation();
   const [profileOpen, setProfileOpen] = useState(false);
+  const [isAndroid, setIsAndroid] = useState(false);
+  const [androidApkUrl, setAndroidApkUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof navigator === 'undefined') return;
+
+    const userAgent = navigator.userAgent || '';
+    const platform = navigator.platform || '';
+    const userAgentDataPlatform = (navigator as any).userAgentData?.platform || '';
+    const isAndroidDevice = /android/i.test(userAgent) || /android/i.test(platform) || /android/i.test(userAgentDataPlatform);
+
+    setIsAndroid(isAndroidDevice);
+  }, []);
+
+  useEffect(() => {
+    if (!isAndroid) {
+      setAndroidApkUrl(null);
+      return;
+    }
+
+    const unsubscribe = dataStore.subscribeToAppSettings((settings) => {
+      setAndroidApkUrl(settings.androidApkUrl ?? null);
+    });
+
+    return () => unsubscribe();
+  }, [isAndroid]);
 
   if (!user) return null;
 
@@ -111,6 +138,26 @@ export default function UserMenuView({ onNavigateToHome, onNavigate }: UserMenuV
           </div>
         </div>
       </div>
+
+      {isAndroid && androidApkUrl && (
+        <div className="px-6 pb-4">
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 mb-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold">Tải app Android</p>
+                <p className="text-xs text-muted-foreground">Tải và cài đặt để sử dụng app trên điện thoại Android.</p>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => window.open(androidApkUrl, '_blank')}
+              >
+                Tải xuống
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Separator className="mb-4" />
 

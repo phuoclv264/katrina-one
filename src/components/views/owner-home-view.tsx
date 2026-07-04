@@ -44,6 +44,7 @@ import { KPIMetricsSection } from '@/app/(app)/admin/_components/KPIMetricsSecti
 
 import { RecentReportsCard } from '@/app/(app)/admin/_components/RecentReportsCard';
 import { QuickAccessToolsSection } from '@/app/(app)/admin/_components/QuickAccessToolsSection';
+import { AndroidApkUploadDialog } from '@/app/(app)/admin/_components/AndroidApkUploadDialog';
 import MonthlyStaffReportDialog from '@/app/(app)/reports/_components/MonthlyStaffReportDialog';
 import SalaryManagementDialog from '@/app/(app)/attendance/_components/salary-management-dialog';
 import { RecurringTasksCard } from '@/app/(app)/admin/_components/RecurringTasksCard';
@@ -85,6 +86,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
   const [isMonthlyReportOpen, setIsMonthlyReportOpen] = useState(false);
   const [isSalaryDialogOpen, setIsSalaryDialogOpen] = useState(false);
   const [isCashierDataDialogOpen, setIsCashierDataDialogOpen] = useState(false);
+  const [isApkUploadDialogOpen, setIsApkUploadDialogOpen] = useState(false);
   const [todaysSchedule, setTodaysSchedule] = useState<Schedule | null>(null);
   const [handoverByDate, setHandoverByDate] = useState<Record<string, CashHandoverReport[] | null>>({});
   const [directEvent, setDirectEvent] = useState<Event | null>(null);
@@ -913,10 +915,13 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
                   setIsMonthlyReportOpen(true);
                 } else if (path === 'salary-management') {
                   setIsSalaryDialogOpen(true);
+                } else if (path === 'upload-apk') {
+                  setIsApkUploadDialogOpen(true);
                 } else {
                   nav.push(path);
                 }
               }} />
+              <AndroidApkUploadDialog isOpen={isApkUploadDialogOpen} onOpenChange={setIsApkUploadDialogOpen} parentDialogTag="root" />
               <MonthlyStaffReportDialog isOpen={isMonthlyReportOpen} onOpenChange={(open: boolean) => setIsMonthlyReportOpen(open)} parentDialogTag="root" />
               <SalaryManagementDialog isOpen={isSalaryDialogOpen} onClose={() => setIsSalaryDialogOpen(false)} allUsers={allUsers} parentDialogTag="root" />
             </div>
