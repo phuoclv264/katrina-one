@@ -44,6 +44,7 @@ import { KPIMetricsSection } from '@/app/(app)/admin/_components/KPIMetricsSecti
 
 import { RecentReportsCard } from '@/app/(app)/admin/_components/RecentReportsCard';
 import { QuickAccessToolsSection } from '@/app/(app)/admin/_components/QuickAccessToolsSection';
+import { AndroidApkUploadDialog } from '@/app/(app)/admin/_components/AndroidApkUploadDialog';
 import MonthlyStaffReportDialog from '@/app/(app)/reports/_components/MonthlyStaffReportDialog';
 import SalaryManagementDialog from '@/app/(app)/attendance/_components/salary-management-dialog';
 import { RecurringTasksCard } from '@/app/(app)/admin/_components/RecurringTasksCard';
@@ -85,6 +86,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
   const [isMonthlyReportOpen, setIsMonthlyReportOpen] = useState(false);
   const [isSalaryDialogOpen, setIsSalaryDialogOpen] = useState(false);
   const [isCashierDataDialogOpen, setIsCashierDataDialogOpen] = useState(false);
+  const [isApkUploadDialogOpen, setIsApkUploadDialogOpen] = useState(false);
   const [todaysSchedule, setTodaysSchedule] = useState<Schedule | null>(null);
   const [handoverByDate, setHandoverByDate] = useState<Record<string, CashHandoverReport[] | null>>({});
   const [directEvent, setDirectEvent] = useState<Event | null>(null);
@@ -324,10 +326,47 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
     };
 
     let hasAnyData = false;
+    combined.videoUrls = [];
+    combined.videoTimestamps = [];
+    combined.videoStaffNames = [];
+    combined.sectionVideoUrls = {};
+    combined.sectionVideoTimestamps = {};
+    combined.sectionVideoStaffNames = {};
 
     managers.forEach(manager => {
       const report = managerReports[manager.uid];
       if (!report) return;
+
+      // Merge video urls + timestamps + staff names
+      if (report.videoUrls && report.videoUrls.length > 0) {
+        combined.videoUrls!.push(...report.videoUrls);
+        const ts = report.videoTimestamps || [];
+        // Pad timestamps to match videoUrls length if needed
+        const padded = report.videoUrls.map((_, i) => ts[i] || '');
+        combined.videoTimestamps!.push(...padded);
+        const name = manager.displayName || report.staffName || 'Quản lý';
+        combined.videoStaffNames!.push(...report.videoUrls.map(() => name));
+        hasAnyData = true;
+      }
+
+      // Merge per-section video reports
+      if (report.sectionVideoUrls) {
+        const filenames = Object.keys(report.sectionVideoUrls);
+        filenames.forEach(sectionTitle => {
+          const urls = report.sectionVideoUrls?.[sectionTitle] || [];
+          const timestamps = report.sectionVideoTimestamps?.[sectionTitle] || [];
+          const name = manager.displayName || report.staffName || 'Quản lý';
+          if (!combined.sectionVideoUrls![sectionTitle]) {
+            combined.sectionVideoUrls![sectionTitle] = [];
+            combined.sectionVideoTimestamps![sectionTitle] = [];
+            combined.sectionVideoStaffNames![sectionTitle] = [];
+          }
+          combined.sectionVideoUrls![sectionTitle].push(...urls);
+          combined.sectionVideoTimestamps![sectionTitle].push(...timestamps.map(ts => ts || ''));
+          combined.sectionVideoStaffNames![sectionTitle].push(...urls.map(() => name));
+          if (urls.length > 0) hasAnyData = true;
+        });
+      }
 
       // Merge issues
       if (report.issues) {
@@ -876,10 +915,13 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
                   setIsMonthlyReportOpen(true);
                 } else if (path === 'salary-management') {
                   setIsSalaryDialogOpen(true);
+                } else if (path === 'upload-apk') {
+                  setIsApkUploadDialogOpen(true);
                 } else {
                   nav.push(path);
                 }
               }} />
+              <AndroidApkUploadDialog isOpen={isApkUploadDialogOpen} onOpenChange={setIsApkUploadDialogOpen} parentDialogTag="root" />
               <MonthlyStaffReportDialog isOpen={isMonthlyReportOpen} onOpenChange={(open: boolean) => setIsMonthlyReportOpen(open)} parentDialogTag="root" />
               <SalaryManagementDialog isOpen={isSalaryDialogOpen} onClose={() => setIsSalaryDialogOpen(false)} allUsers={allUsers} parentDialogTag="root" />
             </div>

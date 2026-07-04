@@ -27,7 +27,7 @@ import {
     and,
     arrayUnion,
 } from 'firebase/firestore';
-import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, AuthUser, PassRequestPayload, TimeSlot, MonthlyTask, MonthlyTaskAssignment, MediaAttachment, MediaItem, TaskCompletionRecord, SimpleUser, ShiftBusyEvidence, BusyReportRequest, ShiftApplicant } from './types';
+import type { Schedule, AssignedShift, Availability, ManagedUser, ShiftTemplate, Notification, UserRole, AssignedUser, AuthUser, PassRequestPayload, TimeSlot, MonthlyTask, MonthlyTaskAssignment, MediaAttachment, MediaItem, TaskCompletionRecord, SimpleUser, ShiftBusyEvidence, BusyReportRequest, ShiftApplicant, BusyWeekAnnouncement } from './types';
 import { getISOWeek, getISOWeekYear, startOfWeek, endOfWeek, addDays, format, eachDayOfInterval, getDay, parseISO, isPast, isWithinInterval, startOfMonth, endOfMonth, eachWeekOfInterval, getYear, getDate, getWeekOfMonth, addMonths } from 'date-fns';
 import { hasTimeConflict } from './schedule-utils';
 import { DateRange } from 'react-day-picker';
@@ -199,6 +199,85 @@ export function subscribeToBusyReportRequestsForWeek(
         callback([]);
     });
     return unsubscribe;
+}
+
+// --- Busy Week Announcement Functions ---
+
+/**
+ * Saves (or updates) a busy-week announcement for the given user + week.
+ * Uses a deterministic doc ID to prevent duplicates.
+ */
+export async function saveBusyWeekAnnouncement(
+    userId: string,
+    userName: string,
+    weekId: string,
+    reason?: string,
+): Promise<void> {
+    const docId = `${weekId}_${userId}`;
+    await setDoc(doc(db, 'busy_week_announcements', docId), {
+        userId,
+        userName,
+        weekId,
+        reason: reason ?? null,
+        createdAt: serverTimestamp(),
+    });
+}
+
+/**
+ * Removes a previously saved busy-week announcement.
+ */
+export async function deleteBusyWeekAnnouncement(
+    userId: string,
+    weekId: string,
+): Promise<void> {
+    const docId = `${weekId}_${userId}`;
+    await deleteDoc(doc(db, 'busy_week_announcements', docId));
+}
+
+/**
+ * Subscribes to the current user's busy-week announcement for a specific week.
+ */
+export function subscribeToMyBusyWeekAnnouncement(
+    userId: string,
+    weekId: string,
+    callback: (announcement: BusyWeekAnnouncement | null) => void,
+): () => void {
+    if (!userId || !weekId) {
+        callback(null);
+        return () => {};
+    }
+    const docId = `${weekId}_${userId}`;
+    const docRef = doc(db, 'busy_week_announcements', docId);
+    return onSnapshot(docRef, (snap) => {
+        if (snap.exists()) {
+            callback({ id: snap.id, ...(snap.data() as Omit<BusyWeekAnnouncement, 'id'>) });
+        } else {
+            callback(null);
+        }
+    }, (error) => {
+        console.warn(`[Firestore Read Error] Could not read busy week announcement: ${error.code}`);
+        callback(null);
+    });
+}
+
+/**
+ * Subscribes to all busy-week announcements for a given week (for owner/manager view).
+ */
+export function subscribeToBusyWeekAnnouncementsForWeek(
+    weekId: string,
+    callback: (announcements: BusyWeekAnnouncement[]) => void,
+): () => void {
+    if (!weekId) {
+        callback([]);
+        return () => {};
+    }
+    const q = query(collection(db, 'busy_week_announcements'), where('weekId', '==', weekId));
+    return onSnapshot(q, (snap) => {
+        callback(snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<BusyWeekAnnouncement, 'id'>) })));
+    }, (error) => {
+        console.warn(`[Firestore Read Error] Could not read busy week announcements for ${weekId}: ${error.code}`);
+        callback([]);
+    });
 }
 
 export async function setBusyReportRecipients({

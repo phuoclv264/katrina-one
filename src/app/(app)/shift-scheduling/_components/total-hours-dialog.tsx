@@ -19,7 +19,7 @@ import { UserAvatar } from '@/components/user-avatar';
 import type { Schedule, ManagedUser, UserRole, Availability, AssignedShift, AssignedUser, ScheduleCondition } from '@/lib/types';
 import { calculateTotalHours, calculateFairnessScore, calculateUserHappinessScore } from '@/lib/schedule-utils';
 import { normalizeConstraints } from '@/lib/scheduler/constraints';
-import { Users, Search, AlertCircle, Clock, ChevronLeft, ChevronRight, Loader2, Calendar, History as HistoryIcon, Hourglass, CalendarDays, LayoutGrid, User, TrendingUp, Filter, ArrowRight, Plus, Trash2, CalendarCheck, Check, LayoutDashboard, Info, Scale, Smile } from 'lucide-react';
+import { Users, Search, AlertCircle, Clock, ChevronLeft, ChevronRight, Loader2, Calendar, History as HistoryIcon, Hourglass, CalendarDays, LayoutGrid, User, TrendingUp, Filter, ArrowRight, Plus, Trash2, CalendarCheck, Check, LayoutDashboard, Info, Scale, Smile, BellOff } from 'lucide-react';
 import { getShiftMissingDetails } from './understaffed-evidence-utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +30,8 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/comp
 import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { dataStore } from '@/lib/data-store';
+import { subscribeToBusyWeekAnnouncementsForWeek } from '@/lib/schedule-store';
+import type { BusyWeekAnnouncement } from '@/lib/types';
 
 type TotalHoursDialogProps = {
   open: boolean;
@@ -557,8 +559,20 @@ function HistoryTab({ user }: { user: ManagedUser }) {
 export default function TotalHoursDialog({ open, onOpenChange, schedule, availability, constraints = [], allUsers, currentUserRole, onUpdateSchedule, daysOfWeek, dialogTag, parentDialogTag }: TotalHoursDialogProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<ManagedUser | null>(null);
-    const [mainTab, setMainTab] = useState<'total-hours' | 'lacking-shifts'>('total-hours');
+  const [mainTab, setMainTab] = useState<'total-hours' | 'lacking-shifts'>('total-hours');
+  const [busyAnnouncements, setBusyAnnouncements] = useState<BusyWeekAnnouncement[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open || !schedule?.weekId) {
+      setBusyAnnouncements([]);
+      return;
+    }
+    const unsub = subscribeToBusyWeekAnnouncementsForWeek(schedule.weekId, setBusyAnnouncements);
+    return () => unsub();
+  }, [open, schedule?.weekId]);
+
+  const busyUserIds = useMemo(() => new Set(busyAnnouncements.map(a => a.userId)), [busyAnnouncements]);
 
   const canManage = useMemo(() => currentUserRole === 'Chủ nhà hàng', [currentUserRole]);
 
@@ -702,6 +716,11 @@ export default function TotalHoursDialog({ open, onOpenChange, schedule, availab
                                         <Users className="absolute -right-1 -bottom-1 h-10 w-10 opacity-10 group-hover:scale-110 transition-transform" />
                                         <p className="text-[7px] font-black uppercase tracking-widest text-white/70">Nhân sự</p>
                                         <p className="text-lg font-black mt-0.5">{stats.totalEmployees}</p>
+                                        {busyAnnouncements.length > 0 && (
+                                          <span className="absolute top-1.5 right-1.5 flex items-center gap-0.5 bg-amber-400/90 text-amber-900 rounded-full px-1.5 py-0.5 text-[7px] font-black leading-none">
+                                            <BellOff className="h-2 w-2" />{busyAnnouncements.length}
+                                          </span>
+                                        )}
                                     </div>
                                     <div className="p-2.5 bg-card border border-border/60 rounded-2xl shadow-sm relative overflow-hidden group">
                                         <Clock className="absolute -right-1 -bottom-1 h-10 w-10 opacity-5 group-hover:scale-110 transition-transform" />
@@ -750,9 +769,23 @@ export default function TotalHoursDialog({ open, onOpenChange, schedule, availab
                                             >
                                                 <div className="flex justify-between items-start mb-2.5">
                                                     <div className="flex items-center gap-3">
-                                                        <UserAvatar user={user} rounded="xl" className={cn("shadow-inner border transition-transform group-hover:scale-105", roleStyles)} />
+                                                        <div className="relative">
+                                                          <UserAvatar user={user} rounded="xl" className={cn("shadow-inner border transition-transform group-hover:scale-105", roleStyles)} />
+                                                          {busyUserIds.has(user.uid) && (
+                                                            <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-amber-400 border-2 border-background flex items-center justify-center">
+                                                              <BellOff className="h-2 w-2 text-amber-900" />
+                                                            </span>
+                                                          )}
+                                                        </div>
                                                         <div className="space-y-0.5">
-                                                            <p className="font-black text-xs text-foreground group-hover:text-primary transition-colors">{user.displayName}</p>
+                                                            <div className="flex items-center gap-1.5">
+                                                              <p className="font-black text-xs text-foreground group-hover:text-primary transition-colors">{user.displayName}</p>
+                                                              {busyUserIds.has(user.uid) && (
+                                                                <Badge variant="outline" className="h-4 px-1.5 py-0 border-amber-300 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-[7px] font-black uppercase tracking-wide rounded-full">
+                                                                  Đã báo bận
+                                                                </Badge>
+                                                              )}
+                                                            </div>
                                                             <div className="flex items-center gap-1.5">
                                                                 <Badge variant="outline" className={cn("text-[7px] px-1.5 py-0 h-4 border-none font-black uppercase bg-gradient-to-r rounded-md", roleStyles)}>
                                                                     {user.role}

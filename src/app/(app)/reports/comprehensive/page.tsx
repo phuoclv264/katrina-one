@@ -4,7 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import { dataStore } from '@/lib/data-store';
 import { getQueryParamWithMobileHashFallback } from '@/lib/url-params';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { MessageSquareWarning, Users, Trash2 } from 'lucide-react';
+import { MessageSquareWarning, Users, Trash2, Video, ListChecks, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { ShiftReport, CompletionRecord, ComprehensiveTaskSection } from '@/lib/types';
 import { LoadingPage } from '@/components/loading/LoadingPage';
@@ -40,6 +40,7 @@ function ComprehensiveReportView() {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isTaskListExpanded, setIsTaskListExpanded] = useState(false);
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'Chủ nhà hàng')) {
@@ -230,28 +231,136 @@ function ComprehensiveReportView() {
             <p>Vui lòng chọn một quản lý để xem báo cáo.</p>
           </div>
         ) : (
-          <div className="space-y-8">
-            <div className="mb-6">
+          <div className="space-y-6">
+            <div className="mb-2">
               <p className="text-sm text-muted-foreground">
                 Báo cáo từ <span className="font-semibold text-foreground">{report.staffName}</span>, nộp lúc <span className="font-semibold text-foreground">{new Date(report.submittedAt as string).toLocaleString('vi-VN', { hour12: false })}</span>.
               </p>
             </div>
 
-            <div className="space-y-6">
-              {taskSections.map((section) => (
-                <SectionReportViewer
-                  key={section.title}
-                  section={section}
-                  report={report}
-                  allPagePhotos={allPagePhotos}
-                />
-              ))}
-            </div>
+            {/* Task list — collapsible reference */}
+            {(() => {
+              const regularSections = taskSections.filter(s => !s.title.includes('Báo cáo hiệu suất'));
+              if (regularSections.length === 0) return null;
+              const totalTasks = regularSections.reduce((acc, s) => acc + s.tasks.length, 0);
+              return (
+                <Card className="overflow-hidden">
+                  <button
+                    type="button"
+                    className="w-full p-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                    onClick={() => setIsTaskListExpanded(v => !v)}
+                  >
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <ListChecks className="h-4 w-4 text-primary" />
+                      Danh sách nhiệm vụ
+                    </CardTitle>
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <span className="text-xs font-medium">{totalTasks} công việc</span>
+                      {isTaskListExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </div>
+                  </button>
+                  {isTaskListExpanded && (
+                    <CardContent className="p-0 border-t divide-y dark:divide-slate-800">
+                      {regularSections.map(section => (
+                        <div key={section.title} className="p-4">
+                          <p className="text-[11px] font-black uppercase tracking-wider text-slate-400 mb-2">{section.title}</p>
+                          <ul className="space-y-1.5">
+                            {section.tasks.map(task => (
+                              <li key={task.id} className="flex items-start gap-2 text-[13px] text-slate-700 dark:text-slate-300">
+                                <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+                                <span className="leading-snug">{task.text}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </CardContent>
+                  )}
+                </Card>
+              );
+            })()}
+
+            {/* Section video reports */}
+            {(() => {
+              const sectionVideoUrls = report.sectionVideoUrls || {};
+              const sectionVideoTimestamps = report.sectionVideoTimestamps || {};
+              const regularSectionsWithVideo = taskSections
+                .filter(s => !s.title.includes('Báo cáo hiệu suất'))
+                .map(section => ({
+                  section,
+                  urls: sectionVideoUrls[section.title] || [],
+                  timestamps: sectionVideoTimestamps[section.title] || [],
+                }));
+
+              const hasSectionVideos = regularSectionsWithVideo.some(item => item.urls.length > 0);
+              if (!hasSectionVideos) {
+                return (
+                  <Card className="border-dashed">
+                    <CardContent className="flex items-center gap-3 py-4 text-slate-400">
+                      <Video className="h-5 w-5 shrink-0" />
+                      <p className="text-sm">Chưa có video báo cáo theo mục</p>
+                    </CardContent>
+                  </Card>
+                );
+              }
+
+              return (
+                <div className="space-y-4">
+                  {regularSectionsWithVideo.map(({ section, urls, timestamps }) => (
+                    <Card key={section.title}>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="flex items-center gap-2 text-base">
+                          <Video className="h-5 w-5 text-primary" />
+                          {section.title}
+                          <span className="ml-auto text-[11px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                            {urls.length} video
+                          </span>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3 pt-0">
+                        {urls.map((url, idx) => (
+                          <div key={`${section.title}-${url}-${idx}`} className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-black">
+                            <video
+                              src={url}
+                              controls
+                              playsInline
+                              className="w-full rounded-t-xl max-h-80 object-contain bg-black"
+                            />
+                            <div className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
+                              <Clock className="w-3 h-3 text-slate-400" />
+                              <span className="text-[11px] font-mono font-medium text-slate-500">Quay lúc {timestamps[idx] || '--:--'}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              );
+            })()}
+
+            {/* Báo cáo hiệu suất sections */}
+            {(() => {
+              const perfSections = taskSections.filter(s => s.title.includes('Báo cáo hiệu suất'));
+              if (perfSections.length === 0) return null;
+              return (
+                <div className="space-y-4">
+                  {perfSections.map(section => (
+                    <SectionReportViewer
+                      key={section.title}
+                      section={section}
+                      report={report}
+                      allPagePhotos={allPagePhotos}
+                    />
+                  ))}
+                </div>
+              );
+            })()}
 
             {report.issues && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-xl"><MessageSquareWarning /> Ghi chú chung</CardTitle>
+                  <CardTitle className="flex items-center gap-2 text-base"><MessageSquareWarning className="h-5 w-5" /> Ghi chú chung</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-[14px] leading-relaxed italic bg-amber-50/50 dark:bg-amber-500/10 p-4 rounded-xl border border-amber-200/50 dark:border-amber-500/20">"{report.issues}"</p>

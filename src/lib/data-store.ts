@@ -836,24 +836,55 @@ export const dataStore = {
     await setDoc(docRef, { list: newProducts });
   },
 
-  async cleanupOldReports(daysToKeep: number): Promise<number> {
+  async cleanupOldReports(daysToKeep: number): Promise<{ deleted: number; errors: number; skipped: number }> {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
     const cutoffTimestamp = Timestamp.fromDate(cutoffDate);
-    let deletedCount = 0;
 
-    // Query and delete old shift reports
-    const shiftReportsQuery = query(
-      collection(db, "reports"),
-      where("submittedAt", "<", cutoffTimestamp)
-    );
-    const shiftReportsSnapshot = await getDocs(shiftReportsQuery);
-    for (const reportDoc of shiftReportsSnapshot.docs) {
-      await this.deleteShiftReport(reportDoc.id);
-      deletedCount++;
-    }
+    let deleted = 0;
+    let errors = 0;
+    const skipped = 0;
 
-    return deletedCount;
+    const safeDeleteShift = async (id: string) => {
+      try {
+        await this.deleteShiftReport(id);
+        deleted++;
+      } catch (err) {
+        console.error(`[cleanupOldReports] Failed to delete shift report ${id}:`, err);
+        errors++;
+      }
+    };
+
+    // Batch parallel deletions to avoid overwhelming Firestore/Storage
+    const parallelBatch = async (tasks: (() => Promise<void>)[], batchSize = 5) => {
+      for (let i = 0; i < tasks.length; i += batchSize) {
+        await Promise.all(tasks.slice(i, i + batchSize).map(t => t()));
+      }
+    };
+
+    // The `reports` collection exclusively holds bartender hygiene (bartender_hygiene),
+    // manager comprehensive (manager_comprehensive), and server shift (sang/trua/toi) reports.
+    // Inventory reports and daily summaries are in separate collections and are NOT touched here.
+    const [submittedSnap, ongoingSnap] = await Promise.all([
+      getDocs(query(
+        collection(db, 'reports'),
+        where('submittedAt', '<', cutoffTimestamp)
+      )),
+      getDocs(query(
+        collection(db, 'reports'),
+        where('status', '==', 'ongoing'),
+        where('lastUpdated', '<', cutoffTimestamp)
+      )),
+    ]);
+
+    const idsToDelete = new Set<string>();
+    submittedSnap.docs.forEach(d => idsToDelete.add(d.id));
+    ongoingSnap.docs.forEach(d => idsToDelete.add(d.id));
+
+    await parallelBatch([...idsToDelete].map(id => () => safeDeleteShift(id)));
+
+    console.log(`[cleanupOldReports] Done — deleted: ${deleted}, errors: ${errors}, skipped: ${skipped}`);
+    return { deleted, errors, skipped };
   },
 
   async getDailySummary(date: string): Promise<DailySummary | null> {
@@ -1720,26 +1751,57 @@ export const dataStore = {
 
     const reportData = reportSnap.data() as ShiftReport;
 
-    // Delete associated photos
+    const deletePromises: Promise<void>[] = [];
+
+    // Delete associated photos from completedTasks
     if (reportData.completedTasks) {
-      const deletePhotoPromises: Promise<void>[] = [];
       for (const taskId in reportData.completedTasks) {
         for (const completion of reportData.completedTasks[taskId]) {
           if (completion.photos) {
             for (const photoUrl of completion.photos) {
-              deletePhotoPromises.push(this.deletePhotoFromStorage(photoUrl));
+              deletePromises.push(this.deletePhotoFromStorage(photoUrl));
             }
           }
         }
       }
-      await Promise.all(deletePhotoPromises);
     }
+
+    // Delete associated photos from sectionReports
+    if (reportData.sectionReports) {
+      for (const sectionTitle in reportData.sectionReports) {
+        for (const sr of reportData.sectionReports[sectionTitle]) {
+          if (sr.photos) {
+            for (const photoUrl of sr.photos) {
+              deletePromises.push(this.deletePhotoFromStorage(photoUrl));
+            }
+          }
+        }
+      }
+    }
+
+    // Delete associated videos from videoUrls (global/legacy)
+    if (reportData.videoUrls) {
+      for (const videoUrl of reportData.videoUrls) {
+        deletePromises.push(this.deletePhotoFromStorage(videoUrl));
+      }
+    }
+
+    // Delete per-section videos from Firebase Storage
+    if (reportData.sectionVideoUrls) {
+      for (const sectionTitle in reportData.sectionVideoUrls) {
+        for (const videoUrl of reportData.sectionVideoUrls[sectionTitle]) {
+          deletePromises.push(this.deletePhotoFromStorage(videoUrl));
+        }
+      }
+    }
+
+    await Promise.all(deletePromises);
 
     // Delete the report document
     await deleteDoc(reportRef);
   },
 
-  async submitReport(report: ShiftReport): Promise<void> {
+  async submitReport(report: ShiftReport, onUploadProgress?: (completed: number, total: number) => void): Promise<void> {
     if (typeof window === 'undefined') throw new Error("Cannot submit report from server.");
 
     const firestoreRef = doc(db, 'reports', report.id);
@@ -1765,10 +1827,33 @@ export const dataStore = {
       }
     }
 
+    const videoIdsToUpload: string[] = report.videoIds || [];
+
+    // Gather per-section video IDs
+    const sectionVideoIdsFlat: { sectionTitle: string; videoId: string }[] = [];
+    for (const sectionTitle in (report.sectionVideoIds || {})) {
+      for (const videoId of (report.sectionVideoIds![sectionTitle] || [])) {
+        sectionVideoIdsFlat.push({ sectionTitle, videoId });
+      }
+    }
+
+    const totalUploads = photoIdsToUpload.size + videoIdsToUpload.length + sectionVideoIdsFlat.length;
+    let completedUploads = 0;
+
+    const callProgress = () => {
+      completedUploads++;
+      onUploadProgress?.(completedUploads, totalUploads);
+    };
+
+    if (totalUploads > 0) {
+      onUploadProgress?.(0, totalUploads);
+    }
+
     const uploadPromises = Array.from(photoIdsToUpload).map(async (photoId) => {
       const photoBlob = await photoStore.getPhoto(photoId);
       if (!photoBlob) {
         console.warn(`Photo with ID ${photoId} not found in local store.`);
+        callProgress();
         return { photoId, downloadURL: null };
       }
       const storageRef = ref(storage, `reports/${report.date}/${report.staffName}/${photoId}.jpg`);
@@ -1777,10 +1862,56 @@ export const dataStore = {
       };
       await uploadBytes(storageRef, photoBlob, metadata);
       const downloadURL = await getDownloadURL(storageRef);
+      callProgress();
       return { photoId, downloadURL };
     });
 
-    const uploadResults = await Promise.all(uploadPromises);
+    const videoUploadPromises = videoIdsToUpload.map(async (videoId) => {
+      const videoBlob = await photoStore.getPhoto(videoId);
+      if (!videoBlob) {
+        console.warn(`Video with ID ${videoId} not found in local store.`);
+        callProgress();
+        return { videoId, downloadURL: null };
+      }
+      const mimeType = videoBlob.type || 'video/webm';
+      const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+      const storageRef = ref(storage, `reports/${report.date}/${report.staffName}/${videoId}.${ext}`);
+      const metadata = {
+        cacheControl: 'public,max-age=31536000,immutable',
+        contentType: mimeType,
+      };
+      await uploadBytes(storageRef, videoBlob, metadata);
+      const downloadURL = await getDownloadURL(storageRef);
+      callProgress();
+      return { videoId, downloadURL };
+    });
+
+    const sectionVideoUploadPromises = sectionVideoIdsFlat.map(async ({ sectionTitle, videoId }) => {
+      const videoBlob = await photoStore.getPhoto(videoId);
+      if (!videoBlob) {
+        console.warn(`Section video ${videoId} not found in local store.`);
+        callProgress();
+        return { sectionTitle, videoId, downloadURL: null };
+      }
+      const mimeType = videoBlob.type || 'video/webm';
+      const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+      const storageRef = ref(storage, `reports/${report.date}/${report.staffName}/${videoId}.${ext}`);
+      const metadata = {
+        cacheControl: 'public,max-age=31536000,immutable',
+        contentType: mimeType,
+      };
+      await uploadBytes(storageRef, videoBlob, metadata);
+      const downloadURL = await getDownloadURL(storageRef);
+      callProgress();
+      return { sectionTitle, videoId, downloadURL };
+    });
+
+    const [uploadResults, videoUploadResults, sectionVideoUploadResults] = await Promise.all([
+      Promise.all(uploadPromises),
+      Promise.all(videoUploadPromises),
+      Promise.all(sectionVideoUploadPromises),
+    ]);
+
     const photoIdToUrlMap = new Map<string, string>();
     uploadResults.forEach(result => {
       if (result.downloadURL) {
@@ -1812,6 +1943,23 @@ export const dataStore = {
       }
     }
 
+    // Resolve uploaded video URLs (global/legacy)
+    const newVideoUrls = videoUploadResults
+      .filter(r => r.downloadURL)
+      .map(r => r.downloadURL as string);
+    reportToSubmit.videoUrls = [...(report.videoUrls || []), ...newVideoUrls];
+    delete reportToSubmit.videoIds;
+
+    // Resolve per-section video URLs
+    const resolvedSectionVideoUrls: Record<string, string[]> = { ...(report.sectionVideoUrls || {}) };
+    for (const r of sectionVideoUploadResults) {
+      if (r.downloadURL) {
+        resolvedSectionVideoUrls[r.sectionTitle] = [...(resolvedSectionVideoUrls[r.sectionTitle] || []), r.downloadURL];
+      }
+    }
+    reportToSubmit.sectionVideoUrls = resolvedSectionVideoUrls;
+    delete reportToSubmit.sectionVideoIds;
+
     reportToSubmit.status = 'submitted';
     reportToSubmit.startedAt = Timestamp.fromDate(new Date(reportToSubmit.startedAt as string));
     reportToSubmit.submittedAt = serverTimestamp();
@@ -1821,7 +1969,7 @@ export const dataStore = {
 
     await setDoc(firestoreRef, reportToSubmit);
 
-    await photoStore.deletePhotos(Array.from(photoIdsToUpload));
+    await photoStore.deletePhotos([...Array.from(photoIdsToUpload), ...videoIdsToUpload, ...sectionVideoIdsFlat.map(v => v.videoId)]);
   },
 
   async overwriteLocalReport(arg1: string, arg2?: string): Promise<ShiftReport> {

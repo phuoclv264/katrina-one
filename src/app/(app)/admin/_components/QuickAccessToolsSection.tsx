@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
-import { CheckCircle2, Box, DollarSign, History, Calendar, Calculator, Megaphone, ListChecks, UserPlus } from 'lucide-react';
+import { CheckCircle2, Box, DollarSign, History, Calendar, Calculator, Megaphone, ListChecks, UserPlus, CloudUpload } from 'lucide-react';
 
 interface QuickAccessToolsSectionProps {
   onNavigate?: (path: string) => void;
@@ -81,6 +81,16 @@ export function QuickAccessToolsSection({ onNavigate }: QuickAccessToolsSectionP
       iconColor: 'text-blue-600 dark:text-blue-400',
       borderColor: 'border-blue-500',
       hoverColor: 'hover:border-blue-500 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10',
+    },
+    {
+      icon: CloudUpload,
+      label: 'Cập nhật APK',
+      color: 'purple',
+      path: 'upload-apk',
+      bgColor: 'bg-purple-100 dark:bg-purple-900/30',
+      iconColor: 'text-purple-600 dark:text-purple-400',
+      borderColor: 'border-purple-500',
+      hoverColor: 'hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/10',
     },
   ];
 
