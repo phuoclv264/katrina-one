@@ -115,6 +115,17 @@ export function RecruitmentForm({ onSuccess }: { onSuccess?: () => void }) {
     // Now includes formData.position check
     if (!formData.fullName || !formData.phone || !formData.email || !formData.position) {
       toast.error('Vui lòng điền đầy đủ thông tin bắt buộc.');
+      import('@/lib/log-store').then(({ saveAppLogToServer }) => {
+        saveAppLogToServer({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+          timestamp: new Date().toISOString(),
+          level: 'error',
+          message: 'Failed to submit recruitment application',
+          details: 'Missing required fields: fullName, phone, email, or position',
+        }).catch(() => {
+          // ignore persistence failure
+        });
+      });
       return;
     }
 
@@ -158,6 +169,17 @@ export function RecruitmentForm({ onSuccess }: { onSuccess?: () => void }) {
       onSuccess?.();
     } catch (error) {
       console.error('Failed to submit application:', error);
+      import('@/lib/log-store').then(({ saveAppLogToServer }) => {
+        saveAppLogToServer({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+          timestamp: new Date().toISOString(),
+          level: 'error',
+          message: 'Failed to submit recruitment application',
+          details: error instanceof Error ? error.stack || error.message : String(error),
+        }).catch(() => {
+          // ignore persistence failure
+        });
+      });
       toast.error('Có lỗi xảy ra. Vui lòng thử lại sau.');
     } finally {
       setLoading(false);

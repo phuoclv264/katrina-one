@@ -52,6 +52,7 @@ import { TodaysScheduleSection } from '@/app/(app)/admin/_components/TodaysSched
 import { CashierDataDialog } from '@/app/(app)/admin/_components/CashierDataDialog';
 import { ManagerReportCard } from '@/app/(app)/admin/_components/ManagerReportCard';
 import { LoadingPage } from '@/components/loading/LoadingPage';
+import LogViewerDialog from '@/app/(app)/admin/_components/LogViewerDialog';
 import { findNearestAttendanceRecord } from '@/lib/attendance-utils';
 import { toDateSafe, cn, selectLatestRevenueStats } from '@/lib/utils';
 import { useAppNavigation } from '@/contexts/app-navigation-context';
@@ -87,6 +88,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
   const [isSalaryDialogOpen, setIsSalaryDialogOpen] = useState(false);
   const [isCashierDataDialogOpen, setIsCashierDataDialogOpen] = useState(false);
   const [isApkUploadDialogOpen, setIsApkUploadDialogOpen] = useState(false);
+  const [isLogViewerOpen, setIsLogViewerOpen] = useState(false);
   const [todaysSchedule, setTodaysSchedule] = useState<Schedule | null>(null);
   const [handoverByDate, setHandoverByDate] = useState<Record<string, CashHandoverReport[] | null>>({});
   const [directEvent, setDirectEvent] = useState<Event | null>(null);
@@ -917,6 +919,8 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
                   setIsSalaryDialogOpen(true);
                 } else if (path === 'upload-apk') {
                   setIsApkUploadDialogOpen(true);
+                } else if (path === 'view-logs') {
+                  setIsLogViewerOpen(true);
                 } else {
                   nav.push(path);
                 }
@@ -924,6 +928,7 @@ export function OwnerHomeView({ isStandalone = false }: OwnerHomeViewProps) {
               <AndroidApkUploadDialog isOpen={isApkUploadDialogOpen} onOpenChange={setIsApkUploadDialogOpen} parentDialogTag="root" />
               <MonthlyStaffReportDialog isOpen={isMonthlyReportOpen} onOpenChange={(open: boolean) => setIsMonthlyReportOpen(open)} parentDialogTag="root" />
               <SalaryManagementDialog isOpen={isSalaryDialogOpen} onClose={() => setIsSalaryDialogOpen(false)} allUsers={allUsers} parentDialogTag="root" />
+              <LogViewerDialog isOpen={isLogViewerOpen} onOpenChange={setIsLogViewerOpen} parentDialogTag="root" />
             </div>
           </div>
 
