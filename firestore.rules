@@ -58,6 +58,13 @@ service cloud.firestore {
         allow delete: if isOwner();
     }
 
+    // `appLogs` collection
+    match /appLogs/{logId} {
+        allow create: if true;
+        allow read: if isOwnerOrManager();
+        allow update, delete: if false;
+    }
+
     // Reports collections
     match /reports/{reportId} {
       allow read: if isOwnerOrManager();

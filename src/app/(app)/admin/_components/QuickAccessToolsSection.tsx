@@ -83,6 +83,16 @@ export function QuickAccessToolsSection({ onNavigate }: QuickAccessToolsSectionP
       hoverColor: 'hover:border-blue-500 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10',
     },
     {
+      icon: History,
+      label: 'Xem log ứng dụng',
+      color: 'slate',
+      path: 'view-logs',
+      bgColor: 'bg-slate-100 dark:bg-slate-900/30',
+      iconColor: 'text-slate-600 dark:text-slate-400',
+      borderColor: 'border-slate-500',
+      hoverColor: 'hover:border-slate-500 dark:hover:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900/10',
+    },
+    {
       icon: CloudUpload,
       label: 'Cập nhật APK',
       color: 'purple',
