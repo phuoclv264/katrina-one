@@ -4,14 +4,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter, DialogAction } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { AlertTriangle, ChevronLeft, ChevronRight, Calendar as CalendarIcon, UserPlus, Loader2, Check } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, ChevronRight, Calendar as CalendarIcon, UserPlus, Loader2 } from 'lucide-react';
 import type { AssignedShift, ManagedUser, Schedule, ShiftBusyEvidence, ShiftTemplate, UserRole, BusyReportRequest } from '@/lib/types';
 import { subscribeToBusyReportRequestsForWeek } from '@/lib/schedule-store';
 import type { AuthUser } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
-import { addWeeks, eachDayOfInterval, endOfWeek, format, getISOWeek, getISOWeekYear, getYear, startOfWeek } from 'date-fns';
+import { addWeeks, eachDayOfInterval, endOfWeek, format, getISOWeek, getISOWeekYear, startOfWeek } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { getRelevantUnderstaffedShifts, getShiftMissingDetails } from '../../shift-scheduling/_components/understaffed-evidence-utils';
 import { dataStore } from '@/lib/data-store';
@@ -60,12 +58,29 @@ const statusLabel: Record<Schedule['status'], string> = {
   published: 'Đã công bố',
 };
 
+const timeToMinutes = (time: string) => {
+  const [hour, minute] = time.split(':').map(Number);
+  return (hour || 0) * 60 + (minute || 0);
+};
+
+const getShiftTimeFrame = (shift: AssignedShift): 'morning' | 'afternoon' | 'evening' => {
+  const startMinutes = timeToMinutes(shift.timeSlot.start);
+  if (startMinutes < 12 * 60) return 'morning';
+  if (startMinutes < 17 * 60) return 'afternoon';
+  return 'evening';
+};
+
+const timeFrameClasses: Record<'morning' | 'afternoon' | 'evening', string> = {
+  morning: 'border-l-[4px] border-amber-500 bg-amber-50/40 dark:bg-amber-900/10',
+  afternoon: 'border-l-[4px] border-sky-500 bg-sky-50/40 dark:bg-sky-900/10',
+  evening: 'border-l-[4px] border-rose-500 bg-rose-50/40 dark:bg-rose-900/10',
+};
+
 export default function WeekScheduleDialog({
   open,
   onOpenChange,
   schedule,
   allUsers,
-  shiftTemplates,
   initialWeekInterval,
   onWeekChange,
   currentUser,
@@ -75,6 +90,7 @@ export default function WeekScheduleDialog({
 }: WeekScheduleDialogProps) {
   const [weekOffset, setWeekOffset] = useState(0);
   const [weekInterval, setWeekInterval] = useState(initialWeekInterval);
+  const [selectedDateStr, setSelectedDateStr] = useState<string>('');
 
   useEffect(() => {
     if (open) {
@@ -96,11 +112,15 @@ export default function WeekScheduleDialog({
     [weekInterval]
   );
 
-  // Only consider a schedule 'visible' if it is published and has shifts
+  useEffect(() => {
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const todayInWeek = daysOfWeek.find(d => format(d, 'yyyy-MM-dd') === todayStr);
+    setSelectedDateStr(todayInWeek ? todayStr : format(daysOfWeek[0], 'yyyy-MM-dd'));
+  }, [daysOfWeek]);
+
   const hasSchedule = !!schedule && schedule.status === 'published' && schedule.shifts.length > 0;
 
   const relevantUnderstaffedShifts = useMemo<AssignedShift[]>(() => {
-    // Still compute for highlighting cells if needed
     return getRelevantUnderstaffedShifts(schedule, allUsers, { currentUser, roleAware: true });
   }, [schedule, currentUser, allUsers]);
 
@@ -144,14 +164,22 @@ export default function WeekScheduleDialog({
   const submittedEvidenceCount = Math.max(0, totalRelevantShifts - pendingEvidenceCount);
 
   const [processingShiftId, setProcessingShiftId] = useState<string | null>(null);
+  const [localAppliedShiftIds, setLocalAppliedShiftIds] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    setLocalAppliedShiftIds({});
+  }, [schedule?.weekId, currentUser?.uid]);
 
   const handleApply = async (shiftId: string) => {
     if (!currentUser || !schedule) return;
+    const previousApplied = localAppliedShiftIds[shiftId] ?? false;
+    setLocalAppliedShiftIds((prev) => ({ ...prev, [shiftId]: true }));
     setProcessingShiftId(shiftId);
     try {
       await dataStore.applyForShift(schedule.weekId, shiftId, currentUser);
       toast.success("Đã gửi yêu cầu nhận ca.");
     } catch (e: any) {
+      setLocalAppliedShiftIds((prev) => ({ ...prev, [shiftId]: previousApplied }));
       toast.error(e.message);
     } finally {
       setProcessingShiftId(null);
@@ -160,31 +188,162 @@ export default function WeekScheduleDialog({
 
   const handleCancelApplication = async (shiftId: string) => {
     if (!currentUser || !schedule) return;
+    const previousApplied = localAppliedShiftIds[shiftId] ?? true;
+    setLocalAppliedShiftIds((prev) => ({ ...prev, [shiftId]: false }));
     setProcessingShiftId(shiftId);
     try {
       await dataStore.cancelShiftApplication(schedule.weekId, shiftId, currentUser.uid);
       toast.success("Đã hủy yêu cầu.");
     } catch (e: any) {
+      setLocalAppliedShiftIds((prev) => ({ ...prev, [shiftId]: previousApplied }));
       toast.error(e.message);
     } finally {
       setProcessingShiftId(null);
     }
   }
 
-  const renderUserBadge = (userId: string) => {
-    const user = allUsers.find((u) => u.uid === userId);
-    if (!user) return null;
+  const renderShiftItem = (shift: AssignedShift) => {
+    const sortedUsers = [...shift.assignedUsers]
+      .map((assignedUser) => ({
+        assignedUser,
+        user: allUsers.find((u) => u.uid === assignedUser.userId),
+      }))
+      .sort((a, b) => {
+        const userA = a.user;
+        const userB = b.user;
+        if (!userA || !userB) return 0;
+        return (roleOrder[userA.role] || 99) - (roleOrder[userB.role] || 99);
+      });
+
+    const isUnderstaffed =
+      ((shift.minUsers || 0) > 0 && shift.assignedUsers.length < shift.minUsers) ||
+      ((shift.requiredRoles || []).some(req => {
+        const assignedOfRole = shift.assignedUsers.filter(au => {
+          const user = allUsers.find(u => u.uid === au.userId);
+          const effRole = au.assignedRole ?? user?.role;
+          return effRole === req.role;
+        }).length;
+        return assignedOfRole < req.count;
+      }));
+
+    const isRelevantToMe = relevantUnderstaffedShifts.some(s => s.id === shift.id);
+    const remoteHasApplied = currentUser ? shift.applicants?.some(a => a.userId === currentUser.uid) : false;
+    const localHasApplied = currentUser ? localAppliedShiftIds[shift.id] : undefined;
+    const hasApplied = localHasApplied !== undefined ? localHasApplied : remoteHasApplied;
+    const isProcessing = processingShiftId === shift.id;
+    const missing = getShiftMissingDetails(shift, allUsers);
+    const shiftTimeFrame = getShiftTimeFrame(shift);
 
     return (
-      <Badge key={userId} className={cn('text-xs font-medium h-auto py-0.5 px-1.5 border', getRoleColor(user.role))}>
-        {user.displayName}
-      </Badge>
+      <div 
+        key={shift.id} 
+        className={cn(
+          "py-2 pl-3 flex flex-col gap-1.5 sm:px-4",
+          timeFrameClasses[shiftTimeFrame],
+          isRelevantToMe ? "bg-amber-50/50 dark:bg-amber-900/15" : ""
+        )}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            {/* Shift Title and Time (Simplified inline format) */}
+            <div className="text-[14px] font-bold text-slate-900 dark:text-slate-100 leading-snug">
+              {shift.label} <span className="font-normal text-muted-foreground whitespace-nowrap">({shift.timeSlot.start} - {shift.timeSlot.end})</span>
+            </div>
+            
+            {/* Assigned Users list */}
+            <div className="flex flex-wrap items-center gap-1">
+              {sortedUsers.length > 0 ? (
+                sortedUsers.map(({ assignedUser, user }) => (
+                  <Badge
+                    key={assignedUser.userId}
+                    className={cn('text-[11px] font-medium h-5 py-0 px-2 border', getRoleColor(user?.role ?? 'Bất kỳ'))}
+                  >
+                    {user?.displayName ?? assignedUser.userId}
+                  </Badge>
+                ))
+              ) : (
+                <span className="text-sm text-muted-foreground italic">Trống</span>
+              )}
+            </div>
+          </div>
+
+          {/* Action Buttons (Apply / Cancel / Missing Alert) */}
+          {((isUnderstaffed && currentUser) || isUnderstaffed) && (
+            <div className="flex flex-col items-end gap-2 shrink-0 mt-0.5">
+              {isUnderstaffed && (
+                <div className={cn(
+                  'h-6 rounded-md px-2 text-[11px] font-semibold inline-flex items-center gap-1',
+                  isRelevantToMe ? 'bg-amber-100 text-amber-700' : 'bg-destructive/10 text-destructive'
+                )}>
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  <span>{missing.text ?? 'Thiếu'}</span>
+                </div>
+              )}
+              {currentUser && isUnderstaffed && (
+                hasApplied ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCancelApplication(shift.id)}
+                    disabled={isProcessing}
+                    className="h-8 rounded-md px-3 text-[11px] font-semibold border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-300"
+                  >
+                    {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Hủy đăng ký'}
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    onClick={() => handleApply(shift.id)}
+                    disabled={isProcessing}
+                    className="h-8 rounded-md px-3 text-[11px] font-semibold bg-primary/10 text-primary hover:bg-primary hover:text-white"
+                  >
+                    {isProcessing ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <UserPlus className="w-3.5 h-3.5 mr-1.5" />
+                        Đăng ký
+                      </>
+                    )}
+                  </Button>
+                )
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderDayView = () => {
+    if (!hasSchedule || !schedule) return null;
+
+    const selectedDateShifts = schedule.shifts
+      .filter(s => s.date === selectedDateStr)
+      .sort((a, b) => a.timeSlot.start.localeCompare(b.timeSlot.start));
+    
+    if (selectedDateShifts.length === 0) {
+      return (
+        <div className="p-12 text-center flex flex-col items-center justify-center h-full">
+           <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
+             <CalendarIcon className="h-8 w-8 text-slate-400" />
+           </div>
+           <h3 className="font-semibold text-lg mb-1">Không có ca làm việc</h3>
+           <p className="text-sm text-muted-foreground">Không có lịch trình nào được sắp xếp cho ngày này.</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="px-3 pb-8 flex flex-col max-w-4xl mx-auto w-full">
+        {selectedDateShifts.map(renderShiftItem)}
+      </div>
     );
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} dialogTag="week-schedule-dialog" parentDialogTag={parentDialogTag}>
-      <DialogContent className="max-w-6xl lg:min-w-[90vw] p-0 overflow-hidden flex flex-col border-none sm:rounded-2xl h-[90vh] sm:h-auto">
+      <DialogContent className="max-w-4xl lg:min-w-[70vw] p-0 overflow-hidden flex flex-col border-none sm:rounded-2xl h-[100dvh] sm:h-[85vh] sm:max-h-[90vh]">
         <DialogHeader iconkey="calendar" className="shrink-0">
           <div className="flex items-center justify-between gap-4 w-full">
             <div className="flex flex-col">
@@ -200,11 +359,11 @@ export default function WeekScheduleDialog({
           </div>
         </DialogHeader>
 
-        <DialogBody className="p-0 flex flex-col bg-slate-50/30 dark:bg-transparent overflow-hidden">
+        <DialogBody className="p-0 flex flex-1 flex-col min-h-0 bg-slate-50/30 dark:bg-transparent overflow-hidden">
           {/* Action Header & Navigation */}
-          <div className="px-4 sm:px-6 py-3 border-b bg-background sticky top-0 z-10 shrink-0">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center justify-between sm:justify-start gap-4 order-2 sm:order-1">
+          <div className="px-3 sm:px-4 py-2 border-b bg-background sticky top-0 z-20 shrink-0">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center justify-between sm:justify-start gap-3 order-2 sm:order-1">
                 <Button
                   variant="outline"
                   size="icon"
@@ -246,7 +405,7 @@ export default function WeekScheduleDialog({
               {currentUser && totalRelevantShifts > 0 && onOpenBusyEvidence && (
                 <div className="flex items-center gap-2 order-1 sm:order-2">
                   <div className={cn(
-                    "flex flex-1 items-center gap-3 px-3 py-2 rounded-xl border transition-all duration-300",
+                    "flex flex-1 items-center gap-2 px-2.5 py-1.5 rounded-xl border transition-all duration-300",
                     pendingEvidenceCount > 0
                       ? "bg-amber-50/50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-900/40"
                       : "bg-emerald-50/50 border-emerald-200 dark:bg-emerald-900/10 dark:border-emerald-900/40"
@@ -283,347 +442,57 @@ export default function WeekScheduleDialog({
             </div>
           </div>
 
-          <ScrollArea className="flex-1 overflow-y-auto">
-            {/* Desktop Table */}
-            <div className="min-w-[1000px] hidden md:block p-4 sm:p-6 text-foreground">
-              {hasSchedule ? (
-                <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-card overflow-hidden shadow-sm">
-                  <Table className="table-fixed w-full border-collapse">
-                    <TableHeader>
-                      <TableRow className="bg-slate-50 dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-900/40 border-b border-slate-200 dark:border-slate-800">
-                        <TableHead className="w-40 text-center font-bold text-slate-900 dark:text-slate-100 uppercase text-[11px] tracking-widest border-r border-slate-200 dark:border-slate-800">Ngày</TableHead>
-                        {shiftTemplates.map((template) => (
-                          <TableHead key={template.id} className="text-center font-bold p-3 border-r border-slate-200 dark:border-slate-800 last:border-r-0">
-                            <div className="flex flex-col items-center">
-                              <span className="text-slate-900 dark:text-slate-100 text-sm font-headline">{template.label}</span>
-                              <Badge variant="outline" className="mt-1 font-mono text-[10px] py-0 px-1.5 h-4 border-slate-200 text-muted-foreground bg-white/50 dark:bg-slate-950/50">
-                                {template.timeSlot.start} - {template.timeSlot.end}
-                              </Badge>
-                            </div>
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {daysOfWeek.map((day) => {
-                        const dateKey = format(day, 'yyyy-MM-dd');
-                        const isToday = dateKey === format(new Date(), 'yyyy-MM-dd');
+          <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
+            {hasSchedule ? (
+              <div className="flex flex-col flex-1 min-h-0 bg-background">
+                {/* Date Selector Strip (stays fixed) */}
+                <div className="grid w-full grid-cols-7 gap-1 p-1 sm:gap-1.5 sm:p-2 border-b border-slate-100 dark:border-slate-800 shrink-0">
+                  {daysOfWeek.map((day) => {
+                    const dateKey = format(day, 'yyyy-MM-dd');
+                    const isSelected = dateKey === selectedDateStr;
+                    const isToday = dateKey === format(new Date(), 'yyyy-MM-dd');
 
-                        return (
-                          <TableRow key={dateKey} className={cn(
-                            "group hover:bg-slate-50/50 dark:hover:bg-primary/5 transition-colors border-b border-slate-100 dark:border-slate-800 last:border-b-0",
-                            isToday ? "ring-1 ring-primary/20 bg-primary/5" : ""
-                          )}>
-                            <TableCell className="align-top p-4 bg-slate-50/30 dark:bg-slate-900/20 border-r border-slate-200 dark:border-slate-800 text-center">
-                              <div className="flex items-center justify-center gap-2">
-                                <div className="font-bold text-base text-slate-900 dark:text-slate-100">
-                                  {format(day, 'eee', { locale: vi })}
-                                </div>
-                                {isToday && (
-                                  <Badge variant="secondary" className="text-[10px] py-0 px-2 h-5">Hôm nay</Badge>
-                                )}
-                              </div>
-                              <div className="text-xs font-semibold text-muted-foreground">
-                                {format(day, 'dd/MM')}
-                              </div>
-                            </TableCell>
-                            {shiftTemplates.map((template) => {
-                              const dayOfWeek = day.getDay();
-                              if (!(template.applicableDays || []).includes(dayOfWeek)) {
-                                return <TableCell key={template.id} className="bg-slate-100/40 dark:bg-slate-900/40 border-r border-slate-200 dark:border-slate-800 last:border-r-0" />;
-                              }
-
-                              const shiftForCell = schedule?.shifts.find(
-                                (s) => s.date === dateKey && s.templateId === template.id
-                              );
-
-                              if (!shiftForCell) {
-                                return (
-                                  <TableCell key={template.id} className="border-r border-slate-200 dark:border-slate-800 last:border-r-0 p-3 align-middle text-center text-[10px] text-muted-foreground/40 italic">
-                                    Không có ca
-                                  </TableCell>
-                                );
-                              }
-
-                              const sortedUsers = [...shiftForCell.assignedUsers].sort((a, b) => {
-                                const userA = allUsers.find((u) => u.uid === a.userId);
-                                const userB = allUsers.find((u) => u.uid === b.userId);
-                                if (!userA || !userB) return 0;
-                                return (roleOrder[userA.role] || 99) - (roleOrder[userB.role] || 99);
-                              });
-
-                              const isUnderstaffed =
-                                ((shiftForCell.minUsers || 0) > 0 && shiftForCell.assignedUsers.length < shiftForCell.minUsers) ||
-                                ((shiftForCell.requiredRoles || []).some(req => {
-                                  const assignedOfRole = shiftForCell.assignedUsers.filter(au => {
-                                    const user = allUsers.find(u => u.uid === au.userId);
-                                    const effRole = au.assignedRole ?? user?.role;
-                                    return effRole === req.role;
-                                  }).length;
-                                  return assignedOfRole < req.count;
-                                }));
-
-                              const isRelevantToMe = relevantUnderstaffedShifts.some(s => s.id === shiftForCell.id);
-
-                              const isAssigned = currentUser ? shiftForCell.assignedUsers.some(u => u.userId === currentUser.uid) : false;
-                              const hasApplied = currentUser ? shiftForCell.applicants?.some(a => a.userId === currentUser.uid) : false;
-                              const isProcessing = processingShiftId === shiftForCell.id;
-
-                              return (
-                                <TableCell
-                                  key={template.id}
-                                  className={cn(
-                                    'border-r border-slate-200 dark:border-slate-800 last:border-r-0 align-top p-2.5 transition-colors',
-                                    isRelevantToMe ? 'bg-amber-500/10 dark:bg-amber-500/5' : isUnderstaffed ? 'bg-destructive/5' : ''
-                                  )}
-                                >
-                                  <div className="flex items-start justify-between gap-1.5 mb-2">
-                                    <div className="flex-1 min-w-0">
-                                      <div className="font-bold text-xs leading-tight">{shiftForCell.label}</div>
-                                      <div className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
-                                        {shiftForCell.timeSlot.start}-{shiftForCell.timeSlot.end}
-                                      </div>
-                                    </div>
-                                    {isUnderstaffed && (
-                                      <div className={cn(
-                                        "p-1 rounded-md",
-                                        isRelevantToMe ? "bg-amber-100 text-amber-600 dark:bg-amber-900/40" : "bg-destructive/10 text-destructive"
-                                      )}>
-                                        <AlertTriangle className="h-3.5 w-3.5" />
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div className="flex flex-wrap gap-1">
-                                    {sortedUsers.length > 0 ? (
-                                      sortedUsers.map((user) => renderUserBadge(user.userId))
-                                    ) : (
-                                      <span className="text-[10px] text-muted-foreground/50 italic py-1 tracking-tight">Trống</span>
-                                    )}
-                                  </div>
-
-                                  {isUnderstaffed && (
-                                    (() => {
-                                      const missing = getShiftMissingDetails(shiftForCell, allUsers);
-                                      return missing.totalMissing > 0 ? (
-                                        <p className="text-[8px] italic text-destructive mt-1">{missing.text}</p>
-                                      ) : null;
-                                    })()
-                                  )}
-
-                                  {currentUser && isUnderstaffed && !isAssigned && (
-                                    <div className="mt-2">
-                                      {hasApplied ? (
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => handleCancelApplication(shiftForCell.id)}
-                                          disabled={isProcessing}
-                                          className="w-full h-7 text-[10px] bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800"
-                                        >
-                                          {isProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3 mr-1" />}
-                                          Đã ứng tuyển
-                                        </Button>
-                                      ) : (
-                                        <Button
-                                          size="sm"
-                                          onClick={() => handleApply(shiftForCell.id)}
-                                          disabled={isProcessing}
-                                          className="w-full h-7 text-[10px] font-bold bg-primary/10 text-primary hover:bg-primary hover:text-white"
-                                        >
-                                          {isProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : <UserPlus className="w-3 h-3 mr-1" />}
-                                          Nhận ca
-                                        </Button>
-                                      )}
-                                    </div>
-                                  )}
-                                </TableCell>
-                              );
-                            })}
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
+                    return (
+                      <button
+                        key={dateKey}
+                        onClick={() => setSelectedDateStr(dateKey)}
+                        className={cn(
+                          "flex w-full flex-col items-center justify-center h-[52px] rounded-lg border transition-colors min-w-0 sm:h-[62px]",
+                          isSelected
+                            ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                            : isToday
+                              ? "bg-primary/5 border-primary/20 text-foreground"
+                              : "bg-card text-muted-foreground border-border hover:bg-accent/50"
+                        )}
+                      >
+                        <span className={cn("text-[8px] sm:text-[10px] uppercase tracking-wider font-semibold mb-0.5", isSelected ? "text-primary-foreground/80" : "")}>
+                          {format(day, 'eee', { locale: vi })}
+                        </span>
+                        <span className="text-base font-bold leading-none sm:text-lg">
+                          {format(day, 'dd')}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
-              ) : (
-                <div className="rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800 p-12 text-center bg-white/50 dark:bg-black/10">
-                  <div className="mx-auto w-16 h-16 rounded-2xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center mb-4">
-                    <ChevronRight className="h-8 w-8 text-muted-foreground/40 rotate-45" />
+                
+                {/* Selected Day Shifts List */}
+                <div className="flex-1 overflow-y-auto min-h-0 sm:pt-4">
+                  {renderDayView()}
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center p-3 sm:p-4 overflow-y-auto bg-background">
+                <div className="rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800 p-6 sm:p-8 text-center bg-white/50 dark:bg-black/10 w-full max-w-md">
+                  <div className="mx-auto w-14 h-14 rounded-2xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center mb-3">
+                    <ChevronRight className="h-7 w-7 text-muted-foreground/40 rotate-45" />
                   </div>
                   <h3 className="font-bold text-lg mb-1">Chưa có lịch làm việc</h3>
                   <p className="text-sm text-muted-foreground">Vui lòng chọn tuần khác hoặc chờ quản lý công bố lịch.</p>
                 </div>
-              )}
-            </div>
-
-            {/* Mobile layout */}
-            <div className="md:hidden p-2 space-y-3">
-              {hasSchedule ? (
-                daysOfWeek.map((day) => {
-                  const dateKey = format(day, 'yyyy-MM-dd');
-                  const applicableTemplates = shiftTemplates.filter((t) => (t.applicableDays || []).includes(day.getDay()));
-
-                  const isToday = dateKey === format(new Date(), 'yyyy-MM-dd');
-
-                  return (
-                    <div key={dateKey} className={cn("space-y-3 p-1 rounded-2xl", isToday ? "ring-1 ring-primary/20 bg-primary/5" : "")}>
-                      <div className="flex items-center gap-3 sticky top-0 bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur-sm py-1 z-[5]">
-                        <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
-                        <div className="flex flex-col items-center">
-                          <span className={cn("text-[11px] font-black uppercase text-primary tracking-widest leading-none mb-1", isToday ? "text-primary" : "")}>
-                            {format(day, 'eeee', { locale: vi })}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="bg-background rounded-full font-bold text-xs py-0 h-5 border-slate-300 dark:border-slate-700">
-                              {format(day, 'dd/MM')}
-                            </Badge>
-                            {isToday && <Badge className="ml-1 bg-primary/10 text-primary text-[10px] px-2 py-0 h-5 font-bold">Hôm nay</Badge>}
-                          </div>
-                        </div>
-                        <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
-                      </div>
-
-                      <div className="grid gap-3">
-                        {applicableTemplates.length > 0 ? (
-                          applicableTemplates.map((template) => {
-                            const shiftForCell = schedule?.shifts.find(
-                              (s) => s.date === dateKey && s.templateId === template.id
-                            );
-
-                            if (!shiftForCell) return null;
-
-                            const sortedUsers = [...shiftForCell.assignedUsers].sort((a, b) => {
-                              const userA = allUsers.find((u) => u.uid === a.userId);
-                              const userB = allUsers.find((u) => u.uid === b.userId);
-                              if (!userA || !userB) return 0;
-                              return (roleOrder[userA.role] || 99) - (roleOrder[userB.role] || 99);
-                            });
-
-                            const isUnderstaffed =
-                              ((shiftForCell.minUsers || 0) > 0 && shiftForCell.assignedUsers.length < shiftForCell.minUsers) ||
-                              ((shiftForCell.requiredRoles || []).some(req => {
-                                const assignedOfRole = shiftForCell.assignedUsers.filter(au => {
-                                  const user = allUsers.find(u => u.uid === au.userId);
-                                  const effRole = au.assignedRole ?? user?.role;
-                                  return effRole === req.role;
-                                }).length;
-                                return assignedOfRole < req.count;
-                              }));
-
-                            if (sortedUsers.length === 0 && !isUnderstaffed) {
-                              return null;
-                            }
-
-                            const isRelevantToMe = relevantUnderstaffedShifts.some(s => s.id === shiftForCell.id);
-
-                            const isAssigned = currentUser ? shiftForCell.assignedUsers.some(u => u.userId === currentUser.uid) : false;
-                            const hasApplied = currentUser ? shiftForCell.applicants?.some(a => a.userId === currentUser.uid) : false;
-                            const isProcessing = processingShiftId === shiftForCell.id;
-
-                            const missing = getShiftMissingDetails(shiftForCell, allUsers);
-
-                            return (
-                              <div
-                                key={template.id}
-                                className={cn(
-                                  'group relative overflow-hidden rounded-2xl border transition-all duration-300',
-                                  isRelevantToMe
-                                    ? 'border-amber-200 bg-amber-50/30 dark:border-amber-900/40 dark:bg-amber-900/10'
-                                    : 'border-slate-100 bg-card dark:border-slate-800 dark:bg-slate-900/10'
-                                )}
-                              >
-                                {/* Side Indicator */}
-                                {isUnderstaffed && (
-                                  <div className={cn(
-                                    "absolute left-0 top-0 w-1 h-full",
-                                    isRelevantToMe ? "bg-amber-500" : "bg-destructive/40"
-                                  )} />
-                                )}
-
-                                <div className="p-3.5 pl-4 flex flex-col gap-3">
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div className="min-w-0">
-                                      <div className="flex items-center gap-2 mb-0.5">
-                                        <h4 className="font-bold text-sm tracking-tight">{shiftForCell.label}</h4>
-                                        <Badge variant="outline" className="text-[9px] h-3.5 px-1 py-0 border-slate-200 uppercase font-bold text-muted-foreground font-mono text-foreground">
-                                          {shiftForCell.role}
-                                        </Badge>
-                                      </div>
-                                      <div className="text-[11px] font-bold text-primary flex items-center gap-1.5">
-                                        <span>{shiftForCell.timeSlot.start}</span>
-                                        <span className="text-muted-foreground/50">—</span>
-                                        <span>{shiftForCell.timeSlot.end}</span>
-                                      </div>
-                                    </div>
-                                    {isUnderstaffed && (
-                                      <div className={cn(
-                                        "p-1.5 rounded-lg border flex items-center gap-1",
-                                        isRelevantToMe ? "bg-amber-100 border-amber-200 text-amber-600" : "bg-destructive/5 border-destructive/10 text-destructive"
-                                      )}>
-                                        <AlertTriangle className="h-3.5 w-3.5" />
-                                        <span className="text-[10px] font-bold">{missing.text ?? "Thiếu"}</span>
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {sortedUsers.length > 0 ? (
-                                      sortedUsers.map((user) => renderUserBadge(user.userId))
-                                    ) : (
-                                      <span className="text-[11px] text-muted-foreground/60 italic px-1">Chưa có nhân viên trực ca này</span>
-                                    )}
-                                  </div>
-
-                                  {currentUser && isUnderstaffed && !isAssigned && (
-                                    <div className="mt-1 pt-2 border-t border-dashed border-slate-200 dark:border-slate-800">
-                                      {hasApplied ? (
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => handleCancelApplication(shiftForCell.id)}
-                                          disabled={isProcessing}
-                                          className="w-full h-8 text-xs bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800"
-                                        >
-                                          {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Check className="w-3.5 h-3.5 mr-1.5" />}
-                                          Đã đăng ký nhận ca này
-                                        </Button>
-                                      ) : (
-                                        <Button
-                                          size="sm"
-                                          onClick={() => handleApply(shiftForCell.id)}
-                                          disabled={isProcessing}
-                                          className="w-full h-8 text-xs font-bold bg-primary/10 text-primary hover:bg-primary hover:text-white"
-                                        >
-                                          {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <UserPlus className="w-3.5 h-3.5 mr-1.5" />}
-                                          Đăng ký nhận ca này
-                                        </Button>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })
-                        ) : (
-                          <div className="text-[11px] py-4 text-center text-muted-foreground/40 italic bg-slate-50/50 dark:bg-slate-900/20 rounded-2xl border border-dashed">
-                            Không có ca làm việc
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800 p-8 text-center bg-white/50 dark:bg-black/10">
-                  <div className="mx-auto w-12 h-12 rounded-2xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center mb-3">
-                    <ChevronRight className="h-6 w-6 text-muted-foreground/40 rotate-45" />
-                  </div>
-                  <h3 className="font-bold text-base mb-1">Chưa có lịch</h3>
-                  <p className="text-xs text-muted-foreground">Công việc cho tuần này chưa được lập.</p>
-                </div>
-              )}
-            </div>
-          </ScrollArea>
+              </div>
+            )}
+          </div>
         </DialogBody>
 
         <DialogFooter className="border-t bg-background shrink-0">
@@ -635,4 +504,3 @@ export default function WeekScheduleDialog({
     </Dialog>
   );
 }
-
